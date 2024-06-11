@@ -83,7 +83,7 @@ void HistogramProxyUsed(const ProxyInfo& proxy_info, bool success) {
   ProxyServer::Scheme proxy_scheme = ProxyServer::Scheme::SCHEME_INVALID;
   if (!proxy_info.is_empty() && !proxy_info.is_direct()) {
     if (proxy_info.proxy_chain().is_multi_proxy()) {
-      // TODO(https://crbug.com/1491092): Update this histogram to have a new
+      // TODO(crbug.com/40284947): Update this histogram to have a new
       // bucket for multi-chain proxies. Until then, don't influence the
       // existing metric counts which have historically been only for single-hop
       // proxies.
@@ -812,19 +812,20 @@ int HttpStreamFactory::JobController::DoCreateJobs() {
   DCHECK(destination.IsValid());
   ConvertWsToHttp(destination);
 
-  // Create an alternative job if alternative service is set up for this domain,
-  // but only if we'll be speaking directly to the server, since QUIC through
-  // proxies is not supported.
-  if (proxy_info_.is_direct()) {
+  // Create an alternative job if alternative service is set up for this domain.
+  // This is applicable even if the connection will be made via a proxy.
     alternative_service_info_ = GetAlternativeServiceInfoFor(
         http_request_info_url_, request_info_, delegate_, stream_type_);
-  }
+
   quic::ParsedQuicVersion quic_version = quic::ParsedQuicVersion::Unsupported();
   if (alternative_service_info_.protocol() == kProtoQUIC) {
     quic_version =
         SelectQuicVersion(alternative_service_info_.advertised_versions());
     DCHECK_NE(quic_version, quic::ParsedQuicVersion::Unsupported());
   }
+  // Getting ALPN for H3 from DNS has a lot of preconditions. Among them:
+  // - proxied connections perform DNS on the proxy, so they can't get supported
+  //   ALPNs from DNS
   const bool dns_alpn_h3_job_enabled =
       !HttpStreamFactory::Job::OriginToForceQuicOn(
           *session_->context().quic_context->params(), destination) &&
@@ -832,7 +833,7 @@ int HttpStreamFactory::JobController::DoCreateJobs() {
       session_->params().use_dns_https_svcb_alpn &&
       base::EqualsCaseInsensitiveASCII(origin_url_.scheme(),
                                        url::kHttpsScheme) &&
-      session_->IsQuicEnabled() &&
+      session_->IsQuicEnabled() && proxy_info_.is_direct() &&
       !session_->http_server_properties()->IsAlternativeServiceBroken(
           GetAlternativeServiceForDnsJob(origin_url_),
           request_info_.network_anonymization_key);
@@ -1387,7 +1388,8 @@ HttpStreamFactory::JobController::CalculateAlternateProtocolUsage(
       return ALTERNATE_PROTOCOL_USAGE_DNS_ALPN_H3_JOB_WON_RACE;
     }
   }
-  // TODO(crbug.com/1345536): Implement better logic to support uncovered cases.
+  // TODO(crbug.com/40232167): Implement better logic to support uncovered
+  // cases.
   return ALTERNATE_PROTOCOL_USAGE_UNSPECIFIED_REASON;
 }
 
@@ -1407,7 +1409,7 @@ int HttpStreamFactory::JobController::ReconsiderProxyAfterError(Job* job,
   }
 
   // Clear client certificates for all proxies in the chain.
-  // TODO(https://crbug.com/1491092): client certificates for multi-proxy
+  // TODO(crbug.com/40284947): client certificates for multi-proxy
   // chains are not yet supported, and this is only tested with single-proxy
   // chains.
   for (auto& proxy_server : proxy_info_.proxy_chain().proxy_servers()) {

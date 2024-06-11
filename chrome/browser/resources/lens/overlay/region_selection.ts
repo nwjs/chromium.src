@@ -2,15 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {Point} from '//resources/mojo/ui/gfx/geometry/mojom/geometry.mojom-webui.js';
 import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
+import {getFallbackTheme, getShaderLayerColorHexes} from './color_utils.js';
 import {CenterRotatedBox_CoordinateType} from './geometry.mojom-webui.js';
 import type {CenterRotatedBox} from './geometry.mojom-webui.js';
+import type {OverlayTheme} from './lens.mojom-webui.js';
+import {recordLensOverlayInteraction, UserAction} from './metrics_utils.js';
 import type {PostSelectionBoundingBox} from './post_selection_renderer.js';
 import {getTemplate} from './region_selection.html.js';
-import type {GestureEvent} from './selection_utils.js';
+import {focusShimmerOnRegion, type GestureEvent, GestureState, ShimmerControlRequester, unfocusShimmer} from './selection_utils.js';
 
 export interface RegionSelectionElement {
   $: {
@@ -36,17 +40,47 @@ export class RegionSelectionElement extends PolymerElement {
     return {
       canvasHeight: Number,
       canvasWidth: Number,
+      canvasPhysicalHeight: Number,
+      canvasPhysicalWidth: Number,
+      screenshotDataUri: String,
+      shaderLayerColorHexes: {
+        type: Array,
+        computed: 'computeShaderLayerColorHexes_(theme)',
+      },
+      theme: {
+        type: Object,
+        value: getFallbackTheme,
+      },
     };
   }
 
   private canvasHeight: number;
   private canvasWidth: number;
+  private canvasPhysicalHeight: number;
+  private canvasPhysicalWidth: number;
   private context: CanvasRenderingContext2D;
+  // The data URI of the current overlay screenshot.
+  private screenshotDataUri: string;
+  // The overlay theme.
+  private theme: OverlayTheme;
+  // Shader hex colors.
+  private shaderLayerColorHexes: string[];
+
+  // The tap region dimensions are the height and width that the region should
+  // have when the user taps instead of drag.
+  private readonly tapRegionHeight: number =
+      loadTimeData.getInteger('tapRegionHeight');
+  private readonly tapRegionWidth: number =
+      loadTimeData.getInteger('tapRegionWidth');
 
   override ready() {
     super.ready();
 
     this.context = this.$.regionSelectionCanvas.getContext('2d')!;
+  }
+
+  private computeShaderLayerColorHexes_() {
+    return getShaderLayerColorHexes(this.theme);
   }
 
   // Handles a drag gesture by drawing a bounded box on the canvas.
@@ -55,10 +89,13 @@ export class RegionSelectionElement extends PolymerElement {
     this.renderBoundingBox(event);
   }
 
-  handleUpGesture(event: GestureEvent) {
+  handleUpGesture(event: GestureEvent): boolean {
     // Issue the Lens request
     BrowserProxyImpl.getInstance().handler.issueLensRequest(
         this.getNormalizedCenterRotatedBoxFromGesture(event));
+
+    // Relinquish control from the shimmer.
+    unfocusShimmer(this, ShimmerControlRequester.MANUAL_REGION);
 
     // Keep the region rendered on the page
     this.dispatchEvent(new CustomEvent('render-post-selection', {
@@ -67,7 +104,17 @@ export class RegionSelectionElement extends PolymerElement {
       detail: this.getPostSelectionRegion(event),
     }));
 
+    // Check for selectable text
+    this.dispatchEvent(new CustomEvent('detect-text-in-region', {
+      bubbles: true,
+      composed: true,
+      detail: this.getNormalizedCenterRotatedBoxFromGesture(event),
+    }));
+
+    recordLensOverlayInteraction(UserAction.REGION_SELECTION);
+
     this.clearCanvas();
+    return true;
   }
 
   cancelGesture() {
@@ -78,6 +125,10 @@ export class RegionSelectionElement extends PolymerElement {
     // Resetting the canvas width and height also clears the canvas.
     this.canvasWidth = width;
     this.canvasHeight = height;
+    this.canvasPhysicalWidth = width * window.devicePixelRatio;
+    this.canvasPhysicalHeight = height * window.devicePixelRatio;
+    this.context.setTransform(
+        window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
   }
 
   private clearCanvas() {
@@ -119,14 +170,14 @@ export class RegionSelectionElement extends PolymerElement {
 
     this.context.lineWidth = 3;
     const gradient = this.context.createLinearGradient(
-      left,
-      bottom,
-      right,
-      top,
+        left,
+        bottom,
+        right,
+        top,
     );
-    gradient.addColorStop(0, '#C5E9EB');
-    gradient.addColorStop(0.5, '#FFB2BD');
-    gradient.addColorStop(1, '#028488');
+    gradient.addColorStop(0, this.shaderLayerColorHexes[0]);
+    gradient.addColorStop(0.5, this.shaderLayerColorHexes[1]);
+    gradient.addColorStop(1, this.shaderLayerColorHexes[2]);
     this.context.strokeStyle = gradient;
 
     // Draw the path for the region bounding box.
@@ -138,8 +189,7 @@ export class RegionSelectionElement extends PolymerElement {
       !isDraggingDown || !isDraggingRight ? idealCornerRadius : 0,
       !isDraggingDown || isDraggingRight ? idealCornerRadius : 0,
     ];
-    this.context.roundRect(
-      left, top, width, height, radii);
+    this.context.roundRect(left, top, width, height, radii);
 
     // Draw the highlight image clipped to the path.
     this.context.save();
@@ -150,13 +200,76 @@ export class RegionSelectionElement extends PolymerElement {
 
     // Stroke the path on top of the image.
     this.context.stroke();
+
+    // Focus the shimmer on the new manually selected region.
+    focusShimmerOnRegion(
+        this, top / this.canvasHeight, left / this.canvasWidth,
+        width / this.canvasWidth, height / this.canvasHeight,
+        ShimmerControlRequester.MANUAL_REGION);
+  }
+
+  private getNormalizedCenterRotatedBoxFromGesture(gesture: GestureEvent):
+      CenterRotatedBox {
+    if (gesture.state === GestureState.STARTING) {
+      return this.getNormalizedCenterRotatedBoxFromTap(gesture);
+    }
+
+    return this.getNormalizedCenterRotatedBoxFromDrag(gesture);
+  }
+
+  private getNormalizedCenterRotatedBoxFromTap(gesture: GestureEvent):
+      CenterRotatedBox {
+    const parentRect = this.getBoundingClientRect();
+    // If the parent is smaller than our defined tap region, we should just send
+    // the entire screenshot.
+    if (parentRect.width < this.tapRegionWidth ||
+        parentRect.height < this.tapRegionHeight) {
+      return {
+        box: {
+          x: 0.5,
+          y: 0.5,
+          width: 1,
+          height: 1,
+        },
+        rotation: 0,
+        coordinateType: CenterRotatedBox_CoordinateType.kNormalized,
+      };
+    }
+
+
+    const normalizedWidth = this.tapRegionWidth / parentRect.width;
+    const normalizedHeight = this.tapRegionHeight / parentRect.height;
+
+    // Get the ideal left and top by making sure the region is always within
+    // the bounds of the parent rect.
+    const idealCenterPoint =
+        this.getRelativeCoordinate({x: gesture.clientX, y: gesture.clientY});
+    let centerX = Math.max(idealCenterPoint.x, this.tapRegionWidth / 2);
+    let centerY = Math.max(idealCenterPoint.y, this.tapRegionHeight / 2);
+    centerX = Math.min(centerX, parentRect.width - this.tapRegionWidth / 2);
+    centerY = Math.min(centerY, parentRect.height - this.tapRegionHeight / 2);
+
+    const normalizedCenterX = centerX / parentRect.width;
+    const normalizedCenterY = centerY / parentRect.height;
+
+    return {
+      box: {
+        x: normalizedCenterX,
+        y: normalizedCenterY,
+        width: normalizedWidth,
+        height: normalizedHeight,
+      },
+      rotation: 0,
+      coordinateType: CenterRotatedBox_CoordinateType.kNormalized,
+    };
   }
 
   /**
    * @returns a mojo CenterRotatedBox corresponding to the gesture provided,
-   *          normalized to the selection overlay dimensions.
+   *          normalized to the selection overlay dimensions. The gesture is
+   *          expected to be a drag.
    */
-  private getNormalizedCenterRotatedBoxFromGesture(gesture: GestureEvent):
+  private getNormalizedCenterRotatedBoxFromDrag(gesture: GestureEvent):
       CenterRotatedBox {
     const parentRect = this.getBoundingClientRect();
 
@@ -187,6 +300,53 @@ export class RegionSelectionElement extends PolymerElement {
   }
 
   private getPostSelectionRegion(gesture: GestureEvent):
+      PostSelectionBoundingBox {
+    if (gesture.state === GestureState.STARTING) {
+      return this.getPostSelectionRegionFromTap(gesture);
+    }
+
+    return this.getPostSelectionRegionFromDrag(gesture);
+  }
+
+  private getPostSelectionRegionFromTap(gesture: GestureEvent):
+      PostSelectionBoundingBox {
+    const parentRect = this.getBoundingClientRect();
+    // If the parent is smaller than our defined tap region, we should just send
+    // the entire screenshot.
+    if (parentRect.width < this.tapRegionWidth ||
+        parentRect.height < this.tapRegionHeight) {
+      return {
+        top: 0,
+        left: 0,
+        width: 1,
+        height: 1,
+      };
+    }
+
+    const normalizedWidth = this.tapRegionWidth / parentRect.width;
+    const normalizedHeight = this.tapRegionHeight / parentRect.height;
+
+    // Get the ideal left and top by making sure the region is always within
+    // the bounds of the parent rect.
+    const idealCenterPoint =
+        this.getRelativeCoordinate({x: gesture.clientX, y: gesture.clientY});
+    let top = Math.max(idealCenterPoint.y - this.tapRegionHeight / 2, 0);
+    let left = Math.max(idealCenterPoint.x - this.tapRegionWidth / 2, 0);
+    top = Math.min(top, parentRect.height - this.tapRegionHeight);
+    left = Math.min(left, parentRect.width - this.tapRegionWidth);
+
+    const normalizedTop = top / parentRect.height;
+    const normalizedLeft = left / parentRect.width;
+
+    return {
+      top: normalizedTop,
+      left: normalizedLeft,
+      width: normalizedWidth,
+      height: normalizedHeight,
+    };
+  }
+
+  private getPostSelectionRegionFromDrag(gesture: GestureEvent):
       PostSelectionBoundingBox {
     const parentRect = this.getBoundingClientRect();
 

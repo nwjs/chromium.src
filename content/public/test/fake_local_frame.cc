@@ -202,7 +202,7 @@ void FakeLocalFrame::DispatchNavigateEventForCrossDocumentTraversal(
     bool is_browser_initiated) {}
 
 void FakeLocalFrame::SnapshotDocumentForViewTransition(
-    const viz::NavigationId& navigation_id,
+    const blink::ViewTransitionToken& transition_token,
     blink::mojom::PageSwapEventParamsPtr,
     SnapshotDocumentForViewTransitionCallback callback) {}
 
@@ -233,6 +233,11 @@ void FakeLocalFrame::BindFrameHostReceiver(
     mojo::ScopedInterfaceEndpointHandle handle) {
   receiver_.Bind(mojo::PendingAssociatedReceiver<blink::mojom::LocalFrame>(
       std::move(handle)));
+}
+
+void FakeLocalFrame::UpdatePrerenderURL(const ::GURL& matched_url,
+                                        UpdatePrerenderURLCallback callback) {
+  std::move(callback).Run();
 }
 
 }  // namespace content

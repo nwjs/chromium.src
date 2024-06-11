@@ -21,7 +21,6 @@
 #include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_registry.h"
-#include "extensions/browser/guest_view/guest_view_feature_util.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_stream_manager.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_attach_helper.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_constants.h"
@@ -169,7 +168,7 @@ void MimeHandlerViewGuest::CreateWebContents(
 
   delegate_->RecordLoadMetric(
       /*is_full_page=*/!GetEmbedderFrame()->GetParentOrOuterDocument(),
-      mime_type_);
+      mime_type_, browser_context());
 
   // Compute the mime handler extension's `SiteInstance`. This must match the
   // `SiteInstance` for the navigation in `DidAttachToEmbedder()`, otherwise the
@@ -177,8 +176,8 @@ void MimeHandlerViewGuest::CreateWebContents(
   // `WebContents` will need to be swapped.
   scoped_refptr<content::SiteInstance> guest_site_instance;
 #if BUILDFLAG(ENABLE_PDF)
-  // TODO(crbug.com/1300730): Using `SiteInstance::CreateForURL()` creates a new
-  // `BrowsingInstance`, which causes problems for features like background
+  // TODO(crbug.com/40216386): Using `SiteInstance::CreateForURL()` creates a
+  // new `BrowsingInstance`, which causes problems for features like background
   // pages. Remove one of these branches either when `ProcessManager` correctly
   // handles the multiple `StoragePartitionConfig` case, or when no
   // `MimeHandlerView` extension depends on background pages.
@@ -227,10 +226,8 @@ void MimeHandlerViewGuest::DidInitialize(
 
 void MimeHandlerViewGuest::MaybeRecreateGuestContents(
     content::RenderFrameHost* outer_contents_frame) {
-  if (AreWebviewMPArchBehaviorsEnabled(browser_context())) {
-    // This situation is not possible for MimeHandlerView.
-    NOTREACHED();
-  }
+  // This situation is not possible for MimeHandlerView.
+  NOTREACHED();
 }
 
 void MimeHandlerViewGuest::EmbedderFullscreenToggled(bool entered_fullscreen) {

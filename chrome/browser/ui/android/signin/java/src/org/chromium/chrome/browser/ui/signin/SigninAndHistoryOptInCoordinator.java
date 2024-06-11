@@ -70,6 +70,9 @@ public class SigninAndHistoryOptInCoordinator
 
     /** This is a delegate that the embedder needs to implement. */
     public interface Delegate {
+        /** Called when the user starts the Google Play Services "add account" flow. */
+        void addAccount();
+
         /** Called when the whole flow finishes. */
         void onFlowComplete();
     }
@@ -192,7 +195,22 @@ public class SigninAndHistoryOptInCoordinator
         // TODO(crbug.com/41493768): Implement the loading state UI.
     }
 
-    /** Called when the sign-in successfully finishes. */
+    /**
+     * Called when an account is added via Google Play Services "add account" flow started at the
+     * activity level.
+     */
+    public void onAccountAdded(@NonNull String accountEmail) {
+        showSigninBottomSheet();
+        mAccountPickerCoordinator.onAccountAdded(accountEmail);
+    }
+
+    /** Implements {@link SigninAccountPickerCoordinator.Delegate}. */
+    @Override
+    public void addAccount() {
+        mDelegate.addAccount();
+    }
+
+    /** Implements {@link SigninAccountPickerCoordinator.Delegate}. */
     @Override
     public void onSignInComplete() {
         if (!ChromeFeatureList.isEnabled(ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)
@@ -214,7 +232,7 @@ public class SigninAndHistoryOptInCoordinator
         showHistoryOptInOrFinish();
     }
 
-    /** Called when the sign-in bottom sheet is dismissed without sign-in completion. */
+    /** Implements {@link SigninAccountPickerCoordinator.Delegate}. */
     @Override
     public void onSignInCancel() {
         if (mAccountPickerCoordinator == null) {
@@ -303,7 +321,8 @@ public class SigninAndHistoryOptInCoordinator
                                     showSigninBottomSheet();
                                     break;
                                 case NoAccountSigninMode.ADD_ACCOUNT:
-                                    showAddAccount();
+                                    addAccount();
+                                    mDidShowSigninStep = true;
                                     break;
                                 case NoAccountSigninMode.NO_SIGNIN:
                                     // TODO(crbug.com/41493768): Implement the error state UI.
@@ -337,13 +356,6 @@ public class SigninAndHistoryOptInCoordinator
                         accountPickerMode,
                         mSigninAccessPoint);
         mDidShowSigninStep = true;
-    }
-
-    private void showAddAccount() {
-        mDidShowSigninStep = true;
-        // TODO(crbug.com/41493767): Implement the no-account sign-in flow.
-        assert false : "Not implemented.";
-        onFlowComplete();
     }
 
     private void showHistoryOptInOrFinish() {
@@ -435,13 +447,7 @@ public class SigninAndHistoryOptInCoordinator
 
     private static boolean shouldShowHistorySync(Profile profile) {
         HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(profile);
-        if (historySyncHelper.didAlreadyOptIn()) {
-            return false;
-        }
-        if (historySyncHelper.isHistorySyncDisabledByPolicy()) {
-            return false;
-        }
-        return !historySyncHelper.isHistorySyncDisabledByCustodian();
+        return !historySyncHelper.shouldSuppressHistorySync();
     }
 
     private void onFlowComplete() {

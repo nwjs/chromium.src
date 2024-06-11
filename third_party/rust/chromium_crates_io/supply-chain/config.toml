@@ -59,10 +59,13 @@ criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 [policy."bytemuck:1.15.0"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
+[policy."bytemuck_derive:1.6.0"]
+criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
+
 [policy."bytes:1.6.0"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."cc:1.0.94"]
+[policy."cc:1.0.95"]
 criteria = []
 
 [policy."cfg-if:1.0.0"]
@@ -80,16 +83,16 @@ criteria = ["does-not-implement-crypto", "safe-to-run"]
 [policy."codespan-reporting:0.11.1"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."cxx:1.0.120"]
+[policy."cxx:1.0.121"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."cxxbridge-cmd:1.0.121"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."cxxbridge-flags:1.0.120"]
+[policy."cxxbridge-flags:1.0.121"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."cxxbridge-macro:1.0.120"]
+[policy."cxxbridge-macro:1.0.121"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."either:1.11.0"]
@@ -98,7 +101,7 @@ criteria = ["does-not-implement-crypto", "safe-to-run"]
 [policy."fend-core:1.4.6"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."font-types:0.4.3"]
+[policy."font-types:0.5.2"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."getrandom:0.2.14"]
@@ -143,19 +146,19 @@ criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 [policy."ppv-lite86:0.2.17"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."proc-macro2:1.0.80"]
+[policy."proc-macro2:1.0.81"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."prost-derive:0.12.3"]
+[policy."prost-derive:0.12.4"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."prost:0.12.3"]
+[policy."prost:0.12.4"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
 [policy."qr_code:2.0.0"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."quote:1.0.35"]
+[policy."quote:1.0.36"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."rand:0.8.5"]
@@ -170,7 +173,7 @@ criteria = ["does-not-implement-crypto", "safe-to-run"]
 [policy."rand_pcg:0.3.1"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."read-fonts:0.15.6"]
+[policy."read-fonts:0.19.0"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."regex-automata:0.4.6"]
@@ -200,7 +203,7 @@ criteria = ["does-not-implement-crypto", "safe-to-run"]
 [policy."rustc_version:0.4.0"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."rustversion:1.0.14"]
+[policy."rustversion:1.0.15"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."ryu:1.0.17"]
@@ -209,19 +212,19 @@ criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 [policy."semver:1.0.22"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."serde:1.0.197"]
+[policy."serde:1.0.198"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."serde_derive:1.0.197"]
+[policy."serde_derive:1.0.198"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."serde_json:1.0.115"]
+[policy."serde_json:1.0.116"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
 [policy."serde_json_lenient:0.2.1"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."skrifa:0.15.5"]
+[policy."skrifa:0.19.0"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."small_ctor:0.1.1"]
@@ -230,7 +233,7 @@ criteria = ["does-not-implement-crypto", "safe-to-run"]
 [policy."static_assertions:1.1.0"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
-[policy."strsim:0.11.0"]
+[policy."strsim:0.11.1"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
 [policy."strum:0.25.0"]
@@ -242,7 +245,7 @@ criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 [policy."syn:1.0.109"]
 criteria = ["does-not-implement-crypto", "safe-to-run"]
 
-[policy."syn:2.0.55"]
+[policy."syn:2.0.60"]
 criteria = ["does-not-implement-crypto", "safe-to-deploy", "ub-risk-2"]
 
 [policy."termcolor:1.4.1"]
@@ -345,16 +348,6 @@ version = "0.6.4"
 criteria = "does-not-implement-crypto"
 notes = "Grandparented-in when setting up `cargo vet` in Jan 2024"
 
-[[exemptions.read-fonts]]
-version = "0.15.6"
-criteria = ["safe-to-deploy", "does-not-implement-crypto", "ub-risk-2"]
-notes = """
-0.15.2 grandparented-in when setting up `cargo vet` in Jan 2024.
-
-Exemption updated to 0.15.5 when updating the crate in Feb 2024.
-Exemption updated to 0.15.6 when updating the crate in Feb 2024.
-"""
-
 [[exemptions.ryu]]
 version = "1.0.17"
 criteria = ["safe-to-deploy", "does-not-implement-crypto", "ub-risk-2"]
@@ -367,17 +360,8 @@ lack of a fully-audited baseline nothing was recorded in audits.toml
 Exemption updated to 1.0.17 in Feb 2024.
 """
 
-[[exemptions.skrifa]]
-version = "0.15.5"
-criteria = ["safe-to-deploy", "does-not-implement-crypto", "ub-risk-2"]
-notes = """
-0.15.2 grandparented-in when setting up `cargo vet` in Jan 2024.
-
-Exemption updated to 0.15.5 when updating the crate in Feb 2024.
-"""
-
 [[exemptions.syn]]
-version = "2.0.52"
+version = "2.0.59"
 criteria = ["safe-to-deploy", "does-not-implement-crypto", "ub-risk-2"]
 notes = """
 Grandparented-in when setting up `cargo vet` in Jan 2024
@@ -389,4 +373,6 @@ a fully-audited baseline nothing was recorded in audits.toml
 Exemption updated to 2.0.50 when updating the crate in Feb 2024.
 
 Exemption updated to 2.0.52 when updating the crate in Mar 2024.
+
+Exemption updated to 2.0.59 when updating the crate in Apr 2024.
 """

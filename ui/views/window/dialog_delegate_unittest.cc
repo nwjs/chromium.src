@@ -56,7 +56,8 @@ class TestDialog : public DialogDelegateView {
   bool ShouldShowCloseButton() const override { return show_close_button_; }
 
   // DialogDelegateView overrides:
-  gfx::Size CalculatePreferredSize() const override {
+  gfx::Size CalculatePreferredSize(
+      const SizeBounds& /*available_size*/) const override {
     return gfx::Size(200, 200);
   }
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override {
@@ -156,7 +157,7 @@ class DialogTest : public ViewsTestBase {
  private:
   std::unique_ptr<views::Widget> parent_widget_;
   std::unique_ptr<TestDialog> dialog_;
-  raw_ptr<TestDialog, DanglingUntriaged> dialog_raw_ = nullptr;
+  raw_ptr<TestDialog> dialog_raw_ = nullptr;
 };
 
 }  // namespace

@@ -15,6 +15,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/rand_util.h"
 #include "base/task/sequenced_task_runner_helpers.h"
 #include "base/task/thread_pool.h"
 #include "base/time/default_tick_clock.h"
@@ -72,6 +73,7 @@ namespace {
 const char kCsdDebugFeatureDirectoryFlag[] = "csd-debug-feature-directory";
 const char kSkipCSDAllowlistOnPreclassification[] =
     "safe-browsing-skip-csd-allowlist";
+const float kProbabilityForSendingSampleRequest = 0.01;
 
 void WriteFeaturesToDisk(const ClientPhishingRequest& features,
                          const base::FilePath& base_path) {
@@ -351,7 +353,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
                             PreClassificationCheckResult phishing_reason,
                             bool match_allowlist) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    if (match_allowlist) {
+    if (match_allowlist && !CanSendSamplePing()) {
       phishing_reason =
           PreClassificationCheckResult::NO_CLASSIFY_MATCH_CSD_ALLOWLIST;
     }
@@ -386,7 +388,7 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
     // We want to limit the number of requests, but if we're dumping features
     // for debugging, allow us to exceed the report limit.
     if (!HasDebugFeatureDirectory() && csd_service_ &&
-        csd_service_->OverPhishingReportLimit()) {
+        csd_service_->AtPhishingReportLimit()) {
       DontClassifyForPhishing(
           PreClassificationCheckResult::NO_CLASSIFY_TOO_MANY_REPORTS);
     }
@@ -416,6 +418,13 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
       // returns false.
       start_phishing_classification_cb_.Reset();
     }
+  }
+
+  bool CanSendSamplePing() {
+    return host_ && host_->delegate_->GetPrefs() &&
+           IsEnhancedProtectionEnabled(*host_->delegate_->GetPrefs()) &&
+           base::RandDouble() <= kProbabilityForSendingSampleRequest &&
+           base::FeatureList::IsEnabled(kClientSideDetectionSamplePing);
   }
 
   const GURL url_;
@@ -619,6 +628,9 @@ void ClientSideDetectionHost::PhishingDetectionDone(
 
   std::string request_type_name = GetRequestTypeName(request_type);
 
+  UmaHistogramMediumTimes(
+      "SBClientPhishing.PhishingDetectionDuration",
+      base::TimeTicks::Now() - phishing_detection_start_time_);
   UmaHistogramMediumTimes(
       "SBClientPhishing.PhishingDetectionDuration." + request_type_name,
       base::TimeTicks::Now() - phishing_detection_start_time_);

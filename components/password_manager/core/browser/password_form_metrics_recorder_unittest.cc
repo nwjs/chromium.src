@@ -600,17 +600,21 @@ PasswordForm ConvertToPasswordForm(
   for (const auto& field : fields) {
     FormFieldData form_field;
     form_field.set_value(ASCIIToUTF16(field.value));
-    form_field.user_input = ASCIIToUTF16(field.user_input);
+    form_field.set_user_input(ASCIIToUTF16(field.user_input));
 
     if (field.user_typed)
-      form_field.properties_mask |= FieldPropertiesFlags::kUserTyped;
+      form_field.set_properties_mask(form_field.properties_mask() |
+                                     FieldPropertiesFlags::kUserTyped);
 
     if (field.manually_filled)
-      form_field.properties_mask |=
-          FieldPropertiesFlags::kAutofilledOnUserTrigger;
+      form_field.set_properties_mask(
+          form_field.properties_mask() |
+          FieldPropertiesFlags::kAutofilledOnUserTrigger);
 
     if (field.automatically_filled)
-      form_field.properties_mask |= FieldPropertiesFlags::kAutofilledOnPageLoad;
+      form_field.set_properties_mask(
+          form_field.properties_mask() |
+          FieldPropertiesFlags::kAutofilledOnPageLoad);
 
     form_field.set_form_control_type(
         field.is_password ? autofill::FormControlType::kInputPassword

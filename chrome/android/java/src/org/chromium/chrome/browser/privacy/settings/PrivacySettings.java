@@ -104,8 +104,9 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
                     return true;
                 });
 
-        if (PrivacySandboxBridge.isPrivacySandboxRestricted()) {
-            if (PrivacySandboxBridge.isRestrictedNoticeEnabled()) {
+        PrivacySandboxBridge privacySandboxBridge = new PrivacySandboxBridge(getProfile());
+        if (privacySandboxBridge.isPrivacySandboxRestricted()) {
+            if (privacySandboxBridge.isRestrictedNoticeEnabled()) {
                 // Update the summary to one that describes only ad measurement if ad-measurement
                 // is available to restricted users.
                 sandboxPreference.setSummary(
@@ -335,6 +336,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
                         preference -> {
                             UsageStatsConsentDialog.create(
                                             getActivity(),
+                                            getProfile(),
                                             true,
                                             (didConfirm) -> {
                                                 if (didConfirm) {
@@ -361,7 +363,7 @@ public class PrivacySettings extends ChromeBaseSettingsFragment
         updatePrivacyGuidePreferenceTitle();
     }
 
-    // TODO(crbug.com/1431101): This will be removed when the Privacy Guide is rolled out and no
+    // TODO(crbug.com/40263380): This will be removed when the Privacy Guide is rolled out and no
     //  longer a new feature.
     private void updatePrivacyGuidePreferenceTitle() {
         Preference privacyGuide = findPreference(PREF_PRIVACY_GUIDE);

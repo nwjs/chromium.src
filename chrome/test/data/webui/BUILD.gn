@@ -17,6 +17,7 @@ import("//ui/webui/resources/tools/generate_grd.gni")
 import("//ui/webui/webui_features.gni")
 
 assert(!is_android)
+assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
 
 source_set("browser_tests") {
   testonly = true
@@ -98,23 +99,29 @@ source_set("browser_tests") {
 
   if (is_chromeos_ash) {
     sources += [
+      "chromeos/ash_common/ash_common_browsertest.cc",
+      "chromeos/ash_common/ash_common_resources_browsertest.cc",
       "chromeos/ash_common/cr_elements/ash_common_cr_elements_browsertest.cc",
       "chromeos/ash_common/sea_pen/sea_pen_browsertest.cc",
       "chromeos/ash_common/webui_resource_browsertest.cc",
+      "chromeos/diagnostics/diagnostics_browsertest.cc",
       "chromeos/edu_coexistence/edu_coexistence_browsertest.cc",
       "chromeos/enterprise_reporting/enterprise_reporting_browsertest.cc",
       "chromeos/extended_updates/extended_updates_browsertest.cc",
       "chromeos/firmware_update/firmware_update_browsertest.cc",
       "chromeos/inline_login/inline_login_browsertest.cc",
       "chromeos/oobe/security_token_pin_browsertest.cc",
+      "chromeos/os_feedback_ui/os_feedback_browsertest.cc",
       "chromeos/parent_access/parent_access_browsertest.cc",
       "chromeos/personalization_app/personalization_app_browsertest.cc",
       "chromeos/personalization_app/personalization_app_sea_pen_browsertest.cc",
+      "chromeos/print_management/print_management_browsertest.cc",
       "chromeos/print_preview_cros/print_preview_cros_browsertest.cc",
       "chromeos/scanning/scanning_app_browsertest.cc",
+      "chromeos/settings/os_settings_browsertest.cc",
       "chromeos/shimless_rma/shimless_rma_browsertest.cc",
+      "chromeos/shortcut_customization/shortcut_customization_browsertest.cc",
       "chromeos/vc_background_ui/vc_background_ui_browsertest.cc",
-      "settings/chromeos/os_settings_browsertest.cc",
     ]
   } else {
     sources += [
@@ -136,7 +143,7 @@ source_set("browser_tests") {
     sources += [ "discards/discards_browsertest.cc" ]
   }
 
-  if (is_win || is_mac || is_linux || is_fuchsia) {
+  if (is_win || is_mac || is_linux) {
     sources += [ "app_settings/app_settings_browsertest.cc" ]
   }
 
@@ -160,6 +167,7 @@ source_set("browser_tests") {
     "//chrome/browser/devtools:test_support",
     "//chrome/browser/media/router/discovery/access_code:access_code_cast_feature",
     "//chrome/browser/optimization_guide:test_support",
+    "//chrome/browser/ui/lens",
     "//chrome/test:test_support",
     "//components/bookmarks/browser:browser",
     "//components/bookmarks/managed:managed",
@@ -232,7 +240,7 @@ source_set("interactive_ui_tests") {
   if (is_chromeos_ash) {
     sources += [
       "chromeos/ash_common/cr_elements/ash_common_cr_elements_focus_test.cc",
-      "settings/chromeos/os_settings_focus_test.cc",
+      "chromeos/settings/os_settings_focus_test.cc",
     ]
   }
 
@@ -354,7 +362,7 @@ generate_grd("build_grd") {
     "about_sys:build_grdp",
     "access_code_cast:build_grdp",
     "bookmarks:build_grdp",
-    "commerce:build_grdp",
+    "commerce/product_specifications:build_grdp",
     "commerce_internals:build_grdp",
     "cr_components:build_grdp",
     "cr_elements:build_grdp",
@@ -401,7 +409,7 @@ generate_grd("build_grd") {
     "$target_gen_dir/access_code_cast/resources.grdp",
     "$target_gen_dir/bookmarks/resources.grdp",
     "$target_gen_dir/chai_resources.grdp",
-    "$target_gen_dir/commerce/resources.grdp",
+    "$target_gen_dir/commerce/product_specifications/resources.grdp",
     "$target_gen_dir/commerce_internals/resources.grdp",
     "$target_gen_dir/cr_components/resources.grdp",
     "$target_gen_dir/cr_elements/resources.grdp",
@@ -499,6 +507,7 @@ generate_grd("build_grd") {
       "chromeos:build_web_ui_test_mojo_lite_grdp",
       "chromeos/ash_common:build_grdp",
       "chromeos/ash_common/cr_elements:build_grdp",
+      "chromeos/ash_common/sea_pen:build_grdp",
       "chromeos/borealis_installer:build_grdp",
       "chromeos/cloud_upload:build_grdp",
       "chromeos/diagnostics:build_grdp",
@@ -517,18 +526,19 @@ generate_grd("build_grd") {
       "chromeos/print_management:build_grdp",
       "chromeos/print_preview_cros:build_grdp",
       "chromeos/scanning:build_grdp",
+      "chromeos/settings:build_grdp",
       "chromeos/shimless_rma:build_grdp",
       "chromeos/shortcut_customization:build_grdp",
       "chromeos/vc_background_ui:build_grdp",
       "cr_components/chromeos:build_grdp",
       "nearby_share:build_grdp",
-      "settings/chromeos:build_grdp",
       "//ui/file_manager:build_tests_gen_grdp",
       "//ui/file_manager:build_tests_grdp",
     ]
     grdp_files += [
       "$target_gen_dir/chromeos/ash_common/resources.grdp",
       "$target_gen_dir/chromeos/ash_common/cr_elements/resources.grdp",
+      "$target_gen_dir/chromeos/ash_common/sea_pen/resources.grdp",
       "$target_gen_dir/chromeos/borealis_installer/resources.grdp",
       "$target_gen_dir/chromeos/cloud_upload/resources.grdp",
       "$target_gen_dir/chromeos/diagnostics/resources.grdp",
@@ -548,6 +558,7 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/resources.grdp",
       "$target_gen_dir/chromeos/vc_background_ui/resources.grdp",
       "$target_gen_dir/chromeos/scanning/resources.grdp",
+      "$target_gen_dir/chromeos/settings/resources.grdp",
       "$target_gen_dir/chromeos/shimless_rma/resources.grdp",
       "$target_gen_dir/chromeos/os_feedback_ui/resources.grdp",
       "$target_gen_dir/chromeos/shortcut_customization/resources.grdp",
@@ -555,7 +566,6 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/web_ui_test_mojo_resources.grdp",
       "$target_gen_dir/cr_components/chromeos/resources.grdp",
       "$target_gen_dir/nearby_share/resources.grdp",
-      "$target_gen_dir/settings/chromeos/resources.grdp",
       "$root_gen_dir/ui/file_manager/tests_resources.grdp",
       "$root_gen_dir/ui/file_manager/tests_gen_resources.grdp",
     ]

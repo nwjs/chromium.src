@@ -4,61 +4,61 @@
 
 #import "components/password_manager/ios/shared_password_controller.h"
 
-#include <stddef.h>
+#import <stddef.h>
 
-#include <algorithm>
-#include <map>
-#include <memory>
-#include <string>
-#include <utility>
-#include <vector>
+#import <algorithm>
+#import <map>
+#import <memory>
+#import <string>
+#import <utility>
+#import <vector>
 
-#include "base/apple/foundation_util.h"
-#include "base/feature_list.h"
-#include "base/functional/bind.h"
+#import "base/apple/foundation_util.h"
+#import "base/feature_list.h"
+#import "base/functional/bind.h"
 #import "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
-#include "base/scoped_multi_source_observation.h"
-#include "base/strings/sys_string_conversions.h"
-#include "base/strings/utf_string_conversions.h"
-#include "base/values.h"
-#include "components/autofill/core/browser/filling_product.h"
-#include "components/autofill/core/browser/form_structure.h"
-#include "components/autofill/core/browser/ui/popup_item_ids.h"
-#include "components/autofill/core/common/autofill_features.h"
-#include "components/autofill/core/common/form_data.h"
-#include "components/autofill/core/common/password_form_fill_data.h"
-#include "components/autofill/core/common/password_form_generation_data.h"
-#include "components/autofill/core/common/password_generation_util.h"
-#include "components/autofill/core/common/signatures.h"
-#include "components/autofill/core/common/unique_ids.h"
+#import "base/metrics/histogram_macros.h"
+#import "base/scoped_multi_source_observation.h"
+#import "base/strings/sys_string_conversions.h"
+#import "base/strings/utf_string_conversions.h"
+#import "base/values.h"
+#import "components/autofill/core/browser/filling_product.h"
+#import "components/autofill/core/browser/form_structure.h"
+#import "components/autofill/core/browser/ui/suggestion_type.h"
+#import "components/autofill/core/common/autofill_features.h"
+#import "components/autofill/core/common/form_data.h"
+#import "components/autofill/core/common/password_form_fill_data.h"
+#import "components/autofill/core/common/password_form_generation_data.h"
+#import "components/autofill/core/common/password_generation_util.h"
+#import "components/autofill/core/common/signatures.h"
+#import "components/autofill/core/common/unique_ids.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/autofill_manager_observer_bridge.h"
-#include "components/autofill/ios/browser/autofill_util.h"
+#import "components/autofill/ios/browser/autofill_util.h"
 #import "components/autofill/ios/browser/form_suggestion_provider_query.h"
+#import "components/autofill/ios/browser/password_autofill_agent.h"
 #import "components/autofill/ios/form_util/form_activity_observer_bridge.h"
-#include "components/autofill/ios/form_util/form_activity_params.h"
-#include "components/password_manager/core/browser/password_bubble_experiment.h"
+#import "components/autofill/ios/form_util/form_activity_params.h"
+#import "components/password_manager/core/browser/password_bubble_experiment.h"
 #import "components/password_manager/core/browser/password_feature_manager.h"
-#include "components/password_manager/core/browser/password_generation_frame_helper.h"
-#include "components/password_manager/core/browser/password_manager_client.h"
-#include "components/password_manager/core/common/password_manager_features.h"
-#include "components/password_manager/ios/account_select_fill_data.h"
-#include "components/password_manager/ios/ios_password_manager_driver_factory.h"
+#import "components/password_manager/core/browser/password_generation_frame_helper.h"
+#import "components/password_manager/core/browser/password_manager_client.h"
+#import "components/password_manager/core/common/password_manager_features.h"
+#import "components/password_manager/ios/account_select_fill_data.h"
 #import "components/password_manager/ios/ios_password_manager_driver_factory.h"
-#include "components/password_manager/ios/password_manager_ios_util.h"
+#import "components/password_manager/ios/password_manager_ios_util.h"
 #import "components/password_manager/ios/password_manager_java_script_feature.h"
 #import "components/password_manager/ios/shared_password_controller+private.h"
-#include "components/strings/grit/components_strings.h"
-#include "ios/web/common/url_scheme_util.h"
-#include "ios/web/public/js_messaging/web_frame.h"
+#import "components/strings/grit/components_strings.h"
+#import "ios/web/common/url_scheme_util.h"
+#import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/js_messaging/web_frames_manager_observer_bridge.h"
-#include "ios/web/public/navigation/navigation_context.h"
+#import "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/web_state.h"
-#include "services/network/public/cpp/shared_url_loader_factory.h"
-#include "ui/base/l10n/l10n_util_mac.h"
-#include "url/gurl.h"
+#import "services/network/public/cpp/shared_url_loader_factory.h"
+#import "ui/base/l10n/l10n_util_mac.h"
+#import "url/gurl.h"
 
 using autofill::AutofillManager;
 using autofill::AutofillManagerObserverBridge;
@@ -92,6 +92,33 @@ namespace {
 
 // Password is considered not generated when user edits it below 4 characters.
 constexpr int kMinimumLengthForEditedPassword = 4;
+
+class PasswordAutofillAgentDelegateImpl
+    : public autofill::PasswordAutofillAgentDelegate {
+ public:
+  ~PasswordAutofillAgentDelegateImpl() override = default;
+  explicit PasswordAutofillAgentDelegateImpl(web::WebState* web_state)
+      : web_state_(web_state) {}
+
+  PasswordAutofillAgentDelegateImpl(const PasswordAutofillAgentDelegateImpl&) =
+      delete;
+  PasswordAutofillAgentDelegateImpl& operator=(
+      const PasswordAutofillAgentDelegateImpl&) = delete;
+
+  void DidFillField(web::WebFrame* frame,
+                    std::optional<autofill::FormRendererId> form_id,
+                    autofill::FieldRendererId field_id,
+                    const std::u16string& field_value) override {
+    auto* driver = IOSPasswordManagerDriverFactory::FromWebStateAndWebFrame(
+        web_state_, frame);
+    CHECK(driver);
+    driver->GetPasswordManager()->UpdateStateOnUserInput(driver, form_id,
+                                                         field_id, field_value);
+  }
+
+ private:
+  web::WebState* web_state_;
+};
 
 }  // namespace
 
@@ -160,6 +187,10 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
   // be deleted with the frame, and the driver needs to be alive after the
   // frame deletion for submission detecting purposes.
   scoped_refptr<IOSPasswordManagerDriver> _lastSubmittedPasswordManagerDriver;
+
+  // Delegate for the PasswordAutofillAgent that receives information from
+  // Autofill.
+  std::unique_ptr<PasswordAutofillAgentDelegateImpl> _agentDelegate;
 }
 
 - (instancetype)initWithWebState:(web::WebState*)webState
@@ -173,6 +204,11 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
     DCHECK(webState);
     IOSPasswordManagerDriverFactory::CreateForWebState(webState, self,
                                                        passwordManager);
+    _agentDelegate =
+        std::make_unique<PasswordAutofillAgentDelegateImpl>(webState);
+    autofill::PasswordAutofillAgent::CreateForWebState(webState,
+                                                       _agentDelegate.get());
+
     _webState = webState;
     _webStateObserverBridge =
         std::make_unique<web::WebStateObserverBridge>(self);
@@ -357,6 +393,7 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
   _lastFocusedFrame = nullptr;
   _passwordManager = nullptr;
   _lastSubmittedPasswordManagerDriver = nullptr;
+  _agentDelegate.reset();
 }
 
 #pragma mark - AutofillManagerObserver
@@ -524,7 +561,7 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
                suggestionWithValue:value
                 displayDescription:rawSuggestion.displayDescription
                               icon:nil
-                       popupItemId:autofill::PopupItemId::kAutocompleteEntry
+                       popupItemId:autofill::SuggestionType::kAutocompleteEntry
                  backendIdentifier:nil
                     requiresReauth:YES
         acceptanceA11yAnnouncement:nil
@@ -540,13 +577,12 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
                        fieldIdentifier:formQuery.fieldRendererID
                              fieldType:formQuery.fieldType
                                inFrame:frame]) {
-    // Add "Suggest Password...".
     NSString* suggestPassword = GetNSString(IDS_IOS_SUGGEST_PASSWORD);
     FormSuggestion* suggestion = [FormSuggestion
         suggestionWithValue:suggestPassword
          displayDescription:nil
                        icon:nil
-                popupItemId:autofill::PopupItemId::kGeneratePasswordEntry
+                popupItemId:autofill::SuggestionType::kGeneratePasswordEntry
           backendIdentifier:nil
              requiresReauth:NO];
 
@@ -579,7 +615,7 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
   }
 
   switch (suggestion.popupItemId) {
-    case autofill::PopupItemId::kAllSavedPasswordsEntry: {
+    case autofill::SuggestionType::kAllSavedPasswordsEntry: {
       completion();
       password_manager::metrics_util::LogPasswordDropdownItemSelected(
           password_manager::metrics_util::PasswordDropdownSelectedOption::
@@ -587,7 +623,7 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
           [self IsOffTheRecord]);
       return;
     }
-    case autofill::PopupItemId::kGeneratePasswordEntry: {
+    case autofill::SuggestionType::kGeneratePasswordEntry: {
       // Don't call completion because current suggestion state should remain
       // whether user injects a generated password or cancels.
       [self generatePasswordForFormId:formRendererID
@@ -820,7 +856,7 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
       for (const autofill::FormFieldData& field : form.fields) {
         if (field.renderer_id() == fieldIdentifier) {
           fieldSignature = CalculateFieldSignatureForField(field);
-          maxLength = field.max_length;
+          maxLength = field.max_length();
           break;
         }
       }
@@ -947,16 +983,6 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
       SysNSStringToUTF16(generatedPassword));
 }
 
-// Checks that all fields with |fieldIds| have user input recorded by
-// the FieldDataManager.
-- (BOOL)allFieldsContainUserInput:(const std::vector<FieldRendererId>&)fieldIds
-                 fieldDataManager:
-                     (const autofill::FieldDataManager&)fieldDataManager {
-  return base::ranges::all_of(fieldIds, [&fieldDataManager](auto fieldId) {
-    return fieldDataManager.HasFieldData(fieldId);
-  });
-}
-
 #pragma mark - FormActivityObserver
 
 - (void)webState:(web::WebState*)webState
@@ -1004,24 +1030,10 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
   auto* driver = static_cast<IOSPasswordManagerDriver*>(
       [_driverHelper PasswordManagerDriver:frame]);
 
-  // TODO(crbug.com/330909663): Move unowned fields input check to
-  // PasswordFormManager and only do it if formless form is the last interacted
-  // form.
-  if (!params.removed_unowned_fields.empty()) {
-    // If formless password fields were removed, check that all of them had
-    // user input.
-    if (![self allFieldsContainUserInput:params.removed_unowned_fields
-                        fieldDataManager:driver->field_data_manager()]) {
-      return;
-    }
-  }
-
-  // TODO(crbug.com/330909663): Handle multiple form removals in Password
-  // Manager.
-  _passwordManager->OnPasswordFormRemoved(driver, driver->field_data_manager(),
-                                          params.removed_forms.empty()
-                                              ? FormRendererId()
-                                              : params.removed_forms[0]);
+  _passwordManager->OnPasswordFormsRemoved(
+      driver, driver->field_data_manager(),
+      /*removed_forms=*/params.removed_forms,
+      /*removed_unowned_fields=*/params.removed_unowned_fields);
 }
 
 @end

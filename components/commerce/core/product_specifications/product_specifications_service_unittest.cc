@@ -82,9 +82,9 @@ void AddTestSpecifics(commerce::ProductSpecificationsSyncBridge* bridge) {
 }
 
 MATCHER_P(HasAllProductSpecs, compare_specifics, "") {
-  std::vector<const GURL> specifics_urls;
+  std::vector<GURL> specifics_urls;
   for (const sync_pb::ComparisonData& data : compare_specifics.data()) {
-    specifics_urls.push_back(GURL(data.url()));
+    specifics_urls.emplace_back(data.url());
   }
   return arg.uuid().AsLowercaseString() == compare_specifics.uuid() &&
          arg.creation_time() ==
@@ -96,8 +96,8 @@ MATCHER_P(HasAllProductSpecs, compare_specifics, "") {
          arg.name() == compare_specifics.name() && arg.urls() == specifics_urls;
 }
 
-MATCHER_P(IsUuid, uuid, "") {
-  return arg.AsLowercaseString() == uuid;
+MATCHER_P(IsSetWithUuid, uuid, "") {
+  return arg.uuid() == uuid;
 }
 
 MATCHER_P2(HasProductSpecsNameUrl, name, urls, "") {
@@ -160,17 +160,18 @@ class MockProductSpecificationsSetObserver
   MOCK_METHOD(void,
               OnProductSpecificationsSetAdded,
               (const ProductSpecificationsSet& set),
-              (const override));
+              (override));
 
   MOCK_METHOD(void,
               OnProductSpecificationsSetUpdate,
-              (const ProductSpecificationsSet& set),
-              (const override));
+              (const ProductSpecificationsSet& before,
+               const ProductSpecificationsSet& after),
+              (override));
 
   MOCK_METHOD(void,
               OnProductSpecificationsSetRemoved,
-              (const base::Uuid& uuid),
-              (const override));
+              (const ProductSpecificationsSet& set),
+              (override));
 };
 
 class ProductSpecificationsServiceTest : public testing::Test {
@@ -200,11 +201,6 @@ class ProductSpecificationsServiceTest : public testing::Test {
     return &observer_;
   }
 
-  void MockFailedAddProductSpecifications() {
-    ON_CALL(processor_, IsTrackingMetadata())
-        .WillByDefault(testing::Return(false));
-  }
-
   void CheckSpecsAgainstSpecifics(
       const ProductSpecificationsSet& specifications,
       const sync_pb::CompareSpecifics& specifics) const {
@@ -217,7 +213,7 @@ class ProductSpecificationsServiceTest : public testing::Test {
                   specifics.update_time_unix_epoch_micros()),
               specifications.update_time());
     EXPECT_EQ(specifics.name(), specifications.name());
-    std::vector<const GURL> urls;
+    std::vector<GURL> urls;
     for (const sync_pb::ComparisonData& data : specifics.data()) {
       urls.emplace_back(data.url());
     }
@@ -243,7 +239,7 @@ TEST_F(ProductSpecificationsServiceTest, TestGetProductSpecifications) {
   for (const sync_pb::CompareSpecifics& specifics : kCompareSpecifics) {
     bridge()->AddCompareSpecifics(specifics);
   }
-  const std::vector<const ProductSpecificationsSet> specifications =
+  const std::vector<ProductSpecificationsSet> specifications =
       service()->GetAllProductSpecifications();
   EXPECT_EQ(2u, specifications.size());
   for (uint64_t i = 0; i < specifications.size(); i++) {
@@ -252,13 +248,13 @@ TEST_F(ProductSpecificationsServiceTest, TestGetProductSpecifications) {
 }
 
 TEST_F(ProductSpecificationsServiceTest, TestAddProductSpecificationsSuccess) {
-  std::vector<const GURL> expected_product_urls{GURL(kProductOneUrl),
-                                                GURL(kProductTwoUrl)};
+  std::vector<GURL> expected_product_urls{GURL(kProductOneUrl),
+                                          GURL(kProductTwoUrl)};
   EXPECT_CALL(*observer(),
               OnProductSpecificationsSetAdded(HasProductSpecsNameUrl(
                   kProductSpecsName, expected_product_urls)))
       .Times(1);
-  std::optional<const ProductSpecificationsSet> product_spec_set =
+  std::optional<ProductSpecificationsSet> product_spec_set =
       service()->AddProductSpecificationsSet(
           kProductSpecsName, {GURL(kProductOneUrl), GURL(kProductTwoUrl)});
   EXPECT_TRUE(product_spec_set.has_value());
@@ -269,17 +265,11 @@ TEST_F(ProductSpecificationsServiceTest, TestAddProductSpecificationsSuccess) {
 
 TEST_F(ProductSpecificationsServiceTest, TestRemoveProductSpecifications) {
   AddTestSpecifics(bridge());
-  EXPECT_CALL(*observer(), OnProductSpecificationsSetRemoved(
-                               IsUuid(kCompareSpecifics[0].uuid())))
+  EXPECT_CALL(*observer(),
+              OnProductSpecificationsSetRemoved(IsSetWithUuid(
+                  base::Uuid::ParseLowercase(kCompareSpecifics[0].uuid()))))
       .Times(1);
   service()->DeleteProductSpecificationsSet(kCompareSpecifics[0].uuid());
-}
-
-TEST_F(ProductSpecificationsServiceTest, TestAddProductSpecificationsFailure) {
-  MockFailedAddProductSpecifications();
-  EXPECT_EQ(std::nullopt, service()->AddProductSpecificationsSet(
-                              kProductSpecsName,
-                              {GURL(kProductOneUrl), GURL(kProductTwoUrl)}));
 }
 
 TEST_F(ProductSpecificationsServiceTest, TestObserverNewSpecifics) {
@@ -294,6 +284,88 @@ TEST_F(ProductSpecificationsServiceTest, TestObserverNewSpecifics) {
   bridge()->ApplyIncrementalSyncChanges(
       std::make_unique<syncer::InMemoryMetadataChangeList>(),
       std::move(add_changes));
+}
+
+TEST_F(ProductSpecificationsServiceTest, TestSetUrls) {
+  for (const sync_pb::CompareSpecifics& specifics : kCompareSpecifics) {
+    bridge()->AddCompareSpecifics(specifics);
+  }
+
+  const std::vector<ProductSpecificationsSet> specifications =
+      service()->GetAllProductSpecifications();
+
+  const base::Uuid uuid_to_modify = specifications[0].uuid();
+
+  EXPECT_CALL(*observer(), OnProductSpecificationsSetUpdate(
+                               HasAllProductSpecs(kCompareSpecifics[0]),
+                               IsSetWithUuid(uuid_to_modify)))
+      .Times(1);
+
+  const std::vector<GURL> new_urls = {GURL("http://example.com/updated")};
+
+  service()->SetUrls(uuid_to_modify, new_urls);
+
+  const std::optional<ProductSpecificationsSet> updated_set =
+      service()->GetSetByUuid(uuid_to_modify);
+
+  EXPECT_TRUE(updated_set.has_value());
+  EXPECT_EQ(new_urls[0].spec(), updated_set->urls()[0].spec());
+  EXPECT_GT(updated_set->update_time(), specifications[0].update_time());
+  EXPECT_EQ(updated_set->creation_time(), specifications[0].creation_time());
+}
+
+TEST_F(ProductSpecificationsServiceTest, TestSetName) {
+  for (const sync_pb::CompareSpecifics& specifics : kCompareSpecifics) {
+    bridge()->AddCompareSpecifics(specifics);
+  }
+
+  const std::vector<ProductSpecificationsSet> specifications =
+      service()->GetAllProductSpecifications();
+
+  const base::Uuid uuid_to_modify = specifications[0].uuid();
+
+  EXPECT_CALL(*observer(), OnProductSpecificationsSetUpdate(
+                               HasAllProductSpecs(kCompareSpecifics[0]),
+                               IsSetWithUuid(uuid_to_modify)))
+      .Times(1);
+
+  const std::string new_name = "updated name";
+
+  service()->SetName(uuid_to_modify, new_name);
+
+  const std::optional<ProductSpecificationsSet> updated_set =
+      service()->GetSetByUuid(uuid_to_modify);
+
+  EXPECT_TRUE(updated_set.has_value());
+  EXPECT_EQ(new_name, updated_set->name());
+  EXPECT_GT(updated_set->update_time(), specifications[0].update_time());
+  EXPECT_EQ(updated_set->creation_time(), specifications[0].creation_time());
+}
+
+TEST_F(ProductSpecificationsServiceTest, TestSetNameAndUrls_BadId) {
+  for (const sync_pb::CompareSpecifics& specifics : kCompareSpecifics) {
+    bridge()->AddCompareSpecifics(specifics);
+  }
+
+  const std::vector<ProductSpecificationsSet> specifications =
+      service()->GetAllProductSpecifications();
+
+  const base::Uuid uuid_to_modify =
+      base::Uuid::ParseLowercase("90000000-0000-0000-0000-000000000000");
+
+  EXPECT_CALL(*observer(),
+              OnProductSpecificationsSetUpdate(testing::_, testing::_))
+      .Times(0);
+
+  const std::vector<GURL> new_urls = {GURL("http://example.com/updated")};
+
+  service()->SetUrls(uuid_to_modify, new_urls);
+  service()->SetName(uuid_to_modify, "new name");
+
+  const std::optional<ProductSpecificationsSet> updated_set =
+      service()->GetSetByUuid(uuid_to_modify);
+
+  EXPECT_FALSE(updated_set.has_value());
 }
 
 TEST_F(ProductSpecificationsServiceTest, TestObserverUpdateSpecifics) {
@@ -317,9 +389,11 @@ TEST_F(ProductSpecificationsServiceTest, TestObserverUpdateSpecifics) {
       noupdate_specifics.uuid(), MakeEntityData(noupdate_specifics)));
 
   EXPECT_CALL(*observer(), OnProductSpecificationsSetUpdate(
+                               HasAllProductSpecs(kCompareSpecifics[0]),
                                HasAllProductSpecs(new_specifics)))
       .Times(1);
   EXPECT_CALL(*observer(), OnProductSpecificationsSetUpdate(
+                               HasAllProductSpecs(kCompareSpecifics[1]),
                                HasAllProductSpecs(noupdate_specifics)))
       .Times(0);
   bridge()->ApplyIncrementalSyncChanges(
@@ -333,8 +407,8 @@ TEST_F(ProductSpecificationsServiceTest, TestObserverRemoveSpecifics) {
   for (const auto& specifics : kCompareSpecifics) {
     remove_changes.push_back(
         syncer::EntityChange::CreateDelete(specifics.uuid()));
-    EXPECT_CALL(*observer(),
-                OnProductSpecificationsSetRemoved(IsUuid(specifics.uuid())))
+    EXPECT_CALL(*observer(), OnProductSpecificationsSetRemoved(IsSetWithUuid(
+                                 base::Uuid::ParseLowercase(specifics.uuid()))))
         .Times(1);
   }
   bridge()->ApplyIncrementalSyncChanges(

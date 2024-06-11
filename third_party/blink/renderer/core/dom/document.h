@@ -150,7 +150,6 @@ class CheckPseudoHasCacheScope;
 class ChromeClient;
 class Comment;
 class ComputedAccessibleNode;
-class ComputedStyle;
 class ConsoleMessage;
 class CookieJar;
 class DOMFeaturePolicy;
@@ -487,7 +486,15 @@ class CORE_EXPORT Document : public ContainerNode,
                             const CreateElementFlags = CreateElementFlags());
 
   Range* caretRangeFromPoint(int x, int y);
-  CaretPosition* caretPositionFromPoint(float x, float y);
+
+  // Returns a |CaretPosition| from given point. If the point is inside a shadow
+  // tree, then |CaretPosition| only points inside the shadow tree if it's
+  // provided in the |shadow_roots| argument.
+  // https://drafts.csswg.org/cssom-view/#ref-for-dom-document-caretpositionfrompoint
+  CaretPosition* caretPositionFromPoint(
+      float x,
+      float y,
+      const HeapVector<Member<ShadowRoot>>& shadow_roots);
   Element* scrollingElement();
 
   // When calling from C++ code, use this method. scrollingElement() is
@@ -501,6 +508,8 @@ class CORE_EXPORT Document : public ContainerNode,
   //
   // [1] https://drafts.csswg.org/scroll-animations-1/#avoiding-cycles
   Element* ScrollingElementNoLayout();
+
+  bool KeyboardFocusableScrollersEnabled();
 
   String readyState() const;
 
@@ -758,13 +767,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void UpdateStyleAndLayoutForNode(const Node*, DocumentUpdateReason);
   void UpdateStyleAndLayoutForRange(const Range*, DocumentUpdateReason);
 
-  // Get the computed style for a given page and name. Note that when using the
-  // function that doesn't provide a page name, layout needs to be complete,
-  // since page names are determined during layout.
-  const ComputedStyle* StyleForPage(uint32_t page_index);
-  const ComputedStyle* StyleForPage(uint32_t page_index,
-                                    const AtomicString& page_name);
-
   // Ensures that location-based data will be valid for a given node.
   //
   // This will run style and layout if they are currently dirty, and it may also
@@ -777,12 +779,9 @@ class CORE_EXPORT Document : public ContainerNode,
                                            DocumentUpdateReason reason);
 
   // Gets the description for the specified page. This includes preferred page
-  // size and margins in pixels, assuming 96 pixels per inch. The size and
-  // margins must be initialized to the default values that are used if auto is
-  // specified. Updates layout as needed to get the description.
+  // size and margins in pixels, assuming 96 pixels per inch. Updates layout as
+  // needed to get the description.
   WebPrintPageDescription GetPageDescription(uint32_t page_index);
-  WebPrintPageDescription GetPageDescriptionNoLifecycleUpdate(
-      const ComputedStyle&);
 
   ResourceFetcher* Fetcher() const { return fetcher_.Get(); }
 
@@ -1273,13 +1272,6 @@ class CORE_EXPORT Document : public ContainerNode,
   mojom::blink::PermissionService* GetPermissionService(
       ExecutionContext* execution_context);
   void PermissionServiceConnectionError();
-
-  // Storage Access API methods to check for or request access to storage that
-  // may otherwise be blocked.
-  ScriptPromise<IDLBoolean> hasStorageAccess(ScriptState* script_state);
-  ScriptPromise<IDLUndefined> requestStorageAccess(ScriptState* script_state);
-  ScriptPromise<IDLUndefined> requestStorageAccessFor(ScriptState* script_state,
-                                                      const AtomicString& site);
 
   // Fragment directive API, currently used to feature detect text-fragments.
   // https://wicg.github.io/scroll-to-text-fragment/#feature-detectability
@@ -1901,11 +1893,16 @@ class CORE_EXPORT Document : public ContainerNode,
   void CountUse(mojom::WebFeature feature) final;
   void CountDeprecation(mojom::WebFeature feature) final;
   void CountUse(mojom::WebFeature feature) const;
+  void CountWebDXFeature(mojom::blink::WebDXFeature feature) final;
+  void CountWebDXFeature(mojom::blink::WebDXFeature feature) const;
   void CountProperty(CSSPropertyID property_id) const;
   void CountAnimatedProperty(CSSPropertyID property_id) const;
   // Return whether the Feature was previously counted for this document.
   // NOTE: only for use in testing.
   bool IsUseCounted(mojom::WebFeature) const;
+  // Return whether the property was previously counted for this document.
+  // NOTE: only for use in testing.
+  bool IsWebDXFeatureCounted(mojom::blink::WebDXFeature) const;
   // Return whether the property was previously counted for this document.
   // NOTE: only for use in testing.
   bool IsPropertyCounted(CSSPropertyID property) const;
@@ -2142,6 +2139,9 @@ class CORE_EXPORT Document : public ContainerNode,
                            BeforeMatchExpandedHiddenMatchableUkmNoHandler);
   FRIEND_TEST_ALL_PREFIXES(DictionaryLoadFromHeaderTest,
                            LoadDictionaryFromHeader);
+  FRIEND_TEST_ALL_PREFIXES(
+      RangeTest,
+      ContainerNodeRemovalWithSequentialFocusNavigationStartingPoint);
 
   // Listed elements that are not associated to a <form> element.
   class UnassociatedListedElementsList {
@@ -2327,27 +2327,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void TrustTokenQueryAnswererConnectionError();
 
   void RunPostPrerenderingActivationSteps();
-
-  // Attempt permission checks for unpartitioned storage access and enable
-  // unpartitioned cookie access based on success if
-  // `request_unpartitioned_cookie_access` is true.
-  ScriptPromise<IDLUndefined> RequestStorageAccessImpl(
-      ScriptState* script_state,
-      bool request_unpartitioned_cookie_access);
-
-  // Resolves the promise if the `status` can approve; rejects the promise
-  // otherwise, and consumes user activation. Enables unpartitioned cookie
-  // access if `request_unpartitioned_cookie_access` is true.
-  void ProcessStorageAccessPermissionState(
-      ScriptPromiseResolver<IDLUndefined>* resolver,
-      bool request_unpartitioned_cookie_access,
-      mojom::blink::PermissionStatus status);
-
-  // Similar to `ProcessStorageAccessPermissionState`, but for the top-level
-  // variant. Notably, does not modify the per-frame storage access bit.
-  void ProcessTopLevelStorageAccessPermissionState(
-      ScriptPromiseResolver<IDLUndefined>* resolver,
-      mojom::blink::PermissionStatus status);
 
   // Fetch the compression dictionary sent in the response header after the
   // document load completes.

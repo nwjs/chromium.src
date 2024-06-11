@@ -124,7 +124,7 @@ trusted_vault_pb::SecurityDomainMember CreateSecurityDomainMember(
           },
           [&member](const UnspecifiedAuthenticationFactorType&) {
             member.set_member_type(trusted_vault_pb::SecurityDomainMember::
-                                       MEMBER_TYPE_PHYSICAL_DEVICE);
+                                       MEMBER_TYPE_UNSPECIFIED);
             // The type hint field is in the request protobuf, not the security
             // domain member, and so is set in
             // `CreateJoinSecurityDomainsRequest`.
@@ -136,6 +136,10 @@ trusted_vault_pb::SecurityDomainMember CreateSecurityDomainMember(
             auto* pin_metadata =
                 member_metadata->mutable_google_password_manager_pin_metadata();
             pin_metadata->set_encrypted_pin_hash(gpm_pin_metadata.wrapped_pin);
+          },
+          [&member](const ICloudKeychain&) {
+            member.set_member_type(trusted_vault_pb::SecurityDomainMember::
+                                       MEMBER_TYPE_ICLOUD_KEYCHAIN);
           }},
       authentication_factor_type);
   return member;
@@ -257,6 +261,11 @@ void ProcessJoinSecurityDomainsResponse(
       *last_key_version);
 }
 
+base::Time ToTime(const trusted_vault_pb::Timestamp& proto) {
+  return base::Time::UnixEpoch() + base::Seconds(proto.seconds()) +
+         base::Nanoseconds(proto.nanos());
+}
+
 void ProcessDownloadKeysResponse(
     std::unique_ptr<DownloadKeysResponseHandler> response_handler,
     TrustedVaultConnection::DownloadNewKeysCallback callback,
@@ -273,7 +282,7 @@ void ProcessDownloadIsRecoverabilityDegradedResponse(
     TrustedVaultConnection::IsRecoverabilityDegradedCallback callback,
     TrustedVaultRequest::HttpStatus http_status,
     const std::string& response_body) {
-  // TODO(crbug.com/1201659): consider special handling when security domain
+  // TODO(crbug.com/40178774): consider special handling when security domain
   // doesn't exist.
   switch (http_status) {
     case TrustedVaultRequest::HttpStatus::kSuccess:
@@ -403,10 +412,26 @@ class DownloadAuthenticationFactorsRegistrationStateRequest
       if (member.member_type() == trusted_vault_pb::SecurityDomainMember::
                                       MEMBER_TYPE_GOOGLE_PASSWORD_MANAGER_PIN &&
           member.member_metadata().has_google_password_manager_pin_metadata()) {
+        const auto& pin_metadata =
+            member.member_metadata().google_password_manager_pin_metadata();
         result_.gpm_pin_metadata.emplace(
-            member.public_key(), member.member_metadata()
-                                     .google_password_manager_pin_metadata()
-                                     .encrypted_pin_hash());
+            member.public_key(), pin_metadata.encrypted_pin_hash(),
+            ToTime(pin_metadata.expiration_time()));
+      } else if (member.member_type() ==
+                 trusted_vault_pb::SecurityDomainMember::
+                     MEMBER_TYPE_ICLOUD_KEYCHAIN) {
+        std::unique_ptr<SecureBoxPublicKey> public_key =
+            SecureBoxPublicKey::CreateByImport(
+                ProtoStringToBytes(member.public_key()));
+        if (public_key) {
+          result_.icloud_keys.push_back(std::move(public_key));
+        }
+      } else if (member.member_type() ==
+                     trusted_vault_pb::SecurityDomainMember::
+                         MEMBER_TYPE_LOCKSCREEN_KNOWLEDGE_FACTOR &&
+                 member.member_metadata().has_lskf_metadata()) {
+        const auto& metadata = member.member_metadata().lskf_metadata();
+        result_.lskf_expiries.push_back(ToTime(metadata.expiration_time()));
       }
     }
 
@@ -455,6 +480,9 @@ GetURLFetchReasonForUMAForJoinSecurityDomainsRequest(
           },
           [](const GpmPinMetadata&) {
             return TrustedVaultURLFetchReasonForUMA::kRegisterGpmPin;
+          },
+          [](const ICloudKeychain&) {
+            return TrustedVaultURLFetchReasonForUMA::kRegisterICloudKeychain;
           }},
       authentication_factor_type);
 }
@@ -524,7 +552,7 @@ TrustedVaultConnectionImpl::DownloadNewKeys(
     const TrustedVaultKeyAndVersion& last_trusted_vault_key_and_version,
     std::unique_ptr<SecureBoxKeyPair> device_key_pair,
     DownloadNewKeysCallback callback) {
-  // TODO(crbug.com/1413179): consider retries for keys downloading after
+  // TODO(crbug.com/40255601): consider retries for keys downloading after
   // initial failure returned to the upper layers.
   auto request = std::make_unique<TrustedVaultRequest>(
       account_info.account_id, TrustedVaultRequest::HttpMethod::kGet,

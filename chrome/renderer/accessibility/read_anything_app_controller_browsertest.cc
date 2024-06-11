@@ -14,11 +14,13 @@
 #include "chrome/test/base/chrome_render_view_test.h"
 #include "content/public/renderer/render_frame.h"
 #include "read_anything_app_controller.h"
+#include "services/strings/grit/services_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_id_forward.h"
 #include "ui/accessibility/ax_serializable_tree.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
 class MockAXTreeDistiller : public AXTreeDistiller {
@@ -39,6 +41,16 @@ class MockReadAnythingUntrustedPageHandler
   MockReadAnythingUntrustedPageHandler() = default;
 
   MOCK_METHOD(void,
+              GetVoicePackInfo,
+              (const std::string& language,
+               GetVoicePackInfoCallback mojo_callback),
+              (override));
+  MOCK_METHOD(void,
+              InstallVoicePack,
+              (const std::string& language,
+               InstallVoicePackCallback mojo_callback),
+              (override));
+  MOCK_METHOD(void,
               OnLinkClicked,
               (const ui::AXTreeID& target_tree_id, ui::AXNodeID target_node_id),
               (override));
@@ -51,6 +63,7 @@ class MockReadAnythingUntrustedPageHandler
                int focus_offset),
               (override));
   MOCK_METHOD(void, OnCollapseSelection, (), (override));
+  MOCK_METHOD(void, OnSnapshotRequested, (), (override));
   MOCK_METHOD(void, OnCopy, (), (override));
   MOCK_METHOD(void,
               OnLineSpaceChange,
@@ -67,6 +80,10 @@ class MockReadAnythingUntrustedPageHandler
   MOCK_METHOD(void,
               OnVoiceChange,
               (const std::string& voice, const std::string& lang),
+              (override));
+  MOCK_METHOD(void,
+              OnLanguagePrefChange,
+              (const std::string& lang, bool enabled),
               (override));
   MOCK_METHOD(void,
               OnColorChange,
@@ -199,6 +216,10 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
     controller_->model_.SetDistillationInProgress(in_progress);
   }
 
+  void OnSpeechPlayingStateChanged(bool paused) {
+    controller_->OnSpeechPlayingStateChanged(paused);
+  }
+
   void OnActiveAXTreeIDChanged(const ui::AXTreeID& tree_id,
                                bool is_pdf = false) {
     controller_->OnActiveAXTreeIDChanged(tree_id, ukm::kInvalidSourceId,
@@ -297,6 +318,16 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
                                       std::string display_locale) {
     return controller_->GetDisplayNameForLocale(locale, display_locale);
   }
+
+  void OnFontChange(const std::string& font) {
+    controller_->OnFontChange(font);
+  }
+
+  void OnVoiceChange(const std::string& voice, const std::string& lang) {
+    controller_->OnVoiceChange(voice, lang);
+  }
+
+  std::string GetStoredVoice() { return controller_->GetStoredVoice(); }
 
   std::string GetDataFontCss(ui::AXNodeID ax_node_id) {
     return controller_->GetDataFontCss(ax_node_id);
@@ -402,6 +433,118 @@ TEST_F(ReadAnythingAppControllerTest, IsReadAloudEnabled) {
 
   scoped_feature_list_.InitAndEnableFeature(features::kReadAnythingReadAloud);
   EXPECT_TRUE(IsReadAloudEnabled());
+}
+
+TEST_F(ReadAnythingAppControllerTest, OnFontChange_UpdatesFont) {
+  std::string expected_font = "Roboto";
+
+  OnFontChange(expected_font);
+
+  EXPECT_CALL(page_handler_, OnFontChange(expected_font)).Times(1);
+  ASSERT_EQ(FontName(), expected_font);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetStoredVoice_NoAutoSwitching_ReturnsLatestVoice) {
+  std::string current_lang = "it-IT";
+  std::string current_voice = "Italian voice 3";
+  std::string previous_voice = "Dutch voice 1";
+
+  SetLanguageCode(current_lang);
+  OnVoiceChange(previous_voice, current_lang);
+  OnVoiceChange(current_voice, current_lang);
+
+  EXPECT_CALL(page_handler_, OnVoiceChange).Times(2);
+  ASSERT_EQ(GetStoredVoice(), current_voice);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetStoredVoice_NoAutoSwitching_ReturnsLatestVoiceRegardlessOfLang) {
+  std::string current_lang = "it-IT";
+  std::string other_lang = "de-DE";
+  std::string current_voice = "Italian voice 3";
+  std::string previous_voice = "Dutch voice 1";
+
+  SetLanguageCode(current_lang);
+  OnVoiceChange(previous_voice, current_lang);
+  OnVoiceChange(current_voice, other_lang);
+
+  EXPECT_CALL(page_handler_, OnVoiceChange).Times(2);
+  ASSERT_EQ(GetStoredVoice(), current_voice);
+}
+
+TEST_F(ReadAnythingAppControllerTest, GetStoredVoice_NoVoices_ReturnsEmpty) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kReadAnythingReadAloud,
+       features::kReadAloudAutoVoiceSwitching},
+      {});
+  ASSERT_EQ(GetStoredVoice(), "");
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetStoredVoice_CurrentBaseLangStored_ReturnsExpectedVoice) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kReadAnythingReadAloud,
+       features::kReadAloudAutoVoiceSwitching},
+      {});
+  std::string base_lang = "fr";
+  std::string expected_voice_name = "French voice 1";
+
+  OnVoiceChange(expected_voice_name, base_lang);
+  SetLanguageCode(base_lang);
+
+  EXPECT_CALL(page_handler_, OnVoiceChange).Times(1);
+  ASSERT_EQ(GetStoredVoice(), expected_voice_name);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetStoredVoice_CurrentFullLangStored_ReturnsExpectedVoice) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kReadAnythingReadAloud,
+       features::kReadAloudAutoVoiceSwitching},
+      {});
+  std::string full_lang = "en-UK";
+  std::string expected_voice_name = "British voice 45";
+
+  OnVoiceChange(expected_voice_name, full_lang);
+  SetLanguageCode(full_lang);
+
+  EXPECT_CALL(page_handler_, OnVoiceChange).Times(1);
+  ASSERT_EQ(GetStoredVoice(), expected_voice_name);
+}
+
+TEST_F(
+    ReadAnythingAppControllerTest,
+    GetStoredVoice_BaseLangStoredButCurrentLangIsFull_ReturnsStoredBaseLang) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kReadAnythingReadAloud,
+       features::kReadAloudAutoVoiceSwitching},
+      {});
+  std::string base_lang = "zh";
+  std::string full_lang = "zh-TW";
+  std::string expected_voice_name = "Chinese voice";
+
+  OnVoiceChange(expected_voice_name, base_lang);
+  SetLanguageCode(full_lang);
+
+  EXPECT_CALL(page_handler_, OnVoiceChange).Times(1);
+  ASSERT_EQ(GetStoredVoice(), expected_voice_name);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       GetStoredVoice_CurrentLangNotStored_ReturnsEmpty) {
+  scoped_feature_list_.InitWithFeatures(
+      {features::kReadAnythingReadAloud,
+       features::kReadAloudAutoVoiceSwitching},
+      {});
+  std::string current_lang = "de-DE";
+  std::string stored_lang = "it-IT";
+
+  OnVoiceChange("Italian voice 3", stored_lang);
+  SetLanguageCode(current_lang);
+
+  EXPECT_CALL(page_handler_, OnVoiceChange).Times(1);
+  ASSERT_EQ(GetStoredVoice(), "");
 }
 
 TEST_F(ReadAnythingAppControllerTest, IsWebUIToolbarEnabled) {
@@ -658,7 +801,7 @@ TEST_F(ReadAnythingAppControllerTest,
   ui::AXNodeData node2;
   node2.id = 3;
   node2.role = ax::mojom::Role::kHeading;
-  node2.html_attributes.emplace_back("aria-level", "3");
+  node2.AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel, 3);
 
   ui::AXNodeData node3;
   node3.id = 4;
@@ -679,7 +822,7 @@ TEST_F(ReadAnythingAppControllerTest, GetHtmlTag_PDF) {
   ui::AXNodeData node2;
   node2.id = 3;
   node2.role = ax::mojom::Role::kHeading;
-  node2.html_attributes.emplace_back("aria-level", "2");
+  node2.AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel, 2);
 
   ui::AXNodeData root;
   root.id = 1;
@@ -751,7 +894,7 @@ TEST_F(ReadAnythingAppControllerTest, GetHtmlTag_InaccessiblePDF) {
   ui::AXNodeData node;
   node.id = 2;
   node.role = ax::mojom::Role::kContentInfo;
-  node.SetNameChecked(string_constants::kPDFPageEnd);
+  node.SetNameChecked(l10n_util::GetStringUTF8(IDS_PDF_OCR_RESULT_END));
   node.SetNameFrom(ax::mojom::NameFrom::kContents);
 
   ui::AXNodeData root;
@@ -1016,7 +1159,7 @@ TEST_F(ReadAnythingAppControllerTest,
 
 TEST_F(ReadAnythingAppControllerTest, GetDisplayNameForLocale) {
   EXPECT_EQ(GetDisplayNameForLocale("en-US", "en"), "English (United States)");
-  EXPECT_EQ(GetDisplayNameForLocale("en-US", "es"), "inglés (Estados Unidos)");
+  EXPECT_EQ(GetDisplayNameForLocale("en-US", "es"), "Inglés (Estados Unidos)");
   EXPECT_EQ(GetDisplayNameForLocale("en-US", "en-US"),
             "English (United States)");
   EXPECT_EQ(GetDisplayNameForLocale("en-UK", "en"), "English (United Kingdom)");
@@ -1349,6 +1492,65 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_EQ("Node 4", GetTextContent(4));
 }
 
+TEST_F(ReadAnythingAppControllerTest, AccessibilityEventReceivedWhileSpeaking) {
+  // Tree starts off with no text content.
+  EXPECT_EQ("", GetTextContent(1));
+  EXPECT_EQ("", GetTextContent(2));
+  EXPECT_EQ("", GetTextContent(3));
+  EXPECT_EQ("", GetTextContent(4));
+
+  // Send a new update which settings the text content of node 2.
+  ui::AXTreeUpdate update_1;
+  SetUpdateTreeID(&update_1);
+  ui::AXNodeData start_node;
+  start_node.id = 2;
+  start_node.role = ax::mojom::Role::kStaticText;
+  start_node.SetNameChecked("Hello world");
+  update_1.nodes = {start_node};
+  AccessibilityEventReceived({update_1});
+  EXPECT_EQ("Hello world", GetTextContent(1));
+  EXPECT_EQ("Hello world", GetTextContent(2));
+  EXPECT_EQ("", GetTextContent(3));
+  EXPECT_EQ("", GetTextContent(4));
+
+  // Send three updates while playing.
+  OnSpeechPlayingStateChanged(/* paused= */ false);
+  std::vector<ui::AXTreeUpdate> batch_updates;
+  for (int i = 2; i < 5; i++) {
+    ui::AXTreeUpdate update;
+    SetUpdateTreeID(&update);
+    ui::AXNodeData node;
+    node.id = i;
+    node.role = ax::mojom::Role::kStaticText;
+    node.SetNameChecked("Node " + base::NumberToString(i));
+    update.nodes = {node};
+    batch_updates.push_back(update);
+  }
+  AccessibilityEventReceived(batch_updates);
+  // The updates shouldn't be applied yet.
+  EXPECT_EQ("Hello world", GetTextContent(1));
+  EXPECT_EQ("Hello world", GetTextContent(2));
+
+  // Send another update after distillation finishes but before
+  // OnAXTreeDistilled would unserialize the pending updates. Since a11y events
+  // happen asynchronously, they can come between the time distillation finishes
+  // and pending updates are unserialized.
+  OnSpeechPlayingStateChanged(true);
+  ui::AXTreeUpdate update_2;
+  SetUpdateTreeID(&update_2);
+  ui::AXNodeData final_node;
+  final_node.id = 2;
+  final_node.role = ax::mojom::Role::kStaticText;
+  final_node.SetNameChecked("Final update");
+  update_2.nodes = {final_node};
+  AccessibilityEventReceived({update_2});
+
+  EXPECT_EQ("Final updateNode 3Node 4", GetTextContent(1));
+  EXPECT_EQ("Final update", GetTextContent(2));
+  EXPECT_EQ("Node 3", GetTextContent(3));
+  EXPECT_EQ("Node 4", GetTextContent(4));
+}
+
 TEST_F(ReadAnythingAppControllerTest, OnActiveAXTreeIDChanged) {
   // Create three AXTreeUpdates with three different tree IDs.
   std::vector<ui::AXTreeID> tree_ids = {ui::AXTreeID::CreateNewAXTreeID(),
@@ -1606,6 +1808,91 @@ TEST_F(ReadAnythingAppControllerTest,
   // request distillation (deferred from above) with state
   // `requires_distillation_` from the model.
   EXPECT_CALL(*distiller_, Distill).Times(1);
+  OnAXTreeDistilled({1});
+  EXPECT_EQ("234567", GetTextContent(1));
+  Mock::VerifyAndClearExpectations(distiller_);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       SpeechPlaying_TreeUpdateReceivedOnActiveTree) {
+  // Set the name of each node to be its id.
+  ui::AXTreeUpdate initial_update;
+  SetUpdateTreeID(&initial_update);
+  initial_update.root_id = 1;
+  initial_update.nodes.resize(3);
+  std::vector<int> child_ids;
+  for (int i = 0; i < 3; i++) {
+    int id = i + 2;
+    child_ids.push_back(id);
+    initial_update.nodes[i].id = id;
+    initial_update.nodes[i].role = ax::mojom::Role::kStaticText;
+    initial_update.nodes[i].SetNameChecked(base::NumberToString(id));
+  }
+  // No events we care about come about, so there's no distillation.
+  EXPECT_CALL(*distiller_, Distill).Times(0);
+  AccessibilityEventReceived({initial_update});
+  EXPECT_EQ("234", GetTextContent(1));
+  Mock::VerifyAndClearExpectations(distiller_);
+
+  std::vector<ui::AXTreeUpdate> updates;
+  for (int i = 0; i < 3; i++) {
+    int id = i + 5;
+    child_ids.push_back(id);
+
+    ui::AXTreeUpdate update;
+    SetUpdateTreeID(&update);
+    ui::AXNodeData root;
+    root.id = 1;
+    root.child_ids = child_ids;
+
+    ui::AXNodeData node;
+    node.id = id;
+    node.role = ax::mojom::Role::kStaticText;
+    node.SetNameChecked(base::NumberToString(id));
+    update.root_id = root.id;
+    update.nodes = {root, node};
+    updates.push_back(update);
+  }
+
+  // Send update 0. Data gets unserialized.
+  EXPECT_CALL(*distiller_, Distill).Times(0);
+  AccessibilityEventReceived({updates[0]});
+  EXPECT_EQ("2345", GetTextContent(1));
+  Mock::VerifyAndClearExpectations(distiller_);
+
+  // Send update 1. This triggers distillation via a non-generated event. The
+  // data is also unserialized.
+  EXPECT_CALL(*distiller_, Distill).Times(1);
+  ui::AXEvent load_complete_1(1, ax::mojom::Event::kLoadComplete);
+  AccessibilityEventReceived({updates[1]}, {load_complete_1});
+  EXPECT_EQ("23456", GetTextContent(1));
+  Mock::VerifyAndClearExpectations(distiller_);
+
+  // Send update 2. Distillation is still in progress; we get a non-generated
+  // event. This does not result in distillation (yet). The data is not
+  // unserialized. Speech starts playing
+  EXPECT_CALL(*distiller_, Distill).Times(0);
+  ui::AXEvent load_complete_2(2, ax::mojom::Event::kLoadComplete);
+  OnSpeechPlayingStateChanged(/*paused=*/false);
+  AccessibilityEventReceived({updates[2]}, {load_complete_2});
+  EXPECT_EQ("23456", GetTextContent(1));
+  Mock::VerifyAndClearExpectations(distiller_);
+
+  // Complete distillation with speech still playing. This does not result in
+  // distillation (yet). The data is not unserialized
+  EXPECT_CALL(*distiller_, Distill).Times(0);
+  OnAXTreeDistilled({1});
+  EXPECT_EQ("23456", GetTextContent(1));
+  Mock::VerifyAndClearExpectations(distiller_);
+
+  // Speech stops. We request distillation (deferred from above)
+  EXPECT_CALL(*distiller_, Distill).Times(1);
+  OnSpeechPlayingStateChanged(/*paused=*/true);
+  EXPECT_EQ("23456", GetTextContent(1));
+  Mock::VerifyAndClearExpectations(distiller_);
+
+  // Complete distillation. The queued up tree update gets unserialized.
+  EXPECT_CALL(*distiller_, Distill).Times(0);
   OnAXTreeDistilled({1});
   EXPECT_EQ("234567", GetTextContent(1));
   Mock::VerifyAndClearExpectations(distiller_);
@@ -2131,6 +2418,12 @@ TEST_F(ReadAnythingAppControllerTest,
        GetLanguageCodeForSpeech_ReturnsCorrectLanguageCode) {
   SetLanguageCode("es");
   ASSERT_EQ(LanguageCodeForSpeech(), "es");
+
+  SetLanguageCode("en-UK");
+  ASSERT_EQ(LanguageCodeForSpeech(), "en");
+
+  SetLanguageCode("zh-CN");
+  ASSERT_EQ(LanguageCodeForSpeech(), "zh");
 }
 
 TEST_F(ReadAnythingAppControllerTest,
@@ -2174,7 +2467,7 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_EQ((int)GetCurrentText().size(), 1);
 }
 TEST_F(ReadAnythingAppControllerTest, GetCurrentText_ReturnsExpectedNodes) {
-  // TODO(crbug.com/1474951): Investigate if we can improve in scenarios when
+  // TODO(crbug.com/40927698): Investigate if we can improve in scenarios when
   // there's not a space between sentences.
   std::u16string sentence1 = u"This is a sentence. ";
   std::u16string sentence2 = u"This is another sentence. ";

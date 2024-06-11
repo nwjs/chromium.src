@@ -416,19 +416,6 @@ void AXPlatformNodeWin::StateToUIAAriaProperty(
                        (value ? L"true" : L"false"));
 }
 
-void AXPlatformNodeWin::HtmlAttributeToUIAAriaProperty(
-    std::vector<std::wstring>& properties,
-    const char* html_attribute_name,
-    const char* uia_aria_property) {
-  std::u16string html_attribute_value;
-  if (GetHtmlAttribute(html_attribute_name, &html_attribute_value)) {
-    std::wstring wide_value = base::UTF16ToWide(html_attribute_value);
-    SanitizeStringAttributeForUIAAriaProperty(wide_value, &wide_value);
-    properties.push_back(base::ASCIIToWide(uia_aria_property) + L"=" +
-                         wide_value);
-  }
-}
-
 std::vector<AXPlatformNodeWin*>
 AXPlatformNodeWin::CreatePlatformNodeVectorFromRelationIdVector(
     const std::vector<int32_t>& relation_id_list) {
@@ -935,10 +922,6 @@ AXPlatformNodeWin::UIARoleProperties AXPlatformNodeWin::GetUIARoleProperties() {
       return {UIALocalizationStrategy::kSupply, UIA_ButtonControlTypeId,
               L"button"};
 
-    case ax::mojom::Role::kDirectory:
-      return {UIALocalizationStrategy::kDeferToAriaRole, UIA_ListControlTypeId,
-              L"directory"};
-
     case ax::mojom::Role::kDocCover:
       return {UIALocalizationStrategy::kSupply, UIA_ImageControlTypeId, L"img"};
 
@@ -1016,7 +999,7 @@ AXPlatformNodeWin::UIARoleProperties AXPlatformNodeWin::GetUIARoleProperties() {
 
     case ax::mojom::Role::kFeed:
       return {UIALocalizationStrategy::kSupply, UIA_GroupControlTypeId,
-              L"group"};
+              L"feed"};
 
     case ax::mojom::Role::kFigcaption:
       return {UIALocalizationStrategy::kSupply, UIA_GroupControlTypeId,
@@ -1308,6 +1291,7 @@ AXPlatformNodeWin::UIARoleProperties AXPlatformNodeWin::GetUIARoleProperties() {
               L"description"};
 
     case ax::mojom::Role::kSection:
+    case ax::mojom::Role::kSectionWithoutName:
       return {UIALocalizationStrategy::kSupply, UIA_GroupControlTypeId,
               L"group"};
 
@@ -1460,6 +1444,7 @@ AXPlatformNodeWin::UIARoleProperties AXPlatformNodeWin::GetUIARoleProperties() {
 
     case ax::mojom::Role::kDescriptionListTermDeprecated:
     case ax::mojom::Role::kDescriptionListDetailDeprecated:
+    case ax::mojom::Role::kDirectoryDeprecated:
     case ax::mojom::Role::kPreDeprecated:
       NOTREACHED_NORETURN();
   }
@@ -5756,7 +5741,7 @@ IFACEMETHODIMP AXPlatformNodeWin::get_bulkFetch(
   if (!delegate)
     return E_INVALIDARG;
 
-  // TODO(crbug.com/1083834): if parsing |input_json|, use
+  // TODO(crbug.com/40692720): if parsing |input_json|, use
   // DataDecoder because the json is untrusted. For now, this is just
   // a stub that calls PostTask so that it's async, but it doesn't
   // actually parse the input.
@@ -5792,7 +5777,7 @@ IFACEMETHODIMP AXPlatformNodeWin::get_hitTest(
   if (!delegate)
     return E_INVALIDARG;
 
-  // TODO(crbug.com/1083834): Plumb through an actual async hit test.
+  // TODO(crbug.com/40692720): Plumb through an actual async hit test.
   AXPlatformNodeWin* hit_child = static_cast<AXPlatformNodeWin*>(
       FromNativeViewAccessible(GetDelegate()->HitTestSync(
           screen_physical_pixel_x, screen_physical_pixel_y)));
@@ -6480,9 +6465,6 @@ int AXPlatformNodeWin::MSAARole() {
     case ax::mojom::Role::kDisclosureTriangleGrouped:
       return ROLE_SYSTEM_PUSHBUTTON;
 
-    case ax::mojom::Role::kDirectory:
-      return ROLE_SYSTEM_LIST;
-
     case ax::mojom::Role::kDocCover:
       return ROLE_SYSTEM_GRAPHIC;
 
@@ -6770,6 +6752,7 @@ int AXPlatformNodeWin::MSAARole() {
       return ROLE_SYSTEM_STATICTEXT;
 
     case ax::mojom::Role::kSection:
+    case ax::mojom::Role::kSectionWithoutName:
       return ROLE_SYSTEM_GROUPING;
 
     case ax::mojom::Role::kScrollBar:
@@ -6888,6 +6871,7 @@ int AXPlatformNodeWin::MSAARole() {
       return ROLE_SYSTEM_PANE;
     case ax::mojom::Role::kDescriptionListTermDeprecated:
     case ax::mojom::Role::kDescriptionListDetailDeprecated:
+    case ax::mojom::Role::kDirectoryDeprecated:
     case ax::mojom::Role::kPreDeprecated:
       NOTREACHED_NORETURN();
   }
@@ -7163,6 +7147,7 @@ int32_t AXPlatformNodeWin::ComputeIA2Role() {
       ia2_role = IA2_ROLE_LANDMARK;
       break;
     case ax::mojom::Role::kSection:
+    case ax::mojom::Role::kSectionWithoutName:
       ia2_role = IA2_ROLE_SECTION;
       break;
     case ax::mojom::Role::kSwitch:

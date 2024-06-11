@@ -151,7 +151,7 @@ bool ShouldUseAmdGpuPolicy(sandbox::mojom::Sandbox sandbox_type) {
 #if BUILDFLAG(IS_WIN)
 // Handle pre-lockdown sandbox hooks
 bool PreLockdownSandboxHook(base::span<const uint8_t> delegate_blob) {
-  // TODO(1435571) Migrate other settable things to delegate_data.
+  // TODO(crbug.com/40265190) Migrate other settable things to delegate_data.
   CHECK(!delegate_blob.empty());
   content::mojom::sandbox::UtilityConfigPtr sandbox_config;
   if (!content::mojom::sandbox::UtilityConfig::Deserialize(
@@ -202,11 +202,6 @@ int UtilityMain(MainFunctionParams parameters) {
           ? base::MessagePumpType::UI
           : base::MessagePumpType::DEFAULT;
 
-  if (parameters.command_line->GetSwitchValueASCII(switches::kUtilitySubType) ==
-      on_device_model::mojom::OnDeviceModelService::Name_) {
-    CHECK(on_device_model::OnDeviceModelService::PreSandboxInit());
-  }
-
 #if BUILDFLAG(IS_MAC)
   auto sandbox_type =
       sandbox::policy::SandboxTypeFromCommandLine(*parameters.command_line);
@@ -249,6 +244,10 @@ int UtilityMain(MainFunctionParams parameters) {
     if (dialog_match.empty() || dialog_match == utility_sub_type) {
       WaitForDebugger(utility_sub_type.empty() ? "Utility" : utility_sub_type);
     }
+  }
+
+  if (utility_sub_type == on_device_model::mojom::OnDeviceModelService::Name_) {
+    CHECK(on_device_model::OnDeviceModelService::PreSandboxInit());
   }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -437,6 +436,10 @@ int UtilityMain(MainFunctionParams parameters) {
       switches::kUtilityProcess);
 
   run_loop.Run();
+
+  if (utility_sub_type == on_device_model::mojom::OnDeviceModelService::Name_) {
+    CHECK(on_device_model::OnDeviceModelService::Shutdown());
+  }
 
 #if defined(LEAK_SANITIZER)
   // Invoke LeakSanitizer before shutting down the utility thread, to avoid

@@ -18,6 +18,7 @@ import("//third_party/blink/renderer/config.gni")
 import("//third_party/blink/renderer/platform/platform_generated.gni")
 import("//third_party/libgav1/options.gni")
 import("//third_party/webrtc/webrtc.gni")
+import("//ui/gl/features.gni")
 import("//v8/gni/v8.gni")
 
 if (is_ios) {
@@ -477,10 +478,6 @@ component("platform") {
     "bindings/multi_worlds_v8_reference.cc",
     "bindings/multi_worlds_v8_reference.h",
     "bindings/name_client.h",
-    "bindings/no_alloc_direct_call_exception_state.cc",
-    "bindings/no_alloc_direct_call_exception_state.h",
-    "bindings/no_alloc_direct_call_host.cc",
-    "bindings/no_alloc_direct_call_host.h",
     "bindings/observable_array_base.cc",
     "bindings/observable_array_base.h",
     "bindings/origin_trial_features.cc",
@@ -692,6 +689,8 @@ component("platform") {
     "fonts/font_variant_alternates.h",
     "fonts/font_variant_east_asian.cc",
     "fonts/font_variant_east_asian.h",
+    "fonts/font_variant_emoji.cc",
+    "fonts/font_variant_emoji.h",
     "fonts/font_variant_numeric.cc",
     "fonts/font_variant_numeric.h",
     "fonts/font_vertical_position_type.h",
@@ -1007,6 +1006,7 @@ component("platform") {
     "graphics/gpu/webgl_image_conversion.cc",
     "graphics/gpu/webgl_image_conversion.h",
     "graphics/gpu/webgpu_callback.h",
+    "graphics/gpu/webgpu_cpp.h",
     "graphics/gpu/webgpu_mailbox_texture.cc",
     "graphics/gpu/webgpu_mailbox_texture.h",
     "graphics/gpu/webgpu_resource_provider_cache.cc",
@@ -1212,7 +1212,6 @@ component("platform") {
     "graphics/video_frame_sink_bundle.h",
     "graphics/video_frame_submitter.cc",
     "graphics/video_frame_submitter.h",
-    "graphics/view_transition_element_id.h",
     "graphics/visual_rect_flags.h",
     "graphics/viz_util.cc",
     "graphics/viz_util.h",
@@ -1717,6 +1716,7 @@ component("platform") {
     "//third_party/blink/renderer/platform/loader",
     "//third_party/blink/renderer/platform/network",
     "//third_party/blink/renderer/platform/scheduler",
+    "//third_party/dawn/include/dawn:cpp_headers",
     "//third_party/fdlibm",
     "//third_party/pffft:pffft",
     "//ui/base/cursor",
@@ -1787,6 +1787,14 @@ component("platform") {
       "//third_party/zstd:compress",
       "//third_party/zstd:decompress",
     ]
+  }
+
+  if (use_dawn) {
+    deps += [ "//third_party/dawn/src/dawn/wire" ]
+  } else {
+    # If Dawn is not used, use the proc table. This gives the WebGPU implementation
+    # something to link to, though WebGPU won't be supported.
+    deps += [ "//third_party/dawn/src/dawn:proc" ]
   }
 
   if (is_android) {
@@ -1922,6 +1930,8 @@ static_library("test_support") {
     "testing/compositor_test.h",
     "testing/empty_web_media_player.cc",
     "testing/empty_web_media_player.h",
+    "testing/exception_state_matchers.cc",
+    "testing/exception_state_matchers.h",
     "testing/fake_display_item_client.h",
     "testing/find_cc_layer.cc",
     "testing/find_cc_layer.h",
@@ -2154,6 +2164,7 @@ source_set("blink_platform_unittests_sources") {
     "geometry/layout_unit_test.cc",
     "geometry/length_functions_test.cc",
     "geometry/length_test.cc",
+    "geometry/math_functions_test.cc",
     "graphics/accelerated_static_bitmap_image_test.cc",
     "graphics/bitmap_image_test.cc",
     "graphics/color_test.cc",
@@ -2174,6 +2185,8 @@ source_set("blink_platform_unittests_sources") {
     "graphics/gpu/drawing_buffer_test.cc",
     "graphics/gpu/shared_gpu_context_test.cc",
     "graphics/gpu/webgl_image_conversion_test.cc",
+    "graphics/gpu/webgpu_native_test_support.cc",
+    "graphics/gpu/webgpu_native_test_support.h",
     "graphics/gpu/webgpu_resource_provider_cache_test.cc",
     "graphics/gpu/webgpu_swap_buffer_provider_test.cc",
     "graphics/graphics_context_test.cc",
@@ -2343,6 +2356,7 @@ source_set("blink_platform_unittests_sources") {
     "//media:test_support",
     "//media/capture/mojom:video_capture",
     "//media/mojo:test_support",
+    "//media/webrtc:webrtc",
     "//mojo/core/embedder",
     "//mojo/public/cpp/bindings/tests:for_blink_tests",
     "//mojo/public/cpp/test_support:test_utils",
@@ -2365,6 +2379,8 @@ source_set("blink_platform_unittests_sources") {
     "//third_party/blink/renderer/platform/network:unit_tests",
     "//third_party/blink/renderer/platform/scheduler:unit_tests",
     "//third_party/blink/renderer/platform/wtf",
+    "//third_party/dawn/src/dawn/native",
+    "//third_party/dawn/src/dawn/wire",
     "//third_party/libyuv",
     "//third_party/webrtc/api/task_queue:task_queue_test",
     "//third_party/webrtc_overrides:metronome_like_task_queue_test",

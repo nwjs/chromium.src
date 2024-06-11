@@ -75,7 +75,14 @@ enum FeatureState {
 // Features should *not* be defined in header files; do not use this macro in
 // header files.
 #define BASE_FEATURE(feature, name, default_state) \
-  constinit const base::Feature feature(name, default_state)
+  constinit const base::Feature feature(           \
+      name, default_state, base::internal::FeatureMacroHandshake::kSecret)
+
+// Secret handshake to (try to) ensure all places that construct a base::Feature
+// go through the helper `BASE_FEATURE()` macro above.
+namespace internal {
+enum class FeatureMacroHandshake { kSecret };
+}
 
 // The Feature struct is used to define the default state for a feature. There
 // must only ever be one struct instance for a given feature name—generally
@@ -99,7 +106,9 @@ enum FeatureState {
 // [1]:
 // https://crsrc.org/c/docs/speed/binary_size/android_binary_size_trybot.md#Mutable-Constants
 struct BASE_EXPORT LOGICALLY_CONST Feature {
-  constexpr Feature(const char* name, FeatureState default_state)
+  constexpr Feature(const char* name,
+                    FeatureState default_state,
+                    internal::FeatureMacroHandshake)
       : name(name), default_state(default_state) {
 #if BUILDFLAG(ENABLE_BANNED_BASE_FEATURE_PREFIX)
     if (std::string_view(name).find(BUILDFLAG(BANNED_BASE_FEATURE_PREFIX)) ==
@@ -389,14 +398,14 @@ class BASE_EXPORT FeatureList {
   //
   // If no `FeatureList` instance is registered, this will:
   // - DCHECK(), if FailOnFeatureAccessWithoutFeatureList() was called.
-  //     TODO(crbug.com/1358639): Change the DCHECK to a CHECK when we're
+  //     TODO(crbug.com/40237050): Change the DCHECK to a CHECK when we're
   //     confident that all early accesses have been fixed. We don't want to
   //     get many crash reports from the field in the meantime.
   // - Return the default state, otherwise. Registering a `FeatureList` later
   //   will fail.
   //
-  // TODO(crbug.com/1358639): Make early FeatureList access fail on iOS, Android
-  // and ChromeOS. This currently only works on Windows, Mac and Linux.
+  // TODO(crbug.com/40237050): Make early FeatureList access fail on iOS,
+  // Android and ChromeOS. This currently only works on Windows, Mac and Linux.
   //
   // A feature with a given name must only have a single corresponding Feature
   // instance, which is checked in builds with DCHECKs enabled.
@@ -489,7 +498,7 @@ class BASE_EXPORT FeatureList {
   // After calling this, an attempt to access feature state when no FeatureList
   // is registered will DCHECK.
   //
-  // TODO(crbug.com/1358639): Change the DCHECK to a CHECK when we're confident
+  // TODO(crbug.com/40237050): Change the DCHECK to a CHECK when we're confident
   // that all early accesses have been fixed. We don't want to get many crash
   // reports from the field in the meantime.
   //

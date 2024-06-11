@@ -75,7 +75,6 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
-#include "chrome/browser/component_updater/cros_component_manager.h"
 #include "chrome/browser/notifications/system_notification_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
@@ -85,11 +84,13 @@
 #include "chrome/common/chrome_paths.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/standalone_browser/browser_support.h"
+#include "chromeos/ash/components/standalone_browser/lacros_selection.h"
 #include "chromeos/ash/components/standalone_browser/migrator_util.h"
 #include "chromeos/crosapi/cpp/crosapi_constants.h"
 #include "chromeos/crosapi/cpp/lacros_startup_state.h"
 #include "chromeos/crosapi/mojom/crosapi.mojom-shared.h"
 #include "components/account_id/account_id.h"
+#include "components/component_updater/ash/component_manager_ash.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/nacl/common/buildflags.h"
@@ -358,7 +359,7 @@ BrowserManager* BrowserManager::Get() {
 }
 
 BrowserManager::BrowserManager(
-    scoped_refptr<component_updater::CrOSComponentManager> manager)
+    scoped_refptr<component_updater::ComponentManagerAsh> manager)
     : BrowserManager(std::make_unique<BrowserLoader>(manager),
                      g_browser_process->component_updater()) {}
 
@@ -819,7 +820,7 @@ void BrowserManager::Start(bool launching_at_login_screen) {
   CHECK(lacros_selection_.has_value());
 
   // Lacros-chrome starts with kNormal type
-  // TODO(crbug.com/1289736): When `LacrosThreadTypeDelegate` becomes usable,
+  // TODO(crbug.com/40212082): When `LacrosThreadTypeDelegate` becomes usable,
   // `options.pre_exec_delegate` should be assigned a `LacrosThreadTypeDelegate`
   // object.
   browser_launcher_.Launch(
@@ -1196,7 +1197,8 @@ void BrowserManager::ResumeLaunch() {
   // If Lacros selection (rootfs/stateful) for this user is forced to a
   // different value than the Lacros that was launched at login screen,
   // we need to reload and relaunch the correct version of Lacros.
-  auto user_lacros_selection = browser_util::DetermineLacrosSelection();
+  auto user_lacros_selection =
+      ash::standalone_browser::DetermineLacrosSelection();
   if (user_lacros_selection.has_value() &&
       lacros_selection_ != LacrosSelection::kDeployedLocally &&
       lacros_selection_ != user_lacros_selection) {

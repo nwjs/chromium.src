@@ -23,7 +23,7 @@ class GURL;
   [SigninEarlGreyImpl invokedFromFile:@"" __FILE__ lineNumber:__LINE__]
 
 // Methods used for the EarlGrey tests.
-// TODO(crbug.com/974833): Consider moving these into ChromeEarlGrey.
+// TODO(crbug.com/41465348): Consider moving these into ChromeEarlGrey.
 @interface SigninEarlGreyImpl : BaseEGTestHelperImpl
 
 // Calls -[SigninEarlGreyImpl addFakeIdentity:withUnknownCapabilities:NO].
@@ -100,7 +100,7 @@ class GURL;
 
 // Triggers the reauth dialog. This is done by sending ShowSigninCommand to
 // SceneController, without any UI interaction to open the dialog.
-// TODO(crbug.com/1454101): To be consistent, this method should be renamed to
+// TODO(crbug.com/40916763): To be consistent, this method should be renamed to
 // `triggerSigninAndSyncReauthWithFakeIdentity:`.
 - (void)triggerReauthDialogWithFakeIdentity:(FakeSystemIdentity*)identity;
 

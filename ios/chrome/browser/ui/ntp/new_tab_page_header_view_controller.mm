@@ -196,7 +196,7 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
   }
 }
 
-// TODO(crbug.com/1403613): Name animateScrollAnimation something more aligned
+// TODO(crbug.com/40251610): Name animateScrollAnimation something more aligned
 // to its true state indication. Why update the constraints only sometimes?
 - (void)updateFakeOmniboxForOffset:(CGFloat)offset
                        screenWidth:(CGFloat)screenWidth
@@ -505,8 +505,8 @@ const CGFloat kFakeLocationBarHeightMargin = 2;
                                   self.fakeOmnibox);
 }
 
-// TODO(crbug.com/807330) The fakebox is currently a collection of views spread
-// between NewTabPageHeaderViewController and inside
+// TODO(crbug.com/41367911) The fakebox is currently a collection of views
+// spread between NewTabPageHeaderViewController and inside
 // NewTabPageHeaderView.  Post refresh this can be coalesced into one
 // control, and the KVO highlight logic below can be removed.
 - (void)observeValueForKeyPath:(NSString*)keyPath

@@ -84,11 +84,11 @@ os = struct(
     MAC_12 = os_enum(os_category.MAC, "Mac-12"),
     MAC_13 = os_enum(os_category.MAC, "Mac-13"),
     MAC_14 = os_enum(os_category.MAC, "Mac-14"),
-    MAC_DEFAULT = os_enum(os_category.MAC, "Mac-13|Mac-14"),
+    MAC_DEFAULT = os_enum(os_category.MAC, "Mac-14"),
     MAC_ANY = os_enum(os_category.MAC, "Mac"),
     MAC_BETA = os_enum(os_category.MAC, "Mac-14"),
     WINDOWS_10 = os_enum(os_category.WINDOWS, "Windows-10"),
-    # TODO(crbug.com/1519680): remove after slow compile issue resolved.
+    # TODO(crbug.com/41492657): remove after slow compile issue resolved.
     WINDOWS_10_1909 = os_enum(os_category.WINDOWS, "Windows-10-18363"),
     WINDOWS_11 = os_enum(os_category.WINDOWS, "Windows-11"),
     WINDOWS_DEFAULT = os_enum(os_category.WINDOWS, "Windows-10"),
@@ -107,14 +107,8 @@ reclient = struct(
         LOW_JOBS_FOR_CI = 80,
         HIGH_JOBS_FOR_CI = 500,
         LOW_JOBS_FOR_CQ = 150,
-        HIGH_JOBS_FOR_CQ = 500,
-    ),
-)
-
-siso = struct(
-    project = struct(
-        DEFAULT_TRUSTED = reclient.instance.DEFAULT_TRUSTED,
-        DEFAULT_UNTRUSTED = reclient.instance.DEFAULT_UNTRUSTED,
+        # Calculated based on the number of CPUs inside Siso.
+        HIGH_JOBS_FOR_CQ = -1,
     ),
 )
 
@@ -364,10 +358,9 @@ defaults = args.defaults(
     reclient_ensure_verified = None,
     reclient_disable_bq_upload = None,
     siso_enabled = None,
-    siso_configs = None,
-    siso_project = None,
-    siso_enable_cloud_profiler = None,
-    siso_enable_cloud_trace = None,
+    siso_configs = ["builder"],
+    siso_enable_cloud_profiler = True,
+    siso_enable_cloud_trace = True,
     siso_experiments = [],
     siso_remote_jobs = None,
     health_spec = None,
@@ -378,7 +371,6 @@ defaults = args.defaults(
     shadow_pool = None,
     shadow_service_account = None,
     shadow_reclient_instance = None,
-    shadow_siso_project = None,
 
     # Provide vars for bucket and executable so users don't have to
     # unnecessarily make wrapper functions
@@ -443,7 +435,6 @@ def builder(
         reclient_disable_bq_upload = None,
         siso_enabled = args.DEFAULT,
         siso_configs = args.DEFAULT,
-        siso_project = args.DEFAULT,
         siso_enable_cloud_profiler = args.DEFAULT,
         siso_enable_cloud_trace = args.DEFAULT,
         siso_experiments = args.DEFAULT,
@@ -455,9 +446,9 @@ def builder(
         shadow_pool = args.DEFAULT,
         shadow_service_account = args.DEFAULT,
         shadow_reclient_instance = args.DEFAULT,
-        shadow_siso_project = args.DEFAULT,
         gn_args = None,
         targets = None,
+        targets_settings = None,
         contact_team_email = args.DEFAULT,
         **kwargs):
     """Define a builder.
@@ -647,8 +638,6 @@ def builder(
             be used at compile step.
         siso_configs: a list of siso configs to enable. available values are defined in
             //build/config/siso/config.star.
-        siso_project: a string indicating the GCP project hosting the RBE
-            instance and other Cloud services. e.g. logging, trace etc.
         siso_enable_cloud_profiler: If True, enable cloud profiler in siso.
         siso_enable_cloud_trace: If True, enable cloud trace in siso.
         siso_experiments: a list of experiment flags for siso.
@@ -674,9 +663,6 @@ def builder(
             use this as the reclient instance instead of reclient_instance. The
             other reclient_* values will continue to be used for the shadow
             build.
-        shadow_siso_project: If set, then led builds for this builder will
-            use this as the siso project instead of siso_project. The other
-            siso_* values will continue to be used for the shadow build.
         gn_args: If set, the GN args config to use for the builder. It can be
             set to the name of a predeclared config or an unnamed
             gn_args.config declaration for an unphased config. A builder can use
@@ -687,6 +673,8 @@ def builder(
             define a bundle with the same name containing only that target), a
             targets.bundle instance or a list where each element is the name of
             a targets bundle or a targets.bundle instance.
+        targets_settings: The settings to use when expanding the targets for the
+            builder.
         contact_team_email: The e-mail of the team responsible for the health of
             the builder.
         **kwargs: Additional keyword arguments to forward on to `luci.builder`.
@@ -837,8 +825,11 @@ def builder(
         ensure_verified = reclient_ensure_verified,
         disable_bq_upload = reclient_disable_bq_upload,
     )
+    rbe_project = None
+    shadow_rbe_project = None
     if reclient != None:
         properties["$build/reclient"] = reclient
+        rbe_project = reclient["instance"]
         shadow_reclient_instance = defaults.get_value("shadow_reclient_instance", shadow_reclient_instance)
         shadow_reclient = _reclient_property(
             instance = shadow_reclient_instance,
@@ -855,24 +846,23 @@ def builder(
         )
         if shadow_reclient:
             shadow_properties["$build/reclient"] = shadow_reclient
-
-    siso_project = defaults.get_value("siso_project", siso_project)
-    use_siso = defaults.get_value("siso_enabled", siso_enabled) and siso_project
+            shadow_rbe_project = shadow_reclient["instance"]
+    use_siso = defaults.get_value("siso_enabled", siso_enabled) and rbe_project
     if use_siso:
         siso = {
             "configs": defaults.get_value("siso_configs", siso_configs),
             "enable_cloud_profiler": defaults.get_value("siso_enable_cloud_profiler", siso_enable_cloud_profiler),
             "enable_cloud_trace": defaults.get_value("siso_enable_cloud_trace", siso_enable_cloud_trace),
             "experiments": defaults.get_value("siso_experiments", siso_experiments),
-            "project": siso_project,
+            "project": rbe_project,
         }
         remote_jobs = defaults.get_value("siso_remote_jobs", siso_remote_jobs)
         if remote_jobs:
             siso["remote_jobs"] = remote_jobs
         properties["$build/siso"] = siso
-        if defaults.get_value("shadow_siso_project", shadow_siso_project):
+        if shadow_rbe_project:
             shadow_siso = dict(siso)
-            shadow_siso["project"] = defaults.get_value("shadow_siso_project", shadow_siso_project)
+            shadow_siso["project"] = shadow_rbe_project
             shadow_properties["$build/siso"] = shadow_siso
 
     pgo = _pgo_property(
@@ -966,6 +956,7 @@ def builder(
         mirrors,
         builder_config_settings,
         targets,
+        targets_settings,
         additional_exclusions,
     )
 

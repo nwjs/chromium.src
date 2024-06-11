@@ -28,6 +28,7 @@
 #include "content/services/auction_worklet/public/cpp/auction_downloader.h"
 #include "content/services/auction_worklet/public/cpp/auction_network_events_delegate.h"
 #include "gin/converter.h"
+#include "gin/dictionary.h"
 #include "net/base/parse_number.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
 #include "url/gurl.h"
@@ -369,7 +370,7 @@ v8::Local<v8::Object> TrustedSignals::Result::GetScoringSignals(
                           *render_url_data_, v8_helper, context);
   bool result = v8_helper->InsertValue("renderURL", render_url_v8_object, out);
   DCHECK(result);
-  // TODO(crbug.com/1441988): Remove deprecated `renderUrl` alias.
+  // TODO(crbug.com/40266734): Remove deprecated `renderUrl` alias.
   result = v8_helper->InsertValue("renderUrl", render_url_v8_object, out);
   DCHECK(result);
 
@@ -380,12 +381,29 @@ v8::Local<v8::Object> TrustedSignals::Result::GetScoringSignals(
         ad_component_render_urls, *ad_component_data_, v8_helper, context);
     result = v8_helper->InsertValue("adComponentRenderURLs",
                                     ad_components_v8_object, out);
-    // TODO(crbug.com/1441988): Remove deprecated `adComponentRenderUrls` alias.
+    // TODO(crbug.com/40266734): Remove deprecated `adComponentRenderUrls`
+    // alias.
     result = v8_helper->InsertValue("adComponentRenderUrls",
                                     ad_components_v8_object, out);
     DCHECK(result);
   }
 
+  return out;
+}
+
+// static
+v8::Local<v8::Value> TrustedSignals::Result::WrapCrossOriginSignals(
+    AuctionV8Helper* v8_helper,
+    v8::Local<v8::Context> context,
+    const url::Origin& source_origin,
+    v8::Local<v8::Value> signals) {
+  v8::Isolate* isolate = v8_helper->isolate();
+  if (signals->IsNullOrUndefined()) {
+    return v8::Null(isolate);
+  }
+  v8::Local<v8::Object> out = v8::Object::New(v8_helper->isolate());
+  gin::Dictionary out_converter(isolate, out);
+  out_converter.Set(source_origin.Serialize(), signals);
   return out;
 }
 
@@ -424,7 +442,7 @@ GURL TrustedSignals::BuildTrustedScoringSignalsURL(
     const std::set<std::string>& render_urls,
     const std::set<std::string>& ad_component_render_urls,
     std::optional<uint16_t> experiment_group_id) {
-  // TODO(crbug.com/1432707): Find a way to rename renderUrls to renderURLs.
+  // TODO(crbug.com/40264073): Find a way to rename renderUrls to renderURLs.
   std::string query_params = base::StrCat(
       {"hostname=", base::EscapeQueryParamValue(hostname, /*use_plus=*/true),
        CreateQueryParam("renderUrls", render_urls),
@@ -554,7 +572,7 @@ void TrustedSignals::StartDownload(
       url_loader_factory, full_signals_url,
       AuctionDownloader::DownloadMode::kActualDownload,
       AuctionDownloader::MimeType::kJson,
-      /*post_body=*/std::nullopt,
+      /*post_body=*/std::nullopt, AuctionDownloader::ResponseStartedCallback(),
       base::BindOnce(&TrustedSignals::OnDownloadComplete,
                      base::Unretained(this)),
       /*network_events_delegate=*/std::move(network_events_delegate));
@@ -699,7 +717,7 @@ void TrustedSignals::HandleDownloadResultOnV8Thread(
     base::UmaHistogramTimes("Ads.InterestGroup.Net.DownloadTime.TrustedScoring",
                             download_time);
 
-    // TODO(crbug.com/1441988): Remove deprecated `renderUrl` alias.
+    // TODO(crbug.com/40266734): Remove deprecated `renderUrl` alias.
     auto render_urls_map = ParseChildKeyValueMap(v8_helper.get(), v8_object,
                                                  "renderURLs", *render_urls);
     auto render_urls_map_deprecated = ParseChildKeyValueMap(

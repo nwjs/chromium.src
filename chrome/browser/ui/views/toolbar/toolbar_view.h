@@ -59,6 +59,7 @@ class PinnedToolbarActionsContainer;
 class ToolbarButton;
 class AvatarToolbarButtonBrowserTest;
 class ToolbarController;
+class PerformanceInterventionButton;
 
 namespace media_router {
 class CastToolbarButton;
@@ -196,7 +197,8 @@ class ToolbarView : public views::AccessiblePaneView,
                                   ui::Accelerator* accelerator) const override;
 
   // views::View:
-  gfx::Size CalculatePreferredSize() const override;
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
   gfx::Size GetMinimumSize() const override;
   void Layout(PassKey) override;
   void OnThemeChanged() override;
@@ -294,6 +296,8 @@ class ToolbarView : public views::AccessiblePaneView,
   raw_ptr<views::View> toolbar_divider_ = nullptr;
   raw_ptr<ChromeLabsButton> chrome_labs_button_ = nullptr;
   raw_ptr<BatterySaverButton> battery_saver_button_ = nullptr;
+  raw_ptr<PerformanceInterventionButton> performance_intervention_button_ =
+      nullptr;
   raw_ptr<media_router::CastToolbarButton> cast_ = nullptr;
   raw_ptr<SidePanelToolbarContainer> side_panel_container_ = nullptr;
   raw_ptr<PinnedToolbarActionsContainer> pinned_toolbar_actions_container_ =

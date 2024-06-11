@@ -202,6 +202,8 @@ protocol::DOM::PseudoType InspectorDOMAgent::ProtocolPseudoElementType(
       return protocol::DOM::PseudoTypeEnum::Backdrop;
     case kPseudoIdSelection:
       return protocol::DOM::PseudoTypeEnum::Selection;
+    case kPseudoIdSearchText:
+      return protocol::DOM::PseudoTypeEnum::SearchText;
     case kPseudoIdTargetText:
       return protocol::DOM::PseudoTypeEnum::TargetText;
     case kPseudoIdSpellingError:
@@ -1701,6 +1703,30 @@ protocol::Response InspectorDOMAgent::getQueryingDescendantsForContainer(
     (*node_ids)->push_back(id);
   }
 
+  return protocol::Response::Success();
+}
+
+protocol::Response InspectorDOMAgent::getElementByRelation(
+    int node_id,
+    const String& relation,
+    int* related_element_id) {
+  *related_element_id = 0;
+  Node* node = nullptr;
+  protocol::Response response = AssertNode(node_id, node);
+  if (!response.IsSuccess()) {
+    return response;
+  }
+
+  Element* element = nullptr;
+  if (relation == protocol::DOM::GetElementByRelation::RelationEnum::PopoverTarget) {
+      if (auto* invoker = DynamicTo<HTMLFormControlElement>(node)) {
+        element = invoker->popoverTargetElement().popover;
+      }
+  }
+
+  if (element) {
+    *related_element_id = PushNodePathToFrontend(element);
+  }
   return protocol::Response::Success();
 }
 

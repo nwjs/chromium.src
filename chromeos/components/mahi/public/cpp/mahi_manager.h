@@ -16,6 +16,8 @@
 #include "chromeos/crosapi/mojom/mahi.mojom.h"
 #include "ui/gfx/image/image_skia.h"
 
+class GURL;
+
 namespace chromeos {
 
 struct MahiOutline {
@@ -48,12 +50,10 @@ class COMPONENT_EXPORT(MAHI_PUBLIC_CPP) MahiManager {
 
   static bool IsSupportedWithCorrectFeatureKey();
 
-  // Opens the Mahi Panel in the display with `display_id`.
-  virtual void OpenMahiPanel(int64_t display_id) = 0;
-
   // Gets information about the content on the corresponding surface.
   virtual std::u16string GetContentTitle() = 0;
   virtual gfx::ImageSkia GetContentIcon() = 0;
+  virtual GURL GetContentUrl() = 0;
 
   // Returns the quick summary of the current active content on the
   // corresponding surface.

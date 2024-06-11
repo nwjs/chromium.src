@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "base/containers/contains.h"
-#include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -58,6 +57,10 @@
 #include "ui/views/view_class_properties.h"
 #include "ui/views/views_features.h"
 #include "ui/views/widget/widget.h"
+
+#if !BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ui/views/media_preview/media_preview_feature.h"
+#endif
 
 namespace {
 
@@ -167,7 +170,9 @@ PermissionPromptBubbleOneOriginView::PermissionPromptBubbleOneOriginView(
   for (std::size_t i = 0; i < visible_requests.size(); i++) {
     AddRequestLine(visible_requests[i], i);
     if (visible_requests[i]->request_type() ==
-        permissions::RequestType::kCameraStream) {
+            permissions::RequestType::kCameraStream ||
+        visible_requests[i]->request_type() ==
+            permissions::RequestType::kCameraPanTiltZoom) {
       requested_video_capture_device_ids =
           visible_requests[i]->GetRequestedVideoCaptureDeviceIds();
     } else if (visible_requests[i]->request_type() ==
@@ -185,7 +190,7 @@ PermissionPromptBubbleOneOriginView::~PermissionPromptBubbleOneOriginView() =
     default;
 
 void PermissionPromptBubbleOneOriginView::RunButtonCallback(int button_id) {
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_CHROMEOS)
   auto button = GetPermissionDialogButton(button_id);
   if (button == PermissionDialogButton::kAccept ||
       button == PermissionDialogButton::kAcceptOnce) {
@@ -217,7 +222,7 @@ void PermissionPromptBubbleOneOriginView::AddRequestLine(
       provider->GetDistanceMetric(
           DISTANCE_PERMISSION_PROMPT_HORIZONTAL_ICON_LABEL_PADDING)));
 
-  const int kPermissionIconSize = features::IsChromeRefresh2023() ? 20 : 18;
+  constexpr int kPermissionIconSize = 20;
   auto* icon = line_container->AddChildView(
       std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
           permissions::GetIconId(request->request_type()), ui::kColorIcon,
@@ -229,24 +234,25 @@ void PermissionPromptBubbleOneOriginView::AddRequestLine(
   label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   label->SetMultiLine(true);
 
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_CHROMEOS)
   if (request->request_type() == permissions::RequestType::kMicStream) {
     mic_permission_label_ = label;
   } else if (request->request_type() ==
              permissions::RequestType::kCameraStream) {
     camera_permission_label_ = label;
+  } else if (request->request_type() ==
+             permissions::RequestType::kCameraPanTiltZoom) {
+    ptz_camera_permission_label_ = label;
   }
 #endif
 
-  if (features::IsChromeRefresh2023()) {
-    label->SetTextStyle(views::style::STYLE_BODY_3);
-    label->SetEnabledColorId(kColorPermissionPromptRequestText);
+  label->SetTextStyle(views::style::STYLE_BODY_3);
+  label->SetEnabledColorId(kColorPermissionPromptRequestText);
 
-    if (index == 0u) {
-      constexpr int kPermissionBodyTopMargin = 10;
-      line_container->SetProperty(
-          views::kMarginsKey, gfx::Insets().set_top(kPermissionBodyTopMargin));
-    }
+  if (index == 0u) {
+    constexpr int kPermissionBodyTopMargin = 10;
+    line_container->SetProperty(
+        views::kMarginsKey, gfx::Insets().set_top(kPermissionBodyTopMargin));
   }
 }
 
@@ -254,8 +260,10 @@ void PermissionPromptBubbleOneOriginView::MaybeAddMediaPreview(
     std::vector<std::string> requested_audio_capture_device_ids,
     std::vector<std::string> requested_video_capture_device_ids,
     size_t index) {
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-  if (!base::FeatureList::IsEnabled(blink::features::kCameraMicPreview)) {
+#if !BUILDFLAG(IS_CHROMEOS)
+  // Unit tests call this without initializing `browser_`, but this should not
+  // happen in production code.
+  if (!browser_) {
     return;
   }
 
@@ -264,13 +272,22 @@ void PermissionPromptBubbleOneOriginView::MaybeAddMediaPreview(
     return;
   }
 
-  if (!camera_permission_label_ && !mic_permission_label_) {
+  if (!camera_permission_label_ && !mic_permission_label_ &&
+      !ptz_camera_permission_label_) {
+    return;
+  }
+
+  // Check this last, as it queries the origin trials service.
+  if (!media_preview_feature::ShouldShowMediaPreview(
+          *browser_->profile(), delegate()->GetRequestingOrigin(),
+          delegate()->GetEmbeddingOrigin(),
+          media_preview_metrics::UiLocation::kPermissionPrompt)) {
     return;
   }
 
   auto* cached_device_info = media_effects::MediaDeviceInfo::GetInstance();
   devices_observer_.Observe(cached_device_info);
-  if (camera_permission_label_) {
+  if (camera_permission_label_ || ptz_camera_permission_label_) {
     // Initialize camera label with the current number of cached video devices.
     OnVideoDevicesChanged(cached_device_info->GetVideoDeviceInfos());
   }
@@ -285,7 +302,7 @@ void PermissionPromptBubbleOneOriginView::MaybeAddMediaPreview(
 #endif
 }
 
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_CHROMEOS)
 void PermissionPromptBubbleOneOriginView::OnAudioDevicesChanged(
     const std::optional<std::vector<media::AudioDeviceDescription>>&
         device_infos) {
@@ -307,18 +324,25 @@ void PermissionPromptBubbleOneOriginView::OnAudioDevicesChanged(
 void PermissionPromptBubbleOneOriginView::OnVideoDevicesChanged(
     const std::optional<std::vector<media::VideoCaptureDeviceInfo>>&
         device_infos) {
-  if (!camera_permission_label_ || !device_infos) {
+  bool have_any_camera_label =
+      ptz_camera_permission_label_ || camera_permission_label_;
+  if (!have_any_camera_label || !device_infos) {
     return;
+  }
+
+  auto camera_label = camera_permission_label_;
+  auto message_id = IDS_MEDIA_CAPTURE_VIDEO_ONLY_PERMISSION_FRAGMENT_WITH_COUNT;
+  if (ptz_camera_permission_label_) {
+    camera_label = ptz_camera_permission_label_;
+    message_id =
+        IDS_MEDIA_CAPTURE_CAMERA_PAN_TILT_ZOOM_PERMISSION_FRAGMENT_WITH_COUNT;
   }
 
   const auto real_device_names =
       media_effects::GetRealVideoDeviceNames(device_infos.value());
-
-  camera_permission_label_->SetText(l10n_util::GetStringFUTF16(
-      IDS_MEDIA_CAPTURE_VIDEO_ONLY_PERMISSION_FRAGMENT_WITH_COUNT,
-      base::NumberToString16(real_device_names.size())));
-
-  camera_permission_label_->SetTooltipText(
+  camera_label->SetText(l10n_util::GetStringFUTF16(
+      message_id, base::NumberToString16(real_device_names.size())));
+  camera_label->SetTooltipText(
       base::UTF8ToUTF16(base::JoinString(real_device_names, "\n")));
 }
 #endif

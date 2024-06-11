@@ -2132,6 +2132,10 @@ chromium-metrics-reviews@google.com.
   <int value="1253" label="ChromeDataRegionSetting"/>
   <int value="1254" label="ContextualGoogleIntegrationsEnabled"/>
   <int value="1255" label="ContextualGoogleIntegrationsConfiguration"/>
+  <int value="1256" label="PdfViewerOutOfProcessIframeEnabled"/>
+  <int value="1257" label="LockScreenAutoStartOnlineReauth"/>
+  <int value="1261" label="MemorySaverModeSavings"/>
+  <int value="1266" label="LensOverlaySettings"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2407,7 +2411,8 @@ chromium-metrics-reviews@google.com.
   <int value="18" label="Clear the cache and cookies command"/>
   <int value="19" label="Resets the cellular EUICC command"/>
   <int value="20" label="Rotate attestation credentials command"/>
-  <int value="21" label="Fetch support packet command"/>
+  <int value="21" label="Fetch CRD availability info command"/>
+  <int value="22" label="Fetch support packet command"/>
 </enum>
 
 <enum name="ReportSchedulerReportTrigger">
@@ -2455,12 +2460,6 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Canvas"/>
   <int value="7" label="[Deprecated] Google News"/>
   <int value="8" label="Explore"/>
-</enum>
-
-<enum name="VPDCacheReadResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="File missing"/>
-  <int value="2" label="Parsing failed"/>
 </enum>
 
 <enum name="WmiQueryError">

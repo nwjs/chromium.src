@@ -15,10 +15,14 @@ suite('OverlayCloseButton', () => {
   let lensOverlayElement: LensOverlayAppElement;
 
   setup(() => {
+    // Resetting the HTML needs to be the first thing we do in setup to
+    // guarantee that any singleton instances don't change while any UI is still
+    // attached to the DOM.
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
     testBrowserProxy = new TestLensOverlayBrowserProxy();
     BrowserProxyImpl.setInstance(testBrowserProxy);
 
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
     lensOverlayElement = document.createElement('lens-overlay-app');
     document.body.appendChild(lensOverlayElement);
     return waitBeforeNextRender(lensOverlayElement);
@@ -26,6 +30,7 @@ suite('OverlayCloseButton', () => {
 
   test('verify clicking close button calls browser proxy', () => {
     lensOverlayElement.$.closeButton.click();
-    return testBrowserProxy.handler.whenCalled('closeRequestedByOverlay');
+    return testBrowserProxy.handler.whenCalled(
+        'closeRequestedByOverlayCloseButton');
   });
 });

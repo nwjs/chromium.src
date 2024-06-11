@@ -11,15 +11,43 @@
 
 namespace ash::cfm {
 
+namespace {
+
+// Local convenience aliases
+using mojom::DataFilter::FilterType::CHANGE;
+using mojom::DataFilter::FilterType::REGEX;
+
 static DataAggregatorService* g_data_aggregator_service = nullptr;
 
-constexpr base::TimeDelta kFetchFrequency = base::Seconds(30);
+constexpr base::TimeDelta kFetchFrequency = base::Minutes(1);
 constexpr base::TimeDelta kDefaultCommandPollFrequency = base::Seconds(5);
+constexpr base::TimeDelta kDefaultLogPollFrequency = base::Seconds(10);
+constexpr size_t kDefaultLogBatchSize = 500;  // lines
+
+constexpr base::TimeDelta kServiceAdaptorRetryDelay = base::Seconds(1);
+constexpr size_t kServiceAdaptorRetryMaxTries = 5;
+
+const char* kLocalCommandSources[] = {
+    "ip -brief address",
+};
+
+const char* kLocalLogSources[] = {
+    "/var/log/messages",
+};
+
+}  // namespace
 
 // static
 void DataAggregatorService::Initialize() {
   CHECK(!g_data_aggregator_service);
   g_data_aggregator_service = new DataAggregatorService();
+}
+
+// static
+void DataAggregatorService::InitializeForTesting(
+    DataAggregatorService* data_aggregator_service) {
+  CHECK(!g_data_aggregator_service);
+  g_data_aggregator_service = data_aggregator_service;
 }
 
 // static
@@ -125,10 +153,12 @@ void DataAggregatorService::AddLocalCommandSource(const std::string& command) {
       base::BindOnce(
           [](mojo::PendingReceiver<mojom::DataSource> pending_receiver,
              const std::string& command) {
-            mojo::MakeSelfOwnedReceiver(
-                std::make_unique<CommandSource>(command,
-                                                kDefaultCommandPollFrequency),
-                std::move(pending_receiver));
+            auto source = std::make_unique<CommandSource>(
+                command, kDefaultCommandPollFrequency);
+            source->StartCollectingData();
+
+            mojo::MakeSelfOwnedReceiver(std::move(source),
+                                        std::move(pending_receiver));
           },
           remote.BindNewPipeAndPassReceiver(), command));
 
@@ -150,8 +180,166 @@ void DataAggregatorService::OnLocalCommandDisconnect(
   AddLocalCommandSource(command);
 }
 
+void DataAggregatorService::AddLocalLogSource(const std::string& filepath) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  CHECK(data_source_map_.count(filepath) == 0)
+      << "Local log file '" << filepath << "' was added twice.";
+
+  mojo::Remote<mojom::DataSource> remote;
+  local_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](mojo::PendingReceiver<mojom::DataSource> pending_receiver,
+             const std::string& filepath) {
+            auto source = std::make_unique<LogSource>(
+                filepath, kDefaultLogPollFrequency, kDefaultLogBatchSize);
+            source->StartCollectingData();
+
+            mojo::MakeSelfOwnedReceiver(std::move(source),
+                                        std::move(pending_receiver));
+          },
+          remote.BindNewPipeAndPassReceiver(), filepath));
+
+  remote.set_disconnect_handler(
+      base::BindOnce(&DataAggregatorService::OnLocalLogDisconnect,
+                     base::Unretained(this), filepath));
+
+  data_source_map_[filepath] = std::move(remote);
+}
+
+void DataAggregatorService::OnLocalLogDisconnect(const std::string& filepath) {
+  // This is unlikely, but if one of our local remotes disconnects,
+  // just request to re-add it. The pointers in our local maps will
+  // be overridden, and the old objects will be destroyed.
+  LOG(WARNING) << "Local DataSource for '" << filepath << "' has disconnected; "
+               << "attempting to reconnect.";
+  data_source_map_.erase(filepath);
+  AddLocalLogSource(filepath);
+}
+
 void DataAggregatorService::OnMojoDisconnect() {
   VLOG(3) << "mojom::DataAggregator disconnected";
+}
+
+void DataAggregatorService::InitializeLocalSources() {
+  // Add local command sources
+  for (auto* const cmd : kLocalCommandSources) {
+    AddLocalCommandSource(cmd);
+  }
+
+  // Add local log file sources
+  for (auto* const logfile : kLocalLogSources) {
+    AddLocalLogSource(logfile);
+  }
+}
+
+void DataAggregatorService::InitializeUploadEndpoint(size_t num_tries) {
+  // Hook into the existing CfmLoggerService.
+  const std::string kMeetDevicesLoggerInterfaceName =
+      chromeos::cfm::mojom::MeetDevicesLogger::Name_;
+
+  // We'll only be bound if we tried to initialize the endpoint
+  // already and failed. Just reset and try again.
+  if (uploader_remote_.is_bound()) {
+    uploader_remote_.reset();
+  }
+
+  service_adaptor_.GetService(
+      kMeetDevicesLoggerInterfaceName,
+      uploader_remote_.BindNewPipeAndPassReceiver().PassPipe(),
+      base::BindOnce(&DataAggregatorService::OnRequestBindUploadService,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     kMeetDevicesLoggerInterfaceName, num_tries));
+}
+
+void DataAggregatorService::OnRequestBindUploadService(
+    const std::string& interface_name,
+    size_t num_tries,
+    bool success) {
+  VLOG(3) << "Uploader RequestBindService result: " << success
+          << " for interface: " << interface_name;
+
+  if (success) {
+    InitializeDeviceInfoEndpoint(/*num_tries=*/0);
+    return;
+  }
+
+  if (num_tries >= kServiceAdaptorRetryMaxTries) {
+    LOG(ERROR) << "Retry limit reached for connecting to " << interface_name
+               << ". Remote calls will fail.";
+    return;
+  }
+
+  VLOG(3) << "Retrying service adaptor connection in "
+          << kServiceAdaptorRetryDelay;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&DataAggregatorService::InitializeUploadEndpoint,
+                     weak_ptr_factory_.GetWeakPtr(), num_tries + 1),
+      kServiceAdaptorRetryDelay);
+}
+
+void DataAggregatorService::InitializeDeviceInfoEndpoint(size_t num_tries) {
+  // Hook into the existing CfmDeviceInfoService.
+  const std::string kMeetDevicesInfoInterfaceName =
+      chromeos::cfm::mojom::MeetDevicesInfo::Name_;
+
+  // We'll only be bound if we tried to initialize the endpoint
+  // already and failed. Just reset and try again.
+  if (device_info_remote_.is_bound()) {
+    device_info_remote_.reset();
+  }
+
+  service_adaptor_.GetService(
+      kMeetDevicesInfoInterfaceName,
+      device_info_remote_.BindNewPipeAndPassReceiver().PassPipe(),
+      base::BindOnce(&DataAggregatorService::OnRequestBindDeviceInfoService,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     kMeetDevicesInfoInterfaceName, num_tries));
+}
+
+void DataAggregatorService::OnRequestBindDeviceInfoService(
+    const std::string& interface_name,
+    size_t num_tries,
+    bool success) {
+  VLOG(3) << "DeviceInfo RequestBindService result: " << success
+          << " for interface: " << interface_name;
+
+  if (success) {
+    RequestDeviceId();
+    return;
+  }
+
+  if (num_tries >= kServiceAdaptorRetryMaxTries) {
+    LOG(ERROR) << "Retry limit reached for connecting to " << interface_name
+               << ". Remote calls will fail.";
+    return;
+  }
+
+  VLOG(3) << "Retrying service adaptor connection in "
+          << kServiceAdaptorRetryDelay;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&DataAggregatorService::InitializeDeviceInfoEndpoint,
+                     weak_ptr_factory_.GetWeakPtr(), num_tries + 1),
+      kServiceAdaptorRetryDelay);
+}
+
+void DataAggregatorService::RequestDeviceId() {
+  device_info_remote_->GetPolicyInfo(base::BindOnce(
+      &DataAggregatorService::StoreDeviceId, weak_ptr_factory_.GetWeakPtr()));
+}
+
+void DataAggregatorService::StoreDeviceId(
+    chromeos::cfm::mojom::PolicyInfoPtr policy_info) {
+  // Only start collecting data if we have a device_id. Without a proper
+  // ID, we can't upload logs to cloud logging, so the data is useless.
+  if (policy_info->device_id.has_value()) {
+    device_id_ = policy_info->device_id.value();
+    VLOG(4) << "Assigning device ID " << device_id_;
+    StartFetchTimer();
+  }
 }
 
 void DataAggregatorService::StartFetchTimer() {
@@ -230,13 +418,8 @@ DataAggregatorService::DataAggregatorService()
   local_task_runner_ =
       base::ThreadPool::CreateSequencedTaskRunner({base::MayBlock()});
 
-  // Add local command sources
-  std::vector<std::string> cmd_sources = {"ip -brief address"};
-  for (const auto& cmd : cmd_sources) {
-    AddLocalCommandSource(cmd);
-  }
-
-  StartFetchTimer();
+  InitializeUploadEndpoint(/*num_tries=*/0);
+  InitializeLocalSources();
 }
 
 DataAggregatorService::~DataAggregatorService() {

@@ -11,17 +11,23 @@
 #include "base/apple/foundation_util.h"
 #include "base/barrier_closure.h"
 #include "base/command_line.h"
+#include "base/containers/span_reader.h"
+#include "base/containers/span_writer.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/checked_math.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected_macros.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/self_owned_associated_receiver.h"
 #include "services/webnn/coreml/graph_builder.h"
 #include "services/webnn/error.h"
@@ -50,6 +56,72 @@ NSDictionary* _featureValues;
 @end
 
 namespace webnn::coreml {
+
+namespace {
+
+uint32_t GetDataTypeByteSize(MLMultiArrayDataType data_type) {
+  switch (data_type) {
+    case MLMultiArrayDataTypeDouble:
+      return 8;
+    case MLMultiArrayDataTypeFloat32:
+    case MLMultiArrayDataTypeInt32:
+      return 4;
+    case MLMultiArrayDataTypeFloat16:
+      return 2;
+  }
+}
+
+void ExtractOutputRecursively(base::span<const uint8_t> bytes,
+                              base::span<const size_t> dimensions,
+                              base::span<const size_t> strides,
+                              uint32_t item_byte_size,
+                              base::span<uint8_t> output) {
+  // Data is packed, copy the whole thing.
+  // On the last dimension, the bytes could be more than the output because of
+  // strides from previous dimension, but as long as current stride is 1, we can
+  // copy continously.
+  if (bytes.size() == output.size() ||
+      (dimensions.size() == 1 && strides[0] == 1)) {
+    output.copy_from(bytes.first(output.size()));
+    return;
+  }
+
+  CHECK_EQ(output.size() % dimensions[0], 0u);
+  size_t subspan_size = output.size() / dimensions[0];
+
+  base::SpanReader<const uint8_t> reader(bytes);
+  base::SpanWriter<uint8_t> writer(output);
+  for (size_t i = 0; i < dimensions[0]; i++) {
+    auto output_subspan = writer.Skip(subspan_size);
+    CHECK(output_subspan);
+    auto subspan = reader.Read(strides[0] * item_byte_size);
+    CHECK(subspan);
+    if (dimensions.size() == 1) {
+      output_subspan->copy_from(subspan->first(item_byte_size));
+    } else {
+      ExtractOutputRecursively(*subspan, dimensions.subspan(1u),
+                               strides.subspan(1u), item_byte_size,
+                               output_subspan->subspan(0, subspan_size));
+    }
+  }
+}
+
+mojo_base::BigBuffer ExtractMaybeNonContiguousOutput(
+    base::span<const uint8_t> bytes,
+    uint32_t expected_byte_size,
+    uint32_t item_byte_size,
+    base::span<const size_t> dimensions,
+    base::span<const size_t> strides) {
+  mojo_base::BigBuffer output(expected_byte_size);
+
+  // Bytes size should match with the layout from the strides.
+  CHECK_EQ(bytes.size(), strides[0] * dimensions[0] * item_byte_size);
+  ExtractOutputRecursively(bytes, dimensions, strides, item_byte_size,
+                           base::span(output));
+  return output;
+}
+
+}  // namespace
 
 // static
 void GraphImpl::CreateAndBuild(
@@ -104,7 +176,8 @@ void GraphImpl::CreateAndBuildOnBackgroundThread(
   for (auto const& [name, size] :
        compute_resource_info.input_name_to_byte_length_map) {
     std::optional<GraphImpl::CoreMLFeatureInfo> coreml_feature_info =
-        GetCoreMLFeatureInfo(build_graph_result->FindInputOperandInfo(name));
+        GetCoreMLFeatureInfo(
+            build_graph_result->FindModelInputOperandInfo(name));
     if (!coreml_feature_info.has_value()) {
       originating_sequence->PostTask(
           FROM_HERE,
@@ -233,7 +306,7 @@ MLFeatureValue* GraphImpl::CreateFeatureValue(
 
 // static
 std::optional<GraphImpl::CoreMLFeatureInfo> GraphImpl::GetCoreMLFeatureInfo(
-    const GraphBuilder::OperandInfo& operand_info) {
+    const GraphBuilder::InputOperandInfo& operand_info) {
   enum MLMultiArrayDataType data_type;
   switch (operand_info.data_type) {
     case webnn::mojom::Operand_DataType::kFloat32:
@@ -274,7 +347,8 @@ std::optional<GraphImpl::CoreMLFeatureInfo> GraphImpl::GetCoreMLFeatureInfo(
     current_stride = current_stride / dimension;
     [stride addObject:@(current_stride)];
   }
-  return GraphImpl::CoreMLFeatureInfo(data_type, shape, stride);
+  return GraphImpl::CoreMLFeatureInfo(data_type, shape, stride,
+                                      operand_info.coreml_name);
 }
 
 GraphImpl::GraphImpl(
@@ -292,17 +366,20 @@ GraphImpl::~GraphImpl() = default;
 void GraphImpl::ComputeImpl(
     base::flat_map<std::string, mojo_base::BigBuffer> named_inputs,
     mojom::WebNNGraph::ComputeCallback callback) {
-  base::ElapsedTimer model_predict_timer;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("gpu", "webnn::coreml::GraphImpl::ComputeImpl");
   CHECK(ml_model_);
-  // Create MLFeatureValue for each of the named_inputs
+
+  base::ElapsedTimer model_predict_timer;
+
+  // Create MLFeatureValue for each of the `named_inputs`.
   NSMutableSet* feature_names = [[NSMutableSet alloc] init];
   NSMutableDictionary* feature_values = [[NSMutableDictionary alloc] init];
   for (auto& [key, buffer] : named_inputs) {
     auto feature_info = input_feature_info_->find(key);
     CHECK(feature_info != input_feature_info_->end());
     NSString* feature_name =
-        base::SysUTF8ToNSString(GetCoreMLNameFromInput(key));
+        base::SysUTF8ToNSString(feature_info->second.coreml_name);
     [feature_names addObject:feature_name];
 
     MLFeatureValue* feature_value =
@@ -329,17 +406,28 @@ void GraphImpl::ComputeImpl(
         [MLFeatureValue featureValueWithMultiArray:placeholder_input];
   }
 
-  // Run the MLModel
+  // Run the MLModel asynchronously.
   WebNNMLFeatureProvider* feature_provider =
       [[WebNNMLFeatureProvider alloc] initWithFeatures:feature_names
                                          featureValues:feature_values];
-  // TODO(https://crbug.com/1522281): Consider using async version of this
-  // API that is available in Mac OS 14.
-  NSError* error;
-  id<MLFeatureProvider> output_features =
-      [ml_model_ predictionFromFeatures:feature_provider error:&error];
+  auto done_callback =
+      base::BindOnce(&GraphImpl::DidPredict, weak_factory_.GetWeakPtr(),
+                     std::move(model_predict_timer), std::move(callback));
+  [ml_model_ predictionFromFeatures:feature_provider
+                  completionHandler:base::CallbackToBlock(
+                                        base::BindPostTaskToCurrentDefault(
+                                            std::move(done_callback)))];
+}
+
+void GraphImpl::DidPredict(base::ElapsedTimer model_predict_timer,
+                           mojom::WebNNGraph::ComputeCallback callback,
+                           id<MLFeatureProvider> output_features,
+                           NSError* error) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
   UMA_HISTOGRAM_MEDIUM_TIMES("WebNN.CoreML.TimingMs.ModelPredict",
                              model_predict_timer.Elapsed());
+
   if (error) {
     DLOG(ERROR) << "webnn::coreml predictionError : " << error;
     std::move(callback).Run(mojom::ComputeResult::NewError(mojom::Error::New(
@@ -378,20 +466,45 @@ void GraphImpl::ComputeImpl(
     std::string name =
         coreml_name_to_operand_name_.at(base::SysNSStringToUTF8(feature_name));
 
-    size_t expected_size =
-        compute_resource_info().output_name_to_byte_length_map.at(name);
-    [feature_value.multiArrayValue
-        getBytesWithHandler:^(const void* bytes, NSInteger size) {
-          // CoreML sometimes returns a buffer larger than expected.
-          // For an FP16 6 value buffer, an output of size 384 is observed
-          // when running the BuildAndComputeSingleOperatorCast unit test.
-          CHECK_GE(static_cast<uint32_t>(size), expected_size);
-          named_outputs_raw_ptr->push_back(std::make_pair(
-              name, mojo_base::BigBuffer(base::make_span(
-                        static_cast<const uint8_t*>(bytes), expected_size))));
-          done_barrier.Run();
-        }];
+    MLMultiArray* multiarray_value = feature_value.multiArrayValue;
+    [multiarray_value getBytesWithHandler:^(const void* bytes, NSInteger size) {
+      size_t expected_byte_size =
+          compute_resource_info().output_name_to_byte_length_map.at(name);
+
+      size_t number_of_items = multiarray_value.count;
+      CHECK_GT(number_of_items, 0u);
+
+      uint32_t item_byte_size = GetDataTypeByteSize(multiarray_value.dataType);
+      CHECK_EQ(expected_byte_size, item_byte_size * number_of_items);
+
+      std::vector<size_t> dimensions(multiarray_value.shape.count);
+      for (size_t i = 0; i < multiarray_value.shape.count; ++i) {
+        dimensions[i] = multiarray_value.shape[i].integerValue;
+      }
+      std::vector<size_t> strides(multiarray_value.strides.count);
+      for (size_t i = 0; i < multiarray_value.strides.count; ++i) {
+        strides[i] = multiarray_value.strides[i].integerValue;
+      }
+      CHECK_EQ(dimensions.size(), strides.size());
+
+      // SAFETY: -[MLMultiArray getBytesWithHandler:] guarantees that `bytes`
+      // points to at least `returned_size` valid bytes.
+      auto data = UNSAFE_BUFFERS(base::span(static_cast<const uint8_t*>(bytes),
+                                            base::checked_cast<size_t>(size)));
+      named_outputs_raw_ptr->push_back(std::make_pair(
+          name,
+          ExtractMaybeNonContiguousOutput(
+              data, expected_byte_size, item_byte_size, dimensions, strides)));
+      done_barrier.Run();
+    }];
   }
+}
+
+void GraphImpl::DispatchImpl(
+    const base::flat_map<std::string_view, WebNNBufferImpl*>& named_inputs,
+    const base::flat_map<std::string_view, WebNNBufferImpl*>& named_outputs) {
+  // TODO(crbug.com/1472888): Implement MLBuffer for CoreML.
+  NOTIMPLEMENTED();
 }
 
 GraphImpl::CompilationContext::CompilationContext(

@@ -39,7 +39,7 @@ BASE_FEATURE(kCustomizeChromeSidePanelExtensionsCard,
 // If enabled, shows wallpaper search within the Customize Chrome Side Panel.
 BASE_FEATURE(kCustomizeChromeWallpaperSearch,
              "CustomizeChromeWallpaperSearch",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, shows entry point on Customize Chrome Side Panel's Appearance
 // page for Wallpaper Search.";
@@ -51,7 +51,7 @@ BASE_FEATURE(kCustomizeChromeWallpaperSearchButton,
 // Search.
 BASE_FEATURE(kCustomizeChromeWallpaperSearchInspirationCard,
              "CustomizeChromeWallpaperSearchInspirationCard",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Forces a dark Google logo for a specific subset of Chrome Web Store themes
 // (see crbug.com/1329552). This is enabled by default to allow finch to disable
@@ -80,18 +80,18 @@ BASE_FEATURE(kRealboxCr23ConsistentRowHeight,
 // updated entity corner radii.
 BASE_FEATURE(kRealboxCr23ExpandedStateIcons,
              "NtpRealboxCr23ExpandedStateIcons",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, NTP "realbox" expanded state layout CR23 updates will
 // appear.
 BASE_FEATURE(kRealboxCr23ExpandedStateLayout,
              "NtpRealboxCr23ExpandedStateLayout",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, NTP "realbox" will use CR23 hover fill shape.
 BASE_FEATURE(kRealboxCr23HoverFillShape,
              "NtpRealboxCr23HoverFillShape",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, NTP "realbox" will be themed for CR23. Includes realbox
 // matching omnibox theme and increased realbox shadow.
@@ -416,6 +416,11 @@ BASE_FEATURE(kNtpHistoryClustersModuleEnableContentClustering,
 // If enabled, the Tab Resumption module will be shown.
 BASE_FEATURE(kNtpMostRelevantTabResumptionModule,
              "NtpMostRelevantTabResumptionModule",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the Tab Resumption module with the device icon will be shown.
+BASE_FEATURE(kNtpMostRelevantTabResumptionModuleDeviceIcon,
+             "NtpMostRelevantTabResumptionModuleDeviceIcon",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the Tab Resumption module will be shown.

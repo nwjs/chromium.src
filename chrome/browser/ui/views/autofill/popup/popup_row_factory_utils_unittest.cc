@@ -3,23 +3,24 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/views/autofill/popup/popup_row_factory_utils.h"
-#include "base/check_op.h"
-#include "chrome/browser/ui/views/autofill/popup/mock_accessibility_selection_delegate.h"
-#include "chrome/browser/ui/views/autofill/popup/mock_selection_delegate.h"
 
 #include <memory>
 #include <utility>
 #include <vector>
 
+#include "base/check_op.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/autofill/mock_autofill_popup_controller.h"
+#include "chrome/browser/ui/autofill/mock_autofill_popup_controller.h"
+#include "chrome/browser/ui/views/autofill/popup/mock_accessibility_selection_delegate.h"
+#include "chrome/browser/ui/views/autofill/popup/mock_selection_delegate.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_with_button_view.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
-#include "components/autofill/core/browser/ui/popup_item_ids.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
+#include "components/autofill/core/browser/ui/suggestion_type.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -27,6 +28,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/throbber.h"
 #include "ui/views/view_utils.h"
@@ -92,7 +94,8 @@ class AutocompleteRowWithDeleteButtonTest
   }
 
   void ShowAutocompleteSuggestion() {
-    ShowSuggestion(Suggestion(u"Some entry", PopupItemId::kAutocompleteEntry));
+    ShowSuggestion(
+        Suggestion(u"Some entry", SuggestionType::kAutocompleteEntry));
   }
 
  protected:
@@ -100,11 +103,6 @@ class AutocompleteRowWithDeleteButtonTest
 
  private:
   raw_ptr<PopupRowWithButtonView> view_ = nullptr;
-
-  // All current Autocomplete tests assume that the deletion button feature is
-  // enabled.
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillShowAutocompleteDeleteButton};
 };
 
 TEST_F(AutocompleteRowWithDeleteButtonTest,
@@ -139,8 +137,11 @@ TEST_F(AutocompleteRowWithDeleteButtonTest,
        AutocompleteDeleteButtonSetsAccessibility) {
   ShowAutocompleteSuggestion();
   views::ImageButton* button = view().GetButtonForTest();
+
+  views::IgnoreMissingWidgetForTestingScopedSetter ignore_missing_widget(
+      button->GetViewAccessibility());
   ui::AXNodeData node_data;
-  button->GetAccessibleNodeData(&node_data);
+  button->GetViewAccessibility().GetAccessibleNodeData(&node_data);
 
   EXPECT_EQ(node_data.role, ax::mojom::Role::kMenuItem);
   EXPECT_EQ(
@@ -168,7 +169,7 @@ class PasswordPopupRowViewTest : public PopupRowFactoryUtilsTestBase {
   }
 
   void ShowPasswordSuggestionWithLoadingState(bool is_loading) {
-    Suggestion suggestion{u"ortiler", PopupItemId::kPasswordEntry};
+    Suggestion suggestion{u"ortiler", SuggestionType::kPasswordEntry};
     suggestion.is_loading = Suggestion::IsLoading(is_loading);
     ShowSuggestion(suggestion);
   }

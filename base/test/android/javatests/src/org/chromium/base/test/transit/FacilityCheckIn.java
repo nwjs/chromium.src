@@ -12,22 +12,22 @@ import org.chromium.base.test.transit.ConditionWaiter.ConditionWait;
 import java.util.ArrayList;
 import java.util.List;
 
-/** A {@link Transition} into a {@link StationFacility}. */
+/** A {@link Transition} into a {@link Facility}. */
 class FacilityCheckIn extends Transition {
     private static final String TAG = "Transit";
 
-    private StationFacility mFacility;
+    private final Facility mFacility;
+    private List<ConditionWait> mWaits;
 
     /**
-     * Constructor. FacilityCheckIn is instantiated to enter a {@link StationFacility}.
+     * Constructor. FacilityCheckIn is instantiated to enter a {@link Facility}.
      *
-     * @param facility the {@link StationFacility} to enter.
+     * @param facility the {@link Facility} to enter.
      * @param options the {@link TransitionOptions}.
      * @param trigger the action that triggers the transition into the facility. e.g. clicking a
      *     View.
      */
-    FacilityCheckIn(
-            StationFacility facility, TransitionOptions options, @Nullable Trigger trigger) {
+    FacilityCheckIn(Facility facility, TransitionOptions options, @Nullable Trigger trigger) {
         super(options, trigger);
         mFacility = facility;
     }
@@ -36,12 +36,16 @@ class FacilityCheckIn extends Transition {
         // TODO(crbug.com/333735412): Unify Trip#travelSyncInternal(), FacilityCheckIn#enterSync()
         // and FacilityCheckOut#exitSync().
         onBeforeTransition();
-        List<ConditionWait> waits = createWaits();
+        mWaits = createWaits();
+        ConditionWaiter.preCheck(mWaits, mOptions, mTrigger);
+        for (ConditionWait wait : mWaits) {
+            wait.getCondition().onStartMonitoring();
+        }
 
         if (mOptions.mTries == 1) {
             triggerTransition();
             Log.i(TAG, "Triggered transition, waiting to enter %s", mFacility);
-            waitUntilEntry(waits);
+            waitUntilEntry(mWaits);
         } else {
             for (int tryNumber = 1; tryNumber <= mOptions.mTries; tryNumber++) {
                 try {
@@ -52,7 +56,7 @@ class FacilityCheckIn extends Transition {
                             tryNumber,
                             mOptions.mTries,
                             mFacility);
-                    waitUntilEntry(waits);
+                    waitUntilEntry(mWaits);
                     break;
                 } catch (TravelException e) {
                     Log.w(TAG, "Try #%d failed", tryNumber, e);
@@ -76,6 +80,11 @@ class FacilityCheckIn extends Transition {
     protected void triggerTransition() {
         super.triggerTransition();
         Log.i(TAG, "Triggered entry into %s", mFacility);
+    }
+
+    @Override
+    public String toDebugString() {
+        return "FacilityCheckIn for " + mFacility;
     }
 
     private List<ConditionWait> createWaits() {
@@ -102,12 +111,15 @@ class FacilityCheckIn extends Transition {
         try {
             ConditionWaiter.waitFor(transitionConditions, mOptions);
         } catch (AssertionError e) {
-            throw TravelException.newEnterFacilityException(mFacility, e);
+            throw newTransitionException(e);
         }
     }
 
     private void onAfterTransition() {
         mFacility.setStateActive();
+        for (ConditionWait wait : mWaits) {
+            wait.getCondition().onStopMonitoring();
+        }
         Log.i(TAG, "Entered %s", mFacility);
     }
 }

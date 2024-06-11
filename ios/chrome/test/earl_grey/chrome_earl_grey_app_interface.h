@@ -534,9 +534,6 @@
 // with custom WebKit frameworks.
 + (BOOL)isCustomWebKitLoadedIfRequested [[nodiscard]];
 
-// Returns YES if error pages are displayed using loadSimulatedRequest.
-+ (BOOL)isLoadSimulatedRequestAPIEnabled [[nodiscard]];
-
 // Returns whether the mobile version of the websites are requested by default.
 + (BOOL)isMobileModeByDefault [[nodiscard]];
 
@@ -553,8 +550,8 @@
 // Returns whether the Web Channels feature is enabled.
 + (BOOL)isWebChannelsEnabled;
 
-// Returns whether the bottom omnibox steady state feature is enabled.
-+ (BOOL)isBottomOmniboxSteadyStateEnabled;
+// Returns whether Tab Group Sync is enabled.
++ (BOOL)isTabGroupSyncEnabled;
 
 #pragma mark - ContentSettings
 

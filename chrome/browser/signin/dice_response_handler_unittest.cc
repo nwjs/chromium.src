@@ -17,7 +17,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
-#include "chrome/browser/signin/signin_features.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/about_signin_internals.h"
@@ -25,10 +24,12 @@
 #include "components/signin/core/browser/dice_account_reconcilor_delegate.h"
 #include "components/signin/core/browser/signin_error_controller.h"
 #include "components/signin/core/browser/signin_header_helper.h"
+#include "components/signin/core/browser/signin_metrics_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/base/test_signin_client.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
@@ -186,9 +187,13 @@ class DiceResponseHandlerTest : public testing::Test,
         signin::AccountConsistencyMethod::kDice, &signin_client_,
         account_reconcilor_.get());
 
+    signin_metrics_service_ = std::make_unique<SigninMetricsService>(
+        *identity_test_env_.identity_manager(), pref_service());
+
     dice_response_handler_ = std::make_unique<DiceResponseHandler>(
         &signin_client_, identity_test_env_.identity_manager(),
         account_reconcilor_.get(), about_signin_internals_.get(),
+        signin_metrics_service_.get(),
         /*registration_token_helper_factory=*/
         DiceResponseHandler::RegistrationTokenHelperFactory());
   }
@@ -274,6 +279,7 @@ class DiceResponseHandlerTest : public testing::Test,
   SigninErrorController signin_error_controller_;
   std::unique_ptr<AboutSigninInternals> about_signin_internals_;
   std::unique_ptr<AccountReconcilor> account_reconcilor_;
+  std::unique_ptr<SigninMetricsService> signin_metrics_service_;
   std::unique_ptr<DiceResponseHandler> dice_response_handler_;
   int reconcilor_blocked_count_ = 0;
   int reconcilor_unblocked_count_ = 0;
@@ -378,8 +384,24 @@ void DiceResponseHandlerTest::RunSignoutTest(
   }
 }
 
+class SigninDiceResponseHandlerTestPreconnect
+    : public DiceResponseHandlerTest,
+      public ::testing::WithParamInterface<bool> {
+ public:
+  SigninDiceResponseHandlerTestPreconnect() {
+    feature_list_.InitWithFeatureState(
+        switches::kPreconnectAccountCapabilitiesPostSignin,
+        PreconnectEnabled());
+  }
+
+  bool PreconnectEnabled() { return GetParam(); }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
 // Checks that a SIGNIN action triggers a token exchange request.
-TEST_F(DiceResponseHandlerTest, Signin) {
+TEST_P(SigninDiceResponseHandlerTestPreconnect, Signin) {
   DiceResponseParams dice_params = MakeDiceParams(DiceAction::SIGNIN);
   const auto& account_info = dice_params.signin_info->account_info;
   CoreAccountId account_id = identity_manager()->PickAccountIdForAccount(
@@ -413,7 +435,14 @@ TEST_F(DiceResponseHandlerTest, Signin) {
   // Check that the AccessPoint was propagated from the delegate.
   EXPECT_EQ(extended_account_info.access_point,
             signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS);
+  EXPECT_EQ(
+      identity_test_env_.GetNumCallsToPrepareForFetchingAccountCapabilities(),
+      PreconnectEnabled() ? 1 : 0);
 }
+
+INSTANTIATE_TEST_SUITE_P(PreconnectEnabled,
+                         SigninDiceResponseHandlerTestPreconnect,
+                         ::testing::Bool());
 
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 // Checks that a SIGNIN action triggers a token exchange request.

@@ -10,6 +10,7 @@
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
+#include "base/notreached.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -50,6 +51,34 @@ bool IsAllowedActionableAlert(const base::Feature& promo_feature) {
   return false;
 }
 
+bool IsAllowedKeyedNotice(const base::Feature& promo_feature) {
+  // Add the text names of allowlisted keyed notices here:
+  static const char* const kAllowedPromoNames[] = {
+      "IPH_DesktopPWAsLinkCapturingLaunch",
+      "IPH_ExplicitBrowserSigninPreferenceRemembered",
+      "IPH_SignoutWebIntercept",
+  };
+  for (const auto* promo_name : kAllowedPromoNames) {
+    if (!strcmp(promo_feature.name, promo_name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsAllowedRotatingPromo(const base::Feature& promo_feature) {
+  // Add the text names of allowlisted keyed notices here:
+  static const char* const kAllowedPromoNames[] = {
+      "IPH_DesktopReEngagement",
+  };
+  for (const auto* promo_name : kAllowedPromoNames) {
+    if (!strcmp(promo_feature.name, promo_name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool IsAllowedLegacyPromo(const base::Feature& promo_feature) {
   // NOTE: LEGACY PROMOS ARE DEPRECATED.
   // NO NEW ITEMS SHOULD BE ADDED TO THIS LIST, EVER.
@@ -65,6 +94,32 @@ bool IsAllowedLegacyPromo(const base::Feature& promo_feature) {
       "IPH_ReadingListInSidePanel",
       "IPH_TabSearch",
       "IPH_WebUITabStrip",
+  };
+
+  const std::string name = promo_feature.name;
+  for (const auto* promo_name : kAllowedPromoNames) {
+    if (name == promo_name) {
+      return true;
+    }
+  }
+
+  // Features used for tests have this prefix and are excluded.
+  if (name.starts_with("TEST_")) {
+    return true;
+  }
+
+  return false;
+}
+
+bool IsAllowedToastWithoutScreenreaderText(const base::Feature& promo_feature) {
+  // Some toasts are purely informational and their normal text also works for
+  // low-vision users. This is a very small percentage of toasts, and so only
+  // specific such promos are allowlisted.
+  //
+  // TODO(dfried): Merge legacy promos into this category, eliminating the entry
+  // point and promo type entirely.
+  static const char* const kAllowedPromoNames[] = {
+      "IPH_DesktopReEngagement",
   };
 
   const std::string name = promo_feature.name;
@@ -142,6 +197,14 @@ ui::Accelerator FeaturePromoSpecification::AcceleratorInfo::GetAccelerator(
   return result;
 }
 
+FeaturePromoSpecification::RotatingPromos::RotatingPromos() = default;
+FeaturePromoSpecification::RotatingPromos::RotatingPromos(
+    RotatingPromos&&) noexcept = default;
+FeaturePromoSpecification::RotatingPromos&
+FeaturePromoSpecification::RotatingPromos::operator=(
+    RotatingPromos&&) noexcept = default;
+FeaturePromoSpecification::RotatingPromos::~RotatingPromos() = default;
+
 // static
 constexpr HelpBubbleArrow FeaturePromoSpecification::kDefaultBubbleArrow;
 
@@ -198,15 +261,25 @@ FeaturePromoSpecification FeaturePromoSpecification::CreateForToastPromo(
     int body_text_string_id,
     int accessible_text_string_id,
     AcceleratorInfo accessible_accelerator) {
+  // In the vast majority of cases, separate screenreader text should be
+  // included for toasts; this is strictly enforced.
+  if (body_text_string_id == accessible_text_string_id ||
+      accessible_text_string_id <= 0) {
+    CHECK(IsAllowedToastWithoutScreenreaderText(feature))
+        << "Because toasts are hard to notice and time out quickly, screen "
+           "reader text associated with toasts should differ from the bubble "
+           "text and either provide the accelerator to access the highlighted "
+           "entry point for your feature, or at the very least provide a "
+           "separate description of the screen element appropriate for "
+           "keyboard "
+           "and low-vision users.";
+    if (accessible_text_string_id <= 0) {
+      accessible_text_string_id = body_text_string_id;
+    }
+  }
+
   FeaturePromoSpecification spec(&feature, PromoType::kToast, anchor_element_id,
                                  body_text_string_id);
-  CHECK_NE(body_text_string_id, accessible_text_string_id)
-      << "Because toasts are hard to notice and time out quickly, screen "
-         "reader text associated with toasts should differ from the bubble "
-         "text and either provide the accelerator to access the highlighted "
-         "entry point for your feature, or at the very least provide a "
-         "separate description of the screen element appropriate for keyboard "
-         "and low-vision users.";
   spec.screen_reader_string_id_ = accessible_text_string_id;
   spec.screen_reader_accelerator_ = std::move(accessible_accelerator);
   return spec;
@@ -266,6 +339,36 @@ FeaturePromoSpecification FeaturePromoSpecification::CreateForCustomAction(
 }
 
 // static
+FeaturePromoSpecification FeaturePromoSpecification::CreateForRotatingPromo(
+    const base::Feature& feature,
+    RotatingPromos rotating_promos) {
+  CHECK(IsAllowedRotatingPromo(feature));
+  CHECK_GT(rotating_promos.size(), 0U);
+  FeaturePromoSpecification spec;
+  spec.feature_ = &feature;
+  spec.promo_type_ = PromoType::kRotating;
+
+  // Check the rotating promos to ensure they're all normal promos.
+  bool found_rotating_promo = false;
+  for (const auto& promo : rotating_promos) {
+    if (promo) {
+      CHECK_EQ(PromoSubtype::kNormal, promo->promo_subtype())
+          << "Rotating promo cannot contain promo of type "
+          << promo->promo_type() << " and subtype " << promo->promo_subtype();
+      CHECK_NE(PromoType::kLegacy, promo->promo_type())
+          << "Rotating promo cannot contain promo of type Legacy";
+      CHECK_NE(PromoType::kUnspecified, promo->promo_type())
+          << "Rotating promo cannot contain promo of type Unspecified";
+      found_rotating_promo = true;
+    }
+  }
+  CHECK(found_rotating_promo);
+  spec.rotating_promos_ = std::move(rotating_promos);
+
+  return spec;
+}
+
+// static
 FeaturePromoSpecification FeaturePromoSpecification::CreateForLegacyPromo(
     const base::Feature* feature,
     ui::ElementIdentifier anchor_element_id,
@@ -301,12 +404,20 @@ FeaturePromoSpecification& FeaturePromoSpecification::SetBubbleArrow(
 FeaturePromoSpecification& FeaturePromoSpecification::OverrideFocusOnShow(
     bool focus_on_show) {
   focus_on_show_override_ = focus_on_show;
+  for (auto& rotating_promo : rotating_promos_) {
+    if (rotating_promo.has_value()) {
+      rotating_promo->focus_on_show_override_ =
+          rotating_promo->focus_on_show_override_.value_or(focus_on_show);
+    }
+  }
   return *this;
 }
 
 FeaturePromoSpecification& FeaturePromoSpecification::SetPromoSubtype(
     PromoSubtype promo_subtype) {
   CHECK_NE(promo_type_, PromoType::kUnspecified);
+  CHECK_NE(promo_type_, PromoType::kRotating)
+      << "Rotating is not compatible with other promo subtypes.";
   CHECK_NE(promo_type_, PromoType::kSnooze)
       << "Basic snooze is not compatible with other promo subtypes.";
   switch (promo_subtype) {
@@ -318,6 +429,10 @@ FeaturePromoSpecification& FeaturePromoSpecification::SetPromoSubtype(
       CHECK_EQ(promo_type_, PromoType::kCustomAction);
       CHECK(feature_);
       CHECK(IsAllowedActionableAlert(*feature_));
+      break;
+    case PromoSubtype::kKeyedNotice:
+      CHECK(feature_);
+      CHECK(IsAllowedKeyedNotice(*feature_));
       break;
     default:
       break;
@@ -373,6 +488,9 @@ FeaturePromoSpecification& FeaturePromoSpecification::SetHighlightedMenuItem(
 
 ui::TrackedElement* FeaturePromoSpecification::GetAnchorElement(
     ui::ElementContext context) const {
+  // Should not be called directly on a rotating promo.
+  CHECK_NE(PromoType::kRotating, promo_type_);
+
   auto* const element_tracker = ui::ElementTracker::GetElementTracker();
   if (anchor_element_filter_) {
     return anchor_element_filter_.Run(
@@ -386,6 +504,18 @@ ui::TrackedElement* FeaturePromoSpecification::GetAnchorElement(
                : element_tracker->GetFirstMatchingElement(anchor_element_id_,
                                                           context);
   }
+}
+
+// static
+FeaturePromoSpecification
+FeaturePromoSpecification::CreateRotatingPromoForTesting(
+    const base::Feature& feature,
+    RotatingPromos rotating_promos) {
+  FeaturePromoSpecification spec;
+  spec.feature_ = &feature;
+  spec.promo_type_ = PromoType::kRotating;
+  spec.rotating_promos_ = std::move(rotating_promos);
+  return spec;
 }
 
 std::ostream& operator<<(std::ostream& oss,
@@ -408,6 +538,9 @@ std::ostream& operator<<(std::ostream& oss,
       break;
     case FeaturePromoSpecification::PromoType::kUnspecified:
       oss << "kUnspecified";
+      break;
+    case FeaturePromoSpecification::PromoType::kRotating:
+      oss << "kRotating";
       break;
   }
   return oss;

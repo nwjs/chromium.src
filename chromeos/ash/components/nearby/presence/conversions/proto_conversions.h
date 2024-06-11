@@ -17,19 +17,18 @@
 
 namespace ash::nearby::presence::proto {
 
-::nearby::internal::Metadata BuildMetadata(
+::nearby::internal::DeviceIdentityMetaData BuildMetadata(
     ::nearby::internal::DeviceType device_type,
-    const std::string& account_name,
     const std::string& device_name,
-    const std::string& user_name,
-    const std::string& profile_url,
-    const std::string& mac_address);
+    const std::string& mac_address,
+    const std::string& device_id);
 
 mojom::PresenceDeviceType DeviceTypeToMojom(
     ::nearby::internal::DeviceType device_type);
 mojom::PublicCredentialType PublicCredentialTypeToMojom(
     ::nearby::presence::PublicCredentialType public_credential_type);
-mojom::MetadataPtr MetadataToMojom(::nearby::internal::Metadata metadata);
+mojom::MetadataPtr MetadataToMojom(
+    ::nearby::internal::DeviceIdentityMetaData metadata);
 mojom::PrivateKeyPtr PrivateKeyToMojom(
     ::nearby::internal::LocalCredential::PrivateKey private_key);
 
@@ -59,11 +58,12 @@ ash::nearby::proto::TrustType TrustTypeFromIdentityType(
     ::nearby::internal::IdentityType identity_type);
 int64_t MillisecondsToSeconds(int64_t milliseconds);
 
-::nearby::internal::SharedCredential PublicCertificateToSharedCredential(
-    ash::nearby::proto::PublicCertificate certificate);
 ::nearby::internal::IdentityType TrustTypeToIdentityType(
     ash::nearby::proto::TrustType trust_type);
-int64_t SecondsToMilliseconds(int64_t seconds);
+
+::nearby::internal::SharedCredential
+RemoteSharedCredentialToThirdPartySharedCredential(
+    ash::nearby::proto::SharedCredential remote_shared_credential);
 
 }  // namespace ash::nearby::presence::proto
 

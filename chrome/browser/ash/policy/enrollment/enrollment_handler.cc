@@ -13,6 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/notreached.h"
 #include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
@@ -75,9 +76,7 @@ em::DeviceRegisterRequest::Flavor EnrollmentModeToRegistrationFlavor(
     EnrollmentConfig::Mode mode) {
   switch (mode) {
     case EnrollmentConfig::MODE_NONE:
-    case EnrollmentConfig::DEPRECATED_MODE_ENROLLED_ROLLBACK:
-    case EnrollmentConfig::DEPRECATED_MODE_OFFLINE_DEMO:
-      break;
+      NOTREACHED_NORETURN() << "Bad enrollment mode: " << mode;
     case EnrollmentConfig::MODE_MANUAL:
       return em::DeviceRegisterRequest::FLAVOR_ENROLLMENT_MANUAL;
     case EnrollmentConfig::MODE_MANUAL_REENROLLMENT:
@@ -117,10 +116,13 @@ em::DeviceRegisterRequest::Flavor EnrollmentModeToRegistrationFlavor(
     case EnrollmentConfig::MODE_ATTESTATION_ROLLBACK_MANUAL_FALLBACK:
       return em::DeviceRegisterRequest::
           FLAVOR_ENROLLMENT_ATTESTATION_ROLLBACK_MANUAL_FALLBACK;
+    case EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_SERVER_FORCED:
+      return em::DeviceRegisterRequest::
+          FLAVOR_ENROLLMENT_TOKEN_INITIAL_SERVER_FORCED;
+    case EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_MANUAL_FALLBACK:
+      return em::DeviceRegisterRequest::
+          FLAVOR_ENROLLMENT_TOKEN_INITIAL_MANUAL_FALLBACK;
   }
-
-  NOTREACHED() << "Bad enrollment mode: " << mode;
-  return em::DeviceRegisterRequest::FLAVOR_ENROLLMENT_MANUAL;
 }
 
 // Returns the PSM protocol execution result if prefs::kEnrollmentPsmResult is
@@ -440,7 +442,7 @@ void EnrollmentHandler::StartRegistration() {
     return;
   }
 
-  // TODO(crbug.com/1271134): Logging as "WARNING" to make sure it's preserved
+  // TODO(crbug.com/40805389): Logging as "WARNING" to make sure it's preserved
   // in the logs.
   LOG(WARNING) << "Start registration, config mode = "
                << enrollment_config_.mode;
@@ -448,6 +450,10 @@ void EnrollmentHandler::StartRegistration() {
   SetStep(STEP_REGISTRATION);
   if (enrollment_config_.is_mode_attestation()) {
     StartAttestationBasedEnrollmentFlow();
+  } else if (enrollment_config_.mode ==
+             EnrollmentConfig::MODE_ENROLLMENT_TOKEN_INITIAL_SERVER_FORCED) {
+    client_->RegisterDeviceWithEnrollmentToken(*register_params_, client_id_,
+                                               dm_auth_.Clone());
   } else {
     client_->Register(*register_params_, client_id_, dm_auth_.oauth_token());
   }
@@ -617,7 +623,7 @@ void EnrollmentHandler::SetFirmwareManagementParametersData() {
   }
 
   const bool block_devmode = GetDeviceBlockDevModePolicyValue(*policy_);
-  // TODO(crbug.com/1271134): Logging as "WARNING" to make sure it's preserved
+  // TODO(crbug.com/40805389): Logging as "WARNING" to make sure it's preserved
   // in the logs.
   LOG(WARNING) << (block_devmode ? "Blocking" : "Allowing")
                << " dev mode by device policy";
@@ -759,7 +765,7 @@ void EnrollmentHandler::ReportResult(EnrollmentStatus status) {
 void EnrollmentHandler::SetStep(EnrollmentStep step) {
   DCHECK_LE(enrollment_step_, step);
 
-  // TODO(crbug.com/1271134): Logging as "WARNING" to make sure it's preserved
+  // TODO(crbug.com/40805389): Logging as "WARNING" to make sure it's preserved
   // in the logs.
   LOG(WARNING) << "Step: " << step;
 

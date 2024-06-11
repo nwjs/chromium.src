@@ -35,6 +35,8 @@
 #include "chrome/grit/downloads_resources_map.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
+#include "components/feature_engagement/public/feature_constants.h"
+#include "components/feature_engagement/public/feature_list.h"
 #include "components/google/core/common/google_util.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -165,10 +167,11 @@ content::WebUIDataSource* CreateAndAddDownloadsUIHTMLSource(Profile* profile) {
       {"warningBypassDialogLearnMoreLink",
        IDS_DOWNLOAD_WARNING_BYPASS_DIALOG_LEARN_MORE_LINK},
       {"warningBypassDialogCancel", IDS_CANCEL},
-
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
       // ESB Download Row Promo
       {"esbDownloadRowPromoString", IDS_DOWNLOAD_ROW_ESB_PROMOTION},
       {"esbDownloadRowPromoA11y", IDS_DOWNLOAD_ROW_ESB_PROMO_A11Y},
+#endif
   };
   source->AddLocalizedStrings(kStrings);
 
@@ -229,14 +232,16 @@ content::WebUIDataSource* CreateAndAddDownloadsUIHTMLSource(Profile* profile) {
   source->AddLocalizedString("toastDeletedFromHistory",
                              IDS_DOWNLOADS_TOAST_DELETED_FROM_HISTORY);
 
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   // Download Row ESB Promo:
-  source->AddBoolean(
-      "esbDownloadRowPromo",
-      base::FeatureList::IsEnabled(safe_browsing::kEsbDownloadRowPromo));
+  source->AddBoolean("esbDownloadRowPromo",
+                     base::FeatureList::IsEnabled(
+                         feature_engagement::kEsbDownloadRowPromoFeature));
+#endif
 
   // Build an Accelerator to describe undo shortcut
   // NOTE: the undo shortcut is also defined in downloads/downloads.html
-  // TODO(crbug/893033): de-duplicate shortcut by moving all shortcut
+  // TODO(crbug.com/40597071): de-duplicate shortcut by moving all shortcut
   // definitions from JS to C++.
   ui::Accelerator undo_accelerator(ui::VKEY_Z, ui::EF_PLATFORM_ACCELERATOR);
   source->AddString("undoDescription", l10n_util::GetStringFUTF16(
@@ -287,7 +292,10 @@ DownloadsUIConfig::CreateWebUIController(content::WebUI* web_ui,
 ///////////////////////////////////////////////////////////////////////////////
 
 DownloadsUI::DownloadsUI(content::WebUI* web_ui)
-    : ui::MojoWebUIController(web_ui, true) {
+    : ui::MojoWebUIController(web_ui, true),
+      webui_load_timer_(web_ui->GetWebContents(),
+                        "Download.WebUi.DocumentLoadedInMainFrameTime",
+                        "Download.WebUi.LoadCompletedInMainFrame") {
   Profile* profile = Profile::FromWebUI(web_ui);
   web_ui->AddMessageHandler(std::make_unique<MetricsHandler>());
 

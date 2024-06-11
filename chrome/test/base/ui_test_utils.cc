@@ -61,8 +61,6 @@
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/notification_service.h"
-#include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/storage_partition.h"
@@ -267,7 +265,7 @@ NavigateToURLWithDispositionBlockUntilNavigationsComplete(
                "ui_test_utils::"
                "NavigateToURLWithDispositionBlockUntilNavigationsComplete",
                "params", [&](perfetto::TracedValue context) {
-                 // TODO(crbug.com/1183371): Replace this with passing more
+                 // TODO(crbug.com/40751990): Replace this with passing more
                  // parameters to TRACE_EVENT directly when available.
                  auto dict = std::move(context).WriteDictionary();
                  dict.Add("url", url);
@@ -509,6 +507,13 @@ void SetAndWaitForBounds(Browser& browser, const gfx::Rect& bounds) {
   auto* window = browser.window();
   window->SetBounds(bounds);
   waiter.Wait();
+}
+
+bool MaximizeAndWaitUntilUIUpdateDone(Browser& browser) {
+  auto waiter = ui_test_utils::CreateAsyncWidgetRequestWaiter(browser);
+  browser.window()->Maximize();
+  waiter.Wait();
+  return browser.window()->IsMaximized();
 }
 
 FullscreenWaiter::FullscreenWaiter(Browser* browser,
@@ -797,15 +802,6 @@ AllTabsObserver::TabNavigationMapEntry::~TabNavigationMapEntry() = default;
 
 UrlLoadObserver::UrlLoadObserver(const GURL& url) : url_(url) {
   AddAllBrowsers();
-}
-
-UrlLoadObserver::UrlLoadObserver(
-    const GURL& url,
-    const content::NotificationSource& unused_source)
-    : UrlLoadObserver(url) {
-  // For whatever reason, CHECK_EQ doesn't pick up the overloaded == .
-  CHECK(unused_source == content::NotificationService::AllSources())
-      << "does not support filtering by source";
 }
 
 UrlLoadObserver::~UrlLoadObserver() = default;

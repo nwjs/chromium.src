@@ -43,7 +43,7 @@ constexpr int kGrowthFactor = 2;
 //
 // Returns true if and only if the handle list is well-formed in this regard.
 //
-// TODO(https://crbug.com/1382170): Since boxes now support application objects,
+// TODO(crbug.com/40877163): Since boxes now support application objects,
 // DataPipe can be migrated out of the driver and we can avoid this whole
 // serialization hack.
 bool FixUpDataPipeHandles(std::vector<IpczHandle>& handles) {
@@ -432,7 +432,7 @@ IpczResult MojoMessage::SerializeForIpczImpl(volatile void* data,
     return IPCZ_RESULT_INVALID_ARGUMENT;
   }
 
-  // TODO(https://crbug.com/1451717): Do a volatile-friendly copy here.
+  // TODO(crbug.com/40270656): Do a volatile-friendly copy here.
   memcpy(const_cast<void*>(data), data_.data(), data_.size());
   for (size_t i = 0; i < handles_.size(); ++i) {
     handles[i] = std::exchange(handles_[i], IPCZ_INVALID_HANDLE);

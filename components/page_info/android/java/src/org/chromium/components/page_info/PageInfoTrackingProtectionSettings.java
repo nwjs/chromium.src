@@ -34,6 +34,7 @@ import org.chromium.ui.util.AttrUtils;
 public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment {
     private static final String COOKIE_SUMMARY_PREFERENCE = "cookie_summary";
     private static final String TP_SWITCH_PREFERENCE = "tp_switch";
+    private static final String TP_STATUS_PREFERENCE = "tp_status";
     private static final String STORAGE_IN_USE_PREFERENCE = "storage_in_use";
     private static final String FPS_IN_USE_PREFERENCE = "fps_in_use";
     private static final String TPC_TITLE = "tpc_title";
@@ -45,21 +46,19 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
     private ChromeImageViewPreference mFPSInUse;
     private TextMessagePreference mThirdPartyCookiesTitle;
     private Preference mThirdPartyCookiesSummary;
+    private TrackingProtectionStatusPreference mTpStatus;
     private Runnable mOnClearCallback;
     private Runnable mOnCookieSettingsLinkClicked;
     private Callback<Activity> mOnFeedbackClicked;
     private Dialog mConfirmationDialog;
     private boolean mDeleteDisabled;
     private boolean mDataUsed;
-    private int mAllowedSites;
-    private int mBlockedSites;
     private CharSequence mHostName;
     private FPSCookieInfo mFPSInfo;
     private boolean mBlockAll3PC;
     private boolean mIsIncognito;
     // Used to have a constant # of days until expiration to prevent test flakiness.
     private boolean mFixedExpiration;
-    private boolean mShowLaunchUI;
 
     /** Parameters to configure the cookie controls view. */
     public static class PageInfoTrackingProtectionViewParams {
@@ -84,20 +83,13 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
             getParentFragmentManager().beginTransaction().remove(this).commit();
             return;
         }
-        mShowLaunchUI = getSiteSettingsDelegate().shouldShowTrackingProtectionLaunchUI();
-        if (mShowLaunchUI) {
-            SettingsUtils.addPreferencesFromResource(
-                    this, R.xml.page_info_tracking_protection_launch_preference);
-            mThirdPartyCookiesSummary = findPreference(TP_SWITCH_PREFERENCE);
-        } else {
-            SettingsUtils.addPreferencesFromResource(
-                    this, R.xml.page_info_tracking_protection_preference);
-            mThirdPartyCookiesSummary = findPreference(TPC_SUMMARY);
-        }
+        SettingsUtils.addPreferencesFromResource(
+                this, R.xml.page_info_tracking_protection_preference);
+        mThirdPartyCookiesSummary = findPreference(TPC_SUMMARY);
 
         mCookieSwitch = findPreference(TP_SWITCH_PREFERENCE);
-        if (mShowLaunchUI) mCookieSwitch.setUseSummaryAsTitle(false);
 
+        mTpStatus = findPreference(TP_STATUS_PREFERENCE);
         mStorageInUse = findPreference(STORAGE_IN_USE_PREFERENCE);
         mFPSInUse = findPreference(FPS_IN_USE_PREFERENCE);
         mFPSInUse.setVisible(false);
@@ -142,7 +134,7 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
                         getString(summaryString),
                         new SpanApplier.SpanInfo("<link>", "</link>", linkSpan)));
 
-        // TODO(crbug.com/1077766): Set a ManagedPreferenceDelegate?
+        // TODO(crbug.com/40129299): Set a ManagedPreferenceDelegate?
         mCookieSwitch.setVisible(params.thirdPartyCookieBlockingEnabled);
         mCookieSwitch.setOnPreferenceChangeListener(
                 (preference, newValue) -> {
@@ -222,7 +214,6 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
                             getString(
                                     R.string.page_info_tracking_protection_site_grant_description),
                             new SpanApplier.SpanInfo("<link>", "</link>", linkSpan)));
-            if (mShowLaunchUI) return;
             ((TextMessagePreference) mThirdPartyCookiesSummary).setDividerAllowedAbove(true);
             return;
         }
@@ -233,14 +224,12 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
 
         if (!controlsVisible) return;
 
-        if (!mShowLaunchUI) {
-            mCookieSwitch.setIcon(
-                    SettingsUtils.getTintedIcon(
-                            getContext(),
-                            protectionsOn
-                                    ? R.drawable.ic_visibility_off_black
-                                    : R.drawable.ic_visibility_black));
-        }
+        mCookieSwitch.setIcon(
+                SettingsUtils.getTintedIcon(
+                        getContext(),
+                        protectionsOn
+                                ? R.drawable.ic_visibility_off_black
+                                : R.drawable.ic_visibility_black));
         mCookieSwitch.setChecked(!protectionsOn);
         mCookieSwitch.setEnabled(!isEnforced);
         mCookieSwitch.setManagedPreferenceDelegate(
@@ -284,22 +273,13 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
                             ? EXPIRATION_FOR_TESTING
                             : calculateDaysUntilExpiration(
                                     TimeUtils.currentTimeMillis(), expiration);
-            updateThirdPartyCookiesTitleTemporary(days);
+            updateTrackingProtectionTitleTemporary(days);
             int resId = R.string.page_info_cookies_tracking_protection_description;
             mThirdPartyCookiesSummary.setSummary(
                     SpanApplier.applySpans(
                             getString(resId),
                             new SpanApplier.SpanInfo("<link>", "</link>", feedbackSpan)));
         }
-        updateCookieSwitch();
-    }
-
-    public void setSitesCount(int allowedSites, int blockedSites) {
-        mAllowedSites = allowedSites;
-        mBlockedSites = blockedSites;
-
-        mDataUsed |= allowedSites != 0;
-        updateStorageDeleteButton();
         updateCookieSwitch();
     }
 
@@ -369,8 +349,7 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
     }
 
     private void updateCookieSwitch() {
-        if (mShowLaunchUI) return;
-        // TODO(crbug.com/1446230): Update the strings for when FPS are on.
+        // TODO(crbug.com/40064612): Update the strings for when FPS are on.
         if (!mCookieSwitch.isChecked()) {
             int resId =
                     mBlockAll3PC
@@ -383,7 +362,7 @@ public class PageInfoTrackingProtectionSettings extends BaseSiteSettingsFragment
         }
     }
 
-    private void updateThirdPartyCookiesTitleTemporary(int days) {
+    private void updateTrackingProtectionTitleTemporary(int days) {
         if (mBlockAll3PC || mIsIncognito) {
             mThirdPartyCookiesTitle.setTitle(
                     days == 0

@@ -7,12 +7,13 @@
 
 @class CreateTabGroupViewController;
 
-// Delegate protocol for `CreateOrEditTabGroupCoordinator`.
+// Delegate protocol for `CreateTabGroupViewController`.
 @protocol CreateOrEditTabGroupViewControllerDelegate
 
-// Called when the user dismissed the `CreateOrEditTabGroupViewController`.
+// Called when the user dismissed the `CreateTabGroupViewController`.
 - (void)createOrEditTabGroupViewControllerDidDismiss:
-    (CreateTabGroupViewController*)viewController;
+            (CreateTabGroupViewController*)viewController
+                                            animated:(BOOL)animated;
 
 @end
 

@@ -6,6 +6,7 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_METRICS_AUTOFILL_METRICS_H_
 
 #include <stddef.h>
+
 #include <memory>
 #include <set>
 #include <string>
@@ -23,10 +24,11 @@
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/form_types.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
-#include "components/autofill/core/browser/ui/popup_hiding_reasons.h"
+#include "components/autofill/core/browser/ui/suggestion_hiding_reason.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-forward.h"
 #include "components/autofill/core/common/signatures.h"
@@ -56,7 +58,6 @@ extern const int kMaxBucketsCount;
 
 class AutofillMetrics {
  public:
-
   enum DeveloperEngagementMetric {
     // Parsed a form that is potentially autofillable and does not contain any
     // web developer-specified field type hint.
@@ -64,10 +65,8 @@ class AutofillMetrics {
     // Parsed a form that is potentially autofillable and contains at least one
     // web developer-specified field type hint, a la
     // http://is.gd/whatwg_autocomplete
-    FILLABLE_FORM_PARSED_WITH_TYPE_HINTS,
-    // Parsed a form that is potentially autofillable and contains at least one
-    // UPI Virtual Payment Address hint (upi-vpa)
-    FORM_CONTAINS_UPI_VPA_HINT,
+    FILLABLE_FORM_PARSED_WITH_TYPE_HINTS = 1,
+    FORM_CONTAINS_UPI_VPA_HINT_DEPRECATED = 2,
     NUM_DEVELOPER_ENGAGEMENT_METRICS,
   };
 
@@ -542,33 +541,6 @@ class AutofillMetrics {
     kMaxValue = AUTOFILLED_FIELD_WAS_NOT_EDITED,
   };
 
-  // The filling status of an autofilled field.
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  enum class FieldFillingStatus {
-    // The field was filled and accepted.
-    kAccepted = 0,
-    // The field was filled and corrected to a value of the same type.
-    kCorrectedToSameType = 1,
-    // The field was filled and corrected to a value of a different type.
-    kCorrectedToDifferentType = 2,
-    // The field was filled and corrected to a value of an unknown type.
-    kCorrectedToUnknownType = 3,
-    // The field was filled and the value was cleared afterwards.
-    kCorrectedToEmpty = 4,
-    // The field was manually filled to a value of the same type as the
-    // field was predicted to.
-    kManuallyFilledToSameType = 5,
-    // The field was manually filled to a value of a different type as the field
-    // was predicted to.
-    kManuallyFilledToDifferentType = 6,
-    // The field was manually filled to a value of an unknown type.
-    kManuallyFilledToUnknownType = 7,
-    // The field was left empty.
-    kLeftEmpty = 8,
-    kMaxValue = kLeftEmpty
-  };
-
   enum class AutocompleteState {
     kNone = 0,
     kValid = 1,
@@ -1027,10 +999,8 @@ class AutofillMetrics {
   static void LogNumberOfAddressesSuppressedForDisuse(size_t num_profiles);
 
   // Log the reason for which the Autofill popup disappeared.
-  static void LogAutofillPopupHidingReason(PopupHidingReason reason);
-
-  // Logs that the user cleared the form.
-  static void LogAutofillFormCleared();
+  static void LogAutofillSuggestionHidingReason(FillingProduct filling_product,
+                                                SuggestionHidingReason reason);
 
   // Log the number of days since an Autocomplete suggestion was last used.
   static void LogAutocompleteDaysSinceLastUse(size_t days);

@@ -10,6 +10,7 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/autofill/autofill_popup_view_delegate.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_pixel_test.h"
+#include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -33,11 +34,12 @@ class MockPasswordCrossDomainConfirmationPopupController
   ~MockPasswordCrossDomainConfirmationPopupController() override = default;
 
   // AutofillPopupViewDelegate:
-  MOCK_METHOD(void, Hide, (autofill::PopupHidingReason), (override));
+  MOCK_METHOD(void, Hide, (autofill::SuggestionHidingReason), (override));
   MOCK_METHOD(void, ViewDestroyed, (), (override));
   MOCK_METHOD(gfx::NativeView, container_view, (), (const override));
   MOCK_METHOD(content::WebContents*, GetWebContents, (), (const override));
   MOCK_METHOD(const gfx::RectF&, element_bounds, (), (const override));
+  MOCK_METHOD(autofill::PopupAnchorType, anchor_type, (), (const override));
   MOCK_METHOD(base::i18n::TextDirection,
               GetElementTextDirection,
               (),

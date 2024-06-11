@@ -6,7 +6,9 @@ import {DynamicColorElement, getThemeProvider, GooglePhotosAlbumsElement, Google
 import {CrButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_button/cr_button.js';
 import {CrDialogElement} from 'chrome://resources/ash/common/cr_elements/cr_dialog/cr_dialog.js';
 import {CrIconButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_icon_button/cr_icon_button.js';
+import {SeaPenTemplateId} from 'chrome://resources/ash/common/sea_pen/sea_pen_generated.mojom-webui.js';
 import {assertInstanceof} from 'chrome://resources/js/assert.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 import {IronSelectorElement} from 'chrome://resources/polymer/v3_0/iron-selector/iron-selector.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertGT, assertLE, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -595,6 +597,10 @@ suite('sea pen', () => {
     clickWallpaperPreviewLink();
   });
 
+  teardown(() => {
+    loadTimeData.overrideValues({isSeaPenUINextEnabled: false});
+  });
+
   suite('feedback', async () => {
     // At the end of this test, a feedback dialog is expected to be opened in an
     // external window.
@@ -874,6 +880,67 @@ suite('sea pen', () => {
     }
   });
 
+  test('create more recent image', async () => {
+    loadTimeData.overrideValues({isSeaPenUINextEnabled: true});
+    const seaPenRouter = await getSeaPenRouter();
+    const recentImages = await waitUntil(
+        () => seaPenRouter.shadowRoot
+                  ?.querySelector<SeaPenRecentWallpapersElement>(
+                      'sea-pen-recent-wallpapers'),
+        'waiting for sea-pen-recent-wallpapers');
+    assertTrue(!!recentImages, 'recent images should exist');
+
+    const images =
+        Array.from(recentImages.shadowRoot!.querySelectorAll<HTMLElement>(
+            `.recent-image-container:not([hidden])`));
+    assertTrue(images.length > 0, 'there should be at least 1 recent image');
+
+    const targetRecentImage = images.find(
+        (image) => (image as HTMLElement)
+                       .querySelector('.menu-icon-button')
+                       ?.ariaDescription === 'test template query');
+    assertTrue(!!targetRecentImage, 'target recent image should be available');
+
+    const menuButton = await waitUntil(
+        () => (targetRecentImage as HTMLElement)
+                  .querySelector<CrIconButtonElement>('.menu-icon-button'),
+        'wait for menu button');
+    assertTrue(!!menuButton, 'menu button should be available');
+    menuButton!.click();
+
+    const createMoreButton = await waitUntil(
+        () => (targetRecentImage as HTMLElement)
+                  .querySelector<HTMLButtonElement>('.create-more-option'),
+        'wait for create more button');
+    assertTrue(!!createMoreButton, 'create more button exists');
+    createMoreButton!.click();
+
+    const seaPenTemplateQuery = await waitUntil(
+        () =>
+            seaPenRouter.shadowRoot?.querySelector<SeaPenTemplateQueryElement>(
+                'sea-pen-template-query'),
+        'waiting for sea-pen-template-query');
+    assertTrue(!!seaPenTemplateQuery, 'template query element exists');
+
+    const templatePrompt =
+        seaPenTemplateQuery.shadowRoot?.getElementById('template')
+            ?.textContent?.replace(/\s+/gmi, ' ')
+            .trim();
+    assertEquals('A radiant light bluegarden rose', templatePrompt);
+
+    const queryParams = new URLSearchParams(window.location.search);
+    assertEquals(
+        SeaPenTemplateId.kFlower.toString(),
+        queryParams.get('seaPenTemplateId'),
+        'routed to Airbrushed template results page');
+
+    const seaPenImages = await waitUntil(
+        () => seaPenRouter.shadowRoot?.querySelector<SeaPenImagesElement>(
+            'sea-pen-images'),
+        'waiting for sea-pen-images');
+    assertTrue(!!seaPenImages, 'template query element exists');
+  });
+
   test('delete recent image', async () => {
     const seaPenRouter = await getSeaPenRouter();
     let recentImages = await waitUntil(
@@ -883,7 +950,7 @@ suite('sea pen', () => {
         'waiting for sea-pen-recent-wallpapers');
     assertTrue(!!recentImages, 'recent images should exist');
 
-    let images = recentImages.shadowRoot?.querySelectorAll<HTMLElement>(
+    const images = recentImages.shadowRoot?.querySelectorAll<HTMLElement>(
         `.recent-image-container:not([hidden])`);
     assertTrue(!!images, 'images should exist');
     assertTrue(images.length > 0, 'there should be at least 1 recent image');
@@ -907,10 +974,13 @@ suite('sea pen', () => {
                   ?.querySelector<SeaPenRecentWallpapersElement>(
                       'sea-pen-recent-wallpapers'),
         'waiting for sea-pen-recent-wallpapers');
-    images = images = recentImages.shadowRoot?.querySelectorAll<HTMLElement>(
-        `.recent-image-container:not([hidden])`);
-    assertTrue(!!images, 'images should still exist');
-    assertGT(numImages, images.length, 'a recent image has been deleted');
+    await waitUntil(
+        () => numImages - 1 ===
+            recentImages.shadowRoot
+                ?.querySelectorAll<HTMLElement>(
+                    `.recent-image-container:not([hidden])`)
+                ?.length,
+        'a recent image has been deleted');
   });
 
   test('switch template update prompt', async () => {

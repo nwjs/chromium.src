@@ -433,7 +433,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 - (UICollectionViewCell*)collectionView:(UICollectionView*)collectionView
                  cellForItemAtIndexPath:(NSIndexPath*)indexPath {
   NSUInteger itemIndex = base::checked_cast<NSUInteger>(indexPath.item);
-  // TODO(crbug.com/1068136): Remove this when the issue is closed.
+  // TODO(crbug.com/40683330): Remove this when the issue is closed.
   // This is a preventive fix related to the issue above.
   // Presumably this is a race condition where an item has been deleted at the
   // same time as the collection is doing layout. The assumption is that there
@@ -471,6 +471,12 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 - (UIContextMenuConfiguration*)collectionView:(UICollectionView*)collectionView
     contextMenuConfigurationForItemAtIndexPath:(NSIndexPath*)indexPath
                                          point:(CGPoint)point {
+  NSUInteger index = base::checked_cast<NSUInteger>(indexPath.item);
+  CHECK_LT(index, _items.count);
+  const web::WebStateID itemID = _items[index].identifier;
+  [self.delegate pinnedViewController:self
+      didRequestContextMenuForItemWithID:itemID];
+
   PinnedCell* cell = base::apple::ObjCCastStrict<PinnedCell>(
       [self.collectionView cellForItemAtIndexPath:indexPath]);
   return [self.menuProvider
@@ -494,7 +500,7 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
 
 - (void)collectionView:(UICollectionView*)collectionView
     dragSessionWillBegin:(id<UIDragSession>)session {
-  [self.dragDropHandler dragWillBeginForItem:_draggedItem];
+  [self.dragDropHandler dragWillBeginForTabSwitcherItem:_draggedItem];
   _dragEndAtNewIndex = NO;
   _localDragActionInProgress = YES;
   base::UmaHistogramEnumeration(kUmaPinnedViewDragDropTabsEvent,
@@ -571,8 +577,9 @@ NSIndexPath* CreateIndexPath(NSInteger index) {
               collectionView:(UICollectionView*)collectionView
         dropSessionDidUpdate:(id<UIDropSession>)session
     withDestinationIndexPath:(NSIndexPath*)destinationIndexPath {
-  UIDropOperation dropOperation =
-      [self.dragDropHandler dropOperationForDropSession:session];
+  UIDropOperation dropOperation = [self.dragDropHandler
+      dropOperationForDropSession:session
+                          toIndex:destinationIndexPath.item];
 
   UICollectionViewDropIntent intent =
       _localDragActionInProgress

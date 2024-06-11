@@ -28,7 +28,6 @@
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_features.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -175,7 +174,7 @@ void TurnSyncOnHelper::Delegate::ShowLoginErrorForBrowser(
     const SigninUIError& error,
     Browser* browser) {
   if (!browser) {
-    // TODO(crbug.com/1374315): Make sure we do something or log an error if
+    // TODO(crbug.com/40242414): Make sure we do something or log an error if
     // opening a browser window was not possible.
     return;
   }
@@ -622,7 +621,7 @@ void TurnSyncOnHelper::ShowSyncConfirmationUI() {
     return;
   }
 
-  // TODO(crbug.com/1398463): Once we stop completing the Sync opt-in when it's
+  // TODO(crbug.com/40249681): Once we stop completing the Sync opt-in when it's
   // disabled, we also should stop recording opt-in start events.
   signin_metrics::LogSyncOptInStarted(signin_access_point_);
 

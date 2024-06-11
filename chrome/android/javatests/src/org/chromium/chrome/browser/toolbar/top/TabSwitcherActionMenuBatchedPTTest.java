@@ -49,7 +49,7 @@ public class TabSwitcherActionMenuBatchedPTTest {
 
     @Rule
     public BatchedPublicTransitRule<PageStation> mBatchedRule =
-            new BatchedPublicTransitRule<>(PageStation.class);
+            new BatchedPublicTransitRule<>(PageStation.class, /* expectResetByTest= */ true);
 
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
@@ -60,7 +60,7 @@ public class TabSwitcherActionMenuBatchedPTTest {
     @Test
     @LargeTest
     public void testCloseTab() {
-        PageStation page = mTransitEntryPoints.startOnBlankPageBatched(mBatchedRule);
+        PageStation page = mTransitEntryPoints.startOnBlankPage(mBatchedRule);
 
         // Closing the only tab should lead to the Tab Switcher.
         TabSwitcherActionMenuFacility actionMenu = page.openTabSwitcherActionMenu();
@@ -76,7 +76,7 @@ public class TabSwitcherActionMenuBatchedPTTest {
     @Test
     @LargeTest
     public void testOpenNewTab() {
-        PageStation page = mTransitEntryPoints.startOnBlankPageBatched(mBatchedRule);
+        PageStation page = mTransitEntryPoints.startOnBlankPage(mBatchedRule);
 
         // Opening a new tab should display it on the screen.
         TabSwitcherActionMenuFacility actionMenu = page.openTabSwitcherActionMenu();
@@ -94,7 +94,7 @@ public class TabSwitcherActionMenuBatchedPTTest {
     @Test
     @LargeTest
     public void testOpenNewIncognitoTab() {
-        PageStation page = mTransitEntryPoints.startOnBlankPageBatched(mBatchedRule);
+        PageStation page = mTransitEntryPoints.startOnBlankPage(mBatchedRule);
 
         // Opening a new incognito tab should display it on the screen.
         TabSwitcherActionMenuFacility actionMenu = page.openTabSwitcherActionMenu();
@@ -113,12 +113,12 @@ public class TabSwitcherActionMenuBatchedPTTest {
     @Test
     @LargeTest
     public void testClosingAllRegularTabs_DoNotFinishActivity() {
-        PageStation page = mTransitEntryPoints.startOnBlankPageBatched(mBatchedRule);
+        PageStation page = mTransitEntryPoints.startOnBlankPage(mBatchedRule);
 
-        PageAppMenuFacility appMenu = page.openAppMenu();
+        PageAppMenuFacility appMenu = page.openGenericAppMenu();
         page = appMenu.openNewIncognitoTab();
 
-        appMenu = page.openAppMenu();
+        appMenu = page.openGenericAppMenu();
         page = appMenu.openNewTab();
 
         TabModel regularTabModel = getTabModelSelector().getModel(/* incognito= */ false);

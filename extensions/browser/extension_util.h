@@ -41,7 +41,7 @@ class ExtensionSet;
 
 namespace util {
 
-// TODO(crbug.com/1417028): Move functions from
+// TODO(crbug.com/40893821): Move functions from
 // chrome/browser/extensions/extension_util.h/cc that are only dependent on
 // extensions/ here.
 
@@ -111,7 +111,7 @@ bool CanWithholdPermissionsFromExtension(
 
 // Returns a unique int id for each context. Prefer using
 // `BrowserContext::UniqueId()` directly.
-// TODO(crbug.com/1444279):  Migrate callers to use the `context` unique id
+// TODO(crbug.com/40267637):  Migrate callers to use the `context` unique id
 // directly. For that we need to update all data keyed by integer context ids to
 // be keyed by strings instead.
 int GetBrowserContextId(content::BrowserContext* context);
@@ -143,9 +143,12 @@ std::string GetExtensionIdFromFrame(
 
 // Returns true if the process corresponding to `render_process_id` can host an
 // extension with `extension_id`.  (It doesn't necessarily mean that the process
-// *does* host this specific extension at this point in time.)
+// *does* host this specific extension at this point in time.) `is_sandboxed`
+// specifies whether this is asking about a sandboxed extension document and is
+// needed to accurately compute the expected extension origin for that case.
 bool CanRendererHostExtensionOrigin(int render_process_id,
-                                    const ExtensionId& extension_id);
+                                    const ExtensionId& extension_id,
+                                    bool is_sandboxed);
 
 // Returns true if the extension associated with `extension_id` is a Chrome App.
 bool IsChromeApp(const ExtensionId& extension_id,

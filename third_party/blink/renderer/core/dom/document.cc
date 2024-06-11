@@ -72,6 +72,7 @@
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/page_state/page_state.mojom-blink.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom-blink-forward.h"
+#include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink-forward.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
@@ -234,6 +235,7 @@
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
+#include "third_party/blink/renderer/core/html/html_frame_set_element.h"
 #include "third_party/blink/renderer/core/html/html_head_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
@@ -242,6 +244,7 @@
 #include "third_party/blink/renderer/core/html/html_object_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
 #include "third_party/blink/renderer/core/html/html_script_element.h"
+#include "third_party/blink/renderer/core/html/html_style_element.h"
 #include "third_party/blink/renderer/core/html/html_title_element.h"
 #include "third_party/blink/renderer/core/html/html_unknown_element.h"
 #include "third_party/blink/renderer/core/html/lazy_load_image_observer.h"
@@ -268,6 +271,7 @@
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/layout/pagination_utils.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/lcp_critical_path_predictor/lcp_critical_path_predictor.h"
 #include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
@@ -322,6 +326,7 @@
 #include "third_party/blink/renderer/core/speculation_rules/document_speculation_rules.h"
 #include "third_party/blink/renderer/core/svg/svg_document_extensions.h"
 #include "third_party/blink/renderer/core/svg/svg_script_element.h"
+#include "third_party/blink/renderer/core/svg/svg_svg_element.h"
 #include "third_party/blink/renderer/core/svg/svg_title_element.h"
 #include "third_party/blink/renderer/core/svg/svg_unknown_element.h"
 #include "third_party/blink/renderer/core/svg/svg_use_element.h"
@@ -388,37 +393,6 @@ namespace blink {
 namespace {
 
 constexpr char kTextHtml[] = "text/html";
-
-// This enum must match the numbering for RequestStorageResult in
-// histograms/enums.xml. Do not reorder or remove items, only add new items
-// at the end.
-enum class RequestStorageResult {
-  APPROVED_EXISTING_ACCESS = 0,
-  // APPROVED_NEW_GRANT = 1,
-  REJECTED_NO_USER_GESTURE = 2,
-  REJECTED_NO_ORIGIN = 3,
-  REJECTED_OPAQUE_ORIGIN = 4,
-  REJECTED_EXISTING_DENIAL = 5,
-  REJECTED_SANDBOXED = 6,
-  REJECTED_GRANT_DENIED = 7,
-  REJECTED_INCORRECT_FRAME = 8,
-  REJECTED_INSECURE_CONTEXT = 9,
-  APPROVED_PRIMARY_FRAME = 10,
-  REJECTED_CREDENTIALLESS_IFRAME = 11,
-  APPROVED_NEW_OR_EXISTING_GRANT = 12,
-  REJECTED_FENCED_FRAME = 13,
-  REJECTED_INVALID_ORIGIN = 14,
-  kMaxValue = REJECTED_INVALID_ORIGIN,
-};
-void FireRequestStorageAccessHistogram(RequestStorageResult result) {
-  base::UmaHistogramEnumeration("API.StorageAccess.RequestStorageAccess2",
-                                result);
-}
-
-void FireRequestStorageAccessForHistogram(RequestStorageResult result) {
-  base::UmaHistogramEnumeration(
-      "API.TopLevelStorageAccess.RequestStorageAccessFor2", result);
-}
 
 class IntrinsicSizeResizeObserverDelegate : public ResizeObserver::Delegate {
  public:
@@ -1784,7 +1758,10 @@ Range* Document::caretRangeFromPoint(int x, int y) {
   return CreateRangeAdjustedToTreeScope(*this, range_compliant_position);
 }
 
-CaretPosition* Document::caretPositionFromPoint(float x, float y) {
+CaretPosition* Document::caretPositionFromPoint(
+    float x,
+    float y,
+    const HeapVector<Member<ShadowRoot>>& shadow_roots) {
   if (!GetLayoutView()) {
     return nullptr;
   }
@@ -1795,8 +1772,19 @@ CaretPosition* Document::caretPositionFromPoint(float x, float y) {
     return nullptr;
   }
 
-  return CreateCaretPosition(
-      position_with_affinity.GetPosition().ParentAnchoredEquivalent());
+  Node* anchor_node = position_with_affinity.AnchorNode();
+  bool adjust_position = false;
+  while (anchor_node->IsInShadowTree() &&
+         !shadow_roots.Contains(anchor_node->GetTreeScope())) {
+    anchor_node = anchor_node->OwnerShadowHost();
+    adjust_position = true;
+  }
+  Position adjusted_position = adjust_position
+                                   ? Position::InParentBeforeNode(*anchor_node)
+                                   : position_with_affinity.GetPosition();
+  CHECK(!adjusted_position.IsNull());
+
+  return CreateCaretPosition(adjusted_position.ParentAnchoredEquivalent());
 }
 
 Element* Document::scrollingElement() {
@@ -1820,6 +1808,12 @@ Element* Document::ScrollingElementNoLayout() {
   }
 
   return body();
+}
+
+bool Document::KeyboardFocusableScrollersEnabled() {
+  return RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
+         !RuntimeEnabledFeatures::KeyboardFocusableScrollersOptOutEnabled(
+             GetExecutionContext());
 }
 
 /*
@@ -2524,7 +2518,7 @@ void Document::UpdateStyle() {
   style_engine.UpdateStyleAndLayoutTree();
 
   LayoutView* layout_view = GetLayoutView();
-  layout_view->UpdateMarkersAndCountersAfterStyleChange();
+  layout_view->UpdateCountersAfterStyleChange();
   layout_view->RecalcScrollableOverflow();
 
 #if DCHECK_IS_ON()
@@ -2900,19 +2894,6 @@ void Document::ClearFocusedElementTimerFired(TimerBase*) {
     focused_element_->blur();
 }
 
-const ComputedStyle* Document::StyleForPage(uint32_t page_index) {
-  AtomicString page_name;
-  if (const LayoutView* layout_view = GetLayoutView())
-    page_name = layout_view->NamedPageAtIndex(page_index);
-  return StyleForPage(page_index, page_name);
-}
-
-const ComputedStyle* Document::StyleForPage(uint32_t page_index,
-                                            const AtomicString& page_name) {
-  return GetStyleEngine().GetStyleResolver().StyleForPage(page_index,
-                                                          page_name);
-}
-
 void Document::EnsurePaintLocationDataValidForNode(
     const Node* node,
     DocumentUpdateReason reason) {
@@ -2921,82 +2902,7 @@ void Document::EnsurePaintLocationDataValidForNode(
 
 WebPrintPageDescription Document::GetPageDescription(uint32_t page_index) {
   View()->UpdateLifecycleToLayoutClean(DocumentUpdateReason::kUnknown);
-  return GetPageDescriptionNoLifecycleUpdate(*StyleForPage(page_index));
-}
-
-WebPrintPageDescription Document::GetPageDescriptionNoLifecycleUpdate(
-    const ComputedStyle& style) {
-  DocumentLifecycle::DisallowTransitionScope scope(Lifecycle());
-  const WebPrintParams& print_params = GetFrame()->GetPrintParams();
-  WebPrintPageDescription description = print_params.default_page_description;
-
-  // TODO(mstensho): We may want to adjust page_size_type accordingly if we
-  // decide to disregard the specified @page size below.
-  description.page_size_type = style.GetPageSizeType();
-
-  switch (style.GetPageSizeType()) {
-    case PageSizeType::kAuto:
-      break;
-    case PageSizeType::kLandscape:
-      if (description.size.width() < description.size.height()) {
-        description.size.Transpose();
-      }
-      break;
-    case PageSizeType::kPortrait:
-      if (description.size.width() > description.size.height()) {
-        description.size.Transpose();
-      }
-      break;
-    case PageSizeType::kFixed: {
-      gfx::SizeF css_size = style.PageSize();
-      if (!print_params.ignore_page_size) {
-        description.size = css_size;
-        break;
-      }
-      if ((css_size.width() > css_size.height()) !=
-          (description.size.width() > description.size.height())) {
-        // Keep the page size, but match orientation.
-        description.size.Transpose();
-      }
-      break;
-    }
-    default:
-      NOTREACHED();
-  }
-
-  if (!style.MarginTop().IsAuto()) {
-    description.margin_top =
-        FloatValueForLength(style.MarginTop(), description.size.height());
-  }
-  if (!style.MarginRight().IsAuto()) {
-    description.margin_right =
-        FloatValueForLength(style.MarginRight(), description.size.width());
-  }
-  if (!style.MarginBottom().IsAuto()) {
-    description.margin_bottom =
-        FloatValueForLength(style.MarginBottom(), description.size.height());
-  }
-  if (!style.MarginLeft().IsAuto()) {
-    description.margin_left =
-        FloatValueForLength(style.MarginLeft(), description.size.width());
-  }
-
-  float page_area_width = description.size.width() -
-                          (description.margin_left + description.margin_right);
-  float page_area_height = description.size.height() -
-                           (description.margin_top + description.margin_bottom);
-
-  if (page_area_width < 1 || page_area_height < 1) {
-    // The resulting page area size would become zero (or very close to
-    // it). Ignore CSS, and use the default values provided as input. There are
-    // tests that currently expect this behavior. But see
-    // https://github.com/w3c/csswg-drafts/issues/8335
-    description = print_params.default_page_description;
-  }
-
-  description.orientation = style.GetPageOrientation();
-
-  return description;
+  return GetPageDescriptionFromLayout(*this, page_index);
 }
 
 void Document::SetIsXrOverlay(bool val, Element* overlay_element) {
@@ -3487,8 +3393,7 @@ void Document::SetPrinting(PrintingState state) {
     GetStyleEngine().MarkViewportStyleDirty();
     // Separate UA sheet for printing.
     GetStyleEngine().MarkAllElementsForStyleRecalc(
-        StyleChangeReasonForTracing::Create(
-            style_change_reason::kStyleSheetChange));
+        StyleChangeReasonForTracing::Create(style_change_reason::kPrinting));
 
     if (documentElement() && GetFrame() && !GetFrame()->IsMainFrame() &&
         GetFrame()->Owner() && GetFrame()->Owner()->IsDisplayNone()) {
@@ -5312,7 +5217,7 @@ void Document::LayoutViewportWasResized() {
   // window size changes during load event dispatch.
   // Note that in the case of the initial empty document, the load may hav
   // completed before performing the first layout.
-  if (View()->DidFirstLayout() ||
+  if ((View() && View()->DidFirstLayout()) ||
       load_event_progress_ == kLoadEventInProgress || IsLoadCompleted()) {
     EnqueueResizeEvent();
     EnqueueVisualViewportResizeEvent();
@@ -6091,8 +5996,10 @@ void Document::EnqueueOverscrollEventForNode(Node* target,
 void Document::EnqueueSnapChangedEvent(Node* target,
                                        Member<Node>& block_target,
                                        Member<Node>& inline_target) {
-  Event* snapchanged_event = SnapEvent::Create(event_type_names::kSnapchanged,
-                                               block_target, inline_target);
+  Event* snapchanged_event = SnapEvent::Create(
+      event_type_names::kSnapchanged,
+      (target->IsDocumentNode() ? Event::Bubbles::kYes : Event::Bubbles::kNo),
+      block_target, inline_target);
   snapchanged_event->SetTarget(target);
   scripted_animation_controller_->EnqueuePerFrameEvent(snapchanged_event);
 }
@@ -6100,10 +6007,12 @@ void Document::EnqueueSnapChangedEvent(Node* target,
 void Document::EnqueueSnapChangingEvent(Node* target,
                                         Member<Node>& block_target,
                                         Member<Node>& inline_target) {
-  Event* snapchanged_event = SnapEvent::Create(event_type_names::kSnapchanging,
-                                               block_target, inline_target);
-  snapchanged_event->SetTarget(target);
-  scripted_animation_controller_->EnqueuePerFrameEvent(snapchanged_event);
+  Event* snapchanging_event = SnapEvent::Create(
+      event_type_names::kSnapchanging,
+      (target->IsDocumentNode() ? Event::Bubbles::kYes : Event::Bubbles::kNo),
+      block_target, inline_target);
+  snapchanging_event->SetTarget(target);
+  scripted_animation_controller_->EnqueuePerFrameEvent(snapchanging_event);
 }
 
 void Document::EnqueueMoveEvent() {
@@ -6626,358 +6535,6 @@ mojom::blink::PermissionService* Document::GetPermissionService(
 
 void Document::PermissionServiceConnectionError() {
   data_->permission_service_.reset();
-}
-
-ScriptPromise<IDLBoolean> Document::hasStorageAccess(
-    ScriptState* script_state) {
-  // See
-  // https://privacycg.github.io/storage-access/#dom-document-hasstorageaccess
-  // for the steps implemented here.
-
-  // Step #2: if doc is not fully active, reject p with an InvalidStateError and
-  // return p.
-  if (!GetFrame()) {
-    // Note that in detached frames, resolvers are not able to return a promise.
-    return ScriptPromise<IDLBoolean>::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kInvalidStateError,
-                          "hasStorageAccess: Cannot be used unless the "
-                          "document is fully active."));
-  }
-
-  auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<IDLBoolean>>(script_state);
-  auto promise = resolver->Promise();
-  resolver->Resolve([&]() -> bool {
-    // #3: if doc's origin is opaque, return false.
-    if (GetExecutionContext()->GetSecurityOrigin()->IsOpaque()) {
-      return false;
-    }
-
-    // #?: if window.credentialless is true, return false.
-    if (dom_window_->credentialless()) {
-      return false;
-    }
-
-    // #5: if global is not a secure context, return false.
-    if (!dom_window_->isSecureContext()) {
-      return false;
-    }
-
-    // #6: if the top-level origin of doc's relevant settings object is an
-    // opaque origin, return false.
-    if (TopFrameOrigin()->IsOpaque()) {
-      return false;
-    }
-
-    // #7 - #10: checks unpartitioned cookie availability with global's `has
-    // storage access`.
-    return CookiesEnabled();
-  }());
-  return promise;
-}
-
-ScriptPromise<IDLUndefined> Document::requestStorageAccessFor(
-    ScriptState* script_state,
-    const AtomicString& origin) {
-  if (!GetFrame()) {
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::REJECTED_NO_ORIGIN);
-    // Note that in detached frames, resolvers are not able to return a promise.
-    return ScriptPromise<IDLUndefined>::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kInvalidStateError,
-                          "requestStorageAccessFor: Cannot be used unless "
-                          "the document is fully active."));
-  }
-
-  auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
-
-  // Access the promise first to ensure it is created so that the proper state
-  // can be changed when it is resolved or rejected.
-  auto promise = resolver->Promise();
-
-  if (!IsInOutermostMainFrame()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccessFor: Only supported in primary top-level "
-        "browsing contexts."));
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::REJECTED_INCORRECT_FRAME);
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccessFor not allowed"));
-    return promise;
-  }
-
-  if (dom_window_->GetSecurityOrigin()->IsOpaque()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccessFor: Cannot be used by opaque origins."));
-
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::REJECTED_OPAQUE_ORIGIN);
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccessFor not allowed"));
-    return promise;
-  }
-
-  // `requestStorageAccessFor` must be rejected for any given iframe. In
-  // particular, it must have been rejected by credentialless iframes:
-  CHECK(!dom_window_->credentialless());
-
-  if (!dom_window_->isSecureContext()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccessFor: May not be used in an insecure "
-        "context."));
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::REJECTED_INSECURE_CONTEXT);
-
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccessFor not allowed"));
-    return promise;
-  }
-
-  KURL origin_as_kurl{origin};
-  if (!origin_as_kurl.IsValid()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccessFor: Invalid origin."));
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::REJECTED_INVALID_ORIGIN);
-    resolver->Reject(V8ThrowException::CreateTypeError(
-        script_state->GetIsolate(), "Invalid origin"));
-    return promise;
-  }
-
-  scoped_refptr<SecurityOrigin> supplied_origin =
-      SecurityOrigin::Create(origin_as_kurl);
-  if (supplied_origin->IsOpaque()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccessFor: Invalid origin parameter."));
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::REJECTED_OPAQUE_ORIGIN);
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccessFor not allowed"));
-    return promise;
-  }
-
-  if (dom_window_->GetSecurityOrigin()->IsSameSiteWith(supplied_origin.get())) {
-    // Access is not actually disabled, so accept the request.
-    resolver->Resolve();
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::APPROVED_EXISTING_ACCESS);
-    return promise;
-  }
-
-  auto descriptor = mojom::blink::PermissionDescriptor::New();
-  descriptor->name = mojom::blink::PermissionName::TOP_LEVEL_STORAGE_ACCESS;
-  auto top_level_storage_access_extension =
-      mojom::blink::TopLevelStorageAccessPermissionDescriptor::New();
-  top_level_storage_access_extension->requestedOrigin = supplied_origin;
-  descriptor->extension =
-      mojom::blink::PermissionDescriptorExtension::NewTopLevelStorageAccess(
-          std::move(top_level_storage_access_extension));
-
-  GetPermissionService(ExecutionContext::From(script_state))
-      ->RequestPermission(
-          std::move(descriptor),
-          LocalFrame::HasTransientUserActivation(GetFrame()),
-          WTF::BindOnce(&Document::ProcessTopLevelStorageAccessPermissionState,
-                        WrapPersistent(this), WrapPersistent(resolver)));
-
-  return promise;
-}
-
-ScriptPromise<IDLUndefined> Document::requestStorageAccess(
-    ScriptState* script_state) {
-  // Requesting storage access via `requestStorageAccess()` idl always requests
-  // unpartitioned cookie access.
-  return RequestStorageAccessImpl(script_state,
-                                  /*request_unpartitioned_cookie_access=*/true);
-}
-
-ScriptPromise<IDLUndefined> Document::RequestStorageAccessImpl(
-    ScriptState* script_state,
-    bool request_unpartitioned_cookie_access) {
-  if (!GetFrame()) {
-    FireRequestStorageAccessHistogram(RequestStorageResult::REJECTED_NO_ORIGIN);
-
-    // Note that in detached frames, resolvers are not able to return a promise.
-    return ScriptPromise<IDLUndefined>::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kInvalidStateError,
-                          "requestStorageAccess: Cannot be used unless the "
-                          "document is fully active."));
-  }
-
-  if (cookie_jar_) {
-    // Storage access might be about to change in which case the ability for
-    // |cookie_jar_| to retrieve values might also. Invalidate its cache in case
-    // that happens so it can't return data that shouldn't be accessible.
-    cookie_jar_->InvalidateCache();
-  }
-
-  auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
-
-  // Access the promise first to ensure it is created so that the proper state
-  // can be changed when it is resolved or rejected.
-  auto promise = resolver->Promise();
-
-  if (!dom_window_->isSecureContext()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccess: May not be used in an insecure context."));
-    FireRequestStorageAccessHistogram(
-        RequestStorageResult::REJECTED_INSECURE_CONTEXT);
-
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccess not allowed"));
-    return promise;
-  }
-
-  if (IsInOutermostMainFrame()) {
-    FireRequestStorageAccessHistogram(
-        RequestStorageResult::APPROVED_PRIMARY_FRAME);
-
-    // If this is the outermost frame we no longer need to make a request and
-    // can resolve the promise.
-    resolver->Resolve();
-    return promise;
-  }
-
-  if (dom_window_->GetSecurityOrigin()->IsOpaque()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccess: Cannot be used by opaque origins."));
-    FireRequestStorageAccessHistogram(
-        RequestStorageResult::REJECTED_OPAQUE_ORIGIN);
-
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccess not allowed"));
-    return promise;
-  }
-
-  if (dom_window_->credentialless()) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccess: May not be used in a credentialless iframe"));
-    FireRequestStorageAccessHistogram(
-        RequestStorageResult::REJECTED_CREDENTIALLESS_IFRAME);
-
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccess not allowed"));
-    return promise;
-  }
-
-  if (dom_window_->IsSandboxed(network::mojom::blink::WebSandboxFlags::
-                                   kStorageAccessByUserActivation)) {
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        dom_window_->GetFrame()->IsInFencedFrameTree()
-            ? "requestStorageAccess: Refused to execute request. The document "
-              "is in a fenced frame tree."
-            : "requestStorageAccess: Refused to execute request. The document "
-              "is sandboxed, and the 'allow-storage-access-by-user-activation' "
-              "keyword is not set."));
-
-    FireRequestStorageAccessHistogram(
-        dom_window_->GetFrame()->IsInFencedFrameTree()
-            ? RequestStorageResult::REJECTED_FENCED_FRAME
-            : RequestStorageResult::REJECTED_SANDBOXED);
-
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccess not allowed"));
-    return promise;
-  }
-  // RequestPermission may return `GRANTED` without actually creating a
-  // permission grant if cookies are already accessible.
-  auto descriptor = mojom::blink::PermissionDescriptor::New();
-  descriptor->name = mojom::blink::PermissionName::STORAGE_ACCESS;
-  GetPermissionService(ExecutionContext::From(resolver->GetScriptState()))
-      ->RequestPermission(
-          std::move(descriptor),
-          LocalFrame::HasTransientUserActivation(GetFrame()),
-          WTF::BindOnce(&Document::ProcessStorageAccessPermissionState,
-                        WrapPersistent(this), WrapPersistent(resolver),
-                        request_unpartitioned_cookie_access));
-
-  return promise;
-}
-
-void Document::ProcessStorageAccessPermissionState(
-    ScriptPromiseResolver<IDLUndefined>* resolver,
-    bool request_unpartitioned_cookie_access,
-    mojom::blink::PermissionStatus status) {
-  DCHECK(resolver);
-
-  ScriptState* script_state = resolver->GetScriptState();
-  DCHECK(script_state);
-  ScriptState::Scope scope(script_state);
-
-  // document could be no longer alive.
-  if (!dom_window_) {
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "document shutdown"));
-    return;
-  }
-
-  if (status == mojom::blink::PermissionStatus::GRANTED) {
-    FireRequestStorageAccessHistogram(
-        RequestStorageResult::APPROVED_NEW_OR_EXISTING_GRANT);
-    if (request_unpartitioned_cookie_access) {
-      dom_window_->SetHasStorageAccess();
-    }
-    resolver->Resolve();
-  } else {
-    LocalFrame::ConsumeTransientUserActivation(GetFrame());
-    FireRequestStorageAccessHistogram(
-        RequestStorageResult::REJECTED_GRANT_DENIED);
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccess: Permission denied."));
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccess not allowed"));
-  }
-}
-
-void Document::ProcessTopLevelStorageAccessPermissionState(
-    ScriptPromiseResolver<IDLUndefined>* resolver,
-    mojom::blink::PermissionStatus status) {
-  DCHECK(resolver);
-  DCHECK(GetFrame());
-  ScriptState* script_state = resolver->GetScriptState();
-  DCHECK(script_state);
-  ScriptState::Scope scope(script_state);
-
-  if (status == mojom::blink::PermissionStatus::GRANTED) {
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::APPROVED_NEW_OR_EXISTING_GRANT);
-    resolver->Resolve();
-  } else {
-    LocalFrame::ConsumeTransientUserActivation(GetFrame());
-    FireRequestStorageAccessForHistogram(
-        RequestStorageResult::REJECTED_GRANT_DENIED);
-    AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
-        "requestStorageAccessFor: Permission denied."));
-    resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
-        script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
-        "requestStorageAccessFor not allowed"));
-  }
 }
 
 FragmentDirective& Document::fragmentDirective() const {
@@ -9474,6 +9031,18 @@ void Document::CountDeprecation(mojom::WebFeature feature) {
     execution_context_->CountDeprecation(feature);
 }
 
+void Document::CountWebDXFeature(mojom::blink::WebDXFeature feature) const {
+  if (execution_context_) {
+    execution_context_->CountWebDXFeature(feature);
+  }
+}
+
+void Document::CountWebDXFeature(mojom::blink::WebDXFeature feature) {
+  if (execution_context_) {
+    execution_context_->CountWebDXFeature(feature);
+  }
+}
+
 void Document::CountProperty(CSSPropertyID property) const {
   if (DocumentLoader* loader = Loader()) {
     loader->GetUseCounter().Count(
@@ -9491,6 +9060,13 @@ void Document::CountAnimatedProperty(CSSPropertyID property) const {
 bool Document::IsUseCounted(mojom::WebFeature feature) const {
   if (DocumentLoader* loader = Loader()) {
     return loader->GetUseCounter().IsCounted(feature);
+  }
+  return false;
+}
+
+bool Document::IsWebDXFeatureCounted(mojom::blink::WebDXFeature feature) const {
+  if (DocumentLoader* loader = Loader()) {
+    return loader->GetUseCounter().IsWebDXFeatureCounted(feature);
   }
   return false;
 }

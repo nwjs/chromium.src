@@ -141,8 +141,7 @@ void HandleSignoutConfirmationChoice(
         browser->signin_view_controller()->ShowGaiaLogoutTab(
             token_signout_source);
       }
-      if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-              switches::ExplicitBrowserSigninPhase::kFull)) {
+      if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {
         // In Uno, Gaia logout tab invalidating the account will lead to a sign
         // in paused state. Unset the primary account to ensure it is removed
         // from chrome. The `AccountReconcilor` will revoke refresh tokens for
@@ -238,8 +237,6 @@ void SigninViewController::SignoutOrReauthWithPrompt(
   // Fetch the unsynced datatypes, as this is required to decide whether the
   // confirmation prompt is needed.
   if (sync_service &&
-      switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-          switches::ExplicitBrowserSigninPhase::kFull) &&
       profile->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin)) {
     sync_service->GetTypesWithUnsyncedData(
         syncer::TypesRequiringUnsyncedDataCheckOnSignout(),
@@ -302,7 +299,7 @@ SigninViewController::ShowReauthPrompt(
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(browser_->profile());
   // For now, Reauth is restricted to the primary account only.
-  // TODO(crbug.com/1083429): add support for secondary accounts.
+  // TODO(crbug.com/40131388): add support for secondary accounts.
   CoreAccountId primary_account_id =
       identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
 
@@ -528,8 +525,7 @@ void SigninViewController::ShowGaiaLogoutTab(
   // the bubble and the app picker do not overlap. If the bubble is not shown,
   // open the app picker in case the user is lost.
   GURL logout_url =
-      switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-          switches::ExplicitBrowserSigninPhase::kExperimental)
+      switches::IsExplicitBrowserSigninUIOnDesktopEnabled()
           ? GaiaUrls::GetInstance()->LogOutURLWithContinueURL(GURL())
           : GaiaUrls::GetInstance()->service_logout_url();
   // Do not use a singleton tab. A new tab should be opened even if there is

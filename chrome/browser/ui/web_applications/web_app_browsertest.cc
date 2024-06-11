@@ -58,7 +58,7 @@
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
-#include "chrome/browser/ui/web_applications/web_app_controller_browsertest.h"
+#include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_menu_model.h"
@@ -129,12 +129,12 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/metrics/structured/event_logging_features.h"
 #include "components/metrics/structured/test/test_structured_metrics_recorder.h"
 #include "ui/views/test/dialog_test.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/widget.h"
-// TODO(crbug.com/1125897): Enable gn check once it handles conditional includes
+// TODO(crbug.com/40147906): Enable gn check once it handles conditional
+// includes
 #include "chromeos/constants/chromeos_features.h"
 #include "components/metrics/structured/structured_events.h"  // nogncheck
 #endif
@@ -243,7 +243,7 @@ namespace web_app {
 
 using ::base::BucketsAre;
 
-class WebAppBrowserTest : public WebAppControllerBrowserTest {
+class WebAppBrowserTest : public WebAppBrowserTestBase {
  public:
   GURL GetSecureAppURL() {
     return https_server()->GetURL("app.com", "/ssl/google.html");
@@ -778,8 +778,9 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, DesktopPWAsOpenLinksInNewTab) {
   ASSERT_TRUE(app_browser->app_controller());
 
   EXPECT_EQ(chrome::GetTotalBrowserCount(), 2u);
-  Browser* browser2 = CreateBrowser(app_browser->profile());
-  ui_test_utils::WaitForBrowserSetLastActive(browser2);
+  Browser* browser2 =
+      ui_test_utils::OpenNewEmptyWindowAndWaitUntilSetAsLastActive(
+          app_browser->profile());
   EXPECT_EQ(chrome::GetTotalBrowserCount(), 3u);
 
   TabStripModel* model2 = browser2->tab_strip_model();
@@ -787,7 +788,6 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, DesktopPWAsOpenLinksInNewTab) {
   EXPECT_EQ(model2->count(), 2);
   model2->SelectPreviousTab();
   EXPECT_EQ(model2->active_index(), 0);
-  ui_test_utils::WaitForBrowserSetLastActive(browser2);
 
   NavigateParams param(app_browser, GURL("http://www.google.com/"),
                        ui::PAGE_TRANSITION_LINK);
@@ -795,7 +795,6 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, DesktopPWAsOpenLinksInNewTab) {
   param.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
 
   ui_test_utils::NavigateToURL(&param);
-  ui_test_utils::WaitForBrowserSetLastActive(browser2);
 
   EXPECT_EQ(chrome::GetTotalBrowserCount(), 3u);
   EXPECT_EQ(model2->count(), 3);
@@ -824,7 +823,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest, PWASizeIsCorrectlyRestored) {
 
 // Tests that using window.open to create a popup window out of scope results in
 // a correctly sized window.
-// TODO(crbug.com/1234260): Stabilize the test.
+// TODO(crbug.com/40781381): Stabilize the test.
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_OffScopePWAPopupsHaveCorrectSize \
   DISABLED_OffScopePWAPopupsHaveCorrectSize
@@ -864,7 +863,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest,
 
 // Tests that using window.open to create a popup window in scope results in
 // a correctly sized window.
-// TODO(crbug.com/1234260): Stabilize the test.
+// TODO(crbug.com/40781381): Stabilize the test.
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_InScopePWAPopupsHaveCorrectSize \
   DISABLED_InScopePWAPopupsHaveCorrectSize
@@ -1145,10 +1144,6 @@ class WebAppBrowserCrOSEventsTest : public WebAppBrowserTest {
     return https_server()->GetURL(
         "/banners/manifest_test_page_screenshots.html");
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      metrics::structured::kAppDiscoveryLogging};
 };
 
 IN_PROC_BROWSER_TEST_F(WebAppBrowserCrOSEventsTest,
@@ -2558,13 +2553,6 @@ IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_PageInfoManagementLink,
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppBrowserTest_PageInfoManagementLink, LaunchAsTab) {
-#if BUILDFLAG(IS_CHROMEOS)
-  if (chromeos::features::IsCrosShortstandEnabled()) {
-    GTEST_SKIP()
-        << "Cannot launch web apps in a tab when Shortstand is enabled.";
-  }
-#endif
-
   const GURL app_url = GetSecureAppURL();
   const webapps::AppId app_id = InstallPWA(app_url);
 

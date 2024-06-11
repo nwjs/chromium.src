@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 
 #include <math.h>
+
 #include <algorithm>
 #include <utility>
 
@@ -47,7 +48,10 @@
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/forms/html_button_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_legend_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_opt_group_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
@@ -55,6 +59,7 @@
 #include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
+#include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_utils.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -419,7 +424,7 @@ int HypotheticalScrollbarThickness(const LayoutBox& box,
       float scale_from_dip =
           chrome_client.WindowToViewportScalar(document.GetFrame(), 1.0f);
       return theme.ScrollbarThickness(scale_from_dip,
-                                      box.StyleRef().ScrollbarWidth());
+                                      box.StyleRef().UsedScrollbarWidth());
     }
   }
 }
@@ -727,7 +732,7 @@ void LayoutBox::UpdateShapeOutsideInfoAfterStyleChange(
                 : ComputedStyleInitialValues::InitialShapeOutside();
 
   const Length& shape_margin = style.ShapeMargin();
-  Length old_shape_margin =
+  const Length& old_shape_margin =
       old_style ? old_style->ShapeMargin()
                 : ComputedStyleInitialValues::InitialShapeMargin();
 
@@ -1036,7 +1041,7 @@ LayoutUnit LayoutBox::ClientHeightWithTableSpecialBehavior() const {
 
 bool LayoutBox::UsesOverlayScrollbars() const {
   NOT_DESTROYED();
-  if (StyleRef().HasCustomScrollbarStyle(GetDocument())) {
+  if (StyleRef().HasCustomScrollbarStyle(DynamicTo<Element>(GetNode()))) {
     return false;
   }
   if (GetFrame()->GetPage()->GetScrollbarTheme().UsesOverlayScrollbars())
@@ -4002,18 +4007,6 @@ TextDirection LayoutBox::ResolvedDirection() const {
   return StyleRef().Direction();
 }
 
-bool LayoutBox::NeedsScrollNode(
-    CompositingReasons direct_compositing_reasons) const {
-  NOT_DESTROYED();
-  if (!IsScrollContainer())
-    return false;
-
-  if (direct_compositing_reasons & CompositingReason::kRootScroller)
-    return true;
-
-  return GetScrollableArea()->ScrollsOverflow();
-}
-
 bool LayoutBox::UsesCompositedScrolling() const {
   NOT_DESTROYED();
   const auto* properties = FirstFragment().PaintProperties();
@@ -4429,6 +4422,42 @@ bool LayoutBox::NeedsAnchorPositionScrollAdjustmentInY() const {
 WritingModeConverter LayoutBox::CreateWritingModeConverter() const {
   return WritingModeConverter({Style()->GetWritingMode(), TextDirection::kLtr},
                               Size());
+}
+
+bool LayoutBox::IsReadingOrderContainer() const {
+  if (!RuntimeEnabledFeatures::CSSReadingOrderItemsEnabled()) {
+    return false;
+  }
+  const ComputedStyle& style = StyleRef();
+  switch (style.ReadingOrderItems()) {
+    case EReadingOrderItems::kNormal:
+      return false;
+    case EReadingOrderItems::kFlexVisual:
+    case EReadingOrderItems::kFlexFlow:
+      return IsFlexibleBox();
+    case EReadingOrderItems::kGridRows:
+    case EReadingOrderItems::kGridColumns:
+    case EReadingOrderItems::kGridOrder:
+      return IsLayoutGrid();
+  }
+  return false;
+}
+
+HeapVector<Member<Element>> LayoutBox::ReadingOrderElements() const {
+  HeapVector<Member<Element>> reading_order_elements;
+  if (!IsReadingOrderContainer()) {
+    return reading_order_elements;
+  }
+  DCHECK_EQ(PhysicalFragmentCount(), 1u);
+  auto children = GetPhysicalFragment(0)->Children();
+  reading_order_elements.ReserveInitialCapacity(
+      base::checked_cast<wtf_size_t>(children.size()));
+  for (const PhysicalFragmentLink& fragment : children) {
+    if (Element* child = DynamicTo<Element>(fragment->GetNode())) {
+      reading_order_elements.push_back(child);
+    }
+  }
+  return reading_order_elements;
 }
 
 }  // namespace blink

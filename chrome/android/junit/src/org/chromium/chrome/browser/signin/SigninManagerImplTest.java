@@ -95,6 +95,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RunWith(BaseRobolectricTestRunner.class)
 @LooperMode(LooperMode.Mode.LEGACY)
 @EnableFeatures({
+    SigninFeatures.USE_CONSENT_LEVEL_SIGNIN_FOR_LEGACY_ACCOUNT_EMAIL_PREF,
     SigninFeatures.SKIP_CHECK_FOR_ACCOUNT_MANAGEMENT_ON_SIGNIN
 })
 @DisableFeatures(SigninFeatures.ENTERPRISE_POLICY_ON_SIGNIN)
@@ -240,20 +241,6 @@ public class SigninManagerImplTest {
                 mFakeAccountManagerFacade.getCoreAccountInfos().getResult();
         verify(mIdentityMutator)
                 .seedAccountsThenReloadAllAccountsWithPrimaryAccount(coreAccountInfos, null);
-    }
-
-    @Test
-    @EnableFeatures(SigninFeatures.SEED_ACCOUNTS_REVAMP)
-    public void
-            testOnCoreAccountInfosChanged_signoutWhenPrimaryAccountIsRemoved_seedAccountsRevampEnabled() {
-        createSigninManager();
-        when(mIdentityManagerNativeMock.getPrimaryAccountInfo(
-                        NATIVE_IDENTITY_MANAGER, ConsentLevel.SIGNIN))
-                .thenReturn(CoreAccountInfo.createFromEmailAndGaiaId("test@email.com", "test-id"));
-
-        mSigninManager.onCoreAccountInfosChanged();
-
-        verify(mIdentityMutator).clearPrimaryAccount(SignoutReason.ACCOUNT_REMOVED_FROM_DEVICE);
     }
 
     @Test
@@ -784,7 +771,7 @@ public class SigninManagerImplTest {
         verify(mNativeMock, never()).wipeGoogleServiceWorkerCaches(anyLong(), any());
     }
 
-    // TODO(crbug.com/1294761): add test for revokeSyncConsentFromJavaWithManagedDomain() and
+    // TODO(crbug.com/40820738): add test for revokeSyncConsentFromJavaWithManagedDomain() and
     // revokeSyncConsentFromJavaWipeData() - this requires making the BookmarkModel mockable in
     // SigninManagerImpl.
 
@@ -1087,7 +1074,8 @@ public class SigninManagerImplTest {
     }
 
     @Test
-    // TODO(crbug.com/1353777): Disabling the feature explicitly, because native is not available to
+    // TODO(crbug.com/40858677): Disabling the feature explicitly, because native is not available
+    // to
     // provide a default value. This should be enabled if the feature is enabled by default or
     // removed if the flag is removed.
     @DisableFeatures({
@@ -1117,7 +1105,8 @@ public class SigninManagerImplTest {
     }
 
     @Test
-    // TODO(crbug.com/1353777): Disabling the feature explicitly, because native is not available to
+    // TODO(crbug.com/40858677): Disabling the feature explicitly, because native is not available
+    // to
     // provide a default value. This should be enabled if the feature is enabled by default or
     // removed if the flag is removed.
     @DisableFeatures(ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS)

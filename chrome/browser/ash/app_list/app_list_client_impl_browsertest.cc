@@ -56,7 +56,6 @@
 #include "chrome/browser/ash/login/test/login_manager_mixin.h"
 #include "chrome/browser/ash/login/ui/user_adding_screen.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
-#include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -71,7 +70,6 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
-#include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -328,7 +326,8 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, ActivateSelfDestroyApp) {
 
   // Activates |item|.
   client->ActivateItem(/*profile_id=*/0, item->id(), /*event_flags=*/0,
-                       ash::AppListLaunchedFrom::kLaunchedFromGrid);
+                       ash::AppListLaunchedFrom::kLaunchedFromGrid,
+                       /*is_above_the_fold=*/true);
 }
 
 // Verifies that the first app activation by a new user is recorded.
@@ -364,7 +363,8 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
   ChromeAppListItem* item = model_updater->FindItem(app_id);
   ASSERT_TRUE(item);
   client->ActivateItem(/*profile_id=*/0, item->id(), /*event_flags=*/0,
-                       ash::AppListLaunchedFrom::kLaunchedFromGrid);
+                       ash::AppListLaunchedFrom::kLaunchedFromGrid,
+                       /*is_above_the_fold=*/true);
   histogram_tester.ExpectBucketCount(
       "Apps.NewUserFirstLauncherAction.ClamshellMode",
       static_cast<int>(ash::AppListLaunchedFrom::kLaunchedFromGrid),
@@ -376,7 +376,8 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
 
   // Verify that only the first app activation is recorded.
   client->ActivateItem(/*profile_id=*/0, item->id(), /*event_flags=*/0,
-                       ash::AppListLaunchedFrom::kLaunchedFromGrid);
+                       ash::AppListLaunchedFrom::kLaunchedFromGrid,
+                       /*is_above_the_fold=*/true);
   histogram_tester.ExpectBucketCount(
       "Apps.NewUserFirstLauncherAction.ClamshellMode",
       static_cast<int>(ash::AppListLaunchedFrom::kLaunchedFromGrid),
@@ -649,8 +650,15 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, OpenSearchResult) {
   content::RunAllTasksUntilIdle();
 }
 
+// TODO(crbug.com/335362001): Re-enable this test.
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_OpenSearchResultOnPrimaryDisplay \
+  DISABLED_OpenSearchResultOnPrimaryDisplay
+#else
+#define MAYBE_OpenSearchResultOnPrimaryDisplay OpenSearchResultOnPrimaryDisplay
+#endif
 IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
-                       OpenSearchResultOnPrimaryDisplay) {
+                       MAYBE_OpenSearchResultOnPrimaryDisplay) {
   display::test::DisplayManagerTestApi display_manager(
       ash::ShellTestApi().display_manager());
   display_manager.UpdateDisplay("400x300,500x400");
@@ -887,6 +895,67 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest,
   EXPECT_EQ(2U, chrome::GetBrowserCount(profile));
   EXPECT_EQ(time_recorded2,
             prefs->GetLastLaunchTime(app_constants::kChromeAppId));
+}
+
+// Verifies that apps visibility is correctly calculated.
+IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, AppsVisibility) {
+  AppListClientImpl* client = AppListClientImpl::GetInstance();
+  EXPECT_TRUE(client);
+  client->UpdateProfile();
+
+  // Show the app list to ensure it has loaded a profile.
+  client->ShowAppList(ash::AppListShowSource::kSearchKey);
+  AppListModelUpdater* model_updater = test::GetModelUpdater(client);
+  EXPECT_TRUE(model_updater);
+
+  // Get the webstore hosted app.
+  ChromeAppListItem* item = model_updater->FindItem(extensions::kWebStoreAppId);
+  EXPECT_TRUE(item);
+
+  // Calculate the correct histogram name.
+  base::HistogramTester histogram_tester;
+  const std::string experimental_arm =
+      app_list_features::IsAppsCollectionsEnabledCounterfactually()
+          ? ".Counterfactual"
+          : ".Enabled";
+  const std::string apps_collections_state =
+      app_list_features::IsAppsCollectionsEnabled() ? experimental_arm : "";
+  const std::string histogram_prefix =
+      "Apps.AppListBubble.AppsPage.AppLaunchesByVisibility";
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat({histogram_prefix, ".AboveTheFold", apps_collections_state}),
+      0);
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat({histogram_prefix, ".BelowTheFold", apps_collections_state}),
+      0);
+
+  // Activates web store as if it was activated below the fold.
+  client->ActivateItem(/*profile_id=*/0, item->id(), /*event_flags=*/0,
+                       ash::AppListLaunchedFrom::kLaunchedFromGrid,
+                       /*is_above_the_fold=*/false);
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat({histogram_prefix, ".AboveTheFold", apps_collections_state}),
+      0);
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat({histogram_prefix, ".BelowTheFold", apps_collections_state}),
+      1);
+
+  // Activates web store as if it was activated above the fold.
+  client->ActivateItem(/*profile_id=*/0, item->id(), /*event_flags=*/0,
+                       ash::AppListLaunchedFrom::kLaunchedFromGrid,
+                       /*is_above_the_fold=*/true);
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat({histogram_prefix, ".AboveTheFold", apps_collections_state}),
+      1);
+
+  histogram_tester.ExpectTotalCount(
+      base::StrCat({histogram_prefix, ".BelowTheFold", apps_collections_state}),
+      1);
 }
 
 // Browser Test for AppListClient that observes search result changes.

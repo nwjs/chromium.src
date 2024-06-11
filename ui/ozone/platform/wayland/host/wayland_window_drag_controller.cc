@@ -179,7 +179,7 @@ bool WaylandWindowDragController::Drag(WaylandToplevelWindow* window,
   SetDraggedWindow(nullptr, {});
 
   DCHECK(state_ == State::kAttaching || state_ == State::kDropped ||
-         state_ == State::kCancelled);
+         state_ == State::kCancelled) << "Drag state: " << int(state_);
   if (state_ == State::kAttaching) {
     state_ = State::kAttached;
     return false;
@@ -205,6 +205,10 @@ void WaylandWindowDragController::StopDragging() {
       window_manager_->GetCurrentPointerOrTouchFocusedWindow();
   VLOG(1) << "Quiting Loop : StopDragging";
   QuitLoop();
+}
+
+bool WaylandWindowDragController::IsDragInProgress() const {
+  return state_ != State::kIdle;
 }
 
 bool WaylandWindowDragController::IsDragSource() const {
@@ -258,7 +262,7 @@ void WaylandWindowDragController::OnDragEnter(WaylandWindow* window,
 
   DVLOG(1) << "OnEnter. widget=" << window->GetWidget();
 
-  // TODO(crbug.com/1102946): Exo does not support custom mime types. In this
+  // TODO(crbug.com/40704369): Exo does not support custom mime types. In this
   // case, |data_offer_| will hold an empty mime_types list and, at this point,
   // it's safe just to skip the offer checks and requests here.
   if (!base::Contains(data_offer_->mime_types(), kMimeTypeChromiumWindow)) {
@@ -299,8 +303,9 @@ void WaylandWindowDragController::OnDragMotion(const gfx::PointF& location,
   pointer_location_ = location;
 
   if (*drag_source_ == DragEventSource::kMouse) {
-    pointer_delegate_->OnPointerMotionEvent(
-        location, timestamp, wl::EventDispatchPolicy::kImmediate);
+    pointer_delegate_->OnPointerMotionEvent(location, timestamp,
+                                            wl::EventDispatchPolicy::kImmediate,
+                                            /*is_synthesized=*/true);
   } else {
     const auto touch_pointer_ids = touch_delegate_->GetActiveTouchPointIds();
     LOG_IF(WARNING, touch_pointer_ids.size() < 1u)
@@ -308,7 +313,8 @@ void WaylandWindowDragController::OnDragMotion(const gfx::PointF& location,
         << touch_pointer_ids.size();
     for (auto id : touch_pointer_ids) {
       touch_delegate_->OnTouchMotionEvent(location, timestamp, id,
-                                          wl::EventDispatchPolicy::kImmediate);
+                                          wl::EventDispatchPolicy::kImmediate,
+                                          /*is_synthesized=*/true);
     }
   }
 }
@@ -353,7 +359,7 @@ void WaylandWindowDragController::OnDragLeave(base::TimeTicks timestamp) {
   // they properly handle platforms that do not support global screen
   // coordinates, like Wayland.
   //
-  // TODO(https://crbug.com/1282186): Find a better solution for upwards tab
+  // TODO(crbug.com/40209502): Find a better solution for upwards tab
   // detaching.
   if (state_ != State::kAttached)
     return;
@@ -361,7 +367,7 @@ void WaylandWindowDragController::OnDragLeave(base::TimeTicks timestamp) {
   if (*drag_source_ == DragEventSource::kMouse) {
     pointer_delegate_->OnPointerMotionEvent(
         {pointer_location_.x(), -1}, timestamp,
-        wl::EventDispatchPolicy::kImmediate);
+        wl::EventDispatchPolicy::kImmediate, /*is_synthesized=*/true);
   } else {
     const auto touch_pointer_ids = touch_delegate_->GetActiveTouchPointIds();
     for (auto id : touch_pointer_ids) {
@@ -372,7 +378,7 @@ void WaylandWindowDragController::OnDragLeave(base::TimeTicks timestamp) {
       // the drag event is discarded.
       touch_delegate_->OnTouchMotionEvent(
           {pointer_location_.x(), kHorizontalRailExitThreshold}, timestamp, id,
-          wl::EventDispatchPolicy::kImmediate);
+          wl::EventDispatchPolicy::kImmediate, /*is_synthesized=*/true);
     }
   }
 }
@@ -571,7 +577,7 @@ void WaylandWindowDragController::HandleDropAndResetState(
   // function for a single drop event. That results in ILL_ILLOPN crashes in
   // below code, because |drag_source_| is null after the first call to this
   // function. So, early out here in that case.
-  // TODO(crbug.com/1280981): Revert this once Exo-side issue gets solved.
+  // TODO(crbug.com/40209138): Revert this once Exo-side issue gets solved.
   if (!drag_source_.has_value())
     return;
 
@@ -593,13 +599,16 @@ void WaylandWindowDragController::HandleDropAndResetState(
       if (pointer_grab_owner_) {
         pointer_delegate_->OnPointerButtonEvent(
             ET_MOUSE_RELEASED, EF_LEFT_MOUSE_BUTTON, timestamp,
-            pointer_grab_owner_, wl::EventDispatchPolicy::kImmediate);
+            pointer_grab_owner_, wl::EventDispatchPolicy::kImmediate,
+            /*allow_release_of_unpressed_button=*/false,
+            /*is_synthesized=*/true);
       }
     } else {
       const auto touch_pointer_ids = touch_delegate_->GetActiveTouchPointIds();
       for (auto id : touch_pointer_ids) {
         touch_delegate_->OnTouchReleaseEvent(
-            timestamp, id, wl::EventDispatchPolicy::kImmediate);
+            timestamp, id, wl::EventDispatchPolicy::kImmediate,
+            /*is_synthesized=*/true);
       }
     }
   }
@@ -653,7 +662,7 @@ void WaylandWindowDragController::SetDraggedWindow(
   dragged_window_ = window;
   drag_offset_ = offset;
 
-  // TODO(crbug.com/896640): Fallback when extended-drag is not available.
+  // TODO(crbug.com/40598679): Fallback when extended-drag is not available.
   if (extended_drag_source_)
     extended_drag_source_->SetDraggedWindow(dragged_window_, drag_offset_);
 }

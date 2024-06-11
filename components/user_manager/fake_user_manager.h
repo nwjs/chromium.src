@@ -115,25 +115,18 @@ class USER_MANAGER_EXPORT FakeUserManager : public UserManagerBase {
   void AsyncRemoveCryptohome(const AccountId& account_id) const override;
   bool IsDeprecatedSupervisedAccountId(
       const AccountId& account_id) const override;
-  void ScheduleResolveLocale(const std::string& locale,
-                             base::OnceClosure on_resolved_callback,
-                             std::string* out_resolved_locale) const override;
   bool IsValidDefaultUserImageId(int image_index) const override;
-  MultiUserSignInPolicyController* GetMultiUserSignInPolicyController()
-      override;
 
   // UserManagerBase overrides:
   void SetEphemeralModeConfig(
       EphemeralModeConfig ephemeral_mode_config) override;
 
-  bool IsEnterpriseManaged() const override;
   void LoadDeviceLocalAccounts(
       std::set<AccountId>* device_local_accounts_set) override {}
   bool IsDeviceLocalAccountMarkedForRemoval(
       const AccountId& account_id) const override;
-  void SetUserAffiliation(
-      const AccountId& account_id,
-      const base::flat_set<std::string>& user_affiliation_ids) override {}
+  void SetUserAffiliated(const AccountId& account_id,
+                         bool is_affiliated) override {}
   // Just make it public for tests.
   using UserManagerBase::ResetOwnerId;
   using UserManagerBase::SetOwnerId;

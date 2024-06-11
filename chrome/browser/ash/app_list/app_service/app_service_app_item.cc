@@ -30,6 +30,7 @@
 #include "chrome/browser/ash/remote_apps/remote_apps_manager_factory.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "components/services/app_service/public/cpp/app_types.h"
+#include "components/services/app_service/public/cpp/types_util.h"
 #include "ui/display/screen.h"
 
 namespace {
@@ -159,7 +160,7 @@ void AppServiceAppItem::OnAppUpdate(const apps::AppUpdate& app_update,
 
   if (in_constructor || app_update.ReadinessChanged() ||
       app_update.PausedChanged()) {
-    if (app_update.Readiness() == apps::Readiness::kDisabledByPolicy) {
+    if (apps_util::IsDisabled(app_update.Readiness())) {
       SetAppStatus(ash::AppStatus::kBlocked);
     } else if (app_update.Paused().value_or(false)) {
       SetAppStatus(ash::AppStatus::kPaused);
@@ -172,7 +173,7 @@ void AppServiceAppItem::OnAppUpdate(const apps::AppUpdate& app_update,
 void AppServiceAppItem::ExecuteLaunchCommand(int event_flags) {
   Launch(event_flags, apps::LaunchSource::kFromAppListGridContextMenu);
 
-  // TODO(crbug.com/826982): drop the if, and call MaybeDismissAppList
+  // TODO(crbug.com/40569217): drop the if, and call MaybeDismissAppList
   // unconditionally?
   if (app_type_ == apps::AppType::kArc || app_type_ == apps::AppType::kRemote) {
     MaybeDismissAppList();

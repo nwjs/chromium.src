@@ -32,7 +32,7 @@ void ShowAuthenticatorRequestDialog(content::WebContents* web_contents,
   // WebContents, which have a |manager|. Most other sources without managers,
   // like service workers and extension background pages, do not allow WebAuthn
   // requests to be issued in the first place.
-  // TODO(https://crbug.com/849323): There are some niche WebContents where the
+  // TODO(crbug.com/41392632): There are some niche WebContents where the
   // WebAuthn API is available, but there is no |manager| available. Currently,
   // we will not be able to show a dialog, so the |model| will be immediately
   // destroyed. The request may be able to still run to completion if it does
@@ -117,21 +117,25 @@ void AuthenticatorRequestDialogView::UpdateUIForCurrentSheet() {
             base::Unretained(this)),
         l10n_util::GetStringUTF16(IDS_WEBAUTHN_MANAGE_DEVICES)));
   } else if (sheet_->model()->IsForgotGPMPinButtonVisible()) {
-    SetExtraView(std::make_unique<views::MdTextButton>(
+    auto forgot_pin_button = std::make_unique<views::MdTextButton>(
         base::BindRepeating(
             &AuthenticatorRequestDialogView::ForgotGPMPinPressed,
             base::Unretained(this)),
-        u"Forgot PIN (UNTRANSLATED)"));
+        u"Forgot PIN (UNTRANSLATED)");
+    forgot_pin_button->SetEnabled(!model_->ui_disabled_);
+    SetExtraView(std::move(forgot_pin_button));
   } else if (sheet_->model()->IsGPMPinOptionsButtonVisible()) {
     PinOptionsButton::CommandId checked_command_id =
         model_->step() ==
                 AuthenticatorRequestDialogModel::Step::kGPMCreateArbitraryPin
             ? PinOptionsButton::CommandId::CHOOSE_ARBITRARY_PIN
             : PinOptionsButton::CommandId::CHOOSE_SIX_DIGIT_PIN;
-    SetExtraView(std::make_unique<PinOptionsButton>(
+    auto pin_options_button = std::make_unique<PinOptionsButton>(
         u"PIN options (UT)", checked_command_id,
         base::BindRepeating(&AuthenticatorRequestDialogView::GPMPinOptionChosen,
-                            base::Unretained(this))));
+                            base::Unretained(this)));
+    pin_options_button->SetEnabled(!model_->ui_disabled_);
+    SetExtraView(std::move(pin_options_button));
   } else {
     SetExtraView(std::make_unique<views::View>());
   }
@@ -152,7 +156,7 @@ void AuthenticatorRequestDialogView::UpdateUIForCurrentSheet() {
   // The accessibility title is also sourced from the |sheet_|'s step title.
   GetWidget()->UpdateWindowTitle();
 
-  // TODO(https://crbug.com/849323): Investigate how a web-modal dialog's
+  // TODO(crbug.com/41392632): Investigate how a web-modal dialog's
   // lifetime compares to that of the parent WebContents. Take a conservative
   // approach for now.
   if (!web_contents()) {

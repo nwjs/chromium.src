@@ -7,7 +7,7 @@
 
 // Enum representing the existing set of menu actions as types. Current values
 // should not be renumbered. Please keep in sync with "IOSMenuAction" in
-// src/tools/metrics/histograms/enums.xml.
+// src/tools/metrics/histograms/metadata/mobile/enums.xml.
 // LINT.IfChange
 enum class MenuActionType {
   OpenInNewTab = 0,
@@ -63,7 +63,9 @@ enum class MenuActionType {
   DeleteTabGroup = 50,
   MoveTabToExistingGroup = 51,
   RemoveTabFromGroup = 52,
-  kMaxValue = RemoveTabFromGroup
+  OpenLinkInNewGroup = 53,
+  ShowDetails = 54,
+  kMaxValue = ShowDetails
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/mobile/enums.xml)
 

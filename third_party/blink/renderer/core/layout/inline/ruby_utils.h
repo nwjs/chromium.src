@@ -77,7 +77,14 @@ bool CanApplyStartOverhang(const LineInfo& line_info,
 LayoutUnit CommitPendingEndOverhang(const InlineItem& text_item,
                                     LineInfo* line_info);
 
-void ApplyRubyAlign(LayoutUnit available_line_size, LineInfo& line_info);
+// Justify InlineItemResutls of the specified `line_info`.
+// Returns a pair of the left and the right insets.  They should be applied
+// to LogicalLineItems generated from `line_info` after bidi reorder.
+[[nodiscard]] std::pair<LayoutUnit, LayoutUnit> ApplyRubyAlign(
+    LayoutUnit available_line_size,
+    bool on_start_edge,
+    bool on_end_edge,
+    LineInfo& line_info);
 
 // Stores ComputeAnnotationOverflow() results.
 //
@@ -174,8 +181,10 @@ class CORE_EXPORT RubyBlockPositionCalculator {
     DISALLOW_NEW();
 
     Member<LogicalRubyColumn> column;
-    wtf_size_t over_depth = 0;
-    wtf_size_t under_depth = 0;
+    // Nesting level on the "over" side. The value is zero or positive.
+    int32_t over_depth = 0;
+    // Nesting level on the "under" side. The value is zero or negative.
+    int32_t under_depth = 0;
 
     void Trace(Visitor* visitor) const;
   };

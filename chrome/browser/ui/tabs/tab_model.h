@@ -10,10 +10,8 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
-#include "base/observer_list.h"
 #include "chrome/browser/ui/tabs/public/tab_interface.h"
 #include "chrome/browser/ui/tabs/supports_handles.h"
-#include "chrome/browser/ui/tabs/tab_model_observer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/web_contents.h"
@@ -40,10 +38,6 @@ class TabModel final : public SupportsHandles<const TabModel>,
   void OnAddedToModel(TabStripModel* owning_model);
   void OnRemovedFromModel();
 
-  void AddObserver(TabModelObserver* obs) { observers_.AddObserver(obs); }
-
-  void RemoveObserver(TabModelObserver* obs) { observers_.RemoveObserver(obs); }
-
   content::WebContents* contents() const { return contents_.get(); }
   TabStripModel* owning_model() const { return owning_model_.get(); }
   content::WebContents* opener() const { return opener_; }
@@ -67,20 +61,15 @@ class TabModel final : public SupportsHandles<const TabModel>,
 
   void WriteIntoTrace(perfetto::TracedValue context) const;
 
-  // https://crbug.com/331022416: Do not use this method. The signature of this
-  // method suggests that it's possible to replace the WebContents that
-  // represents a live, foregrounded tab with a different WebContents. This is
-  // never the case.
-  std::unique_ptr<content::WebContents> ReplaceContents(
+  // https://crbug.com/331022416: Do not use this method. This is only used by
+  // tab discard, which is being refactored to not need this.
+  std::unique_ptr<content::WebContents> DiscardContents(
       std::unique_ptr<content::WebContents> contents);
 
   // This destroys the TabModel and takes ownership of the underlying
   // WebContents.
   static std::unique_ptr<content::WebContents> DestroyAndTakeWebContents(
       std::unique_ptr<TabModel> tab_model);
-
-  // The current contents of the tab must be |nullptr|.
-  void SetContents(std::unique_ptr<content::WebContents> contents);
 
   TabFeatures* tab_features() { return tab_features_.get(); }
 
@@ -101,23 +90,33 @@ class TabModel final : public SupportsHandles<const TabModel>,
   // tab hierarchy, maintaining consistent organization.
   void OnReparented(TabCollection* parent, base::PassKey<TabCollection>);
 
+  // Called by TabStripModel when a tab is going to be backgrounded (any
+  // operation that makes the tab no longer visible, including removal from the
+  // TabStripModel). Not called if TabStripModel is being destroyed.
+  void WillEnterBackground(base::PassKey<TabStripModel>);
+
+  // Called by TabStripModel when a tab is going to be detached for reinsertion
+  // into a different tab strip.
+  void WillDetach(base::PassKey<TabStripModel>,
+                  tabs::TabInterface::DetachReason reason);
+
   // TabInterface overrides:
   content::WebContents* GetContents() const override;
-  base::CallbackListSubscription RegisterDidAddContents(
-      TabInterface::DidAddContentsCallback callback) override;
-  base::CallbackListSubscription RegisterWillRemoveContents(
-      TabInterface::WillRemoveContentsCallback callback) override;
+  base::CallbackListSubscription RegisterWillDiscardContents(
+      TabInterface::WillDiscardContentsCallback callback) override;
   bool IsInForeground() const override;
   base::CallbackListSubscription RegisterDidEnterForeground(
       TabInterface::DidEnterForegroundCallback callback) override;
-  base::CallbackListSubscription RegisterDidEnterBackground(
-      TabInterface::DidEnterBackgroundCallback callback) override;
+  base::CallbackListSubscription RegisterWillEnterBackground(
+      TabInterface::WillEnterBackgroundCallback callback) override;
+  base::CallbackListSubscription RegisterWillDetach(
+      TabInterface::WillDetach callback) override;
   bool CanShowModalUI() const override;
   std::unique_ptr<ScopedTabModalUI> ShowModalUI() override;
+  bool IsInNormalWindow() const override;
+  BrowserWindowInterface* GetBrowserWindowInterface() override;
 
  private:
-  std::unique_ptr<content::WebContents> RemoveContents();
-
   // Overridden from TabStripModelObserver:
   void OnTabStripModelChanged(
       TabStripModel* tab_strip_model,
@@ -154,26 +153,30 @@ class TabModel final : public SupportsHandles<const TabModel>,
   std::optional<tab_groups::TabGroupId> group_ = std::nullopt;
   raw_ptr<TabCollection> parent_collection_ = nullptr;
 
-  base::ObserverList<TabModelObserver> observers_;
-
-  using DidAddContentsCallbackList =
-      base::RepeatingCallbackList<void(TabInterface*, content::WebContents*)>;
-  DidAddContentsCallbackList did_add_contents_callback_list_;
-
-  using WillRemoveContentsCallbackList =
-      base::RepeatingCallbackList<void(TabInterface*, content::WebContents*)>;
-  WillRemoveContentsCallbackList will_remove_contents_callback_list_;
+  using WillDiscardContentsCallbackList = base::RepeatingCallbackList<
+      void(TabInterface*, content::WebContents*, content::WebContents*)>;
+  WillDiscardContentsCallbackList will_discard_contents_callback_list_;
 
   using DidEnterForegroundCallbackList =
       base::RepeatingCallbackList<void(TabInterface*)>;
   DidEnterForegroundCallbackList did_enter_foreground_callback_list_;
 
-  using DidEnterBackgroundCallbackList =
+  using WillEnterBackgroundCallbackList =
       base::RepeatingCallbackList<void(TabInterface*)>;
-  DidEnterBackgroundCallbackList did_enter_background_callback_list_;
+  WillEnterBackgroundCallbackList will_enter_background_callback_list_;
+
+  using WillDetachCallbackList =
+      base::RepeatingCallbackList<void(TabInterface*,
+                                       tabs::TabInterface::DetachReason)>;
+  WillDetachCallbackList will_detach_callback_list_;
 
   // Tracks whether a modal UI is showing.
   bool showing_modal_ui_ = false;
+
+  // Tabs may be temporarily detached but they never move between normal and
+  // non-normal windows. Thus this value is recorded at construction and never
+  // changed.
+  const bool is_in_normal_window_;
 
   // Features that are per-tab will be owned by this class.
   std::unique_ptr<TabFeatures> tab_features_;

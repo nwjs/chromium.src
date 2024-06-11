@@ -309,7 +309,7 @@ class ChromeAppForLinkDelegate : public extensions::AppForLinkDelegate {
 void LaunchWebApp(const webapps::AppId& app_id, Profile* profile) {
   // Look at prefs to find the right launch container. If the user has not set a
   // preference, the default launch value will be returned.
-  // TODO(crbug.com/1003602): Make AppLaunchParams launch container Optional or
+  // TODO(crbug.com/40098656): Make AppLaunchParams launch container Optional or
   // add a "default" launch container enum value.
   auto* provider = web_app::WebAppProvider::GetForWebApps(profile);
   DCHECK(provider);
@@ -400,7 +400,7 @@ bool ChromeManagementAPIDelegate::LaunchAppFunctionDelegate(
   // Look at prefs to find the right launch container.
   // If the user has not set a preference, the default launch value will be
   // returned.
-  // TODO(crbug.com/1003602): Make AppLaunchParams launch container Optional or
+  // TODO(crbug.com/40098656): Make AppLaunchParams launch container Optional or
   // add a "default" launch container enum value.
   apps::LaunchContainer launch_container =
       GetLaunchContainer(extensions::ExtensionPrefs::Get(context), extension);
@@ -559,14 +559,13 @@ void ChromeManagementAPIDelegate::EnableExtension(
   const extensions::Extension* extension =
       extensions::ExtensionRegistry::Get(context)->GetExtensionById(
           extension_id, extensions::ExtensionRegistry::EVERYTHING);
+  // The extension must exist as this method is invoked on enabling an extension
+  // from the extensions management page (see `ManagementSetEnabledFunction`).
+  CHECK(extension);
 
-  // We add approval for the extension here under the assumption that prior
-  // to this point, the supervised child user has already been prompted
-  // for, and received parent permission to install the extension.
   extensions::SupervisedUserExtensionsDelegate* extensions_delegate =
       GetSupervisedUserExtensionsDelegateFromContext(context);
-
-  extensions_delegate->AddExtensionApproval(*extension);
+  extensions_delegate->MaybeRecordPermissionsIncreaseMetrics(*extension);
   extensions_delegate->RecordExtensionEnablementUmaMetrics(/*enabled=*/true);
 
   // If the extension was disabled for a permissions increase, the Management
@@ -611,7 +610,7 @@ void ChromeManagementAPIDelegate::SetLaunchType(
 GURL ChromeManagementAPIDelegate::GetIconURL(
     const extensions::Extension* extension,
     int icon_size,
-    ExtensionIconSet::MatchType match,
+    ExtensionIconSet::Match match,
     bool grayscale) const {
   return extensions::ExtensionIconSource::GetIconURL(extension, icon_size,
                                                      match, grayscale);

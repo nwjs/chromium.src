@@ -28,7 +28,6 @@ import org.chromium.base.jank_tracker.JankTracker;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
@@ -45,7 +44,6 @@ import org.chromium.chrome.browser.logo.LogoUtils;
 import org.chromium.chrome.browser.magic_stack.HomeModulesConfigManager;
 import org.chromium.chrome.browser.magic_stack.HomeModulesCoordinator;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
-import org.chromium.chrome.browser.omnibox.OmniboxFeatures;
 import org.chromium.chrome.browser.omnibox.OmniboxStub;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -58,7 +56,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher.TabSwitcherType;
-import org.chromium.chrome.browser.tab_ui.TabSwitcherCustomViewManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
@@ -104,9 +101,6 @@ public class StartSurfaceCoordinator implements StartSurface {
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final TabCreatorManager mTabCreatorManager;
     private final Supplier<Toolbar> mToolbarSupplier;
-    // TODO(crbug.com/1315676): Directly return the supplier from {@link TabSwitcherCoordinator}.
-    private final ObservableSupplierImpl<TabSwitcherCustomViewManager>
-            mTabSwitcherCustomViewManagerSupplier;
 
     @VisibleForTesting
     static final String START_SHOWN_AT_STARTUP_UMA = "Startup.Android.StartSurfaceShownAtStartup";
@@ -122,7 +116,8 @@ public class StartSurfaceCoordinator implements StartSurface {
     @Nullable private ExploreSurfaceCoordinatorFactory mExploreSurfaceCoordinatorFactory;
 
     // Non-null in SurfaceMode.SINGLE_PANE modes.
-    // TODO(crbug.com/982018): Get rid of this reference since the mediator keeps a reference to it.
+    // TODO(crbug.com/40635216): Get rid of this reference since the mediator keeps a reference to
+    // it.
     @Nullable private PropertyModel mPropertyModel;
 
     // Whether the {@link initWithNative()} is called.
@@ -261,7 +256,6 @@ public class StartSurfaceCoordinator implements StartSurface {
         mModuleRegistrySupplier = moduleRegistrySupplier;
 
         mUseMagicSpace = mIsStartSurfaceEnabled && StartSurfaceConfiguration.useMagicStack();
-        mTabSwitcherCustomViewManagerSupplier = new ObservableSupplierImpl<>();
         mIsSurfacePolishEnabled = ChromeFeatureList.sSurfacePolish.isEnabled();
 
         assert mIsStartSurfaceEnabled;
@@ -480,12 +474,6 @@ public class StartSurfaceCoordinator implements StartSurface {
         return mView;
     }
 
-    @Override
-    public ObservableSupplier<TabSwitcherCustomViewManager>
-            getTabSwitcherCustomViewManagerSupplier() {
-        return mTabSwitcherCustomViewManagerSupplier;
-    }
-
     public boolean isMVTilesCleanedUpForTesting() {
         if (mMostVisitedCoordinator != null) {
             return mMostVisitedCoordinator.isMVTilesCleanedUp();
@@ -575,7 +563,7 @@ public class StartSurfaceCoordinator implements StartSurface {
                 PropertyModelChangeProcessor.create(mPropertyModel, mView, TasksViewBinder::bind);
     }
 
-    // TODO(crbug.com/1047488): This is a temporary solution of the issue crbug.com/1047488, which
+    // TODO(crbug.com/40671400): This is a temporary solution of the issue crbug.com/1047488, which
     // has not been reproduced locally. The crash is because we can not find ChromeTabbedActivity's
     // ActivityInfo in the ApplicationStatus. However, from the code, ActivityInfo is created in
     // ApplicationStatus during AsyncInitializationActivity.onCreate, which happens before
@@ -586,7 +574,7 @@ public class StartSurfaceCoordinator implements StartSurface {
                 mChromeActivityNativeDelegate.isActivityFinishingOrDestroyed()
                         || ApplicationStatus.getStateForActivity(mActivity)
                                 == ActivityState.DESTROYED;
-        // TODO(crbug.com/1047488): Assert false. Do not do that in this CL to keep it small since
+        // TODO(crbug.com/40671400): Assert false. Do not do that in this CL to keep it small since
         // Start surface is eanbled in the fieldtrial_testing_config.json, which requires update of
         // the other browser tests.
         return finishingOrDestroyed;
@@ -618,12 +606,7 @@ public class StartSurfaceCoordinator implements StartSurface {
                     resources, StartSurfaceConfiguration.getLogoSizeForLogoPolish());
         }
 
-        if (mIsSurfacePolishEnabled
-                && StartSurfaceConfiguration.SURFACE_POLISH_MOVE_DOWN_LOGO.getValue()) {
-            if (StartSurfaceConfiguration.SURFACE_POLISH_LESS_BRAND_SPACE.getValue()) {
-                return LogoUtils.getLogoTotalHeightPolishedShort(resources);
-            }
-
+        if (mIsSurfacePolishEnabled) {
             return LogoUtils.getLogoTotalHeightPolished(resources);
         }
 
@@ -680,10 +663,7 @@ public class StartSurfaceCoordinator implements StartSurface {
             realTranslationX =
                     OmniboxResourceProvider.getFocusedStatusViewLeftSpacing(mActivity)
                             + getPixelSize(R.dimen.status_view_highlight_size)
-                            + getPixelSize(
-                                    OmniboxFeatures.shouldShowModernizeVisualUpdate(mActivity)
-                                            ? R.dimen.location_bar_icon_end_padding_focused_smaller
-                                            : R.dimen.location_bar_icon_end_padding_focused)
+                            + getPixelSize(R.dimen.location_bar_icon_end_padding_focused_smaller)
                             - getPixelSize(R.dimen.fake_search_box_start_padding);
         } else {
             realTranslationX =

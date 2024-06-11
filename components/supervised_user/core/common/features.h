@@ -14,7 +14,6 @@ namespace supervised_user {
 
 // Experiment to enable kid-friendly content feed.
 BASE_DECLARE_FEATURE(kKidFriendlyContentFeed);
-extern const base::FeatureParam<std::string> kKidFriendlyContentFeedEndpoint;
 
 BASE_DECLARE_FEATURE(kLocalWebApprovals);
 
@@ -59,10 +58,6 @@ BASE_DECLARE_FEATURE(kShadowKidsApiWithSafeSites);
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kMigrateAccountManagementSettingsToCapabilities);
 #endif
-
-// Sets kForceYouTubeRestrict to be applied according to parental controls set
-// on Family Link
-BASE_DECLARE_FEATURE(kRemoveForceAppliedYoutubeRestrictPolicy);
 
 // Uses PrimaryAccountAccessTokenFetcher::Mode::kWaitUntilAvailable for
 // ClassifyUrl fetches.

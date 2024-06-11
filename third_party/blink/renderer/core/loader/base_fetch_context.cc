@@ -576,9 +576,9 @@ BaseFetchContext::CanRequestInternal(
     }
   }
 
-  // SVG Images have unique security rules that prevent all subresource requests
-  // except for data urls.
-  if (IsSVGImageChromeClient() && !url.ProtocolIsData())
+  // SVG images/resource documents have unique security rules that prevent all
+  // subresource requests except for data urls.
+  if (IsIsolatedSVGChromeClient() && !url.ProtocolIsData())
     return ResourceRequestBlockedReason::kOrigin;
 
   // data: URL is deprecated in SVGUseElement.
@@ -629,9 +629,13 @@ BaseFetchContext::CanRequestInternal(
   // Only warn if the resource URL's origin is different than its requestor
   // (we don't want to warn for <img src="faß.de/image.img"> on faß.de).
   // TODO(crbug.com/1396475): Remove once Non-Transitional mode is shipped.
-  if (url.HasIDNA2008DeviationCharacter() &&
-      !resource_request.RequestorOrigin()->IsSameOriginWith(
-          SecurityOrigin::Create(url).get())) {
+  if (base::FeatureList::IsEnabled(kAvoidWastefulHostCopies)
+          ? (url.HasIDNA2008DeviationCharacter() &&
+             !resource_request.RequestorOrigin()->IsSameOriginWith(
+                 SecurityOrigin::Create(url).get()))
+          : (!resource_request.RequestorOrigin()->IsSameOriginWith(
+                 SecurityOrigin::Create(url).get()) &&
+             url.HasIDNA2008DeviationCharacter())) {
     String message = GetConsoleWarningForIDNADeviationCharacters(url);
     if (!message.empty()) {
       console_logger_->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(

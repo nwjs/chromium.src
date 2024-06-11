@@ -150,7 +150,7 @@ TEST_P(CreditCardFieldParserTest, ParseMiniumCreditCardWith2DigitYearHint) {
   AddTextFormFieldData("card_number", "Card Number", CREDIT_CARD_NUMBER);
   AddTextFormFieldData("ccmonth", "Exp Month", CREDIT_CARD_EXP_MONTH);
   AddTextFormFieldData("ccyear", "Exp Year", CREDIT_CARD_EXP_2_DIGIT_YEAR);
-  fields_.back()->placeholder = u"YY";
+  fields_.back()->set_placeholder(u"YY");
   ClassifyAndVerify(ParseResult::kParsed);
 }
 
@@ -163,8 +163,8 @@ TEST_P(CreditCardFieldParserTest, ParseMiniumCreditCardWithMaxLength) {
   AddTextFormFieldData("ccyear", "Exp Year", CREDIT_CARD_EXP_2_DIGIT_YEAR);
   // Even though the placehodler indicates YYYY, the max-length only enables
   // a YY expiration format.
-  fields_.back()->max_length = 2u;
-  fields_.back()->placeholder = u"YYYY";
+  fields_.back()->set_max_length(2u);
+  fields_.back()->set_placeholder(u"YYYY");
   ClassifyAndVerify(ParseResult::kParsed);
 }
 
@@ -734,8 +734,8 @@ TEST_P(DetermineExpirationDateFormat, TestDetermineFormat) {
   SCOPED_TRACE(test_case().is_server_override);
 
   AutofillField field;
-  field.max_length = test_case().max_length;
-  field.label = base::UTF8ToUTF16(test_case().label);
+  field.set_max_length(test_case().max_length);
+  field.set_label(base::UTF8ToUTF16(test_case().label));
 
   FieldType fallback_type = CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR;
 

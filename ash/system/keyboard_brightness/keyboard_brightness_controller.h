@@ -35,6 +35,10 @@ class ASH_EXPORT KeyboardBrightnessController
   void HandleSetKeyboardBrightness(double percent, bool gradual) override;
   void HandleGetKeyboardBrightness(
       base::OnceCallback<void(std::optional<double>)> callback) override;
+  void HandleSetKeyboardAmbientLightSensorEnabled(bool enabled) override;
+  void HandleGetKeyboardAmbientLightSensorEnabled(
+      base::OnceCallback<void(std::optional<bool>)> callback) override;
+
   void OnReceiveHasKeyboardBacklight(std::optional<bool> has_backlight);
 
   base::WeakPtrFactory<KeyboardBrightnessController> weak_ptr_factory_{this};

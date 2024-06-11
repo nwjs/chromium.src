@@ -722,8 +722,9 @@ class InstallIsolatedWebAppCommandBundleTest
     TestSignedWebBundleBuilder::BuildOptions build_options;
     if (bundle_info_.has_error) {
       build_options.SetErrorsForTesting(
-          {web_package::WebBundleSigner::ErrorForTesting::
-               kInvalidIntegrityBlockStructure});
+          {{web_package::WebBundleSigner::IntegrityBlockErrorForTesting::
+                kInvalidIntegrityBlockStructure},
+           {}});
     }
 
     TestSignedWebBundleBuilder builder;
@@ -829,7 +830,7 @@ class InstallIsolatedWebAppCommandBundleInstallSourceTest
 TEST_P(InstallIsolatedWebAppCommandBundleInstallSourceTest,
        InstallationFinalizedWithCorrectInstallSurface) {
   IsolatedWebAppBuilder builder{ManifestBuilder()};
-  auto app = builder.BuildBundle(web_package::WebBundleSigner::KeyPair(
+  auto app = builder.BuildBundle(web_package::WebBundleSigner::Ed25519KeyPair(
       base::make_span(kTestPublicKey), base::make_span(kTestPrivateKey)));
   app->FakeInstallPageState(profile());
   app->TrustSigningKey();

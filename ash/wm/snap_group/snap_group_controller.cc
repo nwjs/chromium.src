@@ -4,6 +4,7 @@
 
 #include "ash/wm/snap_group/snap_group_controller.h"
 
+#include <optional>
 #include <vector>
 
 #include "ash/root_window_controller.h"
@@ -13,6 +14,7 @@
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/snap_group/snap_group.h"
 #include "ash/wm/snap_group/snap_group_constants.h"
+#include "ash/wm/snap_group/snap_group_metrics.h"
 #include "ash/wm/splitview/layout_divider_controller.h"
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_controller.h"
@@ -24,6 +26,8 @@
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/unique_ptr_adapters.h"
+#include "base/metrics/user_metrics.h"
+#include "base/time/time.h"
 #include "chromeos/ui/base/window_state_type.h"
 #include "ui/display/screen.h"
 #include "ui/display/tablet_state.h"
@@ -71,11 +75,19 @@ bool SnapGroupController::AreWindowsInSnapGroup(aura::Window* window1,
          window2 == RetrieveTheOtherWindowInSnapGroup(window1);
 }
 
-SnapGroup* SnapGroupController::AddSnapGroup(aura::Window* window1,
-                                             aura::Window* window2) {
+SnapGroup* SnapGroupController::AddSnapGroup(
+    aura::Window* window1,
+    aura::Window* window2,
+    bool replace,
+    std::optional<base::TimeTicks> carry_over_creation_time) {
   // We should only allow snap group to be created for windows that have the
   // same parent.
   if (window1->parent() != window2->parent()) {
+    return nullptr;
+  }
+
+  // We only allow snap group to be created if the windows fit the work area.
+  if (!CanWindowsFitInWorkArea(window1, window2)) {
     return nullptr;
   }
 
@@ -85,7 +97,7 @@ SnapGroup* SnapGroupController::AddSnapGroup(aura::Window* window1,
   }
 
   std::unique_ptr<SnapGroup> snap_group =
-      std::make_unique<SnapGroup>(window1, window2);
+      std::make_unique<SnapGroup>(window1, window2, carry_over_creation_time);
 
   window_to_snap_group_map_.emplace(window1, snap_group.get());
   window_to_snap_group_map_.emplace(window2, snap_group.get());
@@ -99,20 +111,43 @@ SnapGroup* SnapGroupController::AddSnapGroup(aura::Window* window1,
   snap_group_ptr->UpdateGroupWindowsBounds(
       /*account_for_divider_width=*/true);
 
+  if (!replace) {
+    ReportSnapGroupsCountHistogram(/*count=*/snap_groups_.size());
+    base::RecordAction(base::UserMetricsAction("SnapGroups_AddSnapGroup"));
+  }
+
   return snap_group_ptr;
 }
 
-bool SnapGroupController::RemoveSnapGroup(SnapGroup* snap_group) {
+bool SnapGroupController::RemoveSnapGroup(SnapGroup* snap_group, bool replace) {
   CHECK(snap_group);
   aura::Window* window1 = snap_group->window1();
   aura::Window* window2 = snap_group->window2();
-  CHECK(base::Contains(window_to_snap_group_map_, window1) &&
-        base::Contains(window_to_snap_group_map_, window2));
 
-  window_to_snap_group_map_.erase(window1);
-  window_to_snap_group_map_.erase(window2);
+  CHECK_EQ(window_to_snap_group_map_.erase(window1), 1u);
+  CHECK_EQ(window_to_snap_group_map_.erase(window2), 1u);
 
-  std::erase_if(snap_groups_, base::MatchesUniquePtr(snap_group));
+  auto iter =
+      base::ranges::find_if(snap_groups_, base::MatchesUniquePtr(snap_group));
+  DCHECK(iter != snap_groups_.end());
+  auto group_to_remove = std::move(*iter);
+  snap_groups_.erase(iter);
+  group_to_remove->Shutdown();
+  base::SequencedTaskRunner::GetCurrentDefault()->DeleteSoon(
+      FROM_HERE, std::move(group_to_remove));
+
+  if (!replace) {
+    // Records persistence duration and Snap Groups count when the removal of
+    // `group_to_remove` is not due to 'Snap to Replace'.
+    RecordSnapGroupPersistenceDuration(base::TimeTicks::Now() -
+                                       snap_group->carry_over_creation_time_);
+    ReportSnapGroupsCountHistogram(/*count=*/snap_groups_.size());
+    base::RecordAction(base::UserMetricsAction("SnapGroups_RemoveSnapGroup"));
+  }
+
+  // We should always record the actual duration of the Snap Group upon removal.
+  RecordSnapGroupActualDuration(base::TimeTicks::Now() -
+                                snap_group->actual_creation_time_);
 
   return true;
 }
@@ -195,15 +230,26 @@ bool SnapGroupController::OnSnappingWindow(
     // Disallow snap-to-replace if the snap ratio difference exceeds the allowed
     // threshold.
     if (snap_ratio_diff > kSnapToReplaceRatioDiffThreshold) {
+      base::RecordAction(base::UserMetricsAction("SnapGroups_SnapDirect"));
       return false;
     }
   }
 
+  // If the new windows can't fit, do not allow snap to replace.
+  if (!CanWindowsFitInWorkArea(new_primary_window, new_secondary_window)) {
+    return false;
+  }
+
   // TODO(b/331470570): Consider directly replacing the `to_be_snapped_window`
   // within the `snap_group`.
-  RemoveSnapGroup(group_to_replace);
-  SnapGroup* new_snap_group =
-      AddSnapGroup(new_primary_window, new_secondary_window);
+  const auto carry_over_creation_time =
+      group_to_replace->carry_over_creation_time_;
+  RemoveSnapGroup(group_to_replace, /*replace=*/true);
+  SnapGroup* new_snap_group = AddSnapGroup(
+      new_primary_window, new_secondary_window, /*replace=*/true,
+      /*carry_over_creation_time=*/
+      std::make_optional<base::TimeTicks>(carry_over_creation_time));
+  base::RecordAction(base::UserMetricsAction("SnapGroups_SnapToReplace"));
 
   // Apply the `primary_window_snap_ratio` to the `new_snap_group` such that the
   // snap ratio of the `group_to_replace` is preserved.
@@ -364,6 +410,7 @@ void SnapGroupController::RestoreSnapState(SnapGroup* snap_group) {
 void SnapGroupController::OnTabletModeStarted() {
   // TODO(b/327269057): Define tablet <-> clamshell transition.
   while (!snap_groups_.empty()) {
+    RecordSnapGroupExitPoint(SnapGroupExitPoint::kTabletTransition);
     RemoveSnapGroup(snap_groups_.back().get());
   }
 }

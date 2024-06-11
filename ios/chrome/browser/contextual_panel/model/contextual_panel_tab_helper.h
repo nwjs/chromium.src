@@ -38,9 +38,18 @@ class ContextualPanelTabHelper
   // false before all the models have returned a response or timed out.
   bool HasCachedConfigsAvailable();
 
+  // Returns a list of the finalized Contextual Panel model configs
+  // currently available in the cached list of sorted configs.
+  std::vector<base::WeakPtr<ContextualPanelItemConfiguration>>
+  GetCurrentCachedConfigurations();
+
   // Gets the first config in the cached list of sorted Contextual Panel model
   // configs.
   base::WeakPtr<ContextualPanelItemConfiguration> GetFirstCachedConfig();
+
+  // Getter and setter for is_contextual_panel_currently_opened_.
+  bool IsContextualPanelCurrentlyOpened();
+  void SetContextualPanelCurrentlyOpened(bool opened);
 
   // Getter and setter for large_entrypoint_shown_for_curent_page_navigation_.
   bool WasLargeEntrypointShown();
@@ -93,6 +102,9 @@ class ContextualPanelTabHelper
   void AllRequestsFinished();
 
   WEB_STATE_USER_DATA_KEY_DECL();
+
+  // Whether the Contextual Panel is currently opened for the current tab.
+  bool is_contextual_panel_currently_opened_ = false;
 
   // Whether the large Contextual Panel entrypoint has been shown for the
   // current navigation.

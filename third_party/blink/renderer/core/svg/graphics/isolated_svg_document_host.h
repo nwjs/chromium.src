@@ -29,6 +29,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_SVG_GRAPHICS_ISOLATED_SVG_DOCUMENT_HOST_H_
 
 #include "base/functional/callback.h"
+#include "base/task/single_thread_task_runner.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
@@ -36,9 +38,11 @@
 namespace blink {
 
 class AgentGroupScheduler;
+class IsolatedSVGChromeClient;
+class SVGImageChromeClient;
 class LocalFrame;
 class Page;
-class SVGImageChromeClient;
+class SVGSVGElement;
 class Settings;
 
 // Encapsulation of an (SVG)Document that is isolated/independent from other
@@ -51,17 +55,18 @@ class IsolatedSVGDocumentHost final
     kStatic,    // Corresponds to "secure static mode".
     kAnimated,  // Corresponds to "secure animated mode".
   };
-  IsolatedSVGDocumentHost(SVGImageChromeClient&,
-                          AgentGroupScheduler&,
-                          scoped_refptr<const SharedBuffer>,
-                          base::OnceClosure async_load_callback,
-                          const Settings*,
-                          ProcessingMode);
+  IsolatedSVGDocumentHost(IsolatedSVGChromeClient&, AgentGroupScheduler&);
   ~IsolatedSVGDocumentHost();
+
+  void InstallDocument(scoped_refptr<const SharedBuffer> data,
+                       base::OnceClosure async_load_callback,
+                       const Settings* inherited_settings,
+                       ProcessingMode processing_mode);
 
   void Shutdown();
 
   LocalFrame* GetFrame();
+  SVGSVGElement* RootElement();
 
   bool IsLoaded() const { return load_state_ == kCompleted; }
 
@@ -85,6 +90,36 @@ class IsolatedSVGDocumentHost final
     kCompleted,
   };
   LoadState load_state_ = kNotStarted;
+};
+
+// IsolatedSVGDocumentHostInitializer instantiates several
+// SVGImageChromeClients and IsolatedSVGDocumentHosts and uses the
+// precreated objects when it's really necessary because the
+// IsolatedSVGDocumentHost creation takes around 1 ms. We want to avoid
+// the latency.
+class IsolatedSVGDocumentHostInitializer final
+    : public GarbageCollected<IsolatedSVGDocumentHostInitializer> {
+ public:
+  static IsolatedSVGDocumentHostInitializer* Get();
+
+  IsolatedSVGDocumentHostInitializer();
+  ~IsolatedSVGDocumentHostInitializer() = default;
+
+  std::pair<SVGImageChromeClient*, IsolatedSVGDocumentHost*> GetOrCreate();
+  void Clear();
+  void MaybePrepareIsolatedSVGDocumentHost();
+  void Trace(Visitor* visitor) const;
+
+ private:
+  std::pair<SVGImageChromeClient*, IsolatedSVGDocumentHost*> Create();
+
+  const wtf_size_t max_pre_initialize_count_;
+  HeapVector<
+      std::pair<Member<SVGImageChromeClient>, Member<IsolatedSVGDocumentHost>>>
+      chrome_clients_and_document_hosts_;
+  Member<AgentGroupScheduler> agent_group_scheduler_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+  bool paused_ = false;
 };
 
 }  // namespace blink

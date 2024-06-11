@@ -54,6 +54,7 @@ class MODULES_EXPORT CanvasRenderingContext2DState final
     kSaveRestore,
     kBeginEndLayerOneSave,
     kBeginEndLayerTwoSaves,
+    kBeginEndLayerThreeSaves,
     kInitial
   };
 
@@ -285,12 +286,29 @@ class MODULES_EXPORT CanvasRenderingContext2DState final
                                  ShadowMode,
                                  ImageType = kNoImage) const;
 
+  static_assert(static_cast<int>(SaveType::kBeginEndLayerOneSave) + 1 ==
+                static_cast<int>(SaveType::kBeginEndLayerTwoSaves));
+  static_assert(static_cast<int>(SaveType::kBeginEndLayerTwoSaves) + 1 ==
+                static_cast<int>(SaveType::kBeginEndLayerThreeSaves));
   SaveType GetSaveType() const { return save_type_; }
   bool IsLayerSaveType() const {
-    return save_type_ == SaveType::kBeginEndLayerOneSave ||
-           save_type_ == SaveType::kBeginEndLayerTwoSaves;
+    return save_type_ >= SaveType::kBeginEndLayerOneSave &&
+           save_type_ <= SaveType::kBeginEndLayerThreeSaves;
+  }
+  int LayerSaveCount() {
+    if (!IsLayerSaveType()) {
+      return 0;
+    }
+    return static_cast<int>(save_type_) -
+           static_cast<int>(SaveType::kBeginEndLayerOneSave) + 1;
+  }
+  static SaveType LayerSaveCountToSaveType(int save_count) {
+    CHECK(1 <= save_count && save_count <= 3);
+    return static_cast<SaveType>(
+        static_cast<int>(SaveType::kBeginEndLayerOneSave) + save_count - 1);
   }
 
+  sk_sp<PaintFilter>& ShadowOnlyImageFilter() const;
   sk_sp<PaintFilter>& ShadowAndForegroundImageFilter() const;
 
  private:
@@ -301,7 +319,6 @@ class MODULES_EXPORT CanvasRenderingContext2DState final
   sk_sp<cc::DrawLooper>& EmptyDrawLooper() const;
   sk_sp<cc::DrawLooper>& ShadowOnlyDrawLooper() const;
   sk_sp<cc::DrawLooper>& ShadowAndForegroundDrawLooper() const;
-  sk_sp<PaintFilter>& ShadowOnlyImageFilter() const;
 
   String unparsed_stroke_color_;
   String unparsed_fill_color_;

@@ -1240,9 +1240,9 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
   }
 
   void AddWebApp(const std::string& web_app_id) {
-    auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-
-    web_app_info->start_url = GetWebAppUrl(web_app_id);
+    auto web_app_info =
+        web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+            GetWebAppUrl(web_app_id));
 
     webapps::AppId installed_app_id =
         web_app::test::InstallWebApp(profile(), std::move(web_app_info));
@@ -1254,8 +1254,9 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
   webapps::AppId InstallExternalWebApp(
       const GURL& start_url,
       const std::optional<GURL>& install_url = {}) {
-    auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    web_app_info->start_url = GURL(start_url);
+    auto web_app_info =
+        web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+            GURL(start_url));
     web_app_info->install_url = GURL(install_url ? *install_url : start_url);
     const webapps::AppId expected_web_app_id = web_app::GenerateAppId(
         /*manifest_id=*/std::nullopt, web_app_info->start_url);
@@ -1479,8 +1480,6 @@ class ChromeShelfControllerLacrosTest : public ChromeShelfControllerTestBase {
     proxy_ = nullptr;
     chrome_app_shelf_item_ = nullptr;
     ChromeShelfControllerTestBase::TearDown();
-    // Some test sets this so unsetting.
-    ChromeShelfPrefs::SetSkipPinnedAppsFromSyncForTest(false);
   }
 
   void AddChromeAppItem(const std::string& app_id, aura::Window* window) {
@@ -1682,7 +1681,7 @@ class MultiProfileMultiBrowserShelfLayoutChromeShelfControllerTest
   std::string GetDefaultProfileName() override { return "user0@example.com"; }
 
   void LogIn(const std::string& email) override {
-    // TODO(crbug.com/1494005): Merge into BrowserWithTestWindowTest.
+    // TODO(crbug.com/40286020): Merge into BrowserWithTestWindowTest.
     const AccountId account_id = AccountId::FromUserEmail(email);
     // Add a user to the fake user manager.
     auto* user = user_manager()->AddUser(account_id);
@@ -2039,7 +2038,6 @@ TEST_F(ChromeShelfControllerLacrosTest, WithoutAppService) {
   EXPECT_FALSE(apps::AppServiceProxyFactory::IsAppServiceAvailableForProfile(
       controller_profile));
 
-  ChromeShelfPrefs::SetSkipPinnedAppsFromSyncForTest(true);
   ash::ShelfModel model;
   ChromeShelfController(controller_profile, &model).Init();
 }
@@ -2055,9 +2053,9 @@ TEST_F(ChromeShelfControllerWithArcTest, ArcAppsHiddenFromLaunchCanBePinned) {
   PinAppWithIDToShelf(arc::kSettingsAppId);
   EXPECT_EQ("Chrome, Android Settings", GetPinnedAppStatus());
 
-  // The pin should remain after syncing prefs. Play Store should now appear.
+  // The pin should remain after syncing prefs.
   StartPrefSyncService(syncer::SyncDataList());
-  EXPECT_EQ("Chrome, Play Store, Android Settings", GetPinnedAppStatus());
+  EXPECT_EQ("Chrome, Android Settings", GetPinnedAppStatus());
 }
 
 TEST_F(ChromeShelfControllerWithArcTest, ArcAppPinCrossPlatformWorkflow) {
@@ -3509,8 +3507,8 @@ TEST_F(MultiProfileMultiBrowserShelfLayoutChromeShelfControllerTest,
   // *   the primary user has a test app pinned to shelf, and
   // *   secondary user has a tab with the URL associated with the app open (but
   //      does not have the app installed).
-  auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-  web_app_info->start_url = GURL(kWebAppUrl);
+  auto web_app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+      GURL(kWebAppUrl));
   webapps::AppId installed_app_id =
       web_app::test::InstallWebApp(profile(), std::move(web_app_info));
   PinAppWithIDToShelf(installed_app_id);

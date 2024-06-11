@@ -5,6 +5,7 @@
 #include "content/browser/renderer_host/view_transition_commit_deferring_condition.h"
 
 #include "base/memory/ptr_util.h"
+#include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/view_transition_opt_in_state.h"
@@ -23,8 +24,24 @@ ViewTransitionCommitDeferringCondition::MaybeCreate(
     return nullptr;
   }
 
-  if (!navigation_request.IsInPrimaryMainFrame())
+  switch (navigation_request.frame_tree_node()->frame_tree().type()) {
+    case FrameTree::Type::kPrerender:
+      // Pre-rendered frame trees don't render any frames until activation. It's
+      // not feasible to run transitions in a frame which has no lifecycle
+      // updates.
+      return nullptr;
+    case FrameTree::Type::kPrimary:
+      break;
+    case FrameTree::Type::kFencedFrame:
+      // TODO(khushalsagar): Enable for fenced frames with a WPT.
+      return nullptr;
+  };
+
+  if (!navigation_request.IsInMainFrame() &&
+      !base::FeatureList::IsEnabled(
+          blink::features::kViewTransitionOnNavigationForIframes)) {
     return nullptr;
+  }
 
   if (!navigation_request.ShouldDispatchPageSwapEvent()) {
     return nullptr;
@@ -113,8 +130,9 @@ ViewTransitionCommitDeferringCondition::WillCommitNavigation(
       navigation_request->WillDispatchPageSwap();
   CHECK(page_swap_event_params);
 
-  auto navigation_id = viz::NavigationId::Create();
-  resources_ = std::make_unique<ScopedViewTransitionResources>(navigation_id);
+  blink::ViewTransitionToken transition_token;
+  resources_ =
+      std::make_unique<ScopedViewTransitionResources>(transition_token);
   resume_navigation_ = std::move(resume);
   old_rfh_ = render_frame_host->GetWeakPtr();
 
@@ -124,7 +142,7 @@ ViewTransitionCommitDeferringCondition::WillCommitNavigation(
   // renderer process.
   render_frame_host->GetAssociatedLocalFrame()
       ->SnapshotDocumentForViewTransition(
-          navigation_id, std::move(page_swap_event_params),
+          transition_token, std::move(page_swap_event_params),
           base::BindOnce(&ViewTransitionCommitDeferringCondition::
                              OnSnapshotAckFromRenderer,
                          weak_factory_.GetWeakPtr()));
@@ -158,7 +176,7 @@ void ViewTransitionCommitDeferringCondition::OnSnapshotAckFromRenderer(
     return;
   }
 
-  if (view_transition_state.HasElements()) {
+  if (view_transition_state.IsValid()) {
     NavigationRequest::From(&GetNavigationHandle())
         ->SetViewTransitionState(std::move(resources_),
                                  std::move(view_transition_state));

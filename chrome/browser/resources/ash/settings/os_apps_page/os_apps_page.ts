@@ -56,6 +56,7 @@ export function isAppInstalled(app: AppWithNotifications): boolean {
     case Readiness.kDisabledByPolicy:
     case Readiness.kDisabledByUser:
     case Readiness.kTerminated:
+    case Readiness.kDisabledByLocalSettings:
       return true;
     case Readiness.kUninstalledByUser:
     case Readiness.kUninstalledByNonUser:
@@ -240,14 +241,14 @@ export class OsSettingsAppsPageElement extends OsSettingsAppsPageElementBase {
   private appsWithNotifications_: AppWithNotifications[];
   private isArcVmManageUsbAvailable_: boolean;
   private isDndEnabled_: boolean;
-  private isPlayStoreAvailable_: boolean;
+  private readonly isPlayStoreAvailable_: boolean;
   private isPluginVmAvailable_: boolean;
   private isRevampWayfindingEnabled_: boolean;
   private mojoInterfaceProvider_: AppNotificationsHandlerInterface;
   private onStartupOptions_: DropdownMenuOptionList;
   private rowIcons_: Record<string, string>;
   private section_: Section;
-  private showAndroidApps_: boolean;
+  private readonly showAndroidApps_: boolean;
   private showAppNotificationsRow_: boolean;
   private showManageIsolatedWebAppsRow_: boolean;
   private readonly shouldShowStartup_: boolean;
@@ -327,7 +328,21 @@ export class OsSettingsAppsPageElement extends OsSettingsAppsPageElementBase {
   }
 
   private onClickParentalControls_(): void {
-    Router.getInstance().navigateTo(routes.APP_PARENTAL_CONTROLS);
+    const isParentalControlsSetup =
+        this.getPref('on_device_app_controls.setup_completed').value;
+    if (isParentalControlsSetup) {
+      Router.getInstance().navigateTo(routes.APP_PARENTAL_CONTROLS);
+    }
+  }
+
+  private setUpParentalControls_(e: Event): void {
+    this.setPrefValue('on_device_app_controls.setup_completed', true);
+    // Stop propagation to keep the subpage from opening.
+    e.stopPropagation();
+  }
+
+  private disableParentalControls_(): void {
+    this.setPrefValue('on_device_app_controls.setup_completed', false);
   }
 
   private onClickManageIsolatedWebApps_(): void {

@@ -7,7 +7,9 @@
 #include <stddef.h>
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -15,7 +17,6 @@
 #include "base/check.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -48,7 +49,7 @@ namespace {
 // Returns true if extensions_ids contains a list of valid extension ids,
 // divided by comma.
 bool IsValidIdList(const std::string& extension_ids) {
-  std::vector<base::StringPiece> ids = base::SplitStringPiece(
+  std::vector<std::string_view> ids = base::SplitStringPiece(
       extension_ids, ",", base::WhitespaceHandling::TRIM_WHITESPACE,
       base::SplitResult::SPLIT_WANT_NONEMPTY);
   if (ids.size() == 0) {
@@ -134,18 +135,17 @@ bool ExtensionInstallForceListPolicyHandler::CheckPolicySettings(
 void ExtensionInstallForceListPolicyHandler::ApplyPolicySettings(
     const policy::PolicyMap& policies,
     PrefValueMap* prefs) {
-  const base::Value* value = nullptr;
-  base::Value::Dict dict;
-  if (CheckAndGetValue(policies, nullptr, &value) && value &&
-      ParseList(value, &dict, nullptr)) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-    if (crosapi::browser_util::IsLacrosEnabled()) {
-      FilterOutExtensionsMeantToRunInLacros(dict);
-    }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+  auto dict = GetAshPolicyDict(policies);
+#elif BUILDFLAG(IS_CHROMEOS_LACROS)
+  auto dict = GetLacrosPolicyDict(policies);
+#else
+  auto dict = GetPolicyDict(policies);
+#endif
 
+  if (dict.has_value()) {
     prefs->SetValue(pref_names::kInstallForceList,
-                    base::Value(std::move(dict)));
+                    base::Value(std::move(dict).value()));
   }
 }
 
@@ -217,18 +217,39 @@ bool ExtensionInstallForceListPolicyHandler::ParseList(
   return true;
 }
 
-base::Value::Dict ExtensionInstallForceListPolicyHandler::GetPolicyDict(
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+std::optional<base::Value::Dict>
+ExtensionInstallForceListPolicyHandler::GetAshPolicyDict(
     const policy::PolicyMap& policies) {
-  if (CheckPolicySettings(policies, nullptr)) {
-    PrefValueMap pref_value_map;
-    ApplyPolicySettings(policies, &pref_value_map);
-    const base::Value* value;
-    if (pref_value_map.GetValue(pref_names::kInstallForceList, &value) &&
-        value->is_dict()) {
-      return value->GetDict().Clone();
-    }
+  std::optional<base::Value::Dict> dict = GetPolicyDict(policies);
+  if (dict.has_value() && crosapi::browser_util::IsLacrosEnabled()) {
+    FilterOutExtensionsMeantToRunInLacros(dict.value());
   }
-  return base::Value::Dict();
+  return dict;
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(IS_CHROMEOS)
+std::optional<base::Value::Dict>
+ExtensionInstallForceListPolicyHandler::GetLacrosPolicyDict(
+    const policy::PolicyMap& policies) {
+  // TODO(b/335121961): Currently always returns all extensions on Lacros,
+  // even the ones that run in Ash. This is consistent with the pre-existing
+  // behavior but it should be investigated if this is the correct behavior.
+  return GetPolicyDict(policies);
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+std::optional<base::Value::Dict>
+ExtensionInstallForceListPolicyHandler::GetPolicyDict(
+    const policy::PolicyMap& policies) {
+  const base::Value* value = nullptr;
+  base::Value::Dict dict;
+  if (CheckAndGetValue(policies, nullptr, &value) && value &&
+      ParseList(value, &dict, nullptr)) {
+    return dict;
+  }
+  return std::nullopt;
 }
 
 // ExtensionInstallBlockListPolicyHandler implementation ----------------------

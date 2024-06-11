@@ -258,7 +258,7 @@ std::unique_ptr<SeedResponse> MaybeImportFirstRunSeed(
 // This is a utility which syncs the policy-managed value of
 // |prefs::kDeviceVariationsRestrictionsByPolicy| into
 // |prefs::kVariationsRestrictionsByPolicy|.
-// TODO(crbug.com/1060224): Remove this workaround and implement a better long
+// TODO(crbug.com/40121933): Remove this workaround and implement a better long
 // term solution.
 class DeviceVariationsRestrictionByPolicyApplicator {
  public:
@@ -308,7 +308,7 @@ class DeviceVariationsRestrictionByPolicyApplicator {
   // and saves and retrieve its local state value, then sets
   // prefs::kVariationsRestrictParameter with that new value. That's to
   // reflect the changes of chromeos policy into the user policy.
-  // TODO(crbug.com/1060224): Remove that workaround, and make a better long
+  // TODO(crbug.com/40121933): Remove that workaround, and make a better long
   // term solution.
   void OnDevicePolicyChange() {
     const std::string& device_policy =
@@ -445,6 +445,17 @@ bool VariationsService::IsLikelyDogfoodClient() const {
   const std::string restrict_mode = GetRestrictParameterValue(
       restrict_mode_, client_.get(), policy_pref_service_);
   return !restrict_mode.empty();
+}
+
+void VariationsService::SetIsLikelyDogfoodClientForTesting(
+    bool is_dogfood_client) {
+  // Any non-empty value for the `restrict_mode_` is treated as a dogfood client
+  // (see above).
+  if (is_dogfood_client) {
+    restrict_mode_ = "nonempty";
+  } else {
+    restrict_mode_ = std::string();
+  }
 }
 
 GURL VariationsService::GetVariationsServerURL(HttpOptions http_options) {

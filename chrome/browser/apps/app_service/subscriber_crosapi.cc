@@ -14,10 +14,10 @@
 #include "chrome/browser/apps/app_service/app_install/app_install_service.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/apps/app_service/browser_app_instance_registry.h"
 #include "chrome/browser/apps/app_service/intent_util.h"
 #include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/apps/app_service/metrics/app_service_metrics.h"
+#include "chrome/browser/apps/browser_instance/browser_app_instance_registry.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/ash/settings/app_management/app_management_uma.h"
@@ -52,6 +52,8 @@ std::optional<AppInstallSurface> AppInstallSurfaceFromCrosapi(
       return AppInstallSurface::kAppInstallUriGetit;
     case Surface::kAppInstallUriLauncher:
       return AppInstallSurface::kAppInstallUriLauncher;
+    case Surface::kAppInstallUriPeripherals:
+      return AppInstallSurface::kAppInstallUriPeripherals;
   }
 }
 
@@ -69,7 +71,7 @@ void SubscriberCrosapi::RegisterAppServiceProxyFromCrosapi(
     mojo::PendingReceiver<crosapi::mojom::AppServiceProxy> receiver) {
   // At the moment the app service subscriber will only accept one client
   // connect to ash chrome. Any extra clients will be ignored.
-  // TODO(crbug.com/1174246): Support SxS lacros.
+  // TODO(crbug.com/40167449): Support SxS lacros.
   if (crosapi_receiver_.is_bound()) {
     return;
   }
@@ -153,7 +155,7 @@ void SubscriberCrosapi::RegisterAppServiceSubscriber(
     mojo::PendingRemote<crosapi::mojom::AppServiceSubscriber> subscriber) {
   // At the moment the app service subscriber will only accept one client
   // connect to ash chrome. Any extra clients will be ignored.
-  // TODO(crbug.com/1174246): Support SxS lacros.
+  // TODO(crbug.com/40167449): Support SxS lacros.
   if (subscriber_.is_bound()) {
     return;
   }
@@ -165,7 +167,7 @@ void SubscriberCrosapi::RegisterAppServiceSubscriber(
 }
 
 void SubscriberCrosapi::Launch(crosapi::mojom::LaunchParamsPtr launch_params) {
-  // TODO(crbug.com/1244506): Link up the return callback.
+  // TODO(crbug.com/40787924): Link up the return callback.
   proxy_->LaunchAppWithParams(
       ConvertCrosapiToLaunchParams(launch_params, profile_), base::DoNothing());
 }
@@ -186,7 +188,7 @@ void SubscriberCrosapi::LoadIcon(const std::string& app_id,
                                  apps::LoadIconCallback callback) {
   // Currently there is no usage of custom icon_key icon loading from
   // Lacros. Drop the icon key from the interface here.
-  // TODO(crbug.com/1412708): Update the crosapi interface to match this.
+  // TODO(crbug.com/40255408): Update the crosapi interface to match this.
   proxy_->LoadIcon(app_id, icon_type, size_hint_in_dip,
                    /*allow_placeholder_icon=*/false, std::move(callback));
 }
@@ -216,16 +218,11 @@ void SubscriberCrosapi::UninstallSilently(const std::string& app_id,
   proxy_->UninstallSilently(app_id, uninstall_source);
 }
 
-void SubscriberCrosapi::InstallApp(crosapi::mojom::InstallAppParamsPtr params,
-                                   InstallAppCallback callback) {
+void SubscriberCrosapi::InstallAppWithFallback(
+    crosapi::mojom::InstallAppParamsPtr params,
+    InstallAppWithFallbackCallback callback) {
   bool valid = [&] {
-    if (!params->package_id.has_value()) {
-      return false;
-    }
-
-    std::optional<PackageId> package_id =
-        PackageId::FromString(params->package_id.value());
-    if (!package_id.has_value()) {
+    if (!params->serialized_package_id.has_value()) {
       return false;
     }
 
@@ -241,13 +238,11 @@ void SubscriberCrosapi::InstallApp(crosapi::mojom::InstallAppParamsPtr params,
           params->window_id.value());
     }
 
-    proxy_->AppInstallService().InstallApp(
-        surface.value(), std::move(package_id).value(), window,
-        base::BindOnce(
-            [](InstallAppCallback callback) {
-              std::move(callback).Run(crosapi::mojom::AppInstallResult::New());
-            },
-            std::move(callback)));
+    proxy_->AppInstallService().InstallAppWithFallback(
+        surface.value(), std::move(params->serialized_package_id).value(),
+        window,
+        base::BindOnce(std::move(callback),
+                       crosapi::mojom::AppInstallResult::New()));
     return true;
   }();
 

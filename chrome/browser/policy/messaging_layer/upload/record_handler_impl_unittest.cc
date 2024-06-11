@@ -14,6 +14,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/types/expected.h"
 #include "base/uuid.h"
 #include "base/values.h"
@@ -23,6 +24,7 @@
 #include "chrome/browser/policy/messaging_layer/public/report_client_test_util.h"
 #include "chrome/browser/policy/messaging_layer/upload/file_upload_job.h"
 #include "chrome/browser/policy/messaging_layer/upload/file_upload_job_test_util.h"
+#include "chrome/browser/policy/messaging_layer/upload/record_upload_request_builder.h"
 #include "chrome/browser/policy/messaging_layer/upload/server_uploader.h"
 #include "chrome/browser/policy/messaging_layer/util/reporting_server_connector.h"
 #include "chrome/browser/policy/messaging_layer/util/reporting_server_connector_test_util.h"
@@ -40,6 +42,7 @@
 
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::ContainerEq;
 using ::testing::Eq;
 using ::testing::Gt;
 using ::testing::IsEmpty;
@@ -191,22 +194,41 @@ BuildTestRecordsVector(size_t number_of_test_records,
   return std::make_pair(std::move(total_reservation), std::move(test_records));
 }
 
+std::list<int64_t> GetExpectedCachedSeqIds(
+    const std::vector<EncryptedRecord>& records) {
+  std::list<int64_t> seq_ids;
+  for (const auto& record : records) {
+    seq_ids.push_back(record.sequence_information().sequencing_id());
+  }
+  return seq_ids;
+}
+
 TEST_P(RecordHandlerImplTest, UploadRecords) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
   SuccessfulUploadResponse expected_response{
       .sequence_information = test_records.second.back().sequence_information(),
       .force_confirm = force_confirm()};
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -234,14 +256,24 @@ TEST_P(RecordHandlerImplTest, MissingPriorityField) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result);
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -263,14 +295,25 @@ TEST_P(RecordHandlerImplTest, InvalidPriorityField) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
+
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -294,16 +337,25 @@ TEST_P(RecordHandlerImplTest, InvalidPriorityField) {
 TEST_P(RecordHandlerImplTest, ContainsGenerationGuid) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
-
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -334,14 +386,24 @@ TEST_P(RecordHandlerImplTest, ValidGenerationGuid) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -369,14 +431,24 @@ TEST_P(RecordHandlerImplTest, InvalidGenerationGuid) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -409,14 +481,24 @@ TEST_P(RecordHandlerImplTest, MissingGenerationGuidFromManagedDeviceIsOk) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -450,14 +532,24 @@ TEST_P(RecordHandlerImplTest,
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -485,37 +577,66 @@ TEST_P(RecordHandlerImplTest, MissingSequenceInformation) {
   // test records that has one record with missing sequence information.
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
+  SuccessfulUploadResponse expected_response{
+      .sequence_information =
+          test_records.second.back().sequence_information()};
+  auto expected_cached_seq_ids = GetExpectedCachedSeqIds(test_records.second);
+
+  // Corrupt sequence information of the last record and adjust expectations.
+  expected_response.sequence_information.set_sequencing_id(
+      test_records.second.back().sequence_information().sequencing_id() - 1L);
+  expected_cached_seq_ids.pop_back();
   test_records.second.back().clear_sequence_information();
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
-  // The result should show an error and UploadEncryptedReport should not have
-  // been even called, because UploadEncryptedReportingRequestBuilder::Build()
-  // should fail in this situation.
-  EXPECT_THAT(*test_env_->url_loader_factory()->pending_requests(), IsEmpty());
+  ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
+  auto request_body = test_env_->request_body(0);
+  EXPECT_THAT(request_body, IsDataUploadRequestValid());
+  auto response = ResponseBuilder(std::move(request_body)).Build();
+  ASSERT_TRUE(response.has_value());
+
+  test_env_->SimulateCustomResponseForRequest(0, std::move(response.value()));
 
   const auto result = responder_event.result();
-  EXPECT_THAT(result.error(),
-              Property(&Status::error_code, Eq(error::FAILED_PRECONDITION)));
+  EXPECT_THAT(result, ResponseEquals(expected_response));
 }
 
 TEST_P(RecordHandlerImplTest, ReportsUploadFailure) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
   test::TestEvent<CompletionResponse> response_event;
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), response_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          response_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -540,6 +661,8 @@ TEST_P(RecordHandlerImplTest, DISABLED_UploadsGapRecordOnServerFailure) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
   const SuccessfulUploadResponse expected_response{
       .sequence_information =
@@ -547,12 +670,20 @@ TEST_P(RecordHandlerImplTest, DISABLED_UploadsGapRecordOnServerFailure) {
       .force_confirm = force_confirm()};
 
   test::TestEvent<CompletionResponse> response_event;
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
 
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), response_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+                          std::move(test_records.first), enqueued_event.cb(),
+                          response_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -599,14 +730,22 @@ TEST_P(RecordHandlerImplTest, DISABLED_UploadsGapRecordOnServerFailure) {
 TEST_P(RecordHandlerImplTest, HandleUnknownResponseFromServer) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> response_event;
 
-  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
-                          std::move(test_records.second),
-                          std::move(test_records.first), response_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+  handler_->HandleRecords(
+      need_encryption_key(), /*config_file_version=*/-1,
+      std::move(test_records.second), std::move(test_records.first),
+      enqueued_event.cb(), response_event.cb(),
+      encryption_key_attached_event.repeating_cb(), base::DoNothing());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -625,16 +764,24 @@ TEST_P(RecordHandlerImplTest, AssignsRequestIdForRecordUploads) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
   const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
 
   SuccessfulUploadResponse expected_response{
       .sequence_information = test_records.second.back().sequence_information(),
       .force_confirm = force_confirm()};
 
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
   test::TestEvent<CompletionResponse> responder_event;
   handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
                           std::move(test_records.second),
-                          std::move(test_records.first), responder_event.cb(),
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(), base::DoNothing(),
                           base::DoNothing());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
   task_environment_.RunUntilIdle();
 
   ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1u));
@@ -652,6 +799,67 @@ TEST_P(RecordHandlerImplTest, AssignsRequestIdForRecordUploads) {
   const auto result = responder_event.result();
   EXPECT_THAT(result, ResponseEquals(expected_response));
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+TEST_P(RecordHandlerImplTest,
+       ContainsConfigFileInResponseWithExperimentEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kShouldRequestConfigurationFile);
+
+  auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
+                                             kGenerationGuid, memory_resource_);
+  const auto force_confirm_by_server = force_confirm();
+  const auto expected_cached_seq_ids =
+      GetExpectedCachedSeqIds(test_records.second);
+
+  SuccessfulUploadResponse expected_response{
+      .sequence_information = test_records.second.back().sequence_information(),
+      .force_confirm = force_confirm()};
+
+  test::TestEvent<StatusOr<std::list<int64_t>>> enqueued_event;
+  test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
+  test::TestEvent<CompletionResponse> responder_event;
+
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/1,
+                          std::move(test_records.second),
+                          std::move(test_records.first), enqueued_event.cb(),
+                          responder_event.cb(),
+                          encryption_key_attached_event.repeating_cb(),
+                          config_file_attached_event.repeating_cb());
+  const auto& enqueued_result = enqueued_event.result();
+  ASSERT_OK(enqueued_result) << enqueued_result.error();
+  EXPECT_THAT(enqueued_result.value(), ContainerEq(expected_cached_seq_ids));
+
+  task_environment_.RunUntilIdle();
+
+  ASSERT_THAT(*test_env_->url_loader_factory()->pending_requests(), SizeIs(1));
+  auto request_body = test_env_->request_body(0);
+  EXPECT_THAT(request_body, IsDataUploadRequestValid());
+  auto response = ResponseBuilder(std::move(request_body))
+                      .SetForceConfirm(force_confirm_by_server)
+                      .Build();
+  ASSERT_TRUE(response.has_value());
+  test_env_->SimulateCustomResponseForRequest(0, std::move(response.value()));
+
+  if (need_encryption_key()) {
+    EXPECT_THAT(
+        encryption_key_attached_event.result(),
+        AllOf(Property(&SignedEncryptionInfo::public_asymmetric_key,
+                       Not(IsEmpty())),
+              Property(&SignedEncryptionInfo::public_key_id, Gt(0)),
+              Property(&SignedEncryptionInfo::signature, Not(IsEmpty()))));
+  }
+
+  EXPECT_THAT(
+      config_file_attached_event.result(),
+      AllOf(Property(&ConfigFile::config_file_signature, Not(IsEmpty())),
+            Property(&ConfigFile::version, Gt(0)),
+            Property(&ConfigFile::blocked_event_configs, Not(IsEmpty()))));
+  const auto result = responder_event.result();
+  EXPECT_THAT(result, ResponseEquals(expected_response));
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 INSTANTIATE_TEST_SUITE_P(
     NeedOrNoNeedKey,

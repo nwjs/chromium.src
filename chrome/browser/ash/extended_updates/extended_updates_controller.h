@@ -7,6 +7,7 @@
 
 #include <compare>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/clock.h"
@@ -47,6 +48,16 @@ class ExtendedUpdatesController {
   // A new instance is created if one doesn't exist already.
   static ExtendedUpdatesController* Get();
 
+  // Resets the global controller instance, for testing.
+  static void ResetInstanceForTesting();
+
+  // Convenience methods for recording metrics.
+  static void RecordEntryPointEventForSettingsSetUpButtonShown();
+  static void RecordEntryPointEventForSettingsSetUpButtonClicked();
+
+  static base::CallbackListSubscription SubscribeToDeviceSettingsChanges(
+      base::RepeatingClosure callback);
+
   // Whether the device is eligible to opt-in for extended updates.
   // This depends on multiple criteria, e.g. whether opt-in is required,
   // being within the allowed time window, the user type, whether the device
@@ -78,7 +89,8 @@ class ExtendedUpdatesController {
  protected:
   ExtendedUpdatesController();
 
-  void MaybeShowNotification(base::WeakPtr<content::BrowserContext> context);
+  // Returns true if the user has the ability to opt in the device.
+  virtual bool HasOptInAbility(ownership::OwnerSettingsService* owner_settings);
 
  private:
   friend class ScopedExtendedUpdatesController;
@@ -90,14 +102,21 @@ class ExtendedUpdatesController {
   static ExtendedUpdatesController* SetInstanceForTesting(
       ExtendedUpdatesController* controller);
 
-  // Returns true if the user has the ability to opt in the device.
-  bool HasOptInAbility(ownership::OwnerSettingsService* owner_settings);
+  void OnOwnershipDetermined(base::WeakPtr<content::BrowserContext> context);
 
   bool ShouldShowNotification(content::BrowserContext* context);
 
   void ShowNotification(content::BrowserContext* context);
 
+  // Subscribes to device settings changes if not subscribed yet.
+  void SubscribeToDeviceSettingsChanges();
+
+  // Callback for when device settings changed.
+  void OnDeviceSettingsChanged();
+
   raw_ptr<base::Clock> clock_ = nullptr;
+
+  base::CallbackListSubscription settings_change_subscription_;
 
   base::WeakPtrFactory<ExtendedUpdatesController> weak_factory_{this};
 };

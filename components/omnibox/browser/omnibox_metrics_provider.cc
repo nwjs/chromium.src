@@ -5,6 +5,7 @@
 #include "components/omnibox/browser/omnibox_metrics_provider.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/flat_map.h"
@@ -116,6 +117,10 @@ ClientSummarizedResultType GetClientSummarizedResultType(
            ClientSummarizedResultType::kUrl},
           {OmniboxEventProto::Suggestion::PEDAL,
            ClientSummarizedResultType::kUrl},
+          {OmniboxEventProto::Suggestion::HISTORY_EMBEDDINGS,
+           ClientSummarizedResultType::kUrl},
+          {OmniboxEventProto::Suggestion::FEATURED_ENTERPRISE_SEARCH,
+           ClientSummarizedResultType::kSearch},
       });
 
   const auto it = kResultTypesToClientSummarizedResultTypes->find(type);
@@ -152,7 +157,7 @@ void OmniboxMetricsProvider::OnURLOpenedFromOmnibox(OmniboxLog* log) {
 }
 
 void OmniboxMetricsProvider::RecordOmniboxOpenedURL(const OmniboxLog& log) {
-  std::vector<base::StringPiece16> terms =
+  std::vector<std::u16string_view> terms =
       base::SplitStringPiece(log.text, base::kWhitespaceUTF16,
                              base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
 

@@ -408,6 +408,20 @@ const std::vector<SearchConcept>& GetA11ySwitchAccessOnSearchConcepts() {
   return *tags;
 }
 
+const std::vector<SearchConcept>& GetA11yOverscrollSettingSearchConcepts() {
+  static const base::NoDestructor<std::vector<SearchConcept>> tags({
+      {IDS_OS_SETTINGS_TAG_A11Y_OVERSCROLL_ENABLED,
+       mojom::kCursorAndTouchpadSubpagePath,
+       mojom::SearchResultIcon::kA11y,
+       mojom::SearchResultDefaultRank::kMedium,
+       mojom::SearchResultType::kSetting,
+       {.setting = mojom::Setting::kOverscrollEnabled},
+       {IDS_OS_SETTINGS_TAG_A11Y_OVERSCROLL_ENABLED_ALT1,
+        SearchConcept::kAltTagEnd}},
+  });
+  return *tags;
+}
+
 const std::vector<SearchConcept>& GetA11ySwitchAccessKeyboardSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
       {IDS_OS_SETTINGS_TAG_A11Y_SWITCH_ACCESS_AUTO_SCAN_KEYBOARD,
@@ -462,6 +476,19 @@ GetA11yFullscreenMagnifierFocusFollowingSearchConcepts() {
   return *tags;
 }
 
+const std::vector<SearchConcept>&
+GetA11yFullscreenMagnifierSelectToSpeakFocusFollowingSearchConcepts() {
+  static const base::NoDestructor<std::vector<SearchConcept>> tags({
+      {IDS_OS_SETTINGS_TAG_A11Y_MAGNIFIER_SELECT_TO_SPEAK_FOLLOWING,
+       mojom::kDisplayAndMagnificationSubpagePath,
+       mojom::SearchResultIcon::kA11y,
+       mojom::SearchResultDefaultRank::kMedium,
+       mojom::SearchResultType::kSetting,
+       {.setting = mojom::Setting::kAccessibilityMagnifierFollowsSts}},
+  });
+  return *tags;
+}
+
 const std::vector<SearchConcept>& GetA11yColorCorrectionSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
       {IDS_OS_SETTINGS_TAG_A11Y_COLOR_CORRECTION,
@@ -501,6 +528,10 @@ bool IsAccessibilityReducedAnimationsEnabled() {
   return ::features::IsAccessibilityReducedAnimationsEnabled();
 }
 
+bool IsAccessibilityMagnifierFollowsStsEnabled() {
+  return ::features::IsAccessibilityMagnifierFollowsStsEnabled();
+}
+
 bool IsAccessibilityFaceGazeEnabled() {
   return ::features::IsAccessibilityFaceGazeEnabled();
 }
@@ -511,6 +542,10 @@ bool IsAccessibilityMouseKeysEnabled() {
 
 bool IsAccessibilityExtraLargeCursorEnabled() {
   return ::features::IsAccessibilityExtraLargeCursorEnabled();
+}
+
+bool IsAccessibilityOverscrollSettingFeatureEnabled() {
+  return ::features::IsAccessibilityOverscrollSettingFeatureEnabled();
 }
 
 }  // namespace
@@ -638,8 +673,6 @@ void AccessibilitySection::AddLoadTimeData(
       {"mouseKeysLabel", IDS_OS_SETTINGS_ACCESSIBILITY_MOUSE_KEYS_LABEL},
       {"mouseKeysDescription",
        IDS_OS_SETTINGS_ACCESSIBILITY_MOUSE_KEYS_DESCRIPTION},
-      {"mouseKeysShortcutToPause",
-       IDS_OS_SETTINGS_ACCESSIBILITY_MOUSE_KEYS_SHORTCUT_TO_PAUSE},
       {"mouseKeysDisableInTextFields",
        IDS_OS_SETTINGS_ACCESSIBILITY_MOUSE_KEYS_DISABLE_IN_TEXT_FIELDS},
       {"mouseKeysAcceleration",
@@ -882,11 +915,7 @@ void AccessibilitySection::AddLoadTimeData(
       {"reducedAnimationsDescription",
        IDS_SETTINGS_ACCESSIBILITY_REDUCED_ANIMATIONS_DESCRIPTION},
       {"caretBlinkIntervalLabel", IDS_SETTINGS_CARET_BLINK_INTERVAL_LABEL},
-      {"caretBlinkIntervalDescription",
-       IDS_SETTINGS_CARET_BLINK_INTERVAL_DESCRIPTION},
       {"caretBlinkIntervalOff", IDS_SETTINGS_CARET_BLINK_INTERVAL_OFF},
-      {"caretBlinkIntervalNormal", IDS_SETTINGS_CARET_BLINK_INTERVAL_NORMAL},
-      {"caretBlinkIntervalSlow", IDS_SETTINGS_CARET_BLINK_INTERVAL_SLOW},
       {"caretBlinkIntervalFast", IDS_SETTINGS_CARET_BLINK_INTERVAL_FAST},
       {"faceGazeCursorAccelerationLabel",
        IDS_OS_SETTINGS_ACCESSIBILITY_FACEGAZE_CURSOR_ACCELERATION_LABEL},
@@ -949,6 +978,8 @@ void AccessibilitySection::AddLoadTimeData(
        IDS_SETTINGS_SCREEN_MAGNIFIER_DESCRIPTION_ON},
       {"screenMagnifierFocusFollowingLabel",
        IDS_SETTINGS_SCREEN_MAGNIFIER_FOCUS_FOLLOWING_LABEL},
+      {"screenMagnifierSelectToSpeakFocusFollowingLabel",
+       IDS_SETTINGS_SCREEN_MAGNIFIER_SELECT_TO_SPEAK_FOCUS_FOLLOWING_LABEL},
       {"screenMagnifierLabel", IDS_SETTINGS_SCREEN_MAGNIFIER_LABEL},
       {"screenMagnifierMouseFollowingModeCentered",
        IDS_SETTINGS_SCREEN_MANIFIER_MOUSE_FOLLOWING_MODE_CENTERED},
@@ -1204,6 +1235,8 @@ void AccessibilitySection::AddLoadTimeData(
       {"textToSpeechVolumeMinimumLabel",
        IDS_SETTINGS_TEXT_TO_SPEECH_VOLUME_MINIMUM_LABEL},
       {"ttsSettingsLinkDescription", IDS_SETTINGS_TTS_LINK_DESCRIPTION},
+      {"overscrollHistoryNavigationTitle",
+       IDS_SETTINGS_OVERSCROLL_HISTORY_NAVIGATION_TITLE},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -1237,6 +1270,9 @@ void AccessibilitySection::AddLoadTimeData(
   html_source->AddBoolean("isAccessibilityReducedAnimationsEnabled",
                           IsAccessibilityReducedAnimationsEnabled());
 
+  html_source->AddBoolean("isAccessibilityMagnifierFollowsStsEnabled",
+                          IsAccessibilityMagnifierFollowsStsEnabled());
+
   html_source->AddBoolean("isAccessibilityFaceGazeEnabled",
                           IsAccessibilityFaceGazeEnabled());
 
@@ -1249,6 +1285,9 @@ void AccessibilitySection::AddLoadTimeData(
   html_source->AddBoolean(
       "isAccessibilityCaretBlinkIntervalSettingEnabled",
       ::features::IsAccessibilityCaretBlinkIntervalSettingEnabled());
+
+  html_source->AddBoolean("isAccessibilityOverscrollSettingFeatureEnabled",
+                          IsAccessibilityOverscrollSettingFeatureEnabled());
 
   ::settings::AddCaptionSubpageStrings(html_source);
 }
@@ -1296,6 +1335,12 @@ bool AccessibilitySection::LogMetric(mojom::Setting setting,
           "ChromeOS.Settings.Accessibility.FullscreenMagnifierFocusFollowing",
           value.GetBool());
       return true;
+    case mojom::Setting::kAccessibilityMagnifierFollowsSts:
+      base::UmaHistogramBoolean(
+          "ChromeOS.Settings.Accessibility."
+          "FullscreenMagnifierSelectToSpeakFollowing",
+          value.GetBool());
+      return true;
     case mojom::Setting::kFullscreenMagnifierMouseFollowingMode:
       base::UmaHistogramEnumeration(
           "ChromeOS.Settings.Accessibility."
@@ -1316,6 +1361,10 @@ bool AccessibilitySection::LogMetric(mojom::Setting setting,
       base::UmaHistogramPercentage(
           "ChromeOS.Settings.Accessibility.ColorCorrection.FilterAmount",
           value.GetInt());
+      return true;
+    case mojom::Setting::kCaretBlinkInterval:
+      base::UmaHistogramSparse(
+          "ChromeOS.Settings.Accessibility.CaretBlinkInterval", value.GetInt());
       return true;
     case mojom::Setting::kLiveCaption:
       base::UmaHistogramBoolean(
@@ -1404,6 +1453,16 @@ bool AccessibilitySection::LogMetric(mojom::Setting setting,
           "ChromeOS.Settings.Accessibility.ReducedAnimations.Enabled",
           value.GetBool());
       return true;
+    case mojom::Setting::kPdfOcrOnOff:
+      base::UmaHistogramBoolean(
+          "ChromeOS.Settings.Accessibility.PdfOcr.Enabled",
+          value.GetBool());
+      return true;
+    case mojom::Setting::kOverscrollEnabled:
+      base::UmaHistogramBoolean(
+          "ChromeOS.Settings.OverscrollHistoryNavigation.Enabled",
+          value.GetBool());
+      return true;
     default:
       return false;
   }
@@ -1476,6 +1535,7 @@ void AccessibilitySection::RegisterHierarchy(
       mojom::Setting::kHighContrastMode,
       mojom::Setting::kFullscreenMagnifier,
       mojom::Setting::kFullscreenMagnifierFocusFollowing,
+      mojom::Setting::kAccessibilityMagnifierFollowsSts,
       mojom::Setting::kFullscreenMagnifierMouseFollowingMode,
       mojom::Setting::kDockedMagnifier,
       mojom::Setting::kStickyKeys,
@@ -1504,6 +1564,7 @@ void AccessibilitySection::RegisterHierarchy(
       mojom::Setting::kCaretBlinkInterval,
       mojom::Setting::kReducedAnimationsEnabled,
       mojom::Setting::kPdfOcrOnOff,
+      mojom::Setting::kOverscrollEnabled,
   };
   RegisterNestedSettingBulk(mojom::Subpage::kManageAccessibility,
                             kManageAccessibilitySettings, generator);
@@ -1621,7 +1682,19 @@ void AccessibilitySection::UpdateSearchTags() {
         GetA11yFullscreenMagnifierFocusFollowingSearchConcepts());
   }
 
+  if (IsAccessibilityMagnifierFollowsStsEnabled()) {
+    updater.AddSearchTags(
+        GetA11yFullscreenMagnifierSelectToSpeakFocusFollowingSearchConcepts());
+  } else {
+    updater.RemoveSearchTags(
+        GetA11yFullscreenMagnifierSelectToSpeakFocusFollowingSearchConcepts());
+  }
+
   updater.AddSearchTags(GetA11yColorCorrectionSearchConcepts());
+
+  if (IsAccessibilityOverscrollSettingFeatureEnabled()) {
+    updater.AddSearchTags(GetA11yOverscrollSettingSearchConcepts());
+  }
 
   if (!pref_service_->GetBoolean(prefs::kAccessibilitySwitchAccessEnabled)) {
     return;

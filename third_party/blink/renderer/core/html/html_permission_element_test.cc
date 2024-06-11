@@ -5,14 +5,17 @@
 #include "third_party/blink/renderer/core/html/html_permission_element.h"
 
 #include "base/run_loop.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
+#include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_init.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
+#include "third_party/blink/renderer/core/html/html_iframe_element.h"
 #include "third_party/blink/renderer/core/html/html_span_element.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/testing/null_execution_context.h"
@@ -92,7 +95,14 @@ class HTMLPemissionElementTestBase : public PageTestBase {
       base::test::TaskEnvironment::TimeSource time_source)
       : PageTestBase(time_source) {}
 
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(
+        blink::features::kPermissionElement);
+    PageTestBase::SetUp();
+  }
+
  private:
+  base::test::ScopedFeatureList scoped_feature_list_;
   ScopedPermissionElementForTest scoped_feature_{true};
 };
 
@@ -230,11 +240,13 @@ class TestPermissionService : public PermissionService {
   void AddPermissionObserver(
       PermissionDescriptorPtr permission,
       MojoPermissionStatus last_known_status,
+      mojo::PendingRemote<PermissionObserver> observer) override {}
+  void AddPageEmbeddedPermissionObserver(
+      PermissionDescriptorPtr permission,
+      MojoPermissionStatus last_known_status,
       mojo::PendingRemote<PermissionObserver> observer) override {
-    auto inserted_result = observers_.insert(
-        permission->name,
-        mojo::Remote<PermissionObserver>(std::move(observer)));
-    CHECK(inserted_result.is_new_entry);
+    observers_.insert(permission->name,
+                      mojo::Remote<PermissionObserver>(std::move(observer)));
     if (run_loop_) {
       run_loop_->Quit();
     }
@@ -403,7 +415,7 @@ class ClickingEnabledChecker {
 
   void ResetClickingEnabled() {
     element_->EnableClicking(
-        HTMLPermissionElement::DisableReason::kRecentlyAttachedToDOM);
+        HTMLPermissionElement::DisableReason::kRecentlyAttachedToLayoutTree);
     element_->EnableClicking(
         HTMLPermissionElement::DisableReason::kIntersectionChanged);
     element_->EnableClicking(
@@ -441,6 +453,17 @@ TEST_F(HTMLPemissionElementTest, InitializeInnerText) {
     EXPECT_NE(0, rect->width());
     EXPECT_NE(0, rect->height());
   }
+}
+
+// Regression test for crbug.com/341875650, check that a detached layout tree
+// permission element doesn't crash the renderer process.
+TEST_F(HTMLPemissionElementTest, AfterDetachLayoutTreeCrashTest) {
+  auto* permission_element = CreatePermissionElement("camera");
+  RegistrationWaiter(permission_element).Wait();
+  permission_element->SetForceReattachLayoutTree();
+  UpdateAllLifecyclePhasesForTest();
+  RegistrationWaiter(permission_element).Wait();
+  // We end up here if the renderer process did not crash.
 }
 
 TEST_F(HTMLPemissionElementTest, SetInnerTextAfterRegistrationSingleElement) {
@@ -601,7 +624,7 @@ TEST_F(HTMLPemissionElementClickingEnabledTest, UnclickableBeforeRegistered) {
     permission_service()->set_should_defer_registered_callback(
         /*should_defer*/ true);
     // Check if the element is still unclickable even after the default timeout
-    // of `kRecentlyAttachedToDOM`.
+    // of `kRecentlyAttachedToLayoutTree`.
     FastForwardBy(base::Milliseconds(600));
     EXPECT_FALSE(permission_element->IsClickingEnabled());
     std::move(permission_service()->TakePEPCRegisteredCallback()).Run();
@@ -657,20 +680,22 @@ class HTMLPemissionElementSimTest : public SimTest {
  private:
   std::unique_ptr<TestPermissionService> permission_service_;
   ScopedTestingPlatformSupport<LocalePlatformSupport> support;
+  ScopedPermissionElementForTest scoped_feature_{true};
 };
 
 TEST_F(HTMLPemissionElementSimTest, BlockedByPermissionsPolicy) {
-  SimRequest main_resource("https://example.com", "text/html");
-  LoadURL("https://example.com");
-  SimRequest first_iframe_resource("https://example.com/foo1.html",
+  SimRequest main_resource("https://example.test", "text/html");
+  LoadURL("https://example.test");
+  SimRequest first_iframe_resource("https://example.test/foo1.html",
                                    "text/html");
-  SimRequest last_iframe_resource("https://example.com/foo2.html", "text/html");
+  SimRequest last_iframe_resource("https://example.test/foo2.html",
+                                  "text/html");
   main_resource.Complete(R"(
     <body>
-      <iframe src='https://example.com/foo1.html'
+      <iframe src='https://example.test/foo1.html'
         allow="camera 'none';microphone 'none';geolocation 'none'">
       </iframe>
-      <iframe src='https://example.com/foo2.html'
+      <iframe src='https://example.test/foo2.html'
         allow="camera *;microphone *;geolocation *">
       </iframe>
     </body>
@@ -830,8 +855,8 @@ class HTMLPemissionElementFencedFrameTest : public HTMLPemissionElementSimTest {
 TEST_F(HTMLPemissionElementFencedFrameTest, NotAllowedInFencedFrame) {
   InitializeFencedFrameRoot(
       blink::FencedFrame::DeprecatedFencedFrameMode::kDefault);
-  SimRequest resource("https://example.com", "text/html");
-  LoadURL("https://example.com");
+  SimRequest resource("https://example.test", "text/html");
+  LoadURL("https://example.test");
   resource.Complete(R"(
     <body>
     </body>
@@ -846,6 +871,60 @@ TEST_F(HTMLPemissionElementFencedFrameTest, NotAllowedInFencedFrame) {
     permission_service()->set_pepc_registered_callback(
         base::BindOnce(&NotReachedForPEPCRegistered));
     base::RunLoop().RunUntilIdle();
+  }
+}
+
+TEST_F(HTMLPemissionElementSimTest, BlockedByMissingFrameAncestorsCSP) {
+  SimRequest::Params params;
+  params.response_http_headers = {
+      {"content-security-policy",
+       "frame-ancestors 'self' https://example.test"}};
+  SimRequest main_resource("https://example.test", "text/html");
+  LoadURL("https://example.test");
+  SimRequest first_iframe_resource("https://cross-example.test/foo1.html",
+                                   "text/html");
+  SimRequest last_iframe_resource("https://cross-example.test/foo2.html",
+                                  "text/html", params);
+  main_resource.Complete(R"(
+    <body>
+      <iframe src='https://cross-example.test/foo1.html'
+        allow="camera *;microphone *;geolocation *">
+      </iframe>
+      <iframe src='https://cross-example.test/foo2.html'
+        allow="camera *;microphone *;geolocation *">
+      </iframe>
+    </body>
+  )");
+  first_iframe_resource.Finish();
+  last_iframe_resource.Finish();
+
+  auto* first_child_frame = To<WebLocalFrameImpl>(MainFrame().FirstChild());
+  auto* last_child_frame = To<WebLocalFrameImpl>(MainFrame().LastChild());
+  for (const char* permission : {"camera", "microphone", "geolocation"}) {
+    auto* permission_element = CreatePermissionElement(
+        *last_child_frame->GetFrame()->GetDocument(), permission);
+    RegistrationWaiter(permission_element).Wait();
+    auto& last_console_messages =
+        static_cast<frame_test_helpers::TestWebFrameClient*>(
+            last_child_frame->Client())
+            ->ConsoleMessages();
+    EXPECT_EQ(last_console_messages.size(), 0u);
+
+    CreatePermissionElement(*first_child_frame->GetFrame()->GetDocument(),
+                            permission);
+    permission_service()->set_pepc_registered_callback(
+        base::BindOnce(&NotReachedForPEPCRegistered));
+    base::RunLoop().RunUntilIdle();
+    // Should console log a error message due to missing 'frame-ancestors' CSP
+    auto& first_console_messages =
+        static_cast<frame_test_helpers::TestWebFrameClient*>(
+            first_child_frame->Client())
+            ->ConsoleMessages();
+    EXPECT_EQ(first_console_messages.size(), 1u);
+    EXPECT_TRUE(first_console_messages.front().Contains(
+        "is not allowed without the CSP 'frame-ancestors' directive present."));
+    first_console_messages.clear();
+    permission_service()->set_pepc_registered_callback(base::NullCallback());
   }
 }
 
@@ -877,11 +956,38 @@ class HTMLPemissionElementIntersectionTest
     GetDocument().View()->UpdateAllLifecyclePhasesForTest();
     EXPECT_EQ(element->IsFullyVisibleForTesting(), fully_visible);
   }
+
+  void TestContainerStyleAffectsVisibility(CSSPropertyID property_name,
+                                           const String& property_value) {
+    SimRequest main_resource("https://example.test/", "text/html");
+    LoadURL("https://example.test/");
+    main_resource.Complete(R"HTML(
+    <div id='container'>
+      <permission id='camera' type='camera'>
+    </div>
+    )HTML");
+
+    Compositor().BeginFrame();
+    auto* permission_element = To<HTMLPermissionElement>(
+        GetDocument().QuerySelector(AtomicString("permission")));
+    auto* div =
+        To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("div")));
+
+    WaitForFullyVisibleChanged(permission_element, /*fully_visible*/ true);
+    ClickingEnabledChecker checker(permission_element);
+    checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                           /*expected_enabled*/ true);
+
+    div->SetInlineStyleProperty(property_name, property_value);
+    GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+    WaitForFullyVisibleChanged(permission_element, /*fully_visible*/ false);
+    checker.CheckClickingEnabled(/*expected_enabled*/ false);
+  }
 };
 
 TEST_F(HTMLPemissionElementIntersectionTest, IntersectionChanged) {
-  SimRequest main_resource("https://example.com/", "text/html");
-  LoadURL("https://example.com/");
+  SimRequest main_resource("https://example.test/", "text/html");
+  LoadURL("https://example.test/");
   main_resource.Complete(R"HTML(
     <div id='heading' style='height: 100px;'></div>
     <permission id='camera' type='camera'>
@@ -911,6 +1017,194 @@ TEST_F(HTMLPemissionElementIntersectionTest, IntersectionChanged) {
                                          /*expected_enabled*/ true);
   EXPECT_TRUE(permission_element->IsFullyVisibleForTesting());
   EXPECT_TRUE(permission_element->IsClickingEnabled());
+}
+
+TEST_F(HTMLPemissionElementIntersectionTest,
+       IntersectionChangedDisableEnableDisable) {
+  SimRequest main_resource("https://example.test/", "text/html");
+  LoadURL("https://example.test/");
+  main_resource.Complete(R"HTML(
+    <div id='cover' style='position: fixed; left: 0px; top: 100px; width: 100px; height: 100px;'></div>
+    <permission id='camera' type='camera'>
+  )HTML");
+
+  Compositor().BeginFrame();
+  auto* permission_element = To<HTMLPermissionElement>(
+      GetDocument().QuerySelector(AtomicString("permission")));
+  auto* div =
+      To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("div")));
+  WaitForFullyVisibleChanged(permission_element, /*fully_visible*/ true);
+  ClickingEnabledChecker checker(permission_element);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ true);
+
+  // Placing the div over the element disables it.
+  div->SetInlineStyleProperty(CSSPropertyID::kTop, "0px");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  WaitForFullyVisibleChanged(permission_element, /*fully_visible*/ false);
+
+  // Moving the div again will re-enable the element after a delay. Deliberately
+  // don't make any calls that result in calling
+  // PermissionElement::IsClickingEnabled.
+  div->SetInlineStyleProperty(CSSPropertyID::kTop, "100px");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+
+  // Placing the div over the element disables it again.
+  div->SetInlineStyleProperty(CSSPropertyID::kTop, "0px");
+  WaitForFullyVisibleChanged(permission_element, /*fully_visible*/ false);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ false);
+}
+
+TEST_F(HTMLPemissionElementIntersectionTest, ContainerDivRotates) {
+  TestContainerStyleAffectsVisibility(CSSPropertyID::kTransform,
+                                      "rotate(0.1turn)");
+}
+
+TEST_F(HTMLPemissionElementIntersectionTest, ContainerDivOpacity) {
+  TestContainerStyleAffectsVisibility(CSSPropertyID::kOpacity, "0.9");
+}
+
+TEST_F(HTMLPemissionElementIntersectionTest, ContainerDivClipPath) {
+  // Set up a mask that covers a bit of the container.
+  TestContainerStyleAffectsVisibility(CSSPropertyID::kClipPath,
+                                      "circle(40%)");
+}
+
+class HTMLPemissionElementLayoutChangeTest
+    : public HTMLPemissionElementSimTest {
+ public:
+  static constexpr int kViewportWidth = 800;
+  static constexpr int kViewportHeight = 600;
+
+ protected:
+  HTMLPemissionElementLayoutChangeTest() = default;
+
+  void SetUp() override {
+    HTMLPemissionElementSimTest::SetUp();
+    IntersectionObserver::SetThrottleDelayEnabledForTesting(false);
+    WebView().MainFrameWidget()->Resize(
+        gfx::Size(kViewportWidth, kViewportHeight));
+  }
+
+  void TearDown() override {
+    IntersectionObserver::SetThrottleDelayEnabledForTesting(true);
+    HTMLPemissionElementSimTest::TearDown();
+  }
+
+  HTMLPermissionElement* CheckAndQueryPermissionElement(AtomicString element) {
+    auto* permission_element =
+        To<HTMLPermissionElement>(GetDocument().QuerySelector(element));
+    GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+    EXPECT_EQ(permission_element->IsFullyVisibleForTesting(), true);
+    ClickingEnabledChecker checker(permission_element);
+    checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                           /*expected_enabled*/ true);
+    return permission_element;
+  }
+};
+
+TEST_F(HTMLPemissionElementLayoutChangeTest, InvalidatePEPCAfterMove) {
+  SimRequest main_resource("https://example.test/", "text/html");
+  LoadURL("https://example.test/");
+  main_resource.Complete(R"HTML(
+  <body>
+    <permission
+      style='position: relative; top: 1px; left: 1px;'
+      id='camera'
+      type='camera'>
+  </body>
+  )HTML");
+
+  Compositor().BeginFrame();
+  auto* permission_element =
+      CheckAndQueryPermissionElement(AtomicString("permission"));
+  permission_element->setAttribute(
+      html_names::kStyleAttr,
+      AtomicString("position: relative; top: 100px; left: 100px"));
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(permission_element->IsClickingEnabled());
+  ClickingEnabledChecker checker(permission_element);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ true);
+}
+
+TEST_F(HTMLPemissionElementLayoutChangeTest, InvalidatePEPCAfterResize) {
+  SimRequest main_resource("https://example.test/", "text/html");
+  LoadURL("https://example.test/");
+  main_resource.Complete(R"HTML(
+  <body>
+    <permission
+      style=' height: 3em; width: 40px;' id='camera' type='camera'>
+  </body>
+  )HTML");
+
+  Compositor().BeginFrame();
+  auto* permission_element =
+      CheckAndQueryPermissionElement(AtomicString("permission"));
+  permission_element->setAttribute(html_names::kStyleAttr,
+                                   AtomicString(" height: 1em; width: 30px;"));
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(permission_element->IsClickingEnabled());
+  ClickingEnabledChecker checker(permission_element);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ true);
+}
+
+TEST_F(HTMLPemissionElementLayoutChangeTest, InvalidatePEPCAfterMoveContainer) {
+  SimRequest main_resource("https://example.test/", "text/html");
+  SimRequest iframe_resource("https://example.test/foo.html", "text/html");
+  LoadURL("https://example.test/");
+  main_resource.Complete(R"HTML(
+  <body>
+      <iframe src='https://example.test/foo.html'
+        allow="camera *">
+      </iframe>
+  </body>
+  )HTML");
+  iframe_resource.Finish();
+
+  Compositor().BeginFrame();
+  auto* child_frame = To<WebLocalFrameImpl>(MainFrame().FirstChild());
+  auto* permission_element = CreatePermissionElement(
+      *child_frame->GetFrame()->GetDocument(), "camera");
+  EXPECT_FALSE(permission_element->IsClickingEnabled());
+  ClickingEnabledChecker checker(permission_element);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ true);
+  auto* iframe = To<HTMLIFrameElement>(
+      GetDocument().QuerySelector(AtomicString("iframe")));
+  iframe->setAttribute(
+      html_names::kStyleAttr,
+      AtomicString("position: relative; top: 100px; left: 100px"));
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(permission_element->IsClickingEnabled());
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ true);
+}
+
+TEST_F(HTMLPemissionElementLayoutChangeTest,
+       InvalidatePEPCAfterTransformContainer) {
+  SimRequest main_resource("https://example.test/", "text/html");
+  LoadURL("https://example.test/");
+  main_resource.Complete(R"HTML(
+    <div id='container'>
+      <permission id='camera' type='camera'>
+    </div>
+    )HTML");
+  Compositor().BeginFrame();
+  auto* permission_element =
+      CheckAndQueryPermissionElement(AtomicString("permission"));
+  auto* div =
+      To<HTMLDivElement>(GetDocument().QuerySelector(AtomicString("div")));
+  div->SetInlineStyleProperty(CSSPropertyID::kTransform, "translateX(10px)");
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(permission_element->IsClickingEnabled());
+  ClickingEnabledChecker checker(permission_element);
+  checker.CheckClickingEnabledAfterDelay(kDefaultTimeout,
+                                         /*expected_enabled*/ true);
 }
 
 }  // namespace blink

@@ -35,6 +35,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/device_event_log/device_event_log.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "components/prefs/pref_service.h"
 #include "components/printing/browser/print_composite_client.h"
 #include "components/printing/browser/print_manager_utils.h"
@@ -78,7 +79,7 @@
 #include "chrome/browser/printing/local_printer_utils_chromeos.h"
 #endif
 
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/data_protection/print_utils.h"
 #endif
 
@@ -192,7 +193,7 @@ PrintViewManagerBase::~PrintViewManagerBase() {
 }
 
 #if BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
-// TODO(crbug.com/892294):  Remove `DisableThirdPartyBlocking()` once OOP
+// TODO(crbug.com/41419019):  Remove `DisableThirdPartyBlocking()` once OOP
 // printing is always enabled for Windows.
 // static
 void PrintViewManagerBase::DisableThirdPartyBlocking() {
@@ -241,7 +242,7 @@ void PrintViewManagerBase::PrintForPrintPreview(
     PrinterHandler::PrintCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-#if BUILDFLAG(ENABLE_OOP_PRINTING) || BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENABLE_OOP_PRINTING) || BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   bool show_system_dialog =
       job_settings.FindBool(kSettingShowSystemDialog).value_or(false);
 #endif
@@ -272,7 +273,7 @@ void PrintViewManagerBase::PrintForPrintPreview(
       std::move(job_settings),
       base::BindOnce(&PrintViewManagerBase::OnPrintSettingsDone,
                      weak_ptr_factory_.GetWeakPtr(), print_data, page_count,
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
                      show_system_dialog,
 #endif
                      std::move(callback), std::move(printer_query)));
@@ -294,7 +295,7 @@ void PrintViewManagerBase::PrintDocument(
     const gfx::Size& page_size,
     const gfx::Rect& content_area,
     const gfx::Point& offsets) {
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   if (content_analysis_before_printing_document_) {
     std::move(content_analysis_before_printing_document_)
         .Run(print_data, page_size, content_area, offsets);
@@ -373,7 +374,7 @@ void PrintViewManagerBase::CompleteUpdatePrintSettings(
 void PrintViewManagerBase::OnPrintSettingsDone(
     scoped_refptr<base::RefCountedMemory> print_data,
     uint32_t page_count,
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     bool show_system_dialog,
 #endif
     PrinterHandler::PrintCallback callback,
@@ -419,7 +420,7 @@ void PrintViewManagerBase::OnPrintSettingsDone(
       FROM_HERE,
       base::BindOnce(&PrintViewManagerBase::StartLocalPrintJob,
                      weak_ptr_factory_.GetWeakPtr(), print_data, page_count,
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
                      show_system_dialog,
 #endif
                      cookie, std::move(callback)));
@@ -428,14 +429,14 @@ void PrintViewManagerBase::OnPrintSettingsDone(
 void PrintViewManagerBase::StartLocalPrintJob(
     scoped_refptr<base::RefCountedMemory> print_data,
     uint32_t page_count,
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     bool show_system_dialog,
 #endif
     int cookie,
     PrinterHandler::PrintCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   // Populating `content_analysis_before_printing_document_` if needed should be
   // done first in this function's workflow, this way other code can check if
   // content analysis is going to happen and delay starting `print_job_` to
@@ -454,7 +455,7 @@ void PrintViewManagerBase::StartLocalPrintJob(
         &PrintViewManagerBase::ContentAnalysisBeforePrintingDocument,
         weak_ptr_factory_.GetWeakPtr(), std::move(*scanning_data)));
   }
-#endif  // BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
   set_cookie(cookie);
   DidGetPrintedPagesCount(cookie, page_count);
@@ -628,7 +629,8 @@ void PrintViewManagerBase::DidPrintDocument(
     auto* client = PrintCompositeClient::FromWebContents(web_contents());
     client->CompositeDocument(
         params->document_cookie, GetCurrentTargetFrame(), content,
-        ui::AXTreeUpdate(), GetCompositorDocumentType(),
+        ui::AXTreeUpdate(), mojom::GenerateDocumentOutline::kNone,
+        GetCompositorDocumentType(),
         base::BindOnce(&PrintViewManagerBase::OnComposeDocumentDone,
                        weak_ptr_factory_.GetWeakPtr(), params->document_cookie,
                        params->page_size, params->content_area,
@@ -667,7 +669,7 @@ void PrintViewManagerBase::GetDefaultPrintSettings(
 
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
   if (ShouldPrintJobOop() &&
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
       !analyzing_content_ &&
 #endif
       !query_with_ui_client_id().has_value()) {
@@ -695,7 +697,7 @@ void PrintViewManagerBase::GetDefaultPrintSettings(
 
   // Sometimes it is desired to get the PDF settings as opposed to the settings
   // of the default system print driver.
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   bool want_pdf_settings = analyzing_content_;
 #else
   bool want_pdf_settings = false;
@@ -768,7 +770,7 @@ void PrintViewManagerBase::UpdatePrintSettings(
   }
 
 #if BUILDFLAG(IS_WIN)
-  // TODO(crbug.com/1424368):  Remove this if the printable areas can be made
+  // TODO(crbug.com/40260379):  Remove this if the printable areas can be made
   // fully available from `PrintBackend::GetPrinterSemanticCapsAndDefaults()`
   // for in-browser queries.
   if (printer_type == mojom::PrinterType::kLocal) {
@@ -832,7 +834,7 @@ void PrintViewManagerBase::ScriptedPrint(mojom::ScriptedPrintParamsPtr params,
     return;
   }
 #endif
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   std::optional<enterprise_connectors::ContentAnalysisDelegate::Data>
       scanning_data = enterprise_data_protection::GetPrintAnalysisData(
           web_contents(), enterprise_data_protection::PrintScanningContext::
@@ -842,7 +844,7 @@ void PrintViewManagerBase::ScriptedPrint(mojom::ScriptedPrintParamsPtr params,
         &PrintViewManagerBase::ContentAnalysisBeforePrintingDocument,
         weak_ptr_factory_.GetWeakPtr(), std::move(*scanning_data)));
   }
-#endif  // BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
   CompleteScriptedPrint(render_frame_host, std::move(params),
                         std::move(callback));
@@ -1103,7 +1105,7 @@ void PrintViewManagerBase::ReleasePrintJob() {
     // Ensure that any residual registration of printing client is released.
     // This might be necessary in some abnormal cases, such as the associated
     // render process having terminated.
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
     if (!analyzing_content_) {
       UnregisterSystemPrintClient();
     }
@@ -1185,7 +1187,7 @@ bool PrintViewManagerBase::OpportunisticallyCreatePrintJob(int cookie) {
     return false;
   }
 
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   // Don't start printing if enterprise checks are being performed to check if
   // printing is allowed, or if content analysis is going to take place right
   // before starting `print_job_`.
@@ -1333,7 +1335,7 @@ void PrintViewManagerBase::CompleteScriptedPrint(
                      std::move(callback_wrapper)));
 }
 
-#if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 void PrintViewManagerBase::CompletePrintDocumentAfterContentAnalysis(
     scoped_refptr<base::RefCountedMemory> print_data,
     const gfx::Size& page_size,
@@ -1379,6 +1381,6 @@ void PrintViewManagerBase::set_content_analysis_before_printing_document(
     PrintDocumentCallback callback) {
   content_analysis_before_printing_document_ = std::move(callback);
 }
-#endif  // BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
 }  // namespace printing

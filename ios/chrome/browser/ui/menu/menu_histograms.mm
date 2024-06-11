@@ -53,6 +53,12 @@ const char kTabGroupEntryActionsHistogram[] =
     "Mobile.ContextMenu.TabGroupEntry.Actions";
 const char kTabGroupViewEntryActionsHistogram[] =
     "Mobile.ContextMenu.TabGroupViewEntry.Actions";
+const char kAutofillManualFallbackAllPasswordsEntryActionsHistogram[] =
+    "Mobile.ContextMenu.AutofillManualFallbackAllPasswordsEntry.Actions";
+const char kAutofillManualFallbackPasswordEntryActionsHistogram[] =
+    "Mobile.ContextMenu.AutofillManualFallbackPasswordEntry.Actions";
+const char kAutofillManualFallbackPaymentEntryActionsHistogram[] =
+    "Mobile.ContextMenu.AutofillManualFallbackPaymentEntry.Actions";
 }  // namespace
 
 void RecordMenuShown(MenuScenarioHistogram scenario) {
@@ -106,6 +112,12 @@ const char* GetActionsHistogramName(MenuScenarioHistogram scenario) {
       return kTabGroupEntryActionsHistogram;
     case kMenuScenarioHistogramTabGroupViewTabEntry:
       return kTabGroupViewEntryActionsHistogram;
+    case kMenuScenarioHistogramAutofillManualFallbackAllPasswordsEntry:
+      return kAutofillManualFallbackAllPasswordsEntryActionsHistogram;
+    case kMenuScenarioHistogramAutofillManualFallbackPasswordEntry:
+      return kAutofillManualFallbackPasswordEntryActionsHistogram;
+    case kMenuScenarioHistogramAutofillManualFallbackPaymentEntry:
+      return kAutofillManualFallbackPaymentEntryActionsHistogram;
     case kMenuScenarioHistogramCount:
       NOTREACHED_NORETURN();
   }

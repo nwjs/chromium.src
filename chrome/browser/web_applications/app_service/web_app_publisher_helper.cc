@@ -106,7 +106,7 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/apps/app_service/browser_app_instance_tracker.h"
+#include "chrome/browser/apps/browser_instance/browser_app_instance_tracker.h"
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/badging/badge_manager_factory.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
@@ -206,7 +206,7 @@ apps::PermissionType GetPermissionType(
 }
 
 apps::InstallReason GetHighestPriorityInstallReason(const WebApp* web_app) {
-  // TODO(crbug.com/1189949): Migrate apps with chromeos_data.oem_installed set
+  // TODO(crbug.com/40755721): Migrate apps with chromeos_data.oem_installed set
   // to the new WebAppManagement::Type::kOem install type.
   if (web_app->chromeos_data().has_value()) {
     auto& chromeos_data = web_app->chromeos_data().value();
@@ -281,6 +281,7 @@ apps::InstallSource GetInstallSource(
     case webapps::WebappInstallSource::MICROSOFT_365_SETUP:
     case webapps::WebappInstallSource::PROFILE_MENU:
     case webapps::WebappInstallSource::ALMANAC_INSTALL_APP_URI:
+    case webapps::WebappInstallSource::OOBE_APP_RECOMMENDATIONS:
       return apps::InstallSource::kBrowser;
     case webapps::WebappInstallSource::ARC:
       return apps::InstallSource::kPlayStore;
@@ -317,6 +318,7 @@ apps::Readiness ConvertWebappUninstallSourceToReadiness(
     case webapps::WebappUninstallSource::kStartupCleanup:
     case webapps::WebappUninstallSource::kParentUninstall:
     case webapps::WebappUninstallSource::kTestCleanup:
+    case webapps::WebappUninstallSource::kDevtools:
       return apps::Readiness::kUninstalledByUser;
     case webapps::WebappUninstallSource::kMigration:
     case webapps::WebappUninstallSource::kInternalPreinstalled:
@@ -603,7 +605,7 @@ apps::Permissions WebAppPublisherHelper::CreatePermissions(
     permissions.push_back(std::make_unique<apps::Permission>(
         GetPermissionType(type), setting_val,
         /*is_managed=*/setting_info.source ==
-            content_settings::SETTING_SOURCE_POLICY));
+            content_settings::SettingSource::kPolicy));
   }
 
   // File handling permission.
@@ -1048,7 +1050,7 @@ void WebAppPublisherHelper::LaunchAppWithIntent(
       base::BindOnce(
           [](apps::LaunchCallback callback, apps::LaunchSource launch_source,
              std::vector<content::WebContents*> web_contentses) {
-// TODO(crbug.com/1214763): Set ArcWebContentsData for Lacros.
+// TODO(crbug.com/40184120): Set ArcWebContentsData for Lacros.
 #if BUILDFLAG(IS_CHROMEOS_ASH)
             for (content::WebContents* web_contents : web_contentses) {
               if (launch_source == apps::LaunchSource::kFromArc) {
@@ -1096,7 +1098,7 @@ void WebAppPublisherHelper::LaunchAppWithParams(
     const WebApp* web_app = GetWebApp(params_for_restore.app_id);
     is_system_web_app = web_app && web_app->IsSystemApp();
 
-    // TODO(crbug.com/1368285): Determine whether override URL can
+    // TODO(crbug.com/40240250): Determine whether override URL can
     // be restored for all SWAs.
     auto system_app_type =
         swa_manager->GetSystemAppTypeForAppId(params_for_restore.app_id);
@@ -1953,7 +1955,7 @@ void WebAppPublisherHelper::OnFileHandlerDialogCompleted(
         params.display_id, params.launch_files, params.intent);
     // For system web apps, the URL is calculated by the file browser and passed
     // in the intent.
-    // TODO(crbug.com/1264164): remove this check. It's only here to support
+    // TODO(crbug.com/40203246): remove this check. It's only here to support
     // tests that haven't been updated.
     if (params.intent) {
       params_for_file_launch.override_url = GURL(*params.intent->activity_name);

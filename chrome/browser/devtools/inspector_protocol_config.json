@@ -34,6 +34,10 @@
                 "domain": "WindowManager"
             },
             {
+                "domain": "Extensions",
+                "async": [ "loadUnpacked" ]
+            },
+            {
                 "domain": "Security",
                 "include": [ "enable", "disable" ],
                 "include_events": [ "visibleSecurityStateChanged" ]
@@ -53,7 +57,7 @@
             },
             {
                 "domain": "PWA",
-                "async": [ "getOsAppState" ]
+                "async": [ "getOsAppState", "install", "launch", "uninstall" ]
             }
         ]
     },

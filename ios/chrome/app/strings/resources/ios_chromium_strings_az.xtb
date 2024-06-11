@@ -27,7 +27,6 @@
 <translation id="164952285225495380">Bu bağlama Chromium-da izlənib.</translation>
 <translation id="1707458603865303524">Mesaj və ya digər tətbiqlərdə keçidləri Chromium ilə açın.</translation>
 <translation id="1722370509450468186">Parolunuz Hesabınızda (<ph name="EMAIL" />) saxlanacaq.</translation>
-<translation id="1736662517232558588">Təmizlənmiş Chromium datası</translation>
 <translation id="1791845338122684020">Chromium tarixçəsi səhifəsini açır.</translation>
 <translation id="1811860791247653035">Fərdiləşdirmə və digər funksiyaları əldə etmək üçün Chromium-u <ph name="FEATURE_NAME_1" /> və <ph name="FEATURE_NAME_2" /> funksiyalarına daxil edin</translation>
 <translation id="1838412507805038478">Chromium təsdiq edir ki, <ph name="ISSUER" /> bu veb saytı sertifikatlaşdırıb.</translation>
@@ -60,6 +59,7 @@
 <translation id="2574528844022712255">Chromium əlfəcinlərinə baxın</translation>
 <translation id="2590893390871230428">Chromium Datasını Sinxronizasiya Edin</translation>
 <translation id="2592940277904433508">Chromium istifadəsinə davam edin</translation>
+<translation id="2607609479243848905">Parol ifadəsini unutsanız, yaxud bu ayarı dəyişmək istəsəniz, <ph name="BEGIN_LINK" />hesabda Chromium datasını silin<ph name="END_LINK" />.</translation>
 <translation id="2618596336309823556">Cihaz Ayarlarında "<ph name="TEXT_OF_THE_SETTINGS_MENU_ITEM" />" açın və "Chromium" seçin</translation>
 <translation id="2618757400690011108">{COUNT,plural, =1{Chromium yeni tab səhifəsində bu paketi izləməyə kömək edəcək.}other{Chromium yeni tab səhifəsində bu paketləri izləməyə kömək edəcək.}}</translation>
 <translation id="2650312721222849884">Chromium istifadə etdiyiniz hər yerdən tabları görmək üçün sinxronizasiyanı aktiv edin</translation>
@@ -74,6 +74,7 @@ Chromium təcrübənizi təkmilləşdirmək məqsədilə data istifadə edən di
 <translation id="2918709798697875261">Təşkilatınız Chromium'dan çıxmış vəziyyətdə qalmağınızı tələb edir.</translation>
 <translation id="2942241131342758843">Defolt olaraq keçidləri açmaq, vidcetlərdən axtarış etmək və digər tətbiqlərdə parolları avtomatik doldurmaq üçün Chromium istifadə edin</translation>
 <translation id="2977470724722393594">Chromium güncəldir</translation>
+<translation id="3044857325852340337">Chromium datası silindi</translation>
 <translation id="3078941082359356771">{COUNT,plural, =1{Chromium yeni tab səhifəsində bu paketi izləməyə kömək edə bilər.}other{Chromium yeni tab səhifəsində bu paketləri izləməyə kömək edə bilər.}}</translation>
 <translation id="3102849287235003384">Bütün vebsaytlarda Google Hesabınızdan çıxmaq üçün <ph name="BEGIN_LINK" />Chromium'dan çıxın<ph name="END_LINK" />.</translation>
 <translation id="3219277919172823720">Chromium-da səs ilə axtarın</translation>
@@ -86,7 +87,6 @@ Chromium təcrübənizi təkmilləşdirmək məqsədilə data istifadə edən di
 <translation id="3472200483164753384">Chromium Canary'də dəstəklənmir</translation>
 <translation id="347967311580159871">Chromium təcrübənizi təkmilləşdirmək məqsədilə datadan istifadə edən daha çox ayar üçün <ph name="BEGIN_LINK" />Google Xidmətlərinə<ph name="END_LINK" /> keçin.</translation>
 <translation id="3512168799938877162">Parol paylaşılmadı. İnternet bağlantısını yoxlayın və Chromium-a daxil olun. Sonra yenidən cəhd edin.</translation>
-<translation id="3554027294407525061">Chromium-da baxış datasını silin.</translation>
 <translation id="3567399274263440288">Chromium'dan maksimum yararlanmaq üçün Google Hesabınızla Chromium'a daxil olun.</translation>
 <translation id="3634039384458740619">Chromium ayarlarını açın</translation>
 <translation id="3639997914391704523">Google Hesabınız ilə daxil olduqda Chromium parollarınızı yoxlaya bilər.</translation>
@@ -101,12 +101,8 @@ Chromium təcrübənizi təkmilləşdirmək məqsədilə data istifadə edən di
 <translation id="3855938650519180865">Chromium-da yeniliklər</translation>
 <translation id="3886689467633467988">Əlfəcinləri və s. bütün cihazlarda əldə etmək üçün bu sayta və Chromium-a daxil olun.</translation>
 <translation id="3904484643286601695">Chromium ayarlarında seçimləri yeniləyə bilərsiniz.</translation>
-<translation id="394413318816989199">Parol ifadəsi şifrələməsinə ödəniş metodu və ünvanlar daxil deyil.
-
-Bu ayarı dəyişmək üçün <ph name="BEGIN_LINK" />hesabda Chromium datasını silin<ph name="END_LINK" />.</translation>
 <translation id="4005283307739974863">Chromium-da Təhlükəsizlik yoxlanışını açır və icra edir.</translation>
 <translation id="4043291146360695975">Parollar yalnız bu cihazda Parol Menecerində saxlanılır.</translation>
-<translation id="4076589763479456892">Parol ifadəsini unutsanız, yaxud bu ayarı dəyişmək istəsəniz, <ph name="BEGIN_LINK" />hesabda Chromium datasını silin<ph name="END_LINK" />.</translation>
 <translation id="4099085513035183040">Chromium Beta'da dəstəklənmir</translation>
 <translation id="4106512142782407609"><ph name="EMAIL" /> kimi daxil olunub.
 
@@ -121,11 +117,15 @@ Data parol ifadəsi ilə şifrələnib. Google Hesabında Chromium datasını is
 <translation id="4498832288620833153">Daxil edilən URL-ləri Chromium-da oxu siyahısına əlavə edir.</translation>
 <translation id="452436063477828504">Google Hesabında hər zaman Chromium datasından istifadə edə biləcəyinizdən əmin olun</translation>
 <translation id="4555020257205549924">Bu funksiya aktiv olduqda, Chromium Google Tərcümədən istifadə edərək başqa dillərdə yazılmış səhifələri tərcümə etməyi təklif edəcək. <ph name="BEGIN_LINK" />Ətraflı məlumat<ph name="END_LINK" /></translation>
+<translation id="4572441104543926904">Parol ifadəsi şifrələməsinə ödəniş metodu və ünvanlar daxil deyil.
+
+Bu ayarı dəyişmək üçün <ph name="BEGIN_LINK" />hesabda Chromium datasını silin<ph name="END_LINK" />.</translation>
 <translation id="4576283463017113841">Chromium-da ödəniş metodları ayarı səhifəsini açır.</translation>
 <translation id="459080529287102949">Chromium-da vizualları axtarın</translation>
 <translation id="4633738821577273991">Bu Chromium profili üçün də Qabaqcıl Güvənli Baxış əldə edin</translation>
 <translation id="4638625642619341392">Burada Chromium-u endirin.</translation>
 <translation id="4654936625574199632">Tətbiqi təkmilləşdirməyə kömək etmək üçün Chrome istifadə və qəza datasını Google'a göndərir. <ph name="BEGIN_LINK" />İdarə edin<ph name="END_LINK" /></translation>
+<translation id="4675485352217495362">Chromium-da baxış datasını silin</translation>
 <translation id="4681781466797808448">Chromium skanerini aktiv edin</translation>
 <translation id="4736424910885271643">Hesabınız <ph name="HOSTED_DOMAIN" /> tərəfindən idarə edildiyinə görə Chromium datanız bu cihazdan silinəcək</translation>
 <translation id="4773487571745795781">Chromium girişini deaktiv etmisiniz.</translation>
@@ -138,7 +138,6 @@ Data parol ifadəsi ilə şifrələnib. Google Hesabında Chromium datasını is
 <translation id="5042011327527167688">"Chromium-da Google Xəritə ilə baxın" üzərinə toxunun.</translation>
 <translation id="5044871537677053278">Chromium istiqamət və yerli məlumat təqdim etmək üçün ünvanları aşkarlayır və Google Xəritədən istifadə edir.</translation>
 <translation id="5048795749726991615">Yadda saxlanmış parollarınızı digər tətbiqlərinizdə asanlıqla əldə etmək üçün Avtomatik Doldurma üçün Chromium istifadə edin</translation>
-<translation id="5076601183701536878">Chromium-da baxış datasını silin</translation>
 <translation id="5124429847818367226">Artıq istənilən vaxt Chromium ilə axtarış edə və ya mesaj, sənəd və digər tətbiqlərdə keçidləri aça bilərsiniz.</translation>
 <translation id="5131565040785979529">Təşkilat (<ph name="DOMAIN" />) daxil olduğunuz hesabı və Chromium-un istifadə qaydasını idarə edir.</translation>
 <translation id="5146749061471423558">Chromium-a Əlfəcinlər əlavə edin</translation>
@@ -194,12 +193,10 @@ Nəzərə alın ki:
 <translation id="6324041800010509197">Chromium-da tab toruna daxil olun</translation>
 <translation id="6325378625795868881">Mesaj və digər tətbiqlərdə keçidləri Chromium ilə açın.</translation>
 <translation id="632825460376924298">Chromium girişinə icazə verin</translation>
+<translation id="6332129548244419716">Chromium-da baxış datasını silin.</translation>
 <translation id="6337530241089703714">Chromium datanızınız bu cihazdan silinməsi və ya saxlanmasını seçin</translation>
 <translation id="6348483005826990855">3. Chromium seçin</translation>
 <translation id="6383607155624074112">Ana ekran dokundan Chromium-a daha tez giriş edin</translation>
-<translation id="6407399265324739055">Ödəniş metodu və ünvanlar şifrələnməyəcək. Chromium-dan baxış tarixçəsi sinxronlaşdırılmayacaq.
-
-Yalnız parol ifadəsini bilən şəxs şifrələnmiş datanı oxuya bilər. Google parol ifadəsini əldə etmir və ya saxlamır. Parol ifadəsini unutsanız, yaxud bu ayarı dəyişmək istəsəniz, <ph name="BEGIN_LINK" />hesabda Chromium datasını silin<ph name="END_LINK" />.</translation>
 <translation id="6424492062988593837">Chromium yeniləndi! Yeni versiya əlçatandır.</translation>
 <translation id="6433172051771630690">Chromium-dan maksimum yararlanmaq üçün məsləhətlər.</translation>
 <translation id="6502321914804101924">Chromium-dan çıxılıb</translation>
@@ -221,6 +218,9 @@ Yalnız parol ifadəsini bilən şəxs şifrələnmiş datanı oxuya bilər. Goo
 <translation id="7163483974919055112">Chromium-da vizualları axtarın.</translation>
 <translation id="7165402419892018581">Avtodoldurma üçün Chromium'u seçin</translation>
 <translation id="7175400662502680481">Parolunuz data pozulması zamanı ələ keçirilib. Parol Meneceri onu indi dəyişmənizi tövsiyə edir.</translation>
+<translation id="7185731475720473450">Ödəniş metodu və ünvanlar şifrələnməyəcək. Chromium-dan baxış tarixçəsi sinxronlaşdırılmayacaq.
+
+Yalnız parol ifadəsini bilən şəxs şifrələnmiş datanı oxuya bilər. Google parol ifadəsini əldə etmir və ya saxlamır. Parol ifadəsini unutsanız, yaxud bu ayarı dəyişmək istəsəniz, <ph name="BEGIN_LINK" />hesabda Chromium datasını silin<ph name="END_LINK" />.</translation>
 <translation id="7192111075364461693">Hazırda Chromium bildirişləri cihaz ayarlarında deaktivdir.</translation>
 <translation id="7222001353246886083">Chromium-da ${searchPhrase} axtarın</translation>
 <translation id="725427773388857052">Chromium sizi data pozuntuları, güvənli olmayan vebsaytlar və digər güvənlik məsələlərindən qoruya bilər.</translation>
@@ -242,7 +242,6 @@ Yalnız parol ifadəsini bilən şəxs şifrələnmiş datanı oxuya bilər. Goo
 <translation id="7890287942691234100">Chromium skanerindən istifadə etməyə başlayın</translation>
 <translation id="7905064834449738336">İstifadə edilən parol onlayn yayımlanıbsa, Chromium xəbərdarlıq edir. Parol və istifadəçi adları şifrələnir və hətta Google-a da görünmür.</translation>
 <translation id="7911732829884437264">Defolt olaraq Chromium istifadə edin</translation>
-<translation id="7917424453593305610">Digər tətbiqlərdə Chromium istifadə edin.</translation>
 <translation id="7928628054454574139">Digər tətbiqlərdə istənilən vaxt keçidlərə toxunduqda Chromium açılsın</translation>
 <translation id="7931842119211730154">Chromium bağlandıqda Anonim Tablar kilidlənsin</translation>
 <translation id="7934404985878918282">Chromium oxu siyahısına baxın</translation>
@@ -267,9 +266,6 @@ Yalnız parol ifadəsini bilən şəxs şifrələnmiş datanı oxuya bilər. Goo
 <translation id="8458950033462118672">Defolt brauzer tətbiqi edərək keçidləri Chromium-da avtomatik aça bilərsiniz.</translation>
 <translation id="858114650497379505">Parol Menecerində saxladığınız parolları iPhone'dakı digər tətbiqlərdə istifadə edə bilərsiniz.</translation>
 <translation id="8586442755830160949">Müəlliflik Hüququ <ph name="YEAR" /> Chromium Müəllifləri. Bütün hüquqlar qorunur.</translation>
-<translation id="8618440443578628179">Parol ifadəsi şifrələməsinə Google Pay-dən ödəniş metodu və ünvanlar daxil deyil.
-
-Bu ayarı dəyişmək üçün <ph name="BEGIN_LINK" />hesabda Chromium datasını silin<ph name="END_LINK" />.</translation>
 <translation id="865600487977764604">Daxil olduğunuzda Chromium'da sizi qoruyur və digər Google tətbiqlərində təhlükəsizliyinizi artırmaq üçün istifadə edilə bilər.</translation>
 <translation id="8663480472502753423">Chromium'u yeni saxlayın</translation>
 <translation id="8685813584220679697">Bu sayta və Chromium'a daxil olun.</translation>

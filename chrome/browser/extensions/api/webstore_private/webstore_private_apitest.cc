@@ -348,6 +348,7 @@ class SupervisedUserExtensionWebstorePrivateApiTest
             }) {
 
     std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
     enabled_features.push_back(
         supervised_user::
@@ -358,8 +359,12 @@ class SupervisedUserExtensionWebstorePrivateApiTest
       enabled_features.push_back(
           supervised_user::
               kEnableSupervisedUserSkipParentApprovalToInstallExtensions);
+    } else {
+      disabled_features.push_back(
+          supervised_user::
+              kEnableSupervisedUserSkipParentApprovalToInstallExtensions);
     }
-    feature_list_.InitWithFeatures(enabled_features, /*disabled_features=*/{});
+    feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
 
   ~SupervisedUserExtensionWebstorePrivateApiTest() override {
@@ -684,7 +689,7 @@ class ExtensionWebstorePrivateGetReferrerChainApiTest
     : public ExtensionWebstorePrivateApiTest {
  public:
   ExtensionWebstorePrivateGetReferrerChainApiTest() {
-    // TODO(crbug.com/1394910): Use HTTPS URLs in tests to avoid having to
+    // TODO(crbug.com/40248833): Use HTTPS URLs in tests to avoid having to
     // disable this feature.
     feature_list_.InitAndDisableFeature(features::kHttpsUpgrades);
   }

@@ -92,7 +92,7 @@ namespace autofill {
 // country code. If we don't reformat the number, the GetRawInfo()
 // representation remains without one. In all countries but the US and Canada,
 // formatting will put a + in front of the country code.
-// TODO(crbug.com/1311937) Clean this up once AutofillInferCountryCallingCode
+// TODO(crbug.com/40220393) Clean this up once AutofillInferCountryCallingCode
 // is launched.
 //
 // PHONE_HOME_EXTENSION: Extensions are detected, but not filled. This would
@@ -572,7 +572,9 @@ constexpr HtmlFieldType ToSafeHtmlFieldType(
     return static_cast<underlying_type_t>(HtmlFieldType::kMinValue) <= t &&
            t <= static_cast<underlying_type_t>(HtmlFieldType::kMaxValue) &&
            // Full address is deprecated.
-           t != 17;
+           t != 17 &&
+           // UPI is deprecated.
+           t != 46;
   };
   return IsValid(raw_value) ? static_cast<HtmlFieldType>(raw_value)
                             : fallback_value;

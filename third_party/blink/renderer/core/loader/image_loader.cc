@@ -47,8 +47,12 @@
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/cross_origin_attribute.h"
+#include "third_party/blink/renderer/core/html/html_embed_element.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
+#include "third_party/blink/renderer/core/html/html_object_element.h"
+#include "third_party/blink/renderer/core/html/html_picture_element.h"
 #include "third_party/blink/renderer/core/html/loading_attribute.h"
+#include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/layout_image.h"
@@ -461,8 +465,8 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
               BitmapImage::MaybeCreateTransparentPlaceholderImage(url)) {
         document.CountUse(
             WebFeature::kSimplifyLoadingTransparentPlaceholderImage);
-        new_image_content = MakeGarbageCollected<ImageResourceContent>(
-            std::move(transparent_image));
+        new_image_content =
+            ImageResourceContent::CreateLoaded(transparent_image);
       }
     }
     if (!new_image_content) {
@@ -562,7 +566,6 @@ void ImageLoader::DoUpdateFromElement(const DOMWrapperWorld* world,
           lazy_image_load_state_ != LazyImageLoadState::kFullImage) {
         if (auto* html_image = DynamicTo<HTMLImageElement>(GetElement())) {
           if (LazyImageHelper::ShouldDeferImageLoad(*frame, html_image)) {
-            LazyImageHelper::StartMonitoringVisibilityMetrics(html_image);
             lazy_image_load_state_ = LazyImageLoadState::kDeferred;
             params.SetLazyImageDeferred();
           }
@@ -912,7 +915,8 @@ ResourcePriority ImageLoader::ComputeResourcePriority() const {
 
   ResourcePriority priority = image_resource->ComputeResourcePriority();
   priority.source = ResourcePriority::Source::kImageLoader;
-  if (features::
+  if (base::FeatureList::IsEnabled(features::kLCPCriticalPathPredictor) &&
+      features::
           kLCPCriticalPathPredictorImageLoadPriorityEnabledForHTMLImageElement
               .Get()) {
     auto* html_image_element = DynamicTo<HTMLImageElement>(element_.Get());

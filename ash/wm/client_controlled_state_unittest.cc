@@ -30,6 +30,7 @@
 #include "ash/wm/splitview/split_view_divider.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/test/fake_window_state.h"
+#include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/window_resizer.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_state_delegate.h"
@@ -39,7 +40,9 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
+#include "chromeos/ui/base/app_types.h"
 #include "chromeos/ui/base/display_util.h"
+#include "chromeos/ui/base/window_properties.h"
 #include "chromeos/ui/base/window_state_type.h"
 #include "chromeos/ui/frame/caption_buttons/frame_caption_button_container_view.h"
 #include "chromeos/ui/frame/caption_buttons/snap_controller.h"
@@ -66,6 +69,8 @@ using ::chromeos::WindowStateType;
 
 using BoundsRequestCallback =
     base::RepeatingCallback<void(const gfx::Rect& bounds)>;
+using WindowStateRequestCallback =
+    base::RepeatingCallback<void(WindowStateType new_state)>;
 
 constexpr gfx::Rect kInitialBounds(0, 0, 100, 100);
 
@@ -91,6 +96,9 @@ class TestClientControlledStateDelegate
     EXPECT_FALSE(deleted_);
     old_state_ = window_state->GetStateType();
     new_state_ = next_state;
+    if (window_state_request_callback_) {
+      window_state_request_callback_.Run(next_state);
+    }
   }
 
   void HandleBoundsRequest(WindowState* window_state,
@@ -120,6 +128,9 @@ class TestClientControlledStateDelegate
   void set_bounds_request_callback(BoundsRequestCallback callback) {
     bounds_request_callback_ = std::move(callback);
   }
+  void set_window_state_request_callback(WindowStateRequestCallback callback) {
+    window_state_request_callback_ = std::move(callback);
+  }
 
   int64_t display_id() const { return display_id_; }
 
@@ -140,6 +151,7 @@ class TestClientControlledStateDelegate
   gfx::Rect requested_bounds_;
   bool deleted_ = false;
   BoundsRequestCallback bounds_request_callback_;
+  WindowStateRequestCallback window_state_request_callback_;
 };
 
 class TestWidgetDelegate : public views::WidgetDelegateView {
@@ -755,8 +767,7 @@ TEST_F(ClientControlledStateTest, SnapInSecondaryDisplay) {
 
 TEST_P(ClientControlledStateTestClamshellAndTablet, SnapMinimizeAndUnminimize) {
   UpdateDisplay("900x600");
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   widget_delegate()->EnableSnap();
 
   const WindowSnapWMEvent snap_left_event(WM_EVENT_SNAP_PRIMARY);
@@ -1024,8 +1035,7 @@ TEST_P(ClientControlledStateTestClamshellAndTablet, SnapAndRotate) {
       display::test::DisplayManagerTestApi(display_manager())
           .SetFirstDisplayAsInternalDisplay();
 
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
 
   ScreenOrientationControllerTestApi orientation_test_api(
       Shell::Get()->screen_orientation_controller());
@@ -1083,8 +1093,7 @@ TEST_F(ClientControlledStateTest, ResizeToDismissSplitView) {
   ASSERT_TRUE(display::Screen::GetScreen()->InTabletMode());
   auto* const split_view_controller = SplitViewController::Get(window());
 
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   widget_delegate()->EnableSnap();
   ASSERT_TRUE(window_state()->CanResize());
   ASSERT_TRUE(window_state()->CanSnap());
@@ -1133,13 +1142,142 @@ TEST_F(ClientControlledStateTest, ResizeToDismissSplitView) {
   }
 }
 
+// Tests that drag-caption-to-snap works for client-controlled windows. The
+// order of emitted drag events and state change events matters for a client so
+// this test strictly verifies the order of events.
+TEST_F(ClientControlledStateTest, DragCaptionToSnap) {
+  auto* const event_generator = GetEventGenerator();
+
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
+  widget_delegate()->EnableSnap();
+  ASSERT_TRUE(window_state()->CanResize());
+  ASSERT_TRUE(window_state()->CanSnap());
+
+  const gfx::Rect normal_state_bounds(200, 200, 400, 300);
+  const SetBoundsWMEvent set_bounds_event(normal_state_bounds);
+  window_state()->OnWMEvent(&set_bounds_event);
+  ApplyPendingRequestedBounds();
+
+  // First, tests that dragging the caption to snap to primary, and then tests
+  // that dragging it to secondary.
+  for (const auto target_state :
+       {WindowStateType::kPrimarySnapped, WindowStateType::kSecondarySnapped}) {
+    SCOPED_TRACE(::testing::Message()
+                 << "Testing in drag-cation-to-snap: from "
+                 << window_state()->GetStateType() << " to " << target_state);
+    // Start dragging in the center of the header.
+    auto* const header_view = GetHeaderView();
+    gfx::Point next_cursor_point =
+        header_view->GetBoundsInScreen().CenterPoint();
+    event_generator->set_current_screen_location(next_cursor_point);
+    event_generator->PressLeftButton();
+
+    // Keep slightly (5px) dragging...
+    delegate()->set_bounds_request_callback(
+        base::BindLambdaForTesting([&](const gfx::Rect& bounds) {
+          // When any new bounds is requested, `OnDragStarted()` should be
+          // called already.
+          EXPECT_TRUE(window_state_delegate()->drag_in_progress());
+          EXPECT_TRUE(window_state()->drag_details()->bounds_change &
+                      WindowResizer::kBoundsChange_Repositions);
+        }));
+    next_cursor_point.Offset(-5, 0);
+    event_generator->MoveMouseTo(next_cursor_point);
+    // The following drag info is used by client to determine how to handle the
+    // bounds change.
+    EXPECT_TRUE(window_state_delegate()->drag_in_progress());
+    EXPECT_TRUE(window_state()->drag_details()->bounds_change &
+                WindowResizer::kBoundsChange_Repositions);
+    ApplyPendingRequestedBounds();
+    delegate()->set_bounds_request_callback(base::NullCallback());
+
+    // Drag it to the left edge of the screen.
+    const gfx::Rect work_area =
+        display::Screen::GetScreen()->GetPrimaryDisplay().work_area();
+    next_cursor_point = target_state == WindowStateType::kPrimarySnapped
+                            ? work_area.left_center()
+                            : work_area.right_center();
+    event_generator->MoveMouseTo(next_cursor_point);
+    delegate()->set_window_state_request_callback(
+        base::BindLambdaForTesting([&](WindowStateType new_state) {
+          if (new_state != target_state) {
+            return;
+          }
+          // When a new state (i.e., snapped) is requested, `OnDragFinished()`
+          // should be called already.
+          EXPECT_FALSE(window_state_delegate()->drag_in_progress());
+        }));
+    event_generator->ReleaseLeftButton();
+    // The following drag info is used by client to determine how to handle the
+    // bounds change.
+    EXPECT_FALSE(window_state_delegate()->drag_in_progress());
+
+    // Accept the snap request.
+    state()->EnterNextState(window_state(), delegate()->new_state());
+    ApplyPendingRequestedBounds();
+    VerifySnappedBounds(window(), chromeos::kDefaultSnapRatio);
+    EXPECT_EQ(target_state, window_state()->GetStateType());
+  }
+}
+
+// Tests that swapping snapped windows works for client-controlled windows
+TEST_F(ClientControlledStateTest, SwapSnappedWindows) {
+  ShellTestApi().SetTabletModeEnabledForTest(true);
+  ASSERT_TRUE(display::Screen::GetScreen()->InTabletMode());
+  UpdateDisplay("900x600");
+  auto* const split_view_controller = SplitViewController::Get(window());
+
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
+  widget_delegate()->EnableSnap();
+  ASSERT_TRUE(window_state()->CanResize());
+  ASSERT_TRUE(window_state()->CanSnap());
+
+  // Create a normal (non-client-controlled) window in addition to `window()`
+  // (client-controlled window) to fill the one side of the split view.
+  auto non_client_controlled_window = CreateAppWindow();
+  auto* const non_client_controlled_window_state =
+      WindowState::Get(non_client_controlled_window.get());
+
+  // Snap `window()` to 1/3 left.
+  const WindowSnapWMEvent snap_primary(WM_EVENT_SNAP_PRIMARY,
+                                       chromeos::kOneThirdSnapRatio);
+  window_state()->OnWMEvent(&snap_primary);
+  state()->EnterNextState(window_state(), delegate()->new_state());
+  ApplyPendingRequestedBounds();
+
+  // Snap `non_client_controlled_window` to 2/3 right.
+  const WindowSnapWMEvent snap_secondary(WM_EVENT_SNAP_SECONDARY,
+                                         chromeos::kTwoThirdSnapRatio);
+  non_client_controlled_window_state->OnWMEvent(&snap_secondary);
+
+  EXPECT_EQ(WindowStateType::kPrimarySnapped, window_state()->GetStateType());
+  EXPECT_EQ(WindowStateType::kSecondarySnapped,
+            non_client_controlled_window_state->GetStateType());
+  VerifySnappedBounds(window(), chromeos::kOneThirdSnapRatio);
+  VerifySnappedBounds(non_client_controlled_window.get(),
+                      chromeos::kTwoThirdSnapRatio);
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+
+  // Swap windows.
+  split_view_controller->SwapWindows();
+
+  state()->EnterNextState(window_state(), delegate()->new_state());
+  ApplyPendingRequestedBounds();
+  EXPECT_EQ(WindowStateType::kSecondarySnapped, window_state()->GetStateType());
+  EXPECT_EQ(WindowStateType::kPrimarySnapped,
+            non_client_controlled_window_state->GetStateType());
+  VerifySnappedBounds(window(), chromeos::kOneThirdSnapRatio);
+  VerifySnappedBounds(non_client_controlled_window.get(),
+                      chromeos::kTwoThirdSnapRatio);
+  EXPECT_TRUE(split_view_controller->InSplitViewMode());
+}
+
 // Tests that to-tablet/clamshell conversion carries over the snapped ratio.
 TEST_F(ClientControlledStateTest, ClamshellTabletConversionWithSnappedWindow) {
   UpdateDisplay("900x600");
   auto* const split_view_controller = SplitViewController::Get(window());
 
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   widget_delegate()->EnableSnap();
   ASSERT_TRUE(window_state()->CanResize());
   ASSERT_TRUE(window_state()->CanSnap());
@@ -1367,9 +1505,11 @@ TEST_F(ClientControlledStateTest, MoveWindowToDisplayOutOfBounds) {
   UpdateDisplay("1000x500, 600x500");
 
   state()->set_bounds_locally(true);
-  widget()->SetBounds(gfx::Rect(700, 0, 100, 200));
+  constexpr int kWidth = 100;
+  widget()->SetBounds(gfx::Rect(700, 0, kWidth, 200));
   state()->set_bounds_locally(false);
-  EXPECT_EQ(gfx::Rect(700, 0, 100, 200), widget()->GetWindowBoundsInScreen());
+  EXPECT_EQ(gfx::Rect(700, 0, kWidth, 200),
+            widget()->GetWindowBoundsInScreen());
 
   display::Screen* screen = display::Screen::GetScreen();
 
@@ -1385,7 +1525,9 @@ TEST_F(ClientControlledStateTest, MoveWindowToDisplayOutOfBounds) {
   // The bounds is constrained by
   // |AdjustBoundsToEnsureMinimumWindowVisibility| in the secondary
   // display.
-  EXPECT_EQ(gfx::Rect(575, 0, 100, 200), delegate()->requested_bounds());
+  constexpr int kMinVisibleWidth = kWidth * kMinimumPercentOnScreenArea;
+  EXPECT_EQ(gfx::Rect(600 - kMinVisibleWidth, 0, kWidth, 200),
+            delegate()->requested_bounds());
 }
 
 // Make sure disconnecting primary notifies the display id change.
@@ -1452,8 +1594,7 @@ TEST_P(ClientControlledStateTestClamshellAndTablet, ResizeSnappedWindow) {
   // Set screen width.
   UpdateDisplay("1200x600");
 
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   ASSERT_EQ(chromeos::OrientationType::kLandscapePrimary,
             GetCurrentScreenOrientation());
 
@@ -1519,11 +1660,40 @@ TEST_P(ClientControlledStateTestClamshellAndTablet, ResizeSnappedWindow) {
   EXPECT_EQ(WindowStateType::kPrimarySnapped, window_state()->GetStateType());
 }
 
+// Tests that a window leaves the snapped state when the client sets a new
+// window state.
+TEST_P(ClientControlledStateTestClamshellAndTablet,
+       LeaveSnappedStateByNewStateChange) {
+  auto* const split_view_controller = SplitViewController::Get(window());
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
+  widget_delegate()->EnableSnap();
+
+  for (const auto new_state_type :
+       {WindowStateType::kMaximized, WindowStateType::kFullscreen}) {
+    // Snap a window.
+    const WindowSnapWMEvent snap_primary(WM_EVENT_SNAP_PRIMARY);
+    window_state()->OnWMEvent(&snap_primary);
+    state()->EnterNextState(window_state(), delegate()->new_state());
+    ApplyPendingRequestedBounds();
+    if (InTabletMode()) {
+      EXPECT_TRUE(split_view_controller->InSplitViewMode());
+    }
+    EXPECT_EQ(window_state()->GetStateType(), WindowStateType::kPrimarySnapped);
+
+    // The client sets a new state.
+    state()->EnterNextState(window_state(), new_state_type);
+    ApplyPendingRequestedBounds();
+    if (InTabletMode()) {
+      EXPECT_FALSE(split_view_controller->InSplitViewMode());
+    }
+    EXPECT_EQ(window_state()->GetStateType(), new_state_type);
+  }
+}
+
 TEST_F(ClientControlledStateTest, FlingFloatedWindowInTabletMode) {
-  // The AppType must be set to any except `AppType::NON_APP` (default value) to
-  // make it floatable.
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  // The AppType must be set to any except `chromeos::AppType::NON_APP` (default
+  // value) to make it floatable.
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   widget_delegate()->EnableFloat();
   ASSERT_TRUE(chromeos::wm::CanFloatWindow(window()));
 
@@ -1576,10 +1746,9 @@ TEST_F(ClientControlledStateTest, TuckAndUntuckFloatedWindowInTabletMode) {
 
   auto* const float_controller = Shell::Get()->float_controller();
 
-  // The AppType must be set to any except `AppType::NON_APP` (default value) to
-  // make it floatable.
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  // The AppType must be set to any except `chromeos::AppType::NON_APP` (default
+  // value) to make it floatable.
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   widget_delegate()->EnableFloat();
   ASSERT_TRUE(chromeos::wm::CanFloatWindow(window()));
 
@@ -1659,10 +1828,9 @@ TEST_F(ClientControlledStateTest, TuckAndUntuckFloatedWindowInTabletMode) {
 }
 
 TEST_P(ClientControlledStateTestClamshellAndTablet, MoveFloatedWindow) {
-  // The AppType must be set to any except `AppType::NON_APP` (default value) to
-  // make it floatable.
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  // The AppType must be set to any except `chromeos::AppType::NON_APP` (default
+  // value) to make it floatable.
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   if (InTabletMode()) {
     // Resizing must be enabled in tablet mode to float.
     widget_delegate()->EnableFloat();
@@ -1730,10 +1898,9 @@ TEST_P(ClientControlledStateTestClamshellAndTablet, MoveFloatedWindow) {
 }
 
 TEST_P(ClientControlledStateTestClamshellAndTablet, FloatWindow) {
-  // The AppType must be set to any except `AppType::NON_APP` (default value) to
-  // make it floatable.
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  // The AppType must be set to any except `chromeos::AppType::NON_APP` (default
+  // value) to make it floatable.
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   if (InTabletMode()) {
     // Resizing must be enabled in tablet mode to float.
     widget_delegate()->EnableFloat();
@@ -2006,10 +2173,9 @@ TEST_P(ClientControlledStateTestClamshellAndTablet,
 }
 
 TEST_P(ClientControlledStateTestClamshellAndTablet, SnapFloatedWindow) {
-  // The AppType must be set to any except `AppType::NON_APP` (default value) to
-  // make it floatable.
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  // The AppType must be set to any except `chromeos::AppType::NON_APP` (default
+  // value) to make it floatable.
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   widget_delegate()->EnableFloat();
   ASSERT_TRUE(chromeos::wm::CanFloatWindow(window()));
 
@@ -2045,10 +2211,9 @@ TEST_P(ClientControlledStateTestClamshellAndTablet, SnapFloatedWindow) {
 // properly without any crash. Regression test for b/322374826.
 TEST_P(ClientControlledStateTestClamshellAndTablet,
        ReplaceFloatedWindowWithFullscreenWindow) {
-  // The AppType must be set to any except `AppType::NON_APP` (default value) to
-  // make it floatable.
-  window()->SetProperty(aura::client::kAppType,
-                        static_cast<int>(AppType::ARC_APP));
+  // The AppType must be set to any except `chromeos::AppType::NON_APP` (default
+  // value) to make it floatable.
+  window()->SetProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP);
   widget_delegate()->EnableFloat();
   ASSERT_TRUE(chromeos::wm::CanFloatWindow(window()));
 
@@ -2059,15 +2224,15 @@ TEST_P(ClientControlledStateTestClamshellAndTablet,
   EXPECT_TRUE(widget()->IsFullscreen());
 
   // Create another client-controlled window.
-  auto widget2 = TestWidgetBuilder()
-                     .SetParent(Shell::GetPrimaryRootWindow()->GetChildById(
-                         desks_util::GetActiveDeskContainerId()))
-                     .SetBounds(kInitialBounds)
-                     .SetTestWidgetDelegate()
-                     .SetWindowProperty(aura::client::kAppType,
-                                        static_cast<int>(AppType::ARC_APP))
-                     .SetShow(false)
-                     .BuildOwnsNativeWidget();
+  auto widget2 =
+      TestWidgetBuilder()
+          .SetParent(Shell::GetPrimaryRootWindow()->GetChildById(
+              desks_util::GetActiveDeskContainerId()))
+          .SetBounds(kInitialBounds)
+          .SetTestWidgetDelegate()
+          .SetWindowProperty(chromeos::kAppTypeKey, chromeos::AppType::ARC_APP)
+          .SetShow(false)
+          .BuildOwnsNativeWidget();
   auto* const window_state2 = WindowState::Get(widget2->GetNativeWindow());
   window_state2->set_allow_set_bounds_direct(true);
   auto delegate2 = std::make_unique<TestClientControlledStateDelegate>();

@@ -20,6 +20,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_features.h"
 #include "extensions/buildflags/buildflags.h"
+#include "third_party/blink/public/common/features_generated.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "extensions/common/constants.h"
@@ -48,7 +49,7 @@ CookieSettingsFactory::CookieSettingsFactory()
           // it should get its own CookieSettings.
           ProfileSelections::Builder()
               .WithRegular(ProfileSelection::kOwnInstance)
-              // TODO(crbug.com/1418376): Check if this service is needed in
+              // TODO(crbug.com/40257657): Check if this service is needed in
               // Guest mode.
               .WithGuest(ProfileSelection::kOwnInstance)
               .Build()) {
@@ -57,11 +58,6 @@ CookieSettingsFactory::CookieSettingsFactory()
 }
 
 CookieSettingsFactory::~CookieSettingsFactory() = default;
-
-void CookieSettingsFactory::RegisterProfilePrefs(
-    user_prefs::PrefRegistrySyncable* registry) {
-  content_settings::CookieSettings::RegisterProfilePrefs(registry);
-}
 
 scoped_refptr<RefcountedKeyedService>
 CookieSettingsFactory::BuildServiceInstanceFor(
@@ -92,7 +88,8 @@ CookieSettingsFactory::BuildServiceInstanceFor(
 
   content_settings::CookieSettings::ComputeFedCmSharingPermissionsCallback
       compute_fedcm_sharing_permissions =
-          base::FeatureList::IsEnabled(features::kFedCmWithStorageAccessAPI)
+          base::FeatureList::IsEnabled(
+              blink::features::kFedCmWithStorageAccessAPI)
               ? base::BindRepeating(
                     [](Profile* profile, scoped_refptr<HostContentSettingsMap>
                                              host_content_settings_map)

@@ -817,7 +817,7 @@ public class FeedSurfaceMediator
                 new SyncPromoController(
                         mProfile,
                         bottomSheetStrings,
-                        SigninAccessPoint.NTP_CONTENT_SUGGESTIONS,
+                        SigninAccessPoint.NTP_FEED_TOP_PROMO,
                         SyncConsentActivityLauncherImpl.get(),
                         SigninAndHistoryOptInActivityLauncherImpl.get());
         if (!SignInPromo.shouldCreatePromo() || !promoController.canShowSyncPromo()) {
@@ -923,7 +923,7 @@ public class FeedSurfaceMediator
         // It is possible that updateSectionHeader() is called when the surface which contains the
         // Feeds isn't visible or headers of streams haven't been added, returns here.
         // See https://crbug.com/1485070 and https://crbug.com/1488210.
-        // TODO(https://crbug.com/1488630): Figure out the root cause of setting
+        // TODO(crbug.com/40934702): Figure out the root cause of setting
         // SectionHeaderListProperties.CURRENT_TAB_INDEX_KEY to -1 and fix it.
         if (!mIsPropertiesInitializedForStream
                 || mSectionHeaderModel.get(SectionHeaderListProperties.CURRENT_TAB_INDEX_KEY) < 0) {
@@ -1363,6 +1363,8 @@ public class FeedSurfaceMediator
                 return StreamType.FOR_YOU;
             case StreamKind.FOLLOWING:
                 return StreamType.WEB_FEED;
+            case StreamKind.SUPERVISED_USER:
+                return StreamType.SUPERVISED_USER_FEED;
             default:
                 return StreamType.UNSPECIFIED;
         }

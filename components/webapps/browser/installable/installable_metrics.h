@@ -154,6 +154,9 @@ enum class WebappInstallSource {
   // WebAPK Backup and restore.
   WEBAPK_RESTORE = 34,
 
+  // Recommended apps screen in the ChromeOS Out Of Box Experience.
+  OOBE_APP_RECOMMENDATIONS = 35,
+
   // Add any new values above this one.
   COUNT,
 };
@@ -238,8 +241,11 @@ enum class WebappUninstallSource {
   // Isolated Web App Enterprise policy.
   kIwaEnterprisePolicy = 22,
 
+  // Via devtools PWA.uninstall or similar commands.
+  kDevtools = 23,
+
   // Add any new values above this one.
-  kMaxValue = kIwaEnterprisePolicy,
+  kMaxValue = kDevtools,
 };
 
 std::ostream& operator<<(std::ostream& os, WebappUninstallSource source);

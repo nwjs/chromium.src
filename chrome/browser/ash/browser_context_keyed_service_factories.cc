@@ -31,6 +31,7 @@
 #include "chrome/browser/ash/child_accounts/child_user_service_factory.h"
 #include "chrome/browser/ash/child_accounts/event_based_status_reporting_service_factory.h"
 #include "chrome/browser/ash/child_accounts/family_user_metrics_service_factory.h"
+#include "chrome/browser/ash/child_accounts/on_device_controls/app_controls_service_factory.h"
 #include "chrome/browser/ash/child_accounts/screen_time_controller_factory.h"
 #include "chrome/browser/ash/concierge_helper_service.h"
 #include "chrome/browser/ash/crosapi/keystore_service_factory_ash.h"
@@ -105,6 +106,7 @@
 #include "chrome/browser/ash/scanning/scan_service_factory.h"
 #include "chrome/browser/ash/secure_channel/nearby_connector_factory.h"
 #include "chrome/browser/ash/smb_client/smb_service_factory.h"
+#include "chrome/browser/ash/sparky/sparky_manager_service_factory.h"
 #include "chrome/browser/ash/sync/sync_appsync_service_factory.h"
 #include "chrome/browser/ash/sync/sync_error_notifier_factory.h"
 #include "chrome/browser/ash/sync/sync_mojo_service_factory_ash.h"
@@ -138,6 +140,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   AccountManagerPolicyControllerFactory::GetInstance();
   AdminTemplateServiceFactory::GetInstance();
   ash::AlwaysOnVpnPreConnectUrlAllowlistServiceFactory::GetInstance();
+  ash::SparkyManagerServiceFactory::GetInstance();
   android_sms::AndroidSmsServiceFactory::GetInstance();
   ApkWebAppServiceFactory::GetInstance();
   app_list::ArcVpnProviderManagerFactory::GetInstance();
@@ -217,6 +220,7 @@ void EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   nearby::NearbyProcessManagerFactory::GetInstance();
   nearby::presence::NearbyPresenceServiceFactory::GetInstance();
   OAuth2LoginManagerFactory::GetInstance();
+  on_device_controls::AppControlsServiceFactory::GetInstance();
   OfflineSigninLimiterFactory::GetInstance();
   OwnerSettingsServiceAshFactory::GetInstance();
   PasswordSyncTokenVerifierFactory::GetInstance();

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "gin/gin_features.h"
+
 #include "base/metrics/field_trial_params.h"
 
 namespace features {
@@ -211,6 +212,14 @@ BASE_FEATURE(kV8UseOriginalMessageForStackTrace,
              "V8UseOriginalMessageForStackTrace",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kV8IdleGcOnContextDisposal,
+             "V8IdleGcOnContextDisposal",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kV8GCOptimizeSweepForMutator,
+             "V8GCOptimizeSweepForMutator",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Elide redundant TDZ hole checks in bytecode. This only sets the V8 flag when
 // manually overridden.
 BASE_FEATURE(kV8IgnitionElideRedundantTdzChecks,
@@ -226,16 +235,6 @@ BASE_FEATURE(kV8IntelJCCErratumMitigation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // JavaScript language features.
-
-// Enables the Resizable ArrayBuffer proposal.
-BASE_FEATURE(kJavaScriptRabGsab,
-             "JavaScriptRabGsab",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables the ArrayBuffer transfer proposal.
-BASE_FEATURE(kJavaScriptArrayBufferTransfer,
-             "JavaScriptArrayBufferTransfer",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the experiment with compile hints as magic comments.
 BASE_FEATURE(kJavaScriptCompileHintsMagic,
@@ -288,6 +287,11 @@ BASE_FEATURE(kWebAssemblyTailCall,
 // Enable WebAssembly inlining (not user visible).
 BASE_FEATURE(kWebAssemblyInlining,
              "WebAssemblyInlining",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable WebAssembly code flushing.
+BASE_FEATURE(kWebAssemblyLiftoffCodeFlushing,
+             "WebAssemblyLiftoffCodeFlushing",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable the generic wasm-to-js wrapper.

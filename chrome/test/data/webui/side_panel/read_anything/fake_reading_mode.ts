@@ -53,13 +53,20 @@ export class FakeReadingMode {
   // Fonts supported by the browser's preferred language.
   supportedFonts: string[] = ['roboto'];
 
-  // The language code that should be used for speech synthesis voices.
-  speechSynthesisLanguageCode: string = '';
+  // The base language code that should be used for speech synthesis voices.
+  baseLanguageForSpeech: string = '';
+
+  // The fallback language, corresponding to the browser language, that
+  // should only be used when baseLanguageForSpeech is unavailable.
+  defaultLanguageForSpeech: string = '';
+
+  // TTS voice language preferences saved in database
+  savedLanguagePref: Set<string> = new Set<string>();
 
   private maxNodeId: number = 5;
 
-  // Returns the stored user voice preference for the given language.
-  getStoredVoice(_lang: string): string {
+  // Returns the stored user voice preference for the current language.
+  getStoredVoice(): string {
     return 'abc';
   }
 
@@ -128,6 +135,9 @@ export class FakeReadingMode {
   // shortcuts.
   onCopy() {}
 
+  // Called when speech is paused or played.
+  onSpeechPlayingStateChanged(_paused: boolean) {}
+
   // Called when the Read Anything panel is scrolled.
   onScroll(_onSelection: boolean) {}
 
@@ -153,6 +163,16 @@ export class FakeReadingMode {
   onFontSizeReset() {
     this.fontSize = 0;
   }
+
+  // Called when a user toggles a switch in the language menu
+  onLanguagePrefChange(lang: string, enabled: boolean) {
+    if(enabled) {
+      this.savedLanguagePref.add(lang);
+    } else {
+      this.savedLanguagePref.delete(lang);
+    }
+  }
+
 
   // Called when a user toggles links via the webui toolbar.
   onLinksEnabledToggled() {
@@ -200,6 +220,9 @@ export class FakeReadingMode {
   // Called when the voice used for speech is changed via the webui toolbar.
   onVoiceChange(_voice: string, _lang: string) {}
 
+  // Called when a tracked count-based metric is incremented.
+  incrementMetricCount(_metric: string) {}
+
   // Called when the highlight granularity is changed via the webui toolbar.
   turnedHighlightOn() {
     this.highlightGranularity = 1;
@@ -220,6 +243,11 @@ export class FakeReadingMode {
     return letterSpacing;
   }
 
+  // Returns the actual enabled languages in preference
+  getLanguagesEnabledInPref(): string[] {
+    return [...this.savedLanguagePref.values()];
+  }
+
   // Called when a user makes a selection change. AnchorNodeID and
   // focusAXNodeID are AXNodeIDs which identify the anchor and focus AXNodes
   // in the main pane. The selection can either be forward or backwards.
@@ -230,6 +258,8 @@ export class FakeReadingMode {
   // Called when a user collapses the selection. This is usually accomplished
   // by clicking.
   onCollapseSelection() {}
+
+  sendGetVoicePackInfoRequest(_: string) {}
 
   // Set the content. Used by tests only.
   // SnapshotLite is a data structure which resembles an AXTreeUpdate. E.g.:
@@ -285,6 +315,12 @@ export class FakeReadingMode {
   // Ping that the theme choices of the user have been changed using the
   // toolbar and are ready to consume.
   updateTheme() {}
+
+  // Called with the response of sendGetVoicePackInfoRequest()
+  updateVoicePackStatus(_lang: string, _status: string) {}
+
+  // Called with the response of sendInstallVoicePackRequest()
+  updateVoicePackStatusFromInstallResponse() {}
 
   // Ping that the theme choices of the user have been retrieved from
   // preferences and can be used to set up the page.
@@ -344,4 +380,10 @@ export class FakeReadingMode {
   }
 
   logMetric(_time: number, _metricName: string) : void {}
+
+  logLongMetric(_time: number, _metricName: string): void {}
+
+  logSpeechError(errorCode: string): void {
+    console.error('Read Aloud got a speech error during test:', errorCode);
+  }
 }

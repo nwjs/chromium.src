@@ -100,7 +100,7 @@ std::vector<blink::PermissionType> GetRequiredPermissionsForFeatures(
   return permissions;
 }
 
-// TODO(https://crbug.com/1480022): Replace with base::ranges::set_difference
+// TODO(crbug.com/40930146): Replace with base::ranges::set_difference
 std::unordered_set<device::mojom::XRSessionFeature> GetMissingRequiredFeatures(
     const std::unordered_set<device::mojom::XRSessionFeature>& enabled_features,
     const std::unordered_set<device::mojom::XRSessionFeature>&
@@ -563,9 +563,7 @@ void VRServiceImpl::GetPermissionStatus(SessionRequestData request,
 #if BUILDFLAG(ENABLE_OPENXR)
   if (request.options->mode == device::mojom::XRSessionMode::kImmersiveAr &&
       runtime->GetId() == device::mojom::XRDeviceId::OPENXR_DEVICE_ID) {
-    DCHECK(
-        base::FeatureList::IsEnabled(
-            device::features::kOpenXrExtendedFeatureSupport));
+    DCHECK(device::features::IsOpenXrArEnabled());
   }
 #endif
 

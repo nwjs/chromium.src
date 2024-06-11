@@ -9,6 +9,7 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_number_conversions.h"
@@ -50,7 +51,6 @@
 #include "url/gurl.h"
 #include "url/origin.h"
 
-using ::base::test::IsJson;
 using net::EmbeddedTestServer;
 using net::HttpStatusCode;
 using net::test_server::BasicHttpResponse;
@@ -58,6 +58,7 @@ using net::test_server::HttpMethod;
 using net::test_server::HttpRequest;
 using net::test_server::HttpResponse;
 using ::testing::_;
+using ::testing::Eq;
 using ::testing::NiceMock;
 using ::testing::WithArg;
 using ::testing::WithArgs;
@@ -78,7 +79,7 @@ constexpr char kExpectedWellKnownPath[] = "/.well-known/web-identity";
 constexpr char kTestContentType[] = "application/json";
 constexpr char kIdpForbiddenHeader[] = "Sec-FedCM-CSRF";
 
-// TODO(crbug.com/1381501): Replace these with a standardized header once
+// TODO(crbug.com/40245246): Replace these with a standardized header once
 // we collected enough metrics.
 static constexpr char kSetLoginHeader[] = "Set-Login";
 static constexpr char kLoggedInHeaderValue[] = "logged-in";
@@ -544,7 +545,7 @@ IN_PROC_BROWSER_TEST_F(WebIdIdPRegistryBrowserTest, RpCantRegisterIdP) {
         }) ()
     )";
 
-  // TODO(crbug.com/1406698): make this error message more
+  // TODO(crbug.com/40252825): make this error message more
   // developer friendly, since this was a call error rather
   // than a user declining the permission error.
   std::string expected_error =
@@ -961,26 +962,21 @@ class WebIdDigitalCredentialsBrowserTest : public WebIdBrowserTest {
 
 std::string BuildDigitalIdentityValidJsRequestDictionary() {
   return R"({
-      identity: {
-        providers: [{
-          holder: {
-            selector: {
-              format: ['mdoc'],
-              doctype: 'org.iso.18013.5.1.mDL',
-              fields: [
-                'org.iso.18013.5.1.family_name',
-                'org.iso.18013.5.1.portrait',
-              ]
-            },
-            params: {
-              nonce: '1234',
-              readerPublicKey: 'test_reader_public_key',
-              extraParamAsNeededByDigitalCredentials: true,
-            },
-          },
-        }],
-      },
-    })";
+    digital: {
+      providers: [{
+        protocol: "urn:openid.net:oid4vp",
+        request: JSON.stringify({
+          // Based on https://github.com/openid/OpenID4VP/issues/125
+          client_id: "client.example.org",
+          client_id_scheme: "web-origin",
+          nonce: "n-0S6_WzA2Mj",
+          presentation_definition: {
+            // Presentation Exchange request, omitted for brevity
+          }
+        })
+      }],
+    },
+  })";
 }
 
 EvalJsResult EvalJsAndReturnToken(const ToRenderFrameHost& execution_target,
@@ -998,57 +994,31 @@ EvalJsResult EvalJsAndReturnToken(const ToRenderFrameHost& execution_target,
 EvalJsResult RunDigitalIdentityValidRequest(
     const ToRenderFrameHost& execution_target) {
   std::string script = base::StringPrintf(
-      "const {token} = await navigator.credentials.get(%s);",
+      "const {data} = await navigator.identity.get(%s);return data;",
       BuildDigitalIdentityValidJsRequestDictionary().c_str());
   return EvalJsAndReturnToken(execution_target, script);
 }
 
-// Test that a Verifiable Credential can be requested via the JS API.
-IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
-                       RequestDigitalCredentials) {
-  idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
-  MockDigitalIdentityProvider* digital_identity_provider =
-      static_cast<MockDigitalIdentityProvider*>(
-          test_browser_client_->GetDigitalIdentityProviderForTests());
-
-  const char request[] = R"(
-  {
-   "providers": [ {
-      "params": {
-         "extraParamAsNeededByDigitalCredentials": "true",
-         "nonce": "1234",
-         "readerPublicKey": "test_reader_public_key"
-      },
-      "responseFormat": [ "mdoc" ],
-      "selector": {
-         "fields": [ {
-            "equals": "org.iso.18013.5.1.mDL",
-            "name": "doctype"
-         }, {
-            "name": "org.iso.18013.5.1.family_name"
-         }, {
-            "name": "org.iso.18013.5.1.portrait"
-         } ]
-      }
-   } ]
-  }
-  )";
-
-  EXPECT_CALL(*digital_identity_provider, Request(_, _, IsJson(request), _))
-      .WillOnce(WithArg<3>(
-          [](DigitalIdentityProvider::DigitalIdentityCallback callback) {
-            std::move(callback).Run(
-                "test-mdoc",
-                DigitalIdentityProvider::RequestStatusForMetrics::kSuccess);
-          }));
-
-  EXPECT_EQ("test-mdoc", RunDigitalIdentityValidRequest(shell()));
+// Leniently parses string as JSON and compares parsed JSON.
+MATCHER_P(JsonMatchesLenient, ref, "") {
+  int json_parsing_options =
+      base::JSONParserOptions::JSON_PARSE_CHROMIUM_EXTENSIONS |
+      base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS;
+  auto ref_json =
+      base::JSONReader::ReadAndReturnValueWithError(ref, json_parsing_options);
+  auto arg_json =
+      base::JSONReader::ReadAndReturnValueWithError(arg, json_parsing_options);
+  return ref_json.has_value() && arg_json.has_value() &&
+         (ref_json.value() == arg_json.value());
 }
 
 // Test that a Verifiable Credential can be requested via the navigator.identity
 // JS API
 IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
                        NavigatorIdentityApi) {
+  constexpr char kIdentityProviderResponse[] =
+      "&vp_token=token&presentation_submission=bar";
+
   idp_server()->SetConfigResponseDetails(BuildValidConfigDetails());
   MockDigitalIdentityProvider* digital_identity_provider =
       static_cast<MockDigitalIdentityProvider*>(
@@ -1075,38 +1045,17 @@ IN_PROC_BROWSER_TEST_F(WebIdDigitalCredentialsBrowserTest,
   // JSON comparison in IsJson below.
   base::RemoveChars(request, "\n ", &json);
 
-  EXPECT_CALL(*digital_identity_provider, Request(_, _, IsJson(json), _))
+  EXPECT_CALL(*digital_identity_provider,
+              Request(_, _, JsonMatchesLenient(json), _))
       .WillOnce(WithArg<3>(
-          [](DigitalIdentityProvider::DigitalIdentityCallback callback) {
+          [kIdentityProviderResponse](
+              DigitalIdentityProvider::DigitalIdentityCallback callback) {
             std::move(callback).Run(
-                "&vp_token=token&presentation_submission=bar",
+                kIdentityProviderResponse,
                 DigitalIdentityProvider::RequestStatusForMetrics::kSuccess);
           }));
 
-  std::string script = R"(
-        (async () => {
-          const {data} = await navigator.identity.get({
-            digital: {
-              providers: [{
-                protocol: "urn:openid.net:oid4vp",
-                request: JSON.stringify({
-                  // Based on https://github.com/openid/OpenID4VP/issues/125
-                  client_id: "client.example.org",
-                  client_id_scheme: "web-origin",
-                  nonce: "n-0S6_WzA2Mj",
-                  presentation_definition: {
-                    // Presentation Exchange request, omitted for brevity
-                  }
-                })
-              }],
-            },
-          });
-          const response = new URLSearchParams(data);
-          return response.get("vp_token");
-        }) ()
-    )";
-
-  EXPECT_EQ("token", EvalJs(shell(), script));
+  EXPECT_EQ(kIdentityProviderResponse, RunDigitalIdentityValidRequest(shell()));
 }
 
 // Test that when there's a pending mdoc request, a second `get` call should be
@@ -1201,13 +1150,12 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_noPopUpWindow) {
             content += "account_id=not_real_account&";
             content += "disclosure_text_shown=false&";
             content += "is_auto_selected=false&";
-            // Asserts that the scope, response_type and params parameters
+            // Asserts that the fields and params parameters
             // were passed correctly to the id assertion endpoint.
-            content += "scope=name+email+picture&";
-            content += "response_type=id_token+code&";
-            content += "%3F+gets+://=%26+escaped+!&";
-            content += "foo=bar&";
-            content += "hello=world";
+            content += "fields=name,email,picture&";
+            content += "param_%3F+gets+://=%26+escaped+!&";
+            content += "param_foo=bar&";
+            content += "param_hello=world";
 
             EXPECT_EQ(request.content, content);
 
@@ -1238,14 +1186,10 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_noPopUpWindow) {
                        BaseIdpUrl() + R"(',
                 clientId: 'client_id_1',
                 nonce: '12345',
-                scope: [
+                fields: [
                   'name',
                   'email',
                   'picture',
-                ],
-                responseType: [
-                  'id_token',
-                  'code'
                 ],
                 params: {
                   'foo': 'bar',
@@ -1283,14 +1227,14 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_openPopUpWindow) {
             content += "account_id=not_real_account&";
             content += "disclosure_text_shown=false&";
             content += "is_auto_selected=false&";
-            content += "scope=calendar.readonly";
+            content += "fields=locale";
 
             EXPECT_EQ(request.content, content);
 
             auto response = std::make_unique<BasicHttpResponse>();
             response->set_code(net::HTTP_OK);
             response->set_content_type("text/json");
-            // scope=calendar.readonly was requested, so need to
+            // fields=locale was requested, so need to
             // return a continuation url instead of a token.
             auto body = R"({"continue_on": ")" + url + R"("})";
             response->set_content(body);
@@ -1354,8 +1298,8 @@ IN_PROC_BROWSER_TEST_F(WebIdAuthzBrowserTest, Authz_openPopUpWindow) {
                        BaseIdpUrl() + R"(',
                 clientId: 'client_id_1',
                 nonce: '12345',
-                scope: [
-                  'calendar.readonly'
+                fields: [
+                  'locale'
                 ],
               }]
             }

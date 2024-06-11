@@ -4,7 +4,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "cpu", "os", "reclient", "siso")
+load("//lib/builders.star", "cpu", "os", "reclient")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -38,11 +38,7 @@ ci.defaults.set(
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
-    siso_project = siso.project.DEFAULT_TRUSTED,
     siso_remote_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -487,6 +483,22 @@ coverage_builder(
 coverage_builder(
     name = "linux-fuzz-coverage",
     executable = "recipe:chromium/fuzz",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = ["use_clang_coverage"],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium_clang",
+            apply_configs = [
+                "clobber",
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
     gn_args = gn_args.config(
         configs = [
             "use_clang_coverage",
@@ -497,6 +509,7 @@ coverage_builder(
             "reclient",
             "chromeos_codecs",
             "pdf_xfa",
+            "release",
         ],
     ),
     builderless = True,
@@ -507,6 +520,9 @@ coverage_builder(
             short_name = "lnx-fuzz",
         ),
     ],
+    properties = {
+        "collect_fuzz_coverage": True,
+    },
 )
 
 coverage_builder(
@@ -621,11 +637,13 @@ coverage_builder(
             "use_clang_coverage",
             "no_symbols",
             "chrome_with_codecs",
+            "x64",
         ],
     ),
     builderless = True,
-    cores = 12,
+    cores = None,
     os = os.MAC_ANY,
+    cpu = cpu.ARM64,
     console_view_entry = [
         consoles.console_view_entry(
             category = "mac",

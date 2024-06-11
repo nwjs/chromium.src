@@ -34,6 +34,13 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatform {
     // if `new_mode` contains additions to the mode flags.
     virtual void SetProcessMode(AXMode new_mode) = 0;
 
+    // The global accessibility mode is automatically enabled based on
+    // usage of accessibility APIs. When we detect a significant amount
+    // of user inputs within a certain time period, but no accessibility
+    // API usage, we automatically disable accessibility. This method
+    // should be called when we detect accessibility API usage.
+    virtual void OnAccessibilityApiUsage() = 0;
+
    protected:
     Delegate() = default;
   };
@@ -44,7 +51,10 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatform {
   // Constructs a new instance. Only one instance may be alive in a process at
   // any given time. Typically, the embedder creates one during process startup
   // and ensures that it is kept alive throughout the process's UX.
-  explicit AXPlatform(Delegate& delegate);
+  explicit AXPlatform(Delegate& delegate,
+                      const std::string& product_name,
+                      const std::string& product_version,
+                      const std::string& toolkit_version);
   AXPlatform(const AXPlatform&) = delete;
   AXPlatform& operator=(const AXPlatform&) = delete;
   ~AXPlatform();
@@ -58,6 +68,24 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatform {
   // Notifies observers that the mode flags in `mode` have been added to the
   // process-wide accessibility mode.
   void NotifyModeAdded(AXMode mode);
+
+  // Notifies the delegate that an accessibility API has been used.
+  void NotifyAccessibilityApiUsage() { delegate_->OnAccessibilityApiUsage(); }
+
+  // Returns whether caret browsing is enabled. When caret browsing is enabled,
+  // we need to ensure that we keep ATs aware of caret movement.
+  bool IsCaretBrowsingEnabled();
+  void SetCaretBrowsingState(bool enabled);
+
+  // Returns the product name, e.g. "Chrome".
+  const std::string& product_name() const { return product_name_; }
+
+  // Returns the version number, e.g. "aa.bb.cc.dd".
+  const std::string& product_version() const { return product_version_; }
+
+  // Returns the toolkit version of the product, for example, the User Agent
+  // string.
+  const std::string& toolkit_version() const { return toolkit_version_; }
 
 #if BUILDFLAG(IS_WIN)
   // Enables or disables use of the UI Automation Provider on Windows. If this
@@ -79,6 +107,9 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatform {
   // Sets the process-wide accessibility mode.
   void SetMode(AXMode new_mode) { delegate_->SetProcessMode(new_mode); }
 
+  // Keeps track of whether caret browsing is enabled.
+  bool caret_browsing_enabled_ = false;
+
   // The embedder's delegate.
   const raw_ref<Delegate> delegate_;
 
@@ -86,6 +117,12 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatform {
                      /*check_empty=*/true,
                      /*allow_reentrancy=*/false>
       observers_;
+
+  // See product_name() product_version(), and toolkit_version().
+  // These are passed by the embedder at construction.
+  const std::string product_name_;
+  const std::string product_version_;
+  const std::string toolkit_version_;
 
 #if BUILDFLAG(IS_WIN)
   enum class UiaProviderEnablement {

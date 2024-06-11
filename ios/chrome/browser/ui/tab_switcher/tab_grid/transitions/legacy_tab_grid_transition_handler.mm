@@ -44,7 +44,7 @@ const CGFloat kToTabGroupAnimationDuration = 0.25;
                withCompletion:(void (^)(void))completion {
   [browser willMoveToParentViewController:nil];
 
-  if (UIAccessibilityIsReduceMotionEnabled() || toTabGroup) {
+  if (UIAccessibilityIsReduceMotionEnabled()) {
     __weak __typeof(self) weakSelf = self;
     [self transitionWithFadeForTab:browser.view
                         toTabGroup:toTabGroup
@@ -63,10 +63,12 @@ const CGFloat kToTabGroupAnimationDuration = 0.25;
   CGFloat duration = self.animationDisabled ? 0 : kBrowserToGridDuration;
 
   self.animation = [[LegacyGridTransitionAnimation alloc]
-      initWithLayout:[self transitionLayoutForTabInViewController:browser
-                                                       activePage:activePage]
-            duration:duration
-           direction:direction];
+          initWithLayout:[self
+                             transitionLayoutForTabInViewController:browser
+                                                         activePage:activePage]
+      gridContainerFrame:[self.layoutProvider gridContainerFrame]
+                duration:duration
+               direction:direction];
 
   UIView* animationContainer = [self.layoutProvider animationViewsContainer];
   UIView* bottomViewForAnimations =
@@ -103,7 +105,7 @@ const CGFloat kToTabGroupAnimationDuration = 0.25;
     }
   }];
 
-  // TODO(crbug.com/850507): Have the tab view animate itself out alongside
+  // TODO(crbug.com/41393272): Have the tab view animate itself out alongside
   // this transition instead of just zeroing the alpha here.
   browser.view.alpha = 0;
 
@@ -163,10 +165,12 @@ const CGFloat kToTabGroupAnimationDuration = 0.25;
   CGFloat duration = self.animationDisabled ? 0 : kGridToBrowserDuration;
 
   self.animation = [[LegacyGridTransitionAnimation alloc]
-      initWithLayout:[self transitionLayoutForTabInViewController:browser
-                                                       activePage:activePage]
-            duration:duration
-           direction:direction];
+          initWithLayout:[self
+                             transitionLayoutForTabInViewController:browser
+                                                         activePage:activePage]
+      gridContainerFrame:[self.layoutProvider gridContainerFrame]
+                duration:duration
+               direction:direction];
 
   UIView* animationContainer = [self.layoutProvider animationViewsContainer];
   UIView* bottomViewForAnimations =
@@ -225,7 +229,7 @@ const CGFloat kToTabGroupAnimationDuration = 0.25;
   // the view controller that contains the BVC. Unfortunatley, the layout guide
   // needed here is attached to the BVC's view, which is the first (and only)
   // subview of the BVCContainerViewController's view.
-  // TODO(crbug.com/860234) Clean up this arrangement.
+  // TODO(crbug.com/40583629) Clean up this arrangement.
   UIView* tabContentView = viewControllerForTab.view.subviews[0];
 
   CGRect contentArea = [NamedGuide guideWithName:kContentAreaGuide

@@ -363,11 +363,23 @@ void InputDeviceSettingsProvider::SetKeyboardBrightness(double percent) {
   DCHECK(features::IsKeyboardBacklightControlInSettingsEnabled());
   if (!keyboard_brightness_control_delegate_) {
     LOG(ERROR) << "InputDeviceSettingsProvider: BrightnessControlDelegate not "
-                  "available when setting keyboard brightness";
+                  "available when setting keyboard brightness.";
     return;
   }
   keyboard_brightness_control_delegate_->HandleSetKeyboardBrightness(
       percent, /*gradual=*/true);
+}
+
+void InputDeviceSettingsProvider::SetKeyboardAmbientLightSensorEnabled(
+    bool enabled) {
+  DCHECK(features::IsKeyboardBacklightControlInSettingsEnabled());
+  if (!keyboard_brightness_control_delegate_) {
+    LOG(ERROR) << "InputDeviceSettingsProvider: BrightnessControlDelegate not "
+                  "available when setting keyboard ambient light sensor.";
+    return;
+  }
+  keyboard_brightness_control_delegate_
+      ->HandleSetKeyboardAmbientLightSensorEnabled(enabled);
 }
 
 void InputDeviceSettingsProvider::OnReceiveKeyboardBrightness(
@@ -484,6 +496,30 @@ void InputDeviceSettingsProvider::OnCustomizableTabletButtonPressed(
   for (const auto& observer : button_press_observers_) {
     observer->OnButtonPressed(button.Clone());
   }
+}
+
+void InputDeviceSettingsProvider::OnKeyboardBatteryInfoChanged(
+    const ::ash::mojom::Keyboard& keyboard) {
+  CHECK(features::IsWelcomeExperienceEnabled());
+  NotifyKeyboardsUpdated();
+}
+
+void InputDeviceSettingsProvider::OnGraphicsTabletBatteryInfoChanged(
+    const ::ash::mojom::GraphicsTablet& graphics_tablet) {
+  CHECK(features::IsWelcomeExperienceEnabled());
+  NotifyGraphicsTabletUpdated();
+}
+
+void InputDeviceSettingsProvider::OnMouseBatteryInfoChanged(
+    const ::ash::mojom::Mouse& mouse) {
+  CHECK(features::IsWelcomeExperienceEnabled());
+  NotifyMiceUpdated();
+}
+
+void InputDeviceSettingsProvider::OnTouchpadBatteryInfoChanged(
+    const ::ash::mojom::Touchpad& touchpad) {
+  CHECK(features::IsWelcomeExperienceEnabled());
+  NotifyTouchpadsUpdated();
 }
 
 void InputDeviceSettingsProvider::OnKeyboardConnected(
@@ -674,11 +710,25 @@ void InputDeviceSettingsProvider::OnReceiveHasKeyboardBacklight(
   std::move(callback).Run(has_keyboard_backlight.value_or(false));
 }
 
+void InputDeviceSettingsProvider::OnReceiveHasAmbientLightSensor(
+    HasAmbientLightSensorCallback callback,
+    std::optional<bool> has_ambient_light_sensor) {
+  std::move(callback).Run(has_ambient_light_sensor.value_or(false));
+}
+
 void InputDeviceSettingsProvider::HasKeyboardBacklight(
     HasKeyboardBacklightCallback callback) {
   DCHECK(features::IsKeyboardBacklightControlInSettingsEnabled());
   chromeos::PowerManagerClient::Get()->HasKeyboardBacklight(base::BindOnce(
       &InputDeviceSettingsProvider::OnReceiveHasKeyboardBacklight,
+      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void InputDeviceSettingsProvider::HasAmbientLightSensor(
+    HasAmbientLightSensorCallback callback) {
+  DCHECK(features::IsKeyboardBacklightControlInSettingsEnabled());
+  chromeos::PowerManagerClient::Get()->HasAmbientLightSensor(base::BindOnce(
+      &InputDeviceSettingsProvider::OnReceiveHasAmbientLightSensor,
       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
 
@@ -693,6 +743,14 @@ void InputDeviceSettingsProvider::RecordKeyboardColorLinkClicked() {
   DCHECK(features::IsKeyboardBacklightControlInSettingsEnabled());
   base::UmaHistogramBoolean(
       "ChromeOS.Settings.Device.Keyboard.ColorLinkClicked", true);
+}
+
+void InputDeviceSettingsProvider::RecordKeyboardBrightnessChangeFromSlider(
+    double percent) {
+  DCHECK(features::IsKeyboardBacklightControlInSettingsEnabled());
+  DCHECK(0 <= percent && percent <= 100);
+  base::UmaHistogramPercentage(
+      "ChromeOS.Settings.Device.Keyboard.BrightnessSliderAdjusted", percent);
 }
 
 }  // namespace ash::settings

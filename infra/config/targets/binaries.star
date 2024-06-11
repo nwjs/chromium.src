@@ -299,7 +299,7 @@ targets.binaries.console_test_launcher(
     label = "//fuchsia_web/runners:cast_runner_unittests",
 )
 
-# TODO(issues.chromium.org/1516671): Remove unneeded cast_* suites.
+# TODO(crbug.com/41489655): Remove unneeded cast_* suites.
 
 targets.binaries.console_test_launcher(
     name = "cast_display_settings_unittests",
@@ -433,7 +433,7 @@ targets.binaries.console_test_launcher(
     label = "//chrome/android:chrome_public_smoke_test",
 )
 
-# TODO(crbug.com/1238057): Rename to chrome_public_integration_test_apk
+# TODO(crbug.com/40193330): Rename to chrome_public_integration_test_apk
 targets.binaries.console_test_launcher(
     name = "chrome_public_test_apk",
     label = "//chrome/android:chrome_public_test_apk",
@@ -512,22 +512,6 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.generated_script(
     name = "chrome_wpt_tests",
     label = "//:chrome_wpt_tests",
-    results_handler = "layout tests",
-    args = [
-        "--results-directory",
-        "${ISOLATED_OUTDIR}",
-    ],
-    merge = targets.merge(
-        script = "//third_party/blink/tools/merge_web_test_results.py",
-        args = [
-            "--verbose",
-        ],
-    ),
-)
-
-targets.binaries.generated_script(
-    name = "content_shell_wpt",
-    label = "//:content_shell_wpt",
     results_handler = "layout tests",
     args = [
         "--results-directory",
@@ -830,6 +814,22 @@ targets.binaries.windowed_test_launcher(
 targets.binaries.console_test_launcher(
     name = "fake_libva_driver_unittest",
     label = "//media/gpu/vaapi/test/fake_libva_driver:fake_libva_driver_unittest",
+)
+
+targets.binaries.generated_script(
+    name = "headless_shell_wpt",
+    label = "//:headless_shell_wpt",
+    results_handler = "layout tests",
+    args = [
+        "--results-directory",
+        "${ISOLATED_OUTDIR}",
+    ],
+    merge = targets.merge(
+        script = "//third_party/blink/tools/merge_web_test_results.py",
+        args = [
+            "--verbose",
+        ],
+    ),
 )
 
 targets.binaries.console_test_launcher(
@@ -1222,6 +1222,11 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
+    name = "model_validation_tests_light",
+    label = "//components/optimization_guide/internal/testing:model_validation_tests_light",
+)
+
+targets.binaries.generated_script(
     name = "module_installer_junit_tests",
     label = "//components/module_installer/android:module_installer_junit_tests",
 )
@@ -1343,6 +1348,11 @@ targets.binaries.generated_script(
 targets.binaries.generated_script(
     name = "ondevice_stability_tests",
     label = "//components/optimization_guide/internal/testing:ondevice_stability_tests",
+)
+
+targets.binaries.generated_script(
+    name = "ondevice_stability_tests_light",
+    label = "//components/optimization_guide/internal/testing:ondevice_stability_tests_light",
 )
 
 targets.binaries.console_test_launcher(

@@ -124,7 +124,7 @@ import java.util.List;
 @CommandLineFlags.Add({
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
     "force-fieldtrials=Study/Group",
-    // TODO(crbug.com/1491942): This fails with the field trial testing config.
+    // TODO(crbug.com/40285326): This fails with the field trial testing config.
     "disable-field-trial-config"
 })
 @DoNotBatch(reason = "This test suite tests startup behaviors.")
@@ -197,6 +197,8 @@ public class StartSurfaceTest {
     @CommandLineFlags.Add({
         START_SURFACE_TEST_SINGLE_ENABLED_PARAMS + "/hide_switch_when_no_incognito_tabs/false"
     })
+    // TODO(b/335250391): This test is no longer relevant when Hub is launched.
+    @DisableFeatures({ChromeFeatureList.ANDROID_HUB})
     public void testShow_SingleAsHomepage_NoIncognitoSwitch() {
         if (!mImmediateReturn) {
             StartSurfaceTestUtils.pressHomePageButton(mActivityTestRule.getActivity());
@@ -212,7 +214,7 @@ public class StartSurfaceTest {
         onViewWaiting(withId(R.id.tab_switcher_module_container)).check(matches(isDisplayed()));
         onView(withId(R.id.tasks_surface_body)).check(matches(isDisplayed()));
 
-        // TODO(crbug.com/1076274): fix toolbar to make incognito switch part of the view.
+        // TODO(crbug.com/40128588): fix toolbar to make incognito switch part of the view.
         onView(withId(R.id.incognito_toggle_tabs)).check(matches(withEffectiveVisibility(GONE)));
 
         StartSurfaceTestUtils.clickTabSwitcherButton(cta);
@@ -250,7 +252,7 @@ public class StartSurfaceTest {
         onView(withId(R.id.single_tab_view)).check(matches(isDisplayed()));
         onView(withId(R.id.tasks_surface_body)).check(matches(isDisplayed()));
 
-        // TODO(crbug.com/1076274): fix toolbar to make incognito switch part of the view.
+        // TODO(crbug.com/40128588): fix toolbar to make incognito switch part of the view.
         onView(withId(R.id.incognito_toggle_tabs)).check(matches(withEffectiveVisibility(GONE)));
         onViewWaiting(allOf(withId(R.id.tab_title_view), withText(not(is("")))));
 
@@ -308,11 +310,7 @@ public class StartSurfaceTest {
             StartSurfaceTestUtils.waitForTabSwitcherVisible(
                     mLayoutChangedCallbackHelper, mCurrentlyActiveLayout, cta);
         } else {
-            int container_id =
-                    ChromeFeatureList.isEnabled(ChromeFeatureList.INCOGNITO_NTP_REVAMP)
-                            ? R.id.revamped_incognito_ntp_container
-                            : R.id.new_tab_incognito_container;
-            onViewWaiting(withId(container_id)).check(matches(isDisplayed()));
+            onViewWaiting(withId(R.id.new_tab_incognito_container)).check(matches(isDisplayed()));
         }
     }
 
@@ -698,11 +696,7 @@ public class StartSurfaceTest {
         // Simulates pressing the home button. Incognito tab should stay and homepage shouldn't
         // show.
         onView(withId(R.id.home_button)).perform(click());
-        int container_id =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.INCOGNITO_NTP_REVAMP)
-                        ? R.id.revamped_incognito_ntp_container
-                        : R.id.new_tab_incognito_container;
-        onViewWaiting(withId(container_id)).check(matches(isDisplayed()));
+        onViewWaiting(withId(R.id.new_tab_incognito_container)).check(matches(isDisplayed()));
         assertFalse(
                 cta.getLayoutManager()
                         .isLayoutVisible(StartSurfaceTestUtils.getStartSurfaceLayoutType()));

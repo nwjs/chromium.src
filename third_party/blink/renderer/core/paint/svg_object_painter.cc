@@ -87,6 +87,7 @@ void SVGObjectPainter::PaintResourceSubtree(GraphicsContext& context,
   DCHECK(!layout_object_.SelfNeedsFullLayout());
 
   PaintInfo info(context, CullRect::Infinite(), PaintPhase::kForeground,
+                 layout_object_.ChildPaintBlockedByDisplayLock(),
                  PaintFlag::kOmitCompositingInfo |
                      PaintFlag::kPaintingResourceSubtree | additional_flags);
   layout_object_.Paint(info);
@@ -167,9 +168,9 @@ bool SVGObjectPainter::PreparePaint(
       flag_color = style.VisitedDependentContextStroke(
           paint, context_paint.object.StyleRef());
     } else {
-      const Longhand& property = apply_to_fill
-                                     ? To<Longhand>(GetCSSPropertyFill())
-                                     : To<Longhand>(GetCSSPropertyStroke());
+      const Longhand& property =
+          apply_to_fill ? static_cast<const Longhand&>(GetCSSPropertyFill())
+                        : static_cast<const Longhand&>(GetCSSPropertyStroke());
       flag_color = style.VisitedDependentColor(property);
     }
     flag_color.SetAlpha(flag_color.Alpha() * alpha);

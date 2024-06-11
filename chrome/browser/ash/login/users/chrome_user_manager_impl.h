@@ -27,19 +27,12 @@
 #include "chromeos/ash/components/login/auth/mount_performer.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_id/account_id.h"
-#include "components/user_manager/multi_user/multi_user_sign_in_policy_controller.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager_base.h"
-
-class PrefRegistrySimple;
 
 namespace policy {
 class CloudExternalDataPolicyHandler;
 }  // namespace policy
-
-namespace user_prefs {
-class PrefRegistrySyncable;
-}  // namespace user_prefs
 
 namespace ash {
 
@@ -60,14 +53,8 @@ class ChromeUserManagerImpl
   // Creates ChromeUserManagerImpl instance.
   static std::unique_ptr<ChromeUserManagerImpl> CreateChromeUserManager();
 
-  // Registers user manager preferences.
-  static void RegisterPrefs(PrefRegistrySimple* registry);
-  static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
-
   // UserManager implementation:
   void Shutdown() override;
-  user_manager::UserList GetUsersAllowedForMultiProfile() const override;
-  user_manager::UserList GetUnlockUsers() const override;
   void SaveUserOAuthStatus(
       const AccountId& account_id,
       user_manager::User::OAuthTokenStatus oauth_token_status) override;
@@ -79,16 +66,7 @@ class ChromeUserManagerImpl
   void AsyncRemoveCryptohome(const AccountId& account_id) const override;
   bool IsDeprecatedSupervisedAccountId(
       const AccountId& account_id) const override;
-  void ScheduleResolveLocale(const std::string& locale,
-                             base::OnceClosure on_resolved_callback,
-                             std::string* out_resolved_locale) const override;
   bool IsValidDefaultUserImageId(int image_index) const override;
-  user_manager::MultiUserSignInPolicyController*
-  GetMultiUserSignInPolicyController() override;
-  bool IsEnterpriseManaged() const override;
-  void SetUserAffiliation(
-      const AccountId& account_id,
-      const base::flat_set<std::string>& user_affiliation_ids) override;
 
   // DeviceSettingsService::Observer:
   void OwnershipStatusChanged() override;
@@ -114,8 +92,6 @@ class ChromeUserManagerImpl
  protected:
   void LoadDeviceLocalAccounts(std::set<AccountId>* users_set) override;
   void NotifyOnLogin() override;
-  void NotifyUserAddedToSession(const user_manager::User* added_user,
-                                bool user_switch_pending) override;
   void RemoveNonCryptohomeData(const AccountId& account_id) override;
   void RemoveUserInternal(const AccountId& account_id,
                           user_manager::UserRemovalReason reason) override;
@@ -165,7 +141,7 @@ class ChromeUserManagerImpl
   // Creates a user for the given device local account.
   std::unique_ptr<user_manager::User> CreateUserFromDeviceLocalAccount(
       const AccountId& account_id,
-      const policy::DeviceLocalAccount::Type type) const;
+      const policy::DeviceLocalAccountType type) const;
 
   void UpdateOwnerId();
 
@@ -190,9 +166,6 @@ class ChromeUserManagerImpl
 
   base::CallbackListSubscription ephemeral_users_enabled_subscription_;
   base::CallbackListSubscription local_accounts_subscription_;
-
-  user_manager::MultiUserSignInPolicyController
-      multi_user_sign_in_policy_controller_;
 
   std::vector<std::unique_ptr<policy::CloudExternalDataPolicyHandler>>
       cloud_external_data_policy_handlers_;

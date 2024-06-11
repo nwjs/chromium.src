@@ -486,7 +486,7 @@ HostResolverFlags HostResolver::ParametersToHostResolverFlags(
 
 // static
 int HostResolver::SquashErrorCode(int error) {
-  // TODO(crbug.com/1043281): Consider squashing ERR_INTERNET_DISCONNECTED.
+  // TODO(crbug.com/40668952): Consider squashing ERR_INTERNET_DISCONNECTED.
   if (error == OK || error == ERR_IO_PENDING ||
       error == ERR_INTERNET_DISCONNECTED || error == ERR_NAME_NOT_RESOLVED ||
       error == ERR_DNS_NAME_HTTPS_ONLY) {
@@ -538,7 +538,6 @@ bool HostResolver::MayUseNAT64ForIPv4Literal(HostResolverFlags flags,
                                              const IPAddress& ip_address) {
   return !(flags & HOST_RESOLVER_DEFAULT_FAMILY_SET_DUE_TO_NO_IPV6) &&
          ip_address.IsValid() && ip_address.IsIPv4() &&
-         base::FeatureList::IsEnabled(features::kUseNAT64ForIPv4Literal) &&
          (source != HostResolverSource::LOCAL_ONLY);
 }
 

@@ -1455,7 +1455,7 @@ TEST_F(URLLoaderTest, InconsistentIPAddressSpaceIsBlocked) {
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(mojom::CorsError::kInvalidPrivateNetworkAccess,
-                               // TODO(https://crbug.com/1279376): Expect
+                               // TODO(crbug.com/40208529): Expect
                                // `kPublic` here instead, for better debugging.
                                mojom::IPAddressSpace::kUnknown,
                                mojom::IPAddressSpace::kLocal)));
@@ -4717,7 +4717,7 @@ TEST_F(URLLoaderTest, ClientAuthNoCertificate) {
   // TLS 1.3 client auth errors show up post-handshake, resulting in a read
   // error which on Windows causes the socket to shutdown immediately before the
   // error is read.
-  // TODO(crbug.com/906668): Add support for testing this in TLS 1.3.
+  // TODO(crbug.com/41427061): Add support for testing this in TLS 1.3.
   ssl_config.version_max = net::SSL_PROTOCOL_VERSION_TLS1_2;
 
   test_server.SetSSLConfig(net::EmbeddedTestServer::CERT_OK, ssl_config);
@@ -7131,8 +7131,8 @@ TEST_P(URLLoaderMockSocketAuctionOnlyTest,
   EXPECT_TRUE(socket_data_reads_writes.socket());
 }
 
-// TODO(crbug.com/1448564): Remove old names once API users have migrated to new
-// names.
+// TODO(crbug.com/40269364): Remove old names once API users have migrated to
+// new names.
 INSTANTIATE_TEST_SUITE_P(
     All,
     URLLoaderMockSocketAuctionOnlyTest,

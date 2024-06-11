@@ -58,7 +58,7 @@ BASE_DECLARE_FEATURE(kOnDeviceHeadProviderKorean);
 BASE_DECLARE_FEATURE(kOnDeviceTailModel);
 
 // Provider-specific - These features change the behavior of specific providers.
-// TODO(crbug.com/1202964): Clean up feature flag used in staged roll-out of
+// TODO(crbug.com/40179316): Clean up feature flag used in staged roll-out of
 // various CLs related to the contents/description clean-up work.
 BASE_DECLARE_FEATURE(kStoreTitleInContentsAndUrlInDescription);
 
@@ -72,7 +72,6 @@ BASE_DECLARE_FEATURE(kDomainSuggestions);
 BASE_DECLARE_FEATURE(kPrefBasedDataCollectionConsentHelper);
 
 // Suggestions UI - these affect the UI or function of the suggestions popup.
-BASE_DECLARE_FEATURE(kAdaptiveSuggestionsCount);
 BASE_DECLARE_FEATURE(kClipboardSuggestionContentHidden);
 BASE_DECLARE_FEATURE(kSuppressClipboardSuggestionAfterFirstUsed);
 BASE_DECLARE_FEATURE(kCompanyEntityIconAdjustment);
@@ -83,12 +82,10 @@ enum class CompanyEntityIconAdjustmentGroup {
 };
 BASE_DECLARE_FEATURE(kCr2023ActionChips);
 BASE_DECLARE_FEATURE(kCr2023ActionChipsIcons);
-BASE_DECLARE_FEATURE(kSuggestionAnswersColorReverse);
 BASE_DECLARE_FEATURE(kMostVisitedTilesHorizontalRenderGroup);
 BASE_DECLARE_FEATURE(kRichAutocompletion);
 BASE_DECLARE_FEATURE(kNtpRealboxPedals);
 BASE_DECLARE_FEATURE(kOmniboxMatchToolbarAndStatusBarColor);
-BASE_DECLARE_FEATURE(kSearchReadyOmniboxAllowQueryEdit);
 BASE_DECLARE_FEATURE(kSquareSuggestIcons);
 BASE_DECLARE_FEATURE(kUniformRowHeight);
 BASE_DECLARE_FEATURE(kWebUIOmniboxPopup);
@@ -146,18 +143,15 @@ BASE_DECLARE_FEATURE(kOmniboxAnswerActions);
 BASE_DECLARE_FEATURE(kCategoricalSuggestions);
 BASE_DECLARE_FEATURE(kMergeSubtypes);
 
-// Returns true if the Omnibox CR23 `feature`, which depends on customize
-// chrome, should be enabled.
-bool IsOmniboxCr23CustomizeGuardedFeatureEnabled(const base::Feature& feature);
-
 // Allows for touch down events to send a signal to |SearchPrefetchService| to
 // start prefetching the suggestion. The feature only applies to search
 // suggestions and only controls whether the signal is sent.
 BASE_DECLARE_FEATURE(kOmniboxTouchDownTriggerForPrefetch);
 
 // Site search/Keyword mode related features.
-BASE_DECLARE_FEATURE(kSiteSearchSettingsPolicy);
 BASE_DECLARE_FEATURE(kPolicyIndicationForManagedDefaultSearch);
+BASE_DECLARE_FEATURE(kShowFeaturedEnterpriseSiteSearch);
+BASE_DECLARE_FEATURE(kSiteSearchSettingsPolicy);
 BASE_DECLARE_FEATURE(kStarterPackExpansion);
 BASE_DECLARE_FEATURE(kStarterPackIPH);
 
@@ -166,6 +160,8 @@ BASE_DECLARE_FEATURE(kAblateSearchProviderWarmup);
 BASE_DECLARE_FEATURE(kReportApplicationLanguageInSearchRequest);
 
 BASE_DECLARE_FEATURE(kOmniboxShortcutsAndroid);
+BASE_DECLARE_FEATURE(kOmniboxAsyncViewInflation);
+BASE_DECLARE_FEATURE(kUseFusedLocationProvider);
 
 }  // namespace omnibox
 

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/controls/hover_button.h"
 
 #include <algorithm>
+#include <string_view>
 
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -43,6 +44,12 @@ std::unique_ptr<views::Border> CreateBorderWithVerticalSpacing(
       gfx::Insets::VH(vertical_spacing, horizontal_spacing));
 }
 
+int GetVerticalSpacing() {
+  return ChromeLayoutProvider::Get()->GetDistanceMetric(
+             DISTANCE_CONTROL_LIST_VERTICAL) /
+         2;
+}
+
 // Wrapper class for the icon that maintains consistent spacing for both badged
 // and unbadged icons.
 // Badging may make the icon slightly wider (but not taller). However, the
@@ -66,8 +73,9 @@ class IconWrapper : public views::View {
   }
 
   // views::View:
-  gfx::Size CalculatePreferredSize() const override {
-    const int icon_height = icon_->GetPreferredSize().height();
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
+    const int icon_height = icon_->GetPreferredSize(available_size).height();
     const int icon_label_spacing =
         ChromeLayoutProvider::Get()->GetDistanceMetric(
             views::DISTANCE_RELATED_LABEL_HORIZONTAL);
@@ -100,10 +108,7 @@ HoverButton::HoverButton(PressedCallback callback, const std::u16string& text)
   SetInstallFocusRingOnFocus(false);
   SetFocusBehavior(FocusBehavior::ALWAYS);
 
-  const int vert_spacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
-                               DISTANCE_CONTROL_LIST_VERTICAL) /
-                           2;
-  SetBorder(CreateBorderWithVerticalSpacing(vert_spacing));
+  SetBorder(CreateBorderWithVerticalSpacing(GetVerticalSpacing()));
 
   views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::ON);
   views::InkDrop::UseInkDropForFloodFillRipple(views::InkDrop::Get(this),
@@ -146,13 +151,11 @@ HoverButton::HoverButton(PressedCallback callback,
   // The vertical space that must exist on the top and the bottom of the item
   // to ensure the proper spacing is maintained between items when stacking
   // vertically.
-  const int vertical_spacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
-                                   DISTANCE_CONTROL_LIST_VERTICAL) /
-                               2;
+  const int vertical_spacing = GetVerticalSpacing();
   if (icon_view) {
-    icon_view_ = AddChildView(std::make_unique<IconWrapper>(
-                                  std::move(icon_view), vertical_spacing))
-                     ->icon();
+    icon_wrapper_ = AddChildView(
+        std::make_unique<IconWrapper>(std::move(icon_view), vertical_spacing));
+    icon_view_ = static_cast<IconWrapper*>(icon_wrapper_)->icon();
   }
 
   // |label_wrapper| will hold the title as well as subtitle and footer, if
@@ -190,7 +193,7 @@ HoverButton::HoverButton(PressedCallback callback,
   label_wrapper->SetProperty(
       views::kFlexBehaviorKey,
       views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
-                               views::MaximumFlexSizeRule::kUnbounded));
+                               views::MaximumFlexSizeRule::kUnbounded, true));
   label_wrapper->SetCanProcessEventsWithinSubtree(false);
   label_wrapper->SetProperty(
       views::kMarginsKey,
@@ -226,6 +229,23 @@ HoverButton::HoverButton(PressedCallback callback,
 
 HoverButton::~HoverButton() = default;
 
+gfx::Size HoverButton::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  if (label_wrapper_) {
+    return GetLayoutManager()->GetPreferredSize(this, available_size);
+  }
+
+  return views::LabelButton::CalculatePreferredSize(available_size);
+}
+
+int HoverButton::GetHeightForWidth(int w) const {
+  if (label_wrapper_) {
+    return GetLayoutManager()->GetPreferredHeightForWidth(this, w);
+  }
+
+  return views::LabelButton::GetHeightForWidth(w);
+}
+
 void HoverButton::SetBorder(std::unique_ptr<views::Border> b) {
   LabelButton::SetBorder(std::move(b));
   PreferredSizeChanged();
@@ -237,8 +257,9 @@ void HoverButton::GetAccessibleNodeData(ui::AXNodeData* node_data) {
 
 void HoverButton::PreferredSizeChanged() {
   LabelButton::PreferredSizeChanged();
-  if (GetLayoutManager())
+  if (GetLayoutManager()) {
     SetMinSize(GetLayoutManager()->GetPreferredSize(this));
+  }
 }
 
 void HoverButton::OnViewBoundsChanged(View* observed_view) {
@@ -293,8 +314,15 @@ void HoverButton::SetFooterTextStyle(int text_content,
   PreferredSizeChanged();
 }
 
+void HoverButton::SetIconHorizontalMargins(int left, int right) {
+  int vertical_spacing = GetVerticalSpacing();
+  icon_wrapper_->SetProperty(
+      views::kMarginsKey,
+      gfx::Insets::TLBR(vertical_spacing, left, vertical_spacing, right));
+}
+
 void HoverButton::UpdateTooltipAndAccessibleName() {
-  std::vector<base::StringPiece16> texts = {title_->GetText()};
+  std::vector<std::u16string_view> texts = {title_->GetText()};
   if (subtitle_) {
     texts.push_back(subtitle_->GetText());
   }

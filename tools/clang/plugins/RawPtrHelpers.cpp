@@ -67,10 +67,17 @@ void FilterFile::ParseInputFile(const std::string& filepath,
   for (; !it.is_at_eof(); ++it) {
     llvm::StringRef line = *it;
 
-    // Remove trailing comments.
-    size_t comment_start_pos = line.find('#');
-    if (comment_start_pos != llvm::StringRef::npos)
-      line = line.substr(0, comment_start_pos);
+    // Remove trailing location information.
+    size_t loc_info_start_pos = line.find('@');
+    if (loc_info_start_pos != llvm::StringRef::npos) {
+      line = line.substr(0, loc_info_start_pos);
+    } else {
+      // Remove trailing comments.
+      size_t comment_start_pos = line.find('#');
+      if (comment_start_pos != llvm::StringRef::npos) {
+        line = line.substr(0, comment_start_pos);
+      }
+    }
     line = line.trim();
 
     if (line.empty())
@@ -184,7 +191,7 @@ clang::ast_matchers::internal::Matcher<clang::Type> const_char_pointer_type(
 
 clang::ast_matchers::internal::Matcher<clang::Decl> AffectedRawPtrFieldDecl(
     const RawPtrAndRefExclusionsOptions& options) {
-  // TODO(crbug.com/1381955): Skipping const char pointers as it likely points
+  // TODO(crbug.com/40245402): Skipping const char pointers as it likely points
   // to string literals where raw_ptr isn't necessary. Remove when we have
   // implement const char support.
   auto const_char_pointer_matcher = fieldDecl(hasType(

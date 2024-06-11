@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/cr_components/history_embeddings/history_embeddings_handler.h"
 
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/history_embeddings/history_embeddings_service_factory.h"
 #include "components/history_embeddings/history_embeddings_features.h"
@@ -12,6 +13,16 @@
 #include "ui/base/l10n/time_format.h"
 
 namespace {
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class HistoryEmbeddingsUserActions {
+  kNonEmptyQueryHistorySearch = 0,
+  kEmbeddingsSearch = 1,
+  kEmbeddingsNonEmptyResultsShown = 2,
+  kEmbeddingsResultClicked = 3,
+  kMaxValue = kEmbeddingsResultClicked,
+};
 
 // Receives the results of a HistoryEmbeddingsService::Search call, builds
 // them into mojom objects for the page, and sends them to the callback.
@@ -27,6 +38,8 @@ void OnSearchCompleted(HistoryEmbeddingsHandler::SearchCallback callback,
     item->relative_time = base::UTF16ToUTF8(ui::TimeFormat::Simple(
         ui::TimeFormat::FORMAT_ELAPSED, ui::TimeFormat::LENGTH_SHORT,
         base::Time::Now() - scored_url_row.row.last_visit()));
+    item->last_url_visit_timestamp =
+        scored_url_row.row.last_visit().InMillisecondsFSinceUnixEpoch();
 
     url_formatter::FormatUrlTypes format_types =
         url_formatter::kFormatUrlOmitDefaults |
@@ -64,7 +77,25 @@ void HistoryEmbeddingsHandler::Search(
       HistoryEmbeddingsServiceFactory::GetForProfile(profile_.get());
   // The service is never null. Even tests build and use a service.
   CHECK(service);
-  service->Search(query->query,
+  service->Search(query->query, query->time_range_start,
                   history_embeddings::kSearchResultItemCount.Get(),
                   base::BindOnce(&OnSearchCompleted, std::move(callback)));
+}
+
+void HistoryEmbeddingsHandler::RecordSearchResultsMetrics(
+    bool non_empty_results,
+    bool user_clicked_results) {
+  base::UmaHistogramEnumeration(
+      "History.Embeddings.UserActions",
+      HistoryEmbeddingsUserActions::kEmbeddingsSearch);
+  if (non_empty_results) {
+    base::UmaHistogramEnumeration(
+        "History.Embeddings.UserActions",
+        HistoryEmbeddingsUserActions::kEmbeddingsNonEmptyResultsShown);
+  }
+  if (user_clicked_results) {
+    base::UmaHistogramEnumeration(
+        "History.Embeddings.UserActions",
+        HistoryEmbeddingsUserActions::kEmbeddingsResultClicked);
+  }
 }

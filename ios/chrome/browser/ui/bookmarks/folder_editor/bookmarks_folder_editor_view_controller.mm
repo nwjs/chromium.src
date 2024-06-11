@@ -313,7 +313,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
           _accountBookmarkModel.get());
   [self.snackbarCommandsHandler
       showSnackbarMessage:bookmark_utils_ios::DeleteBookmarksWithUndoToast(
-                              editedNodes, {modelForFolder}, _browserState)];
+                              editedNodes, {modelForFolder}, _browserState,
+                              FROM_HERE)];
   [self.delegate bookmarksFolderEditorDidDeleteEditedFolder:self];
 }
 
@@ -531,7 +532,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
       bookmark_utils_ios::GetBookmarkModelForNode(
           _parentFolder, _localOrSyncableBookmarkModel.get(),
           _accountBookmarkModel.get());
-  if (!bookmark_utils_ios::IsAccountBookmarkStorageOptedIn(_syncService) &&
+  if (!bookmark_utils_ios::IsAccountBookmarkStorageAvailable(
+          _syncService, _accountBookmarkModel.get()) &&
       parentFolderModel == _accountBookmarkModel.get()) {
     [self dismiss];
     return YES;

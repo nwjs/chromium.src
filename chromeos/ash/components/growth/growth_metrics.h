@@ -17,7 +17,7 @@ namespace growth {
 // These enum values represent user-facing errors in the campaigns loading and
 // matching flow. Entries should not be renumbered and numeric values should
 // never be reused. Please keep in sync with "CampaignsManagerError" in
-// src/tools/metrics/histograms/metadata/ash/enums.xml.
+// src/tools/metrics/histograms/metadata/ash_growth/enums.xml.
 enum class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_GROWTH)
     CampaignsManagerError {
       kCampaignsComponentLoadFail = 0,
@@ -52,8 +52,9 @@ enum class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_GROWTH)
       kNotificationPayloadMissingButtonLabel = 29,
       kNotificationPayloadMissingButtonAction = 30,
       kInvalidNotificationPayload = 31,
+      kInvalidTrigger = 32,
 
-      kMaxValue = kInvalidNotificationPayload,
+      kMaxValue = kInvalidTrigger,
     };
 
 // Records errors encountered during the campaigns loading and matching flow.

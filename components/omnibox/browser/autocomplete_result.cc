@@ -416,8 +416,18 @@ void AutocompleteResult::SortAndCull(
             NOTREACHED();
         }
       } else if (omnibox::IsNTPPage(page_classification)) {
-        sections.push_back(
-            std::make_unique<DesktopNTPZpsSection>(suggestion_groups_map_));
+        // IPH is shown for NTP ZPS in the Omnibox only.  If it is shown, reduce
+        // the limit of the normal NTP ZPS Section to make room for the IPH.
+        bool add_iph_section =
+            OmniboxFieldTrial::IsStarterPackIPHEnabled() &&
+            page_classification != OmniboxEventProto::NTP_REALBOX;
+        sections.push_back(std::make_unique<DesktopNTPZpsSection>(
+            suggestion_groups_map_, add_iph_section ? 7u : 8u));
+        if (add_iph_section) {
+          sections.push_back(std::make_unique<DesktopNTPZpsIPHSection>(
+              suggestion_groups_map_));
+        }
+
         // Allow secondary zero-prefix suggestions in the NTP realbox or the
         // WebUI omnibox popup.
         // TODO(crbug.com/40062053): Disallow secondary zps in the WebUI omnibox
@@ -473,8 +483,10 @@ void AutocompleteResult::SortAndCull(
   } else if (use_grouping_for_non_zps) {
     PSections sections;
     if constexpr (is_android) {
-      sections.push_back(
-          std::make_unique<AndroidNonZPSSection>(suggestion_groups_map_));
+      bool show_only_search_suggestions =
+          omnibox::IsCustomTab(page_classification);
+      sections.push_back(std::make_unique<AndroidNonZPSSection>(
+          show_only_search_suggestions, suggestion_groups_map_));
     } else {
       sections.push_back(
           std::make_unique<DesktopNonZpsSection>(suggestion_groups_map_));
@@ -519,8 +531,7 @@ void AutocompleteResult::SortAndCull(
       matches_.resize(num_matches);
 
       // Group search suggestions above URL suggestions.
-      if (matches_.size() > 2 &&
-          !base::FeatureList::IsEnabled(omnibox::kAdaptiveSuggestionsCount)) {
+      if (matches_.size() > 2 && !(is_android || is_ios)) {
         GroupSuggestionsBySearchVsURL(std::next(matches_.begin()),
                                       matches_.end());
       }
@@ -565,32 +576,26 @@ void AutocompleteResult::SortAndCull(
 
 void AutocompleteResult::TrimOmniboxActions(bool is_zero_suggest) {
   // Platform rules:
-  // Android:
-  // - First two positions allow all types of OmniboxActionId
-  // - Third slot permits only PEDALs and HISTORY_CLUSTERS.
-  // - Slots 4 and beyond permit only HISTORY_CLUSTERS.
-  // - In every case, ACTION_IN_SUGGEST is preferred over HISTORY_CLUSTERS
-  // - In every case, HISTORY_CLUSTERS is preferred over PEDALs.
+  // Mobile:
+  // - First position allow all types of OmniboxActionId (ACTION_IN_SUGGEST is
+  // preferred over PEDAL)
+  // - Third slot permits only PEDALs.
+  // - Slots 4 and beyond permit no action.
   // - TAB_SWITCH actions are not considered because they're never attached.
-  if constexpr (is_android) {
-    const size_t ACTIONS_IN_SUGGEST_CUTOFF_THRESHOLD =
-        OmniboxFieldTrial::kActionsInSuggestPromoteEntitySuggestion.Get() ? 1
-                                                                          : 2;
+  if constexpr (is_android || is_ios) {
+    static constexpr size_t ACTIONS_IN_SUGGEST_CUTOFF_THRESHOLD = 1;
     static constexpr size_t PEDALS_CUTOFF_THRESHOLD = 3;
     std::vector<OmniboxActionId> include_all{OmniboxActionId::ACTION_IN_SUGGEST,
-                                             OmniboxActionId::HISTORY_CLUSTERS,
                                              OmniboxActionId::PEDAL};
-    std::vector<OmniboxActionId> include_at_most_pedals{
-        OmniboxActionId::HISTORY_CLUSTERS, OmniboxActionId::PEDAL};
-    std::vector<OmniboxActionId> include_at_most_history_clusters{
-        OmniboxActionId::HISTORY_CLUSTERS};
+    std::vector<OmniboxActionId> include_at_most_pedals{OmniboxActionId::PEDAL};
+    std::vector<OmniboxActionId> include_no_action{};
 
     for (size_t index = 0u; index < matches_.size(); ++index) {
       matches_[index].FilterOmniboxActions(
           (!is_zero_suggest && index < ACTIONS_IN_SUGGEST_CUTOFF_THRESHOLD)
               ? include_all
           : index < PEDALS_CUTOFF_THRESHOLD ? include_at_most_pedals
-                                            : include_at_most_history_clusters);
+                                            : include_no_action);
       if (index < ACTIONS_IN_SUGGEST_CUTOFF_THRESHOLD) {
         matches_[index].FilterAndSortActionsInSuggest();
       }

@@ -46,7 +46,6 @@
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_features.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -93,6 +92,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -101,7 +101,6 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/sync/test/test_sync_service.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -1496,7 +1495,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
-// TODO(crbug.com/1289326) Test is flaky on Linux CFI, Linux dbg, Mac ASan
+// TODO(crbug.com/40817459) Test is flaky on Linux CFI, Linux dbg, Mac ASan
 #if ((BUILDFLAG(CFI_ICALL_CHECK) || !defined(NDEBUG)) && \
      BUILDFLAG(IS_LINUX)) ||                             \
     (BUILDFLAG(IS_MAC) && defined(ADDRESS_SANITIZER))
@@ -1590,7 +1589,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   base::RunLoop().RunUntilIdle();
 }
 
-// TODO(crbug.com/1248040): Extend this test to support lacros.
+// TODO(crbug.com/40197099): Extend this test to support lacros.
 IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
                        CreateSignedInProfileExtendedInfoTimeout) {
   ASSERT_EQ(1u, BrowserList::GetInstance()->size());
@@ -1653,7 +1652,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   }
 }
 
-// TODO(crbug.com/1248040): Extend this test to support lacros.
+// TODO(crbug.com/40197099): Extend this test to support lacros.
 // TODO(crbug.com/41496960): Flaky on Linux MSan.
 #if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
 #define MAYBE_CreateSignedInProfileExtendedInfoDelayed \
@@ -1763,7 +1762,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   }
 }
 
-// TODO(crbug.com/1248040): Extend this test to support lacros.
+// TODO(crbug.com/40197099): Extend this test to support lacros.
 // Regression test for crash https://crbug.com/1195784.
 // Crash requires specific conditions to be reproduced. Browser should have 2
 // profiles with the same GAIA account name and the first profile should use
@@ -1981,7 +1980,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
       metrics::StartupProfilingFinishReason::kDone, 1);
 }
 
-// TODO(crbug.com/1289326) Test is flaky on Linux CFI, Linux dbg, Mac ASan
+// TODO(crbug.com/40817459) Test is flaky on Linux CFI, Linux dbg, Mac ASan
 #if ((BUILDFLAG(CFI_ICALL_CHECK) || !defined(NDEBUG)) && \
      BUILDFLAG(IS_LINUX)) ||                             \
     (BUILDFLAG(IS_MAC) && defined(ADDRESS_SANITIZER))
@@ -2360,7 +2359,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerEnterpriseCreationFlowBrowserTest,
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
 
-// TODO(crbug.com/1289326) Test is flaky on Linux CFI
+// TODO(crbug.com/40817459) Test is flaky on Linux CFI
 // TODO(crbug.com/40885685) Test is also flaky on Linux (dbg)
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_CreateSignedInEnterpriseProfileSettings \
@@ -3003,7 +3002,7 @@ class ProfilePickerLacrosFirstRunBrowserTestBase
 
   // Lifts the timeout to make sure it is not hiding errors where we don't get
   // the signal that the sync service started.
-  // TODO(https://crbug.com/1324886): Find a better way to safely work around
+  // TODO(crbug.com/40839518): Find a better way to safely work around
   // the sync service stalling issue.
   testing::ScopedSyncStartupTimeoutOverride sync_startup_timeout_{
       std::optional<base::TimeDelta>()};
@@ -3155,7 +3154,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerLacrosManagedFirstRunBrowserTest,
 IN_PROC_BROWSER_TEST_F(ProfilePickerLacrosManagedFirstRunBrowserTest,
                        PRE_QuitEarly) {
   Profile* profile = GetPrimaryProfile();
-  // TODO(crbug.com/1322067): This is a bug, the flag should not be set.
+  // TODO(crbug.com/40224163): This is a bug, the flag should not be set.
   EXPECT_TRUE(chrome::enterprise_util::UserAcceptedAccountManagement(profile));
   EXPECT_EQ(1, user_action_tester().GetActionCount(
                    "Signin_EnterpriseAccountPrompt_ImportData"));
@@ -3181,7 +3180,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerLacrosManagedFirstRunBrowserTest,
                        QuitEarly) {
   Profile* profile = GetPrimaryProfile();
 
-  // TODO(crbug.com/1322067): This is a bug, the flag should not be set.
+  // TODO(crbug.com/40224163): This is a bug, the flag should not be set.
   EXPECT_TRUE(chrome::enterprise_util::UserAcceptedAccountManagement(profile));
   EXPECT_EQ(0, user_action_tester().GetActionCount(
                    "Signin_EnterpriseAccountPrompt_ImportData"));
@@ -3204,7 +3203,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerLacrosManagedFirstRunBrowserTest,
 IN_PROC_BROWSER_TEST_F(ProfilePickerLacrosManagedFirstRunBrowserTest,
                        PRE_QuitAtEnd) {
   Profile* profile = GetPrimaryProfile();
-  // TODO(crbug.com/1322067): This is a bug, the flag is set too early
+  // TODO(crbug.com/40224163): This is a bug, the flag is set too early
   EXPECT_TRUE(chrome::enterprise_util::UserAcceptedAccountManagement(profile));
   EXPECT_EQ(1, user_action_tester().GetActionCount(
                    "Signin_EnterpriseAccountPrompt_ImportData"));

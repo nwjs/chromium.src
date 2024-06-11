@@ -160,7 +160,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, BrowserFullscreenShowTopView) {
   controller->EnterFullscreenModeForTab(web_contents->GetPrimaryMainFrame());
   EXPECT_TRUE(browser_view->IsFullscreen());
   bool top_view_in_tab_fullscreen =
-      browser_view->immersive_mode_controller()->IsEnabled() ? true : false;
+      browser_view->immersive_mode_controller()->IsEnabled();
   EXPECT_EQ(top_view_in_tab_fullscreen, browser_view->GetTabStripVisible());
   // The 'Always Show Bookmarks Bar' should be disabled in tab fullscreen mode.
   EXPECT_EQ(top_view_in_tab_fullscreen,
@@ -186,7 +186,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, BrowserFullscreenShowTopView) {
 #else
   // Adding `FullscreenWaiter` will make the TESTs on Lacros fail
   // determinately, which should have been a no-op.
-  // TODO(crbug.com/1351971): Repair this defect.
+  // TODO(crbug.com/40857465): Repair this defect.
   chrome::ToggleFullscreenMode(browser());
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
   EXPECT_FALSE(browser_view->IsFullscreen());
@@ -282,7 +282,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, MAYBE_FullscreenShowBookmarkBar) {
 #else
   // Adding `FullscreenWaiter` will make the TESTs on Lacros fail
   // determinately, which should have been a no-op.
-  // TODO(crbug.com/1351971): Repair this defect.
+  // TODO(crbug.com/40857465): Repair this defect.
   chrome::ToggleFullscreenMode(browser());
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
   EXPECT_FALSE(browser_view->IsFullscreen());

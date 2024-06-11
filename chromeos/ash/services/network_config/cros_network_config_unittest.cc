@@ -53,6 +53,7 @@
 #include "chromeos/ash/services/network_config/test_apn_data.h"
 #include "chromeos/ash/services/network_config/test_network_configuration_observer.h"
 #include "chromeos/components/onc/onc_utils.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom-forward.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom-shared.h"
 #include "chromeos/services/network_config/public/mojom/network_types.mojom-shared.h"
@@ -1372,7 +1373,8 @@ TEST_F(CrosNetworkConfigTest, GetNetworkState) {
   EXPECT_EQ(mojom::VpnType::kIKEv2, network->type_state->get_vpn()->type);
   EXPECT_EQ(mojom::OncSource::kNone, network->source);
 
-  // TODO(919691): Test ProxyMode once UIProxyConfigService logic is improved.
+  // TODO(crbug.com/41434332): Test ProxyMode once UIProxyConfigService logic is
+  // improved.
 }
 
 TEST_F(CrosNetworkConfigTest, PortalState) {
@@ -3428,7 +3430,7 @@ TEST_F(CrosNetworkConfigTest,
   scoped_feature_list.InitWithFeatures(/*enabled_features=*/
                                        {features::kApnRevamp},
                                        /*disabled_features=*/{
-                                           features::kApnPolicies});
+                                           chromeos::features::kApnPolicies});
 
   // Register an observer to capture values sent to Shill.
   TestNetworkConfigurationObserver network_config_observer(
@@ -3472,7 +3474,7 @@ TEST_F(CrosNetworkConfigTest, ApnOperationsDisallowApnModification) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(/*enabled_features=*/
                                        {features::kApnRevamp,
-                                        features::kApnPolicies},
+                                        chromeos::features::kApnPolicies},
                                        /*disabled_features=*/{});
 
   // Register an observer to capture values sent to Shill.
@@ -4208,7 +4210,14 @@ TEST_F(CrosNetworkConfigTest, GlobalPolicyApplied) {
 
   EXPECT_EQ(1, observer()->GetPolicyAppliedCount(/*userhash=*/std::string()));
 
-  feature_list.InitAndEnableFeature(features::kApnPolicies);
+  policy = GetGlobalPolicy();
+  EXPECT_TRUE(policy->allow_apn_modification);
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(/*enabled_features=*/
+                                       {features::kApnRevamp,
+                                        chromeos::features::kApnPolicies},
+                                       /*disabled_features=*/{});
   policy = GetGlobalPolicy();
   EXPECT_FALSE(policy->allow_apn_modification);
 }

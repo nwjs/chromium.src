@@ -38,8 +38,8 @@
 #include "chrome/browser/ui/tab_helpers.h"
 #include "components/android_autofill/browser/android_autofill_client.h"
 #include "components/android_autofill/browser/android_autofill_manager.h"
+#include "components/android_autofill/browser/android_autofill_provider.h"
 #include "components/android_autofill/browser/autofill_provider.h"
-#include "components/android_autofill/browser/autofill_provider_android.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
@@ -343,8 +343,7 @@ void TabAndroid::InitWebContents(
   CHECK_EQ(profile()->IsOffTheRecord(), incognito);
 
   if (is_background_tab) {
-    BackgroundTabManager::GetInstance()->RegisterBackgroundTab(web_contents(),
-                                                               profile());
+    BackgroundTabManager::CreateForWebContents(web_contents(), profile());
   }
   content_layer_->InsertChild(web_contents_->GetNativeView()->GetLayer(), 0);
 
@@ -362,7 +361,7 @@ void TabAndroid::InitializeAutofillIfNecessary(JNIEnv* env) {
     return;
   }
   android_autofill::AndroidAutofillClient::CreateForWebContents(
-      web_contents_.get(), [&](const JavaRef<jobject>& client) {});
+      web_contents_.get());
 
   // We need to initialize the keyboard suppressor before creating any
   // AutofillManagers and after the autofill client is available.
@@ -483,11 +482,11 @@ void TabAndroid::OnShow(JNIEnv* env) {
     return;
   }
 
-  // TODO(crbug.com/1368291): When a tab is backgrounded, and then brought again
-  // to the foreground it's TabLoadTracker state gets stuck in LOADING. This
-  // disagrees with the WebContents internal state. So for now we can only trust
-  // UNLOADED. TabLoadTracker::DidStopLoading is not being called correctly
-  // except for the initial load in InitWebContents.
+  // TODO(crbug.com/40868330): When a tab is backgrounded, and then brought
+  // again to the foreground it's TabLoadTracker state gets stuck in LOADING.
+  // This disagrees with the WebContents internal state. So for now we can only
+  // trust UNLOADED. TabLoadTracker::DidStopLoading is not being called
+  // correctly except for the initial load in InitWebContents.
   bool loaded =
       resource_coordinator::TabLoadTracker::Get()->GetLoadingState(
           web_contents_.get()) != mojom::LifecycleUnitLoadingState::UNLOADED &&

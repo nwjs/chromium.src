@@ -14,7 +14,6 @@
 #include "base/time/default_clock.h"
 #include "chromeos/ash/components/multidevice/logging/logging.h"
 #include "chromeos/ash/components/tether/connection_preserver.h"
-#include "chromeos/ash/components/tether/host_scan_device_prioritizer.h"
 #include "chromeos/ash/components/tether/message_wrapper.h"
 #include "chromeos/ash/components/tether/proto/tether.pb.h"
 #include "chromeos/ash/components/tether/tether_host_response_recorder.h"
@@ -89,11 +88,11 @@ TetherAvailabilityOperation::Initializer::~Initializer() = default;
 
 std::unique_ptr<TetherAvailabilityOperation>
 TetherAvailabilityOperation::Initializer::Initialize(
-    const multidevice::RemoteDeviceRef& remote_device,
+    const TetherHost& tether_host,
     TetherAvailabilityOperation::OnTetherAvailabilityOperationFinishedCallback
         callback) {
   auto operation = std::make_unique<TetherAvailabilityOperation>(
-      remote_device, std::move(callback), device_sync_client_,
+      tether_host, std::move(callback), device_sync_client_,
       secure_channel_client_, tether_host_response_recorder_,
       connection_preserver_);
   operation->Initialize();
@@ -101,17 +100,18 @@ TetherAvailabilityOperation::Initializer::Initialize(
 }
 
 TetherAvailabilityOperation::TetherAvailabilityOperation(
-    const multidevice::RemoteDeviceRef& device_to_connect,
+    const TetherHost& tether_host,
     TetherAvailabilityOperation::OnTetherAvailabilityOperationFinishedCallback
         callback,
     device_sync::DeviceSyncClient* device_sync_client,
     secure_channel::SecureChannelClient* secure_channel_client,
     TetherHostResponseRecorder* tether_host_response_recorder,
     ConnectionPreserver* connection_preserver)
-    : MessageTransferOperation(device_to_connect,
+    : MessageTransferOperation(tether_host,
                                secure_channel::ConnectionPriority::kLow,
                                device_sync_client,
                                secure_channel_client),
+      tether_host_(tether_host),
       tether_host_response_recorder_(tether_host_response_recorder),
       connection_preserver_(connection_preserver),
       clock_(base::DefaultClock::GetInstance()),
@@ -124,7 +124,7 @@ void TetherAvailabilityOperation::OnDeviceAuthenticated() {
   CHECK(!tether_availability_request_start_time_.has_value());
   tether_availability_request_start_time_ = clock_->Now();
   PA_LOG(VERBOSE) << "Sending TetherAvailabilityRequest message to "
-                  << remote_device().GetTruncatedDeviceIdForLogs() << ".";
+                  << GetDeviceId(/*truncate_for_logs=*/true) << ".";
   SendMessageToDevice(
       std::make_unique<MessageWrapper>(TetherAvailabilityRequest()));
 }
@@ -142,17 +142,19 @@ void TetherAvailabilityOperation::OnMessageReceived(
   if (AreGmsCoreNotificationsDisabled(response)) {
     PA_LOG(WARNING)
         << "Received TetherAvailabilityResponse from device with ID "
-        << remote_device().GetTruncatedDeviceIdForLogs() << " which "
+        << GetDeviceId(/*truncate_for_logs=*/true) << " which "
         << "indicates that Google Play Services notifications are "
         << "disabled. Response code: " << response->response_code();
-    scanned_device_info_result_ =
-        base::unexpected(ScannedDeviceInfoError::kNotificationsDisabled);
+
+    scanned_device_info_result_ = ScannedDeviceInfo(
+        tether_host_.GetDeviceId(), tether_host_.GetName(), std::nullopt,
+        /*setup_required=*/false, /*notifications_enabled=*/false);
   } else if (!IsTetheringAvailableWithValidDeviceStatus(response)) {
     // If the received message is invalid or if it states that tethering is
     // unavailable, ignore it.
     PA_LOG(WARNING)
         << "Received TetherAvailabilityResponse from device with ID "
-        << remote_device().GetTruncatedDeviceIdForLogs() << " which "
+        << GetDeviceId(/*truncate_for_logs=*/true) << " which "
         << "indicates that tethering is not available. Response code: "
         << response->response_code();
   } else {
@@ -163,23 +165,26 @@ void TetherAvailabilityOperation::OnMessageReceived(
 
     PA_LOG(VERBOSE)
         << "Received TetherAvailabilityResponse from device with ID "
-        << remote_device().GetTruncatedDeviceIdForLogs() << " which "
+        << GetDeviceId(/*truncate_for_logs=*/true) << " which "
         << "indicates that tethering is available. setup_required = "
         << setup_required;
 
     tether_host_response_recorder_->RecordSuccessfulTetherAvailabilityResponse(
-        remote_device());
+        GetDeviceId(/*truncate_for_logs=*/false));
 
     // Only attempt to preserve the BLE connection to this device if the
     // response indicated that the device can serve as a host.
     connection_preserver_->HandleSuccessfulTetherAvailabilityResponse(
-        remote_device().GetDeviceId());
+        GetDeviceId(/*truncate_for_logs=*/false));
 
-    scanned_device_info_result_ = ScannedDeviceInfo(
-        remote_device(), response->device_status(), setup_required);
+    scanned_device_info_result_ =
+        ScannedDeviceInfo(tether_host_.GetDeviceId(), tether_host_.GetName(),
+                          response->device_status(), setup_required,
+                          /*notifications_enabled=*/true);
   }
 
-  RecordTetherAvailabilityResponseDuration(remote_device().GetDeviceId());
+  RecordTetherAvailabilityResponseDuration(
+      GetDeviceId(/*truncate_for_logs=*/false));
 
   // Unregister the device after a TetherAvailabilityResponse has been received.
   // Delay this in order to let |connection_preserver_| fully preserve the

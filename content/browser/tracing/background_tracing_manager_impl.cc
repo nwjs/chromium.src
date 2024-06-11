@@ -420,6 +420,11 @@ bool BackgroundTracingManagerImpl::RequestActivateScenario() {
   if (!enabled_scenarios_.empty()) {
     return false;
   }
+  // Bail on scenario activation if trigger rules are already setup to be
+  // forwarded to system tracing.
+  if (!trigger_rules_.empty()) {
+    return false;
+  }
   if (legacy_active_scenario_ &&
       (legacy_active_scenario_->state() !=
        BackgroundTracingActiveScenario::State::kIdle)) {
@@ -440,10 +445,36 @@ void BackgroundTracingManagerImpl::SetReceiveCallback(
   receive_callback_ = std::move(receive_callback);
 }
 
+bool BackgroundTracingManagerImpl::InitializePerfettoTriggerRules(
+    const perfetto::protos::gen::TracingTriggerRulesConfig& config) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  // Trigger rules can't be initialized twice.
+  DCHECK(trigger_rules_.empty());
+  DCHECK_EQ(legacy_active_scenario_, nullptr);
+
+  // Bail on setting up trigger rules if scenarios are already enabled.
+  if (!enabled_scenarios_.empty()) {
+    return false;
+  }
+
+  if (!BackgroundTracingRule::Append(config.rules(), trigger_rules_)) {
+    return false;
+  }
+  for (auto& rule : trigger_rules_) {
+    rule->Install(base::BindRepeating([](const BackgroundTracingRule* rule) {
+      perfetto::Tracing::ActivateTriggers({rule->rule_id()},
+                                          /*ttl_ms=*/0);
+      return true;
+    }));
+  }
+  return true;
+}
+
 bool BackgroundTracingManagerImpl::InitializeFieldScenarios(
     const perfetto::protos::gen::ChromeFieldTracingConfig& config,
     DataFiltering data_filtering) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_EQ(legacy_active_scenario_, nullptr);
   if (!RequestActivateScenario()) {
     return false;
   }
@@ -513,6 +544,10 @@ bool BackgroundTracingManagerImpl::SetEnabledScenarios(
     }
     enabled_scenarios_.clear();
   }
+  for (auto& rule : trigger_rules_) {
+    rule->Uninstall();
+  }
+  trigger_rules_.clear();
   InitializeTraceReportDatabase();
   for (const std::string& hash : enabled_scenarios) {
     auto it = preset_scenarios_.find(hash);
@@ -524,6 +559,7 @@ bool BackgroundTracingManagerImpl::SetEnabledScenarios(
       it->second->Enable();
     }
   }
+  DoEmitNamedTrigger(kStartupTracingTriggerName, std::nullopt);
   return true;
 }
 
@@ -559,17 +595,6 @@ bool BackgroundTracingManagerImpl::SetActiveScenario(
   if (!RequestActivateScenario()) {
     return false;
   }
-
-#if !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
-  // If startup config was not set and we're not a SYSTEM scenario (system
-  // might already have started a trace in the background) but tracing was
-  // enabled, then do not set any scenario.
-  if (base::trace_event::TraceLog::GetInstance()->IsEnabled() &&
-      !startup_tracing_enabled &&
-      config_impl->tracing_mode() != BackgroundTracingConfigImpl::SYSTEM) {
-    return false;
-  }
-#endif
 
   if (config_impl->upload_limit_kb()) {
     upload_limit_kb_ = *config_impl->upload_limit_kb();
@@ -929,7 +954,7 @@ void BackgroundTracingManagerImpl::OnProtoDataComplete(
     BackgroundTracingManagerImpl::RecordMetric(
         Metrics::FINALIZATION_STARTED_WITH_LOCAL_OUTPUT);
     receive_callback_.Run(
-        std::move(serialized_trace),
+        uuid.ToString() + ".perfetto.gz", std::move(serialized_trace),
         base::BindOnce(&BackgroundTracingManagerImpl::OnFinalizeComplete,
                        weak_factory_.GetWeakPtr(), std::nullopt));
   }

@@ -93,37 +93,37 @@ class FakeContentAutofillDriver : public mojom::AutofillDriver {
                      bool known_success,
                      mojom::SubmissionSource source) override {}
 
+  void CaretMovedInFormField(const FormData& form,
+                             const FormFieldData& field,
+                             const gfx::Rect& caret_bounds) override {}
+
   void TextFieldDidChange(const FormData& form,
                           const FormFieldData& field,
-                          const gfx::RectF& bounding_box,
                           base::TimeTicks timestamp) override {}
 
   void TextFieldDidScroll(const FormData& form,
-                          const FormFieldData& field,
-                          const gfx::RectF& bounding_box) override {}
+                          const FormFieldData& field) override {}
 
   void SelectControlDidChange(const FormData& form,
-                              const FormFieldData& field,
-                              const gfx::RectF& bounding_box) override {}
+                              const FormFieldData& field) override {}
 
-  void JavaScriptChangedAutofilledValue(
-      const FormData& form,
-      const FormFieldData& field,
-      const std::u16string& old_value) override {}
+  void JavaScriptChangedAutofilledValue(const FormData& form,
+                                        const FormFieldData& field,
+                                        const std::u16string& old_value,
+                                        bool formatting_only) override {}
 
   void AskForValuesToFill(
       const FormData& form,
       const FormFieldData& field,
-      const gfx::RectF& bounding_box,
+      const gfx::Rect& caret_bounds,
       AutofillSuggestionTriggerSource trigger_source) override {}
 
   void HidePopup() override {}
 
-  void FocusNoLongerOnForm(bool had_interacted_form) override {}
+  void FocusOnNonFormField(bool had_interacted_form) override {}
 
   void FocusOnFormField(const FormData& form,
-                        const FormFieldData& field,
-                        const gfx::RectF& bounding_box) override {}
+                        const FormFieldData& field) override {}
 
   void DidFillAutofillFormData(const FormData& form,
                                base::TimeTicks timestamp) override {}
@@ -269,6 +269,8 @@ class PasswordGenerationAgentTest : public ChromeRenderViewTest {
   void ExpectAttribute(const WebElement& element,
                        std::string_view attribute,
                        std::string_view expected_value);
+  void CheckPreviewedValue(const WebInputElement& element,
+                           const std::u16string& value);
 
   void BindAutofillDriver(mojo::ScopedInterfaceEndpointHandle handle);
   void BindPasswordManagerDriver(mojo::ScopedInterfaceEndpointHandle handle);
@@ -308,8 +310,8 @@ void PasswordGenerationAgentTest::RegisterMainFrameRemoteInterfaces() {
 void PasswordGenerationAgentTest::SetUp() {
   ChromeRenderViewTest::SetUp();
 
-  // TODO(crbug/862989): Remove workaround preventing non-test classes to bind
-  // fake_driver_ or fake_pw_client_.
+  // TODO(crbug.com/41401202): Remove workaround preventing non-test classes to
+  // bind fake_driver_ or fake_pw_client_.
   password_autofill_agent_->GetPasswordManagerDriver();
   password_generation_->RequestPasswordManagerClientForTesting();
   base::RunLoop().RunUntilIdle();  // Executes binding the interfaces.
@@ -360,7 +362,7 @@ WebElement PasswordGenerationAgentTest::GetElementById(
 void PasswordGenerationAgentTest::FocusField(const char* element_id) {
   SimulateElementClick(element_id);
 #if BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/1293802): On Android, the JS above doesn't trigger the
+  // TODO(crbug.com/40820173): On Android, the JS above doesn't trigger the
   // method below.
   GetMainFrame()->AutofillClient()->DidCompleteFocusChangeInFrame();
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -374,7 +376,7 @@ void PasswordGenerationAgentTest::ExpectAutomaticGenerationAvailable(
   if (status == kNotReported) {
     EXPECT_CALL(fake_pw_client_, AutomaticGenerationAvailable(_)).Times(0);
   } else {
-    // TODO(crbug.com/1473553): Expect the call precisely once.
+    // TODO(crbug.com/40279043): Expect the call precisely once.
     EXPECT_CALL(fake_pw_client_, AutomaticGenerationAvailable(_))
         .Times(testing::AtLeast(1));
   }
@@ -436,6 +438,13 @@ void PasswordGenerationAgentTest::ExpectAttribute(
       element.GetAttribute(blink::WebString::FromUTF8(attribute));
   ASSERT_FALSE(actual_value.IsNull());
   EXPECT_EQ(expected_value, actual_value.Ascii());
+}
+
+void PasswordGenerationAgentTest::CheckPreviewedValue(
+    const WebInputElement& element,
+    const std::u16string& value) {
+  EXPECT_EQ(value, element.SuggestedValue().Utf16());
+  EXPECT_EQ(element.GetAutofillState(), blink::WebAutofillState::kPreviewed);
 }
 
 void PasswordGenerationAgentTest::BindAutofillDriver(
@@ -1386,13 +1395,13 @@ TEST_F(PasswordGenerationAgentTest, GenerationAvailableByRendererIds) {
   ExpectAutomaticGenerationAvailable(kPasswordElementsIds[2], kAvailable);
 }
 
-TEST_F(PasswordGenerationAgentTest, SuggestionPreviewTest) {
+TEST_F(PasswordGenerationAgentTest, SuggestionPreviewedAndClearedTest) {
   LoadHTMLWithUserGesture(kAccountCreationFormHTML);
   WebDocument document = GetMainFrame()->GetDocument();
   SetFoundFormEligibleForGeneration(password_generation_,
                                     GetMainFrame()->GetDocument(),
-                                    "first_password" /* new_password_id */,
-                                    "second_password" /* confirm_password_id*/);
+                                    /*new_password_id=*/"first_password",
+                                    /*confirm_password_id=*/"second_password");
   ExpectAutomaticGenerationAvailable("first_password", kAvailable);
 
   WebElement element =
@@ -1407,12 +1416,8 @@ TEST_F(PasswordGenerationAgentTest, SuggestionPreviewTest) {
   password_generation_->PreviewGenerationSuggestion(password);
 
   // Both password fields should have suggested values.
-  EXPECT_EQ(password, first_password_element.SuggestedValue().Utf16());
-  EXPECT_EQ(password, second_password_element.SuggestedValue().Utf16());
-  EXPECT_EQ(first_password_element.GetAutofillState(),
-            blink::WebAutofillState::kPreviewed);
-  EXPECT_EQ(second_password_element.GetAutofillState(),
-            blink::WebAutofillState::kPreviewed);
+  CheckPreviewedValue(first_password_element, password);
+  CheckPreviewedValue(second_password_element, password);
 
   // Previewed suggestions should be successfully cleared upon request.
   password_generation_->ClearPreviewedForm();
@@ -1422,6 +1427,43 @@ TEST_F(PasswordGenerationAgentTest, SuggestionPreviewTest) {
             blink::WebAutofillState::kNotFilled);
   EXPECT_EQ(second_password_element.GetAutofillState(),
             blink::WebAutofillState::kNotFilled);
+}
+
+TEST_F(PasswordGenerationAgentTest, SuggestionPreviewedAndFilledTest) {
+  LoadHTMLWithUserGesture(kAccountCreationFormHTML);
+  WebDocument document = GetMainFrame()->GetDocument();
+  SetFoundFormEligibleForGeneration(password_generation_,
+                                    GetMainFrame()->GetDocument(),
+                                    /*new_password_id=*/"first_password",
+                                    /*confirm_password_id=*/"second_password");
+  ExpectAutomaticGenerationAvailable("first_password", kAvailable);
+
+  WebElement element =
+      document.GetElementById(WebString::FromUTF8("first_password"));
+  ASSERT_FALSE(element.IsNull());
+  WebInputElement first_password_element = element.To<WebInputElement>();
+  element = document.GetElementById(WebString::FromUTF8("second_password"));
+  ASSERT_FALSE(element.IsNull());
+  WebInputElement second_password_element = element.To<WebInputElement>();
+
+  std::u16string password = u"random_password";
+  password_generation_->PreviewGenerationSuggestion(password);
+
+  // Both password fields should have suggested values.
+  CheckPreviewedValue(first_password_element, password);
+  CheckPreviewedValue(second_password_element, password);
+
+  // Previewed suggestion should be successfully cleared when the
+  // suggestion is accepted.
+  EXPECT_CALL(fake_pw_client_, PresaveGeneratedPassword(_, Eq(password)));
+  password_generation_->GeneratedPasswordAccepted(password);
+
+  EXPECT_TRUE(first_password_element.SuggestedValue().IsNull());
+  EXPECT_TRUE(second_password_element.SuggestedValue().IsNull());
+  EXPECT_EQ(first_password_element.GetAutofillState(),
+            blink::WebAutofillState::kAutofilled);
+  EXPECT_EQ(second_password_element.GetAutofillState(),
+            blink::WebAutofillState::kAutofilled);
 }
 
 TEST_F(PasswordGenerationAgentTest, AdvancesFocusToNextFieldAfterPasswords) {

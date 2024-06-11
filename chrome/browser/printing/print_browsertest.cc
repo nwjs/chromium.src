@@ -896,7 +896,7 @@ IN_PROC_BROWSER_TEST_F(PrintBrowserTest, NoScrolling) {
 
   double new_scroll1 = content::EvalJs(contents, kExpression1).ExtractDouble();
 
-  // TODO(crbug.com/1131598): Perform the corresponding EvalJs() calls here and
+  // TODO(crbug.com/40150272): Perform the corresponding EvalJs() calls here and
   // assign to new_scroll2 and new_scroll3, once the printing code has been
   // fixed to handle these cases. Right now, the scroll offset jumps.
   double new_scroll2 = old_scroll2;
@@ -1007,7 +1007,7 @@ IN_PROC_BROWSER_TEST_F(PrintBrowserTest, LazyLoadedIframeFetched) {
   EXPECT_NE(old_height, new_height);
 }
 
-// TODO(crbug.com/1305193)  Reenable after flakes have been resolved.
+// TODO(crbug.com/40826924)  Reenable after flakes have been resolved.
 IN_PROC_BROWSER_TEST_F(PrintBrowserTest,
                        DISABLED_LazyLoadedIframeFetchedCrossOrigin) {
   ASSERT_TRUE(embedded_test_server()->Started());
@@ -1271,7 +1271,8 @@ IN_PROC_BROWSER_TEST_F(PrintBrowserTest,
   client->CompositeDocument(
       kDefaultDocumentCookie, main_frame,
       *TestPrintRenderFrame::GetDefaultDidPrintContentParams(),
-      ui::AXTreeUpdate(), GetCompositorDocumentType(), base::DoNothing());
+      ui::AXTreeUpdate(), mojom::GenerateDocumentOutline::kNone,
+      GetCompositorDocumentType(), base::DoNothing());
   ASSERT_TRUE(client->GetCompositeRequest(kDefaultDocumentCookie));
   // `requested_subframes_` should be empty.
   ASSERT_TRUE(client->requested_subframes_.empty());
@@ -1679,7 +1680,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessPrintExtensionBrowserTest,
 
 // Printing frame content for the main frame of a generic webpage with N-up
 // printing. This is a regression test for https://crbug.com/937247
-// TODO(crbug.com/1371776): Fix flakiness and re-enable.
+// TODO(crbug.com/40870686): Fix flakiness and re-enable.
 IN_PROC_BROWSER_TEST_F(PrintBrowserTest, DISABLED_PrintNup) {
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/7_pages.html"));
@@ -1703,7 +1704,7 @@ IN_PROC_BROWSER_TEST_F(PrintBrowserTest, DISABLED_PrintNup) {
 }
 
 // Site per process version of PrintBrowserTest.PrintNup.
-// TODO(crbug.com/1371776): Fix flakiness and re-enable.
+// TODO(crbug.com/40870686): Fix flakiness and re-enable.
 IN_PROC_BROWSER_TEST_F(SitePerProcessPrintBrowserTest, DISABLED_PrintNup) {
   ASSERT_TRUE(embedded_test_server()->Started());
   GURL url(embedded_test_server()->GetURL("/printing/7_pages.html"));

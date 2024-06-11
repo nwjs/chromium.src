@@ -338,7 +338,9 @@
 #endif
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chrome/browser/promos/promos_types.h"
 #include "chrome/browser/promos/promos_utils.h"
+#include "chrome/browser/ui/views/promos/ios_promo_bubble.h"
 #include "chrome/browser/ui/views/promos/ios_promo_password_bubble.h"
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -368,6 +370,11 @@
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 #include "chrome/browser/ui/views/frame/webui_tab_strip_container_view.h"
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
+
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+#include "chrome/browser/enterprise/data_protection/data_protection_navigation_observer.h"
+#include "chrome/browser/enterprise/watermark/watermark_view.h"
+#endif
 
 using base::UserMetricsAction;
 using content::NativeWebKeyboardEvent;
@@ -1010,10 +1017,8 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
       this, is_right_aligned ? SidePanel::kAlignRight : SidePanel::kAlignLeft));
   left_aligned_side_panel_separator_ =
       AddChildView(std::make_unique<ContentsSeparator>());
-  if (features::IsChromeRefresh2023()) {
-    side_panel_rounded_corner_ =
-        AddChildView(std::make_unique<SidePanelRoundedCorner>(this));
-  }
+  side_panel_rounded_corner_ =
+      AddChildView(std::make_unique<SidePanelRoundedCorner>(this));
 
   SidePanelUI::SetSidePanelUIForBrowser(
       browser_.get(), std::make_unique<SidePanelCoordinator>(this));
@@ -2082,7 +2087,7 @@ void BrowserView::EnterFullscreen(const GURL& url,
     // Nothing to do.
     return;
   }
-  ProcessFullscreen(true, url, bubble_type, display_id);
+  ProcessFullscreen(true, url, display_id);
 }
 
 void BrowserView::ExitFullscreen() {
@@ -2092,16 +2097,12 @@ void BrowserView::ExitFullscreen() {
   if (IsForceFullscreen())
     return;
 
-  ProcessFullscreen(false, GURL(), EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE,
-                    display::kInvalidDisplayId);
+  ProcessFullscreen(false, GURL(), display::kInvalidDisplayId);
 }
 
-void BrowserView::UpdateExclusiveAccessExitBubbleContent(
-    const GURL& url,
-    ExclusiveAccessBubbleType bubble_type,
-    ExclusiveAccessBubbleHideCallback bubble_first_hide_callback,
-    bool notify_download,
-    bool force_update) {
+void BrowserView::UpdateExclusiveAccessBubble(
+    const ExclusiveAccessBubbleParams& params,
+    ExclusiveAccessBubbleHideCallback first_hide_callback) {
   // Trusted pinned mode does not allow to escape. So do not show the bubble.
   //bool is_trusted_pinned =
   //    platform_util::IsBrowserLockedFullscreen(browser_.get());
@@ -2109,25 +2110,25 @@ void BrowserView::UpdateExclusiveAccessExitBubbleContent(
   // Immersive mode allows the toolbar to be shown, so do not show the bubble.
   // However, do show the bubble in a managed guest session (see
   // crbug.com/741069).
-  bool immersive_not_public =
-      ShouldUseImmersiveFullscreenForUrl(url) && !IsManagedGuestSession();
+  bool immersive_not_public = ShouldUseImmersiveFullscreenForUrl(params.url) &&
+                              !IsManagedGuestSession();
 
   // Whether we should remove the bubble if it exists, or not show the bubble.
   // TODO(jamescook): Figure out what to do with mouse-lock.
   bool should_close_bubble = true; //is_trusted_pinned;
-  if (!notify_download) {
+  if (!params.has_download) {
     should_close_bubble = should_close_bubble ||
                           // ...TYPE_NONE indicates deleting the bubble, except
-                          // when used with notify_download.
-                          bubble_type == EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE ||
+                          // when used with download.
+                          params.type == EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE ||
                           // Immersive mode logic for downloads is handled by
                           // the download controller.
                           immersive_not_public;
   }
 
   if (should_close_bubble) {
-    if (bubble_first_hide_callback) {
-      std::move(bubble_first_hide_callback)
+    if (first_hide_callback) {
+      std::move(first_hide_callback)
           .Run(ExclusiveAccessBubbleHideReason::kNotShown);
     }
 
@@ -2151,15 +2152,12 @@ void BrowserView::UpdateExclusiveAccessExitBubbleContent(
   }
 
   if (exclusive_access_bubble_) {
-    exclusive_access_bubble_->UpdateContent(
-        url, bubble_type, std::move(bubble_first_hide_callback),
-        notify_download, force_update);
+    exclusive_access_bubble_->Update(params, std::move(first_hide_callback));
     return;
   }
 
   exclusive_access_bubble_ = std::make_unique<ExclusiveAccessBubbleViews>(
-      this, url, bubble_type, notify_download,
-      std::move(bubble_first_hide_callback));
+      this, params, std::move(first_hide_callback));
 }
 
 bool BrowserView::IsExclusiveAccessBubbleDisplayed() const {
@@ -2202,24 +2200,19 @@ void BrowserView::RestoreFocus() {
 }
 
 void BrowserView::FullscreenStateChanging() {
-  bool fullscreen = IsFullscreen();
-  ProcessFullscreen(
-      fullscreen, GURL(),
-      /*fullscreen
-          ? GetExclusiveAccessManager()->GetExclusiveAccessExitBubbleType()
-          : */EXCLUSIVE_ACCESS_BUBBLE_TYPE_NONE,
-      display::kInvalidDisplayId);
+  // Skip view changes during close, especially to avoid making new OS requests.
+  if (frame_->IsClosed()) {
+    return;
+  }
+
+  ProcessFullscreen(IsFullscreen(), GURL(), display::kInvalidDisplayId);
 }
 
 void BrowserView::FullscreenStateChanged() {
 #if BUILDFLAG(IS_MAC)
-  if (!IsFullscreen() && restore_pre_fullscreen_bounds_callback_) {
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, std::move(restore_pre_fullscreen_bounds_callback_));
-  }
-
-  if (AppUsesWindowControlsOverlay())
+  if (AppUsesWindowControlsOverlay()) {
     UpdateWindowControlsOverlayEnabled();
+  }
 #endif  // BUILDFLAG(IS_MAC)
 
   browser_->WindowFullscreenStateChanged();
@@ -2365,9 +2358,9 @@ void BrowserView::ToolbarSizeChanged(bool is_animating) {
 }
 
 void BrowserView::TabDraggingStatusChanged(bool is_dragging) {
-  // TODO(crbug.com/1110266): Remove explicit OS_CHROMEOS check once OS_LINUX
+  // TODO(crbug.com/40142064): Remove explicit OS_CHROMEOS check once OS_LINUX
   // CrOS cleanup is done.
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
   contents_web_view_->SetFastResize(is_dragging);
@@ -2563,6 +2556,7 @@ void BrowserView::SetWindowManagementPermissionSubscriptionForBorderlessMode(
   window_management_subscription_id_ =
       controller->SubscribeToPermissionStatusChange(
           blink::PermissionType::WINDOW_MANAGEMENT, rfh->GetProcess(), origin,
+          /*should_include_device_status=*/false,
           base::BindRepeating(&BrowserView::UpdateWindowManagementPermission,
                               base::Unretained(this)));
 }
@@ -2601,6 +2595,10 @@ void BrowserView::ShowChromeLabs() {
   }
 }
 
+views::WebView* BrowserView::GetContentsWebView() {
+  return contents_web_view_;
+}
+
 bool BrowserView::AppUsesBorderlessMode() const {
   return browser()->app_controller() &&
          browser()->app_controller()->AppUsesBorderlessMode();
@@ -2616,10 +2614,8 @@ void BrowserView::UpdateSidePanelHorizontalAlignment() {
   unified_side_panel_->SetHorizontalAlignment(
       is_right_aligned ? SidePanel::kAlignRight : SidePanel::kAlignLeft);
   GetBrowserViewLayout()->Layout(this);
-  if (side_panel_rounded_corner_) {
-    side_panel_rounded_corner_->DeprecatedLayoutImmediately();
-    side_panel_rounded_corner_->SchedulePaint();
-  }
+  side_panel_rounded_corner_->DeprecatedLayoutImmediately();
+  side_panel_rounded_corner_->SchedulePaint();
 }
 
 void BrowserView::FocusBookmarksToolbar() {
@@ -3093,12 +3089,20 @@ void BrowserView::ShowIOSPasswordPromoBubble() {
   ToolbarButtonProvider* button_provider =
       BrowserView::GetBrowserViewForBrowser(browser_.get())
           ->toolbar_button_provider();
-
-  IOSPromoPasswordBubble::ShowBubble(
-      button_provider->GetAnchorView(PageActionIconType::kManagePasswords),
-      button_provider->GetPageActionIconView(
-          PageActionIconType::kManagePasswords),
-      browser_.get());
+  if (base::FeatureList::IsEnabled(
+          features::kIOSPromoRefreshedPasswordBubble)) {
+    IOSPromoBubble::ShowPromoBubble(
+        button_provider->GetAnchorView(PageActionIconType::kManagePasswords),
+        button_provider->GetPageActionIconView(
+            PageActionIconType::kManagePasswords),
+        browser_.get(), IOSPromoType::kPassword);
+  } else {
+    IOSPromoPasswordBubble::ShowBubble(
+        button_provider->GetAnchorView(PageActionIconType::kManagePasswords),
+        button_provider->GetPageActionIconView(
+            PageActionIconType::kManagePasswords),
+        browser_.get());
+  }
 }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -4431,7 +4435,7 @@ void BrowserView::GetAccessiblePanes(std::vector<views::View*>* panes) {
     panes->push_back(download_shelf_->GetView());
   if (unified_side_panel_)
     panes->push_back(unified_side_panel_);
-  // TODO(crbug.com/1055150): Implement for mac.
+  // TODO(crbug.com/40119836): Implement for mac.
   panes->push_back(contents_web_view_);
   if (devtools_web_view_->GetVisible())
     panes->push_back(devtools_web_view_);
@@ -5021,7 +5025,6 @@ void BrowserView::UpdateUIForContents(WebContents* contents) {
 
 void BrowserView::ProcessFullscreen(bool fullscreen,
                                     const GURL& url,
-                                    ExclusiveAccessBubbleType bubble_type,
                                     const int64_t display_id) {
   if (in_process_fullscreen_)
     return;
@@ -5056,64 +5059,8 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
     }
   }
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
-  // Request target display fullscreen from lower layers on supported platforms.
-  frame_->SetFullscreen(fullscreen, display_id);
-#else   // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
-  // TODO(crbug.com/1034783): Reimplement this at lower layers on all platforms.
-  if (fullscreen && display_id != display::kInvalidDisplayId) {
-    display::Screen* screen = display::Screen::GetScreen();
-    display::Display display;
-    display::Display current_display =
-        screen->GetDisplayNearestWindow(GetNativeWindow());
-    if (screen && screen->GetDisplayWithDisplayId(display_id, &display) &&
-        current_display.id() != display_id) {
-      // Fullscreen windows must exit fullscreen to move to another display.
-      if (IsFullscreen()) {
-        frame_->SetFullscreen(false);
-
-        // Activate the window to give it input focus and bring it to the front
-        // of the z-order. This prevents an inactive fullscreen window from
-        // occluding the active window receiving key events on Linux, and also
-        // prevents an inactive fullscreen window and its exit bubble from being
-        // occluded by the active window on Chrome OS.
-        Activate();
-      }
-
-      const bool was_maximized = IsMaximized();
-      if (restore_pre_fullscreen_bounds_callback_.is_null()) {
-        // Use GetBounds(), rather than GetRestoredBounds(), when the window is
-        // not maximized, to restore snapped window bounds on fullscreen exit.
-        // TODO(crbug.com/1034783): Support lower-layer fullscreen-on-display.
-        const gfx::Rect bounds_to_restore =
-            was_maximized ? GetRestoredBounds() : GetBounds();
-        restore_pre_fullscreen_bounds_callback_ = base::BindOnce(
-            [](base::WeakPtr<BrowserView> view, const gfx::Rect& bounds,
-               bool maximize) {
-              if (view && view->frame()) {
-                // Adjust restored bounds to be on-screen, in case the original
-                // screen was disconnected or repositioned during fullscreen.
-                view->frame()->SetBoundsConstrained(bounds);
-                if (maximize)
-                  view->Maximize();
-              }
-            },
-            weak_ptr_factory_.GetWeakPtr(), bounds_to_restore, was_maximized);
-      }
-
-      // Restore the window as needed, so it can be moved to the target display.
-      // TODO(crbug.com/1034783): Support lower-layer fullscreen-on-display.
-      if (was_maximized) {
-        Restore();
-      }
-      SetBounds({display.work_area().origin(),
-                 frame_->GetWindowBoundsInScreen().size()});
-    }
-  }
-  frame_->SetFullscreen(fullscreen);
-  if (!fullscreen && restore_pre_fullscreen_bounds_callback_)
-    std::move(restore_pre_fullscreen_bounds_callback_).Run();
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+  // TODO(b/40276379): Move this out from ProcessFullscreen.
+  RequestFullscreen(fullscreen, display_id);
 
   // Enable immersive before the browser refreshes its list of enabled commands.
   const bool should_stay_in_immersive =
@@ -5145,6 +5092,68 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
   in_process_fullscreen_ = false;
   ToolbarSizeChanged(false);
   frame_->GetFrameView()->OnFullscreenStateChanged();
+}
+
+void BrowserView::RequestFullscreen(bool fullscreen, int64_t display_id) {
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+  // Request target display fullscreen from lower layers on supported platforms.
+  frame_->SetFullscreen(fullscreen, display_id);
+#else   // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+  // TODO(crbug.com/40111909): Reimplement this at lower layers on all
+  // platforms.
+  if (fullscreen && display_id != display::kInvalidDisplayId) {
+    display::Screen* screen = display::Screen::GetScreen();
+    display::Display display;
+    display::Display current_display =
+        screen->GetDisplayNearestWindow(GetNativeWindow());
+    if (screen && screen->GetDisplayWithDisplayId(display_id, &display) &&
+        current_display.id() != display_id) {
+      // Fullscreen windows must exit fullscreen to move to another display.
+      if (IsFullscreen()) {
+        frame_->SetFullscreen(false);
+
+        // Activate the window to give it input focus and bring it to the front
+        // of the z-order. This prevents an inactive fullscreen window from
+        // occluding the active window receiving key events on Linux, and also
+        // prevents an inactive fullscreen window and its exit bubble from being
+        // occluded by the active window on Chrome OS.
+        Activate();
+      }
+
+      const bool was_maximized = IsMaximized();
+      if (restore_pre_fullscreen_bounds_callback_.is_null()) {
+        // Use GetBounds(), rather than GetRestoredBounds(), when the window is
+        // not maximized, to restore snapped window bounds on fullscreen exit.
+        // TODO(crbug.com/40111909): Support lower-layer fullscreen-on-display.
+        const gfx::Rect bounds_to_restore =
+            was_maximized ? GetRestoredBounds() : GetBounds();
+        restore_pre_fullscreen_bounds_callback_ = base::BindOnce(
+            [](base::WeakPtr<BrowserView> view, const gfx::Rect& bounds,
+               bool maximize) {
+              if (view && view->frame()) {
+                // Adjust restored bounds to be on-screen, in case the original
+                // screen was disconnected or repositioned during fullscreen.
+                view->frame()->SetBoundsConstrained(bounds);
+                if (maximize)
+                  view->Maximize();
+              }
+            },
+            weak_ptr_factory_.GetWeakPtr(), bounds_to_restore, was_maximized);
+      }
+
+      // Restore the window as needed, so it can be moved to the target display.
+      // TODO(crbug.com/40111909): Support lower-layer fullscreen-on-display.
+      if (was_maximized) {
+        Restore();
+      }
+      SetBounds({display.work_area().origin(),
+                 frame_->GetWindowBoundsInScreen().size()});
+    }
+  }
+  frame_->SetFullscreen(fullscreen);
+  if (!fullscreen && restore_pre_fullscreen_bounds_callback_)
+    std::move(restore_pre_fullscreen_bounds_callback_).Run();
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 }
 
 bool BrowserView::ShouldUseImmersiveFullscreenForUrl(const GURL& url) const {
@@ -5597,22 +5606,12 @@ ExclusiveAccessManager* BrowserView::GetExclusiveAccessManager() {
   return browser_->exclusive_access_manager();
 }
 
-views::Widget* BrowserView::GetBubbleAssociatedWidget() {
-  return GetWidget();
-}
-
 ui::AcceleratorProvider* BrowserView::GetAcceleratorProvider() {
   return this;
 }
 
 gfx::NativeView BrowserView::GetBubbleParentView() const {
   return GetWidget()->GetNativeView();
-}
-
-gfx::Point BrowserView::GetCursorPointInParent() const {
-  gfx::Point cursor_pos = display::Screen::GetScreen()->GetCursorScreenPoint();
-  views::View::ConvertPointFromScreen(GetWidget()->GetRootView(), &cursor_pos);
-  return cursor_pos;
 }
 
 gfx::Rect BrowserView::GetClientAreaBoundsInScreen() const {
@@ -5629,17 +5628,6 @@ gfx::Rect BrowserView::GetTopContainerBoundsInScreen() {
 
 void BrowserView::DestroyAnyExclusiveAccessBubble() {
   exclusive_access_bubble_.reset();
-}
-
-bool BrowserView::CanTriggerOnMousePointer() const {
-  // Returning false here can prevent the exclusive access bubble from showing
-  // in certain situations in macOS immersive fullscreen. This check only
-  // exists for Chrome running on ChromeOS in a Public Session.
-#if BUILDFLAG(IS_MAC)
-  return true;
-#else
-  return !IsImmersiveModeEnabled();
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

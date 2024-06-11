@@ -2,14 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "extensions/browser/script_injection_tracker.h"
+
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/files/file_path.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
-#include "base/test/scoped_feature_list.h"
 #include "build/buildflag.h"
 #include "chrome/browser/apps/platform_apps/app_browsertest_util.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -35,9 +37,7 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/script_executor.h"
-#include "extensions/browser/script_injection_tracker.h"
 #include "extensions/browser/user_script_manager.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/manifest_handlers/permissions_parser.h"
 #include "extensions/test/extension_test_message_listener.h"
@@ -148,8 +148,8 @@ class ScriptInjectionTrackerBrowserTest : public ExtensionBrowserTest {
 
   // Navigates to url for given `hostname` and `relative_url`. Returns whether
   // the navigation is in a new process compared to the currently active tab.
-  [[nodiscard]] bool NavigateToURLInNewProcess(base::StringPiece hostname,
-                                               base::StringPiece relative_url) {
+  [[nodiscard]] bool NavigateToURLInNewProcess(std::string_view hostname,
+                                               std::string_view relative_url) {
     content::WebContents* original_web_contents = GetActiveWebContents();
 
     // Opening the URL in a new tab should force it into a new process.
@@ -291,7 +291,7 @@ IN_PROC_BROWSER_TEST_F(ScriptInjectionTrackerBrowserTest,
   ASSERT_TRUE(embedded_test_server()->Start());
 
   // Install a test extension.
-  // TODO(https://crbug.com/1429408): There's currently no way for extensions
+  // TODO(crbug.com/40262660): There's currently no way for extensions
   // to trigger user script injections, so this extension is really just to
   // have one we force to be associated with the injection. When the userScripts
   // API is fully developed, we should update this to use the developer-facing
@@ -1388,7 +1388,7 @@ IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest,
   dir.WriteManifest(kManifestTemplate);
   dir.WriteFile(FILE_PATH_LITERAL("page.html"), "<p>Extension page</p>");
   const char kContentScript[] = R"(
-      // TODO(https://crbug.com/1502769): Remove `console.log` after confirming
+      // TODO(crbug.com/40943155): Remove `console.log` after confirming
       // that the test is no longer flaky
       console.log('CONTENT SCRIPT: running...');
 
@@ -1399,7 +1399,7 @@ IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest,
       document.body.innerText = 'content script has run';
       chrome.test.notifyPass();
 
-      // TODO(https://crbug.com/1502769): Remove `console.log` after confirming
+      // TODO(crbug.com/40943155): Remove `console.log` after confirming
       // that the test is no longer flaky
       console.log('CONTENT SCRIPT: running... DONE.');
   )";
@@ -1753,21 +1753,12 @@ IN_PROC_BROWSER_TEST_F(DynamicScriptsTrackerBrowserTest, ActiveTabGranted) {
 
 class UserScriptTrackerBrowserTest : public ScriptInjectionTrackerBrowserTest {
  public:
-  UserScriptTrackerBrowserTest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        extensions_features::kApiUserScripts);
-  }
-
+  UserScriptTrackerBrowserTest() = default;
   void SetUpOnMainThread() override {
     ScriptInjectionTrackerBrowserTest::SetUpOnMainThread();
     // The userScripts API is only available to users in developer mode.
     util::SetDeveloperModeForProfile(profile(), true);
   }
-
- private:
-  // The userScripts API is currently behind a feature restriction.
-  // TODO(crbug.com/1472902): Remove once the feature is stable for awhile.
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests tracking of user scripts dynamically injected/declared via

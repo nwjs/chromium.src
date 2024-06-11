@@ -109,7 +109,7 @@ template <>
 BrowsingDataModel::DataOwner
 GetDataOwner::GetOwningOriginOrHost<blink::StorageKey>(
     const blink::StorageKey& data_key) const {
-  // TODO(crbug.com/1271155): This logic is useful for testing during the
+  // TODO(crbug.com/40205603): This logic is useful for testing during the
   // implementation of the model, but ultimately these storage types may not
   // coexist.
   switch (storage_type_) {
@@ -198,7 +198,7 @@ struct StorageRemoverHelper {
       content::StoragePartition* storage_partition,
       scoped_refptr<BrowsingDataQuotaHelper> quota_helper,
       BrowsingDataModel::Delegate* delegate
-      // TODO(crbug.com/1271155): Inject other dependencies.
+      // TODO(crbug.com/40205603): Inject other dependencies.
       )
       : storage_partition_(storage_partition),
         quota_helper_(quota_helper),
@@ -839,7 +839,8 @@ std::unique_ptr<BrowsingDataModel> BrowsingDataModel::BuildEmpty(
 void BrowsingDataModel::AddBrowsingData(const DataKey& data_key,
                                         StorageType storage_type,
                                         uint64_t storage_size,
-                                        uint64_t cookie_count) {
+                                        uint64_t cookie_count,
+                                        bool blocked_third_party) {
   DataOwner data_owner =
       absl::visit(GetDataOwner(delegate_.get(), storage_type), data_key);
 
@@ -850,6 +851,7 @@ void BrowsingDataModel::AddBrowsingData(const DataKey& data_key,
   // Per canonical cookie the count should always be 1, otherwise this count is
   // irrelevant.
   entry.cookie_count = cookie_count;
+  entry.blocked_third_party = blocked_third_party;
   entry.storage_types.Put(storage_type);
 }
 

@@ -41,6 +41,7 @@ class ModelTypeProcessor;
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+// LINT.IfChange(SyncPasswordNotesStateInUpdate)
 enum class PasswordNotesStateForUMA {
   // No password note is set in the proto or the backup.
   kUnset = 0,
@@ -59,9 +60,11 @@ enum class PasswordNotesStateForUMA {
   kSetOnlyInBackupButCorrupted = 3,
   kMaxValue = kSetOnlyInBackupButCorrupted,
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncPasswordNotesStateInUpdate)
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+// LINT.IfChange(PendingInvalidationStatus)
 enum class PendingInvalidationStatus {
   kAcknowledged = 0,
   kLost = 1,
@@ -73,6 +76,7 @@ enum class PendingInvalidationStatus {
   kDataTypeNotConnected = 6,
   kMaxValue = kDataTypeNotConnected,
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:PendingInvalidationStatus)
 
 // A smart cache for sync types to communicate with the sync thread.
 //
@@ -353,7 +357,7 @@ class ModelTypeWorker : public UpdateHandler,
   // A map of sync entities, keyed by server_id. Holds updates encrypted with
   // pending keys. Entries are stored in a map for de-duplication (applying only
   // the latest).
-  // TODO(crbug.com/1109221): Use a name mentioning "updates" and "server id".
+  // TODO(crbug.com/40141634): Use a name mentioning "updates" and "server id".
   std::map<std::string, sync_pb::SyncEntity> entries_pending_decryption_;
 
   // A key is said to be unknown if one of these is true:

@@ -1337,12 +1337,14 @@ TEST(AutofillProfileTest, Compare) {
 
 // For each structured profile tokens, test the comparison operator for both the
 // value and the status.
-// TODO(crbug.com/1464568): Extend this test to cover i18n profiles.
+// TODO(crbug.com/40275657): Extend this test to cover i18n profiles.
 TEST(AutofillProfileTest, Compare_StructuredTypes) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
       {features::kAutofillUseI18nAddressModel,
+       features::kAutofillUseAUAddressModel,
        features::kAutofillUseBRAddressModel,
+       features::kAutofillUseDEAddressModel,
        features::kAutofillUseINAddressModel,
        features::kAutofillUseMXAddressModel,
        features::kAutofillEnableSupportForLandmark,
@@ -1351,7 +1353,8 @@ TEST(AutofillProfileTest, Compare_StructuredTypes) {
        features::kAutofillEnableSupportForApartmentNumbers,
        features::kAutofillEnableSupportForAddressOverflow,
        features::kAutofillEnableSupportForBetweenStreetsOrLandmark,
-       features::kAutofillEnableSupportForAddressOverflowAndLandmark},
+       features::kAutofillEnableSupportForAddressOverflowAndLandmark,
+       features::kAutofillEnableDependentLocalityParsing},
       {});
   // Those types do store a verification status.
   FieldTypeSet structured_types{

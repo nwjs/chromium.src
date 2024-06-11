@@ -363,13 +363,13 @@ TEST_F(BookmarkBarViewTest, RemoveNode) {
 
   // Remove the 2nd node, should still only have 1 visible.
   model()->Remove(bookmark_bar_node->children()[1].get(),
-                  bookmarks::metrics::BookmarkEditSource::kOther);
+                  bookmarks::metrics::BookmarkEditSource::kOther, FROM_HERE);
   views::test::RunScheduledLayout(bookmark_bar_view());
   EXPECT_EQ("a", GetStringForVisibleButtons());
 
   // Remove the first node, should force a new button (for the 'c' node).
   model()->Remove(bookmark_bar_node->children()[0].get(),
-                  bookmarks::metrics::BookmarkEditSource::kOther);
+                  bookmarks::metrics::BookmarkEditSource::kOther, FROM_HERE);
   views::test::RunScheduledLayout(bookmark_bar_view());
   ASSERT_EQ("c", GetStringForVisibleButtons());
 }
@@ -496,7 +496,7 @@ TEST_F(BookmarkBarViewTest, MutateModelDuringDrag) {
   bookmark_bar_view()->OnDragUpdated(target_event);
   EXPECT_NE(-1, test_helper_->GetDropLocationModelIndexForTesting());
   model()->Remove(model()->bookmark_bar_node()->children()[4].get(),
-                  bookmarks::metrics::BookmarkEditSource::kOther);
+                  bookmarks::metrics::BookmarkEditSource::kOther, FROM_HERE);
   EXPECT_EQ(-1, test_helper_->GetDropLocationModelIndexForTesting());
 }
 
@@ -599,6 +599,27 @@ TEST_F(BookmarkBarViewTest, OnSavedTabGroupUpdateBookmarkBarCallsLayout) {
 
   // Make sure the positions of the buttons were updated.
   EXPECT_EQ(bounds_in_screen, button_3->GetBoundsInScreen());
+}
+
+TEST_F(BookmarkBarViewTest, GetAvailableWidthForSavedTabGroupsBar) {
+  // Saved tab group bar and bookmark buttons can both fit.
+  ASSERT_EQ(
+      100, BookmarkBarView::GetAvailableWidthForSavedTabGroupsBar(60, 30, 100));
+
+  // Cases of saved tab group bar and bookmark buttons cannot both fit below.
+  // Prioritize fitting saved tab group since it's smaller than half of the
+  // available width.
+  ASSERT_EQ(
+      100, BookmarkBarView::GetAvailableWidthForSavedTabGroupsBar(30, 80, 100));
+
+  // Prioritize fitting bookmark buttons since it's smaller than half of the
+  // available width.
+  ASSERT_EQ(
+      70, BookmarkBarView::GetAvailableWidthForSavedTabGroupsBar(80, 30, 100));
+
+  // Split the space evenly since neither can fit half of the availablel width.
+  ASSERT_EQ(
+      50, BookmarkBarView::GetAvailableWidthForSavedTabGroupsBar(80, 60, 100));
 }
 
 TEST_F(BookmarkBarViewInWidgetTest, UpdateTooltipText) {

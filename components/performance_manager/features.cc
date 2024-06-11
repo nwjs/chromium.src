@@ -69,42 +69,45 @@ BASE_FEATURE(kMemorySaverMultistateMode,
 const base::FeatureParam<bool> kMemorySaverShowRecommendedBadge{
     &kMemorySaverMultistateMode, "show_recommended_badge", false};
 
+BASE_FEATURE(kMemorySaverModeAggressiveness,
+             "MemorySaverModeAggressiveness",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDiscardRingImprovements,
+             "DiscardRingImprovements",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kPerformanceControlsSidePanel,
              "PerformanceControlsSidePanel",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPerformanceCPUIntervention,
-             "PerformanceCPUIntervention",
+BASE_FEATURE(kPerformanceIntervention,
+             "PerformanceIntervention",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kCPUTimeOverThreshold{
-    &kPerformanceCPUIntervention, "cpu_time_over_threshold", base::Seconds(60)};
+    &kPerformanceIntervention, "cpu_time_over_threshold", base::Seconds(60)};
 const base::FeatureParam<base::TimeDelta> kCPUSampleFrequency{
-    &kPerformanceCPUIntervention, "cpu_sample_frequency", base::Seconds(15)};
+    &kPerformanceIntervention, "cpu_sample_frequency", base::Seconds(15)};
 
 const base::FeatureParam<int> kCPUDegradedHealthPercentageThreshold{
-    &kPerformanceCPUIntervention, "cpu_degraded_percent_threshold", 50};
+    &kPerformanceIntervention, "cpu_degraded_percent_threshold", 50};
 const base::FeatureParam<int> kCPUUnhealthyPercentageThreshold{
-    &kPerformanceCPUIntervention, "cpu_unhealthy_percent_threshold", 75};
+    &kPerformanceIntervention, "cpu_unhealthy_percent_threshold", 75};
 
 const base::FeatureParam<int> kCPUMaxActionableTabs{
-    &kPerformanceCPUIntervention, "cpu_max_actionable_tabs", 4};
+    &kPerformanceIntervention, "cpu_max_actionable_tabs", 4};
 
 const base::FeatureParam<int> kMinimumActionableTabCPUPercentage{
-    &kPerformanceCPUIntervention, "minimum_actionable_tab_cpu", 10};
-
-BASE_FEATURE(kPerformanceMemoryIntervention,
-             "PerformanceMemoryIntervention",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+    &kPerformanceIntervention, "minimum_actionable_tab_cpu", 10};
 
 const base::FeatureParam<base::TimeDelta> kMemoryTimeOverThreshold{
-    &kPerformanceMemoryIntervention, "memory_time_over_threshold",
-    base::Seconds(60)};
+    &kPerformanceIntervention, "memory_time_over_threshold", base::Seconds(60)};
 
 const base::FeatureParam<int> kMemoryFreePercentThreshold{
-    &kPerformanceMemoryIntervention, "memory_free_percent_threshold", 10};
+    &kPerformanceIntervention, "memory_free_percent_threshold", 10};
 const base::FeatureParam<int> kMemoryFreeBytesThreshold{
-    &kPerformanceMemoryIntervention, "memory_free_bytes_threshold",
+    &kPerformanceIntervention, "memory_free_bytes_threshold",
     1024 * 1024 * 1024};
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -125,18 +128,15 @@ BASE_FEATURE(kPMProcessPriorityPolicy,
              "PMProcessPriorityPolicy",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<bool> kBoostChildFrames{&kPMProcessPriorityPolicy,
+                                                 "boost_child_frames", true};
+
 const base::FeatureParam<bool> kDownvoteAdFrames{&kPMProcessPriorityPolicy,
                                                  "downvote_ad_frames", false};
 
-BASE_FEATURE(kModalMemorySaver,
-             "ModalMemorySaver",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-const base::FeatureParam<int> kModalMemorySaverMode{
-    &kModalMemorySaver,
-    "modal_memory_saver_mode",
-    2,
-};
+BASE_FEATURE(kPMLoadingPageVoter,
+             "PMLoadingPageVoter",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBFCachePerformanceManagerPolicy,
              "BFCachePerformanceManagerPolicy",
@@ -157,8 +157,8 @@ const base::FeatureParam<base::TimeDelta> kDelayBeforeLogging{
 const base::FeatureParam<int> kThresholdChromeCPUPercent{
     &kCPUInterventionEvaluationLogging, "threshold_chrome_cpu_percent", 25};
 
-BASE_FEATURE(kResourceAttributionValidation,
-             "ResourceAttributionValidation",
+BASE_FEATURE(kFreezingOnBatterySaver,
+             "FreezingOnBatterySaver",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kResourceAttributionIncludeOrigins,

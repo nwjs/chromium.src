@@ -40,6 +40,27 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Wayland"/>
 </enum>
 
+<enum name="RedactionToolCaller">
+  <summary>The caller of the redaction tool.</summary>
+  <int value="1" label="System Logs Uploader"/>
+  <int value="2" label="System Logs Fetcher"/>
+  <int value="3" label="Support Tool"/>
+  <int value="4" label="Error Reporting"/>
+  <int value="5" label="Feedback Tool"/>
+  <int value="6" label="(Obsolete) Browser System Logs. Removed on 5/2024"/>
+  <int value="7" label="Unit Tests"/>
+  <int value="8" label="Undetermined"/>
+  <int value="9" label="Unknown"/>
+  <int value="10" label="Crash Tool"/>
+</enum>
+
+<enum name="SalientImageUrlFetchResult">
+  <int value="0" label="Failed to fetch salient image url from network."/>
+  <int value="1" label="A previous network request failed."/>
+  <int value="2" label="Successfully fetched salient image url from network."/>
+  <int value="3" label="Succeessfully got salient image url from local cache."/>
+</enum>
+
 <enum name="SilentPushEvent">
   <int value="0" label="New Silent Push request"/>
   <int value="1" label="Notification enforcement skipped"/>

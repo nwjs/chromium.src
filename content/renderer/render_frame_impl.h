@@ -339,7 +339,7 @@ class CONTENT_EXPORT RenderFrameImpl
   // this is false, this is a provisional frame which has not committed yet,
   // and which will swap with a proxy when it commits.
   //
-  // TODO(https://crbug.com/578349): Remove this once provisional frames are
+  // TODO(crbug.com/40452626): Remove this once provisional frames are
   // gone, and clean up code that depends on it.
   bool in_frame_tree() { return in_frame_tree_; }
 
@@ -600,7 +600,9 @@ class CONTENT_EXPORT RenderFrameImpl
       blink::WebHistoryCommitType commit_type,
       bool is_synchronously_committed,
       blink::mojom::SameDocumentNavigationType same_document_navigation_type,
-      bool is_client_redirect) override;
+      bool is_client_redirect,
+      const std::optional<blink::SameDocNavigationScreenshotDestinationToken>&
+          screenshot_destination) override;
   void DidFailAsyncSameDocumentCommit() override;
   void WillFreezePage() override;
   void DidOpenDocumentInputStream(const blink::WebURL& url) override;
@@ -1016,7 +1018,7 @@ class CONTENT_EXPORT RenderFrameImpl
                                base::TimeTicks renderer_before_unload_start,
                                base::TimeTicks renderer_before_unload_end);
 
-  // TODO(https://crbug.com/778318): When creating a new browsing context, Blink
+  // TODO(crbug.com/40546539): When creating a new browsing context, Blink
   // always populates it with an initial empty document synchronously, as
   // required by the HTML spec. However, for both iframe and window creation,
   // there is an additional special case that currently requires completing an
@@ -1159,7 +1161,7 @@ class CONTENT_EXPORT RenderFrameImpl
   // unload handlers of the old page, nor actually unload/freeze the page here.
   // That needs a more complicated support on the browser side which will be
   // implemented later.
-  // TODO(crbug.com/1110744): Support unload-in-commit.
+  // TODO(crbug.com/40142288): Support unload-in-commit.
   void SetOldPageLifecycleStateFromNewPageCommitIfNeeded(
       const blink::mojom::OldPageInfo* old_page_info,
       const GURL& new_page_url);

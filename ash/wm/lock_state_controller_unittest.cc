@@ -442,7 +442,7 @@ TEST_F(LockStateControllerTest, LegacyHonorPowerButtonInDockedMode) {
   SendBrightnessChange(0, kUserCause);
   internal_display->set_current_mode(nullptr);
   external_display->set_current_mode(nullptr);
-  power_button_controller_->OnDisplayModeChanged(outputs);
+  power_button_controller_->OnDisplayConfigurationChanged(outputs);
   PressPowerButton();
   EXPECT_FALSE(power_button_test_api_->IsMenuOpened());
   ReleasePowerButton();
@@ -451,7 +451,7 @@ TEST_F(LockStateControllerTest, LegacyHonorPowerButtonInDockedMode) {
   // on (indicating either docked mode or the user having manually decreased the
   // brightness to 0%), the power button should still be handled.
   external_display->set_current_mode(external_display->modes().back().get());
-  power_button_controller_->OnDisplayModeChanged(outputs);
+  power_button_controller_->OnDisplayConfigurationChanged(outputs);
   PressPowerButton();
   EXPECT_TRUE(power_button_test_api_->IsMenuOpened());
   ReleasePowerButton();
@@ -688,7 +688,7 @@ TEST_P(LockStateControllerAnimationTest, RequestShutdownFromLockScreen) {
   EXPECT_EQ(1, NumShutdownRequests());
 }
 
-// Test that historgram of time delta was recorded if a previous shutdown was
+// Test that histogram of time delta was recorded if a previous shutdown was
 // initiated from login/lock screen.
 TEST_F(LockStateControllerTest, RequestShutdownFromLoginScreenThenRestart) {
   Initialize(ButtonType::NORMAL, LoginStatus::NOT_LOGGED_IN);
@@ -739,7 +739,7 @@ TEST_F(LockStateControllerTest, RequestShutdownFromLockScreenThenRestart) {
   histograms().ExpectTotalCount(kShelfShutdownConfirmationHistogramName, 1);
 }
 
-// Test that historgram of time delta was not recorded if a previous shutdown
+// Test that histogram of time delta was not recorded if a previous shutdown
 // was not initiated from login/lock screen.
 TEST_F(LockStateControllerTest, LegacyShowMenuAndShutDownThenRestart) {
   Initialize(ButtonType::LEGACY, LoginStatus::USER);
@@ -1040,15 +1040,11 @@ TEST_F(LockStateControllerMockTimeTest, LockWithoutAnimation) {
 
 class LockStateControllerPineTest : public LockStateControllerTest {
  public:
-  LockStateControllerPineTest() {
-    switches::SetIgnoreForestSecretKeyForTest(true);
-  }
+  LockStateControllerPineTest() = default;
   LockStateControllerPineTest(const LockStateControllerPineTest&) = delete;
   LockStateControllerPineTest& operator=(const LockStateControllerPineTest&) =
       delete;
-  ~LockStateControllerPineTest() override {
-    switches::SetIgnoreForestSecretKeyForTest(false);
-  }
+  ~LockStateControllerPineTest() override = default;
 
   // LockStateControllerTest:
   void SetUp() override {
@@ -1282,6 +1278,22 @@ TEST_F(LockStateControllerPineTest, TakeScreenshotTimeout) {
       histogram_tester.GetAllSamples(kScreenshotOnShutdownStatus),
       testing::ElementsAre(base::Bucket(
           ScreenshotOnShutdownStatus::kFailedOnTakingScreenshotTimeout, 1)));
+}
+
+TEST_F(LockStateControllerPineTest, CancelShutdown) {
+  // Create an empty file to simulate an old pine image.
+  ASSERT_TRUE(base::WriteFile(file_path(), ""));
+  std::unique_ptr<aura::Window> window(CreateTestWindow());
+  base::RunLoop run_loop;
+  lock_state_test_api_->set_pine_image_callback(run_loop.QuitClosure());
+  lock_state_controller_->RequestCancelableShutdown(
+      ShutdownReason::TRAY_SHUT_DOWN_BUTTON);
+
+  // The shutdown should be cancelable and the existing pine image should be
+  // deleted as the shutdown was canceled.
+  EXPECT_TRUE(lock_state_controller_->MaybeCancelShutdownAnimation());
+  run_loop.Run();
+  EXPECT_FALSE(base::PathExists(file_path()));
 }
 
 }  // namespace ash

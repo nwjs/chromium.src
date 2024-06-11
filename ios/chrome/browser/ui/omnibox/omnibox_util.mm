@@ -22,7 +22,7 @@ const CGFloat kSymbolLocationBarPointSize = 10;
 
 OmniboxSuggestionIconType GetOmniboxSuggestionIconTypeForAutocompleteMatchType(
     AutocompleteMatchType::Type type) {
-  // TODO(crbug.com/1122669): Handle trending zero-prefix suggestions by
+  // TODO(crbug.com/40716245): Handle trending zero-prefix suggestions by
   // checking the match subtype similar to AutocompleteMatch::GetVectorIcon().
 
   switch (type) {
@@ -67,7 +67,9 @@ OmniboxSuggestionIconType GetOmniboxSuggestionIconTypeForAutocompleteMatchType(
     case AutocompleteMatchType::NUM_TYPES:
     case AutocompleteMatchType::TILE_SUGGESTION:
     case AutocompleteMatchType::TILE_REPEATABLE_QUERY:
-      NOTREACHED();
+    case AutocompleteMatchType::HISTORY_EMBEDDINGS:
+    case AutocompleteMatchType::FEATURED_ENTERPRISE_SEARCH:
+      DUMP_WILL_BE_NOTREACHED_NORETURN();
       return OmniboxSuggestionIconType::kDefaultFavicon;
   }
 }

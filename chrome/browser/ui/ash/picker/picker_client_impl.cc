@@ -43,9 +43,13 @@
 #include "chrome/browser/ui/webui/ash/emoji/emoji_picker.mojom-forward.h"
 #include "chrome/browser/ui/webui/ash/emoji/emoji_picker.mojom-shared.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/components/editor_menu/public/cpp/preset_text_query.h"
+#include "chromeos/constants/chromeos_features.h"
+#include "chromeos/ui/base/file_icon_util.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/storage_partition.h"
+#include "google_apis/gaia/gaia_auth_util.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
@@ -87,8 +91,10 @@ std::vector<ash::PickerSearchResult> CreateSearchResultsForRecentDriveFiles(
   std::vector<ash::PickerSearchResult> results;
   results.reserve(files.size());
   for (PickerFileSuggester::DriveFile& file : files) {
-    results.push_back(ash::PickerSearchResult::DriveFile(std::move(file.title),
-                                                         std::move(file.url)));
+    results.push_back(ash::PickerSearchResult::DriveFile(
+        std::move(file.title), std::move(file.url),
+        ui::ImageModel::FromVectorIcon(
+            chromeos::GetIconForPath(file.local_path))));
   }
   return results;
 }
@@ -122,13 +128,18 @@ std::vector<ash::PickerSearchResult> ConvertSearchResults(
     switch (result->result_type()) {
       case ash::AppListSearchResultType::kOmnibox:
       case ash::AppListSearchResultType::kOpenTab: {
+        if (result->metrics_type() == ash::OMNIBOX_URL_WHAT_YOU_TYPED) {
+          continue;
+        }
+
         if (std::optional<GURL> result_url = result->url();
             result_url.has_value()) {
           picker_results.push_back(ash::PickerSearchResult::BrowsingHistory(
               *result_url, result->title(), result->icon().icon));
         } else {
-          picker_results.push_back(
-              ash::PickerSearchResult::Text(result->title()));
+          picker_results.push_back(ash::PickerSearchResult::Text(
+              result->title(),
+              ash::PickerSearchResult::TextData::Source::kOmnibox));
         }
         break;
       }
@@ -142,7 +153,7 @@ std::vector<ash::PickerSearchResult> ConvertSearchResults(
       }
       case ash::AppListSearchResultType::kDriveSearch:
         picker_results.push_back(ash::PickerSearchResult::DriveFile(
-            result->title(), *result->url()));
+            result->title(), *result->url(), result->icon().icon));
         break;
       default:
         LOG(DFATAL) << "Got unexpected search result type "
@@ -152,6 +163,54 @@ std::vector<ash::PickerSearchResult> ConvertSearchResults(
   }
 
   return picker_results;
+}
+
+ash::input_method::EditorMediator* GetEditorMediator(Profile* profile) {
+  if (!chromeos::features::IsOrcaEnabled()) {
+    return nullptr;
+  }
+
+  return ash::input_method::EditorMediatorFactory::GetInstance()->GetForProfile(
+      profile);
+}
+
+// TODO: b/326847990 - Remove this once it's moved to mojom traits.
+chromeos::editor_menu::PresetQueryCategory FromMojoPresetQueryCategory(
+    const crosapi::mojom::EditorPanelPresetQueryCategory category) {
+  using EditorPanelPresetQueryCategory =
+      crosapi::mojom::EditorPanelPresetQueryCategory;
+  using PresetQueryCategory = chromeos::editor_menu::PresetQueryCategory;
+
+  switch (category) {
+    case EditorPanelPresetQueryCategory::kUnknown:
+      return PresetQueryCategory::kUnknown;
+    case EditorPanelPresetQueryCategory::kShorten:
+      return PresetQueryCategory::kShorten;
+    case EditorPanelPresetQueryCategory::kElaborate:
+      return PresetQueryCategory::kElaborate;
+    case EditorPanelPresetQueryCategory::kRephrase:
+      return PresetQueryCategory::kRephrase;
+    case EditorPanelPresetQueryCategory::kFormalize:
+      return PresetQueryCategory::kFormalize;
+    case EditorPanelPresetQueryCategory::kEmojify:
+      return PresetQueryCategory::kEmojify;
+    case EditorPanelPresetQueryCategory::kProofread:
+      return PresetQueryCategory::kProofread;
+  }
+}
+
+std::vector<ash::PickerSearchResult> GetEditorResultsFromPanelContext(
+    crosapi::mojom::EditorPanelContextPtr panel_context) {
+  std::vector<ash::PickerSearchResult> results;
+  for (const crosapi::mojom::EditorPanelPresetTextQueryPtr& query :
+       panel_context->preset_text_queries) {
+    results.push_back(ash::PickerSearchResult::Editor(
+        ash::PickerSearchResult::EditorData::Mode::kRewrite,
+        base::UTF8ToUTF16(query->name),
+        FromMojoPresetQueryCategory(query->category), query->text_query_id,
+        /*freeform_text=*/""));
+  }
+  return results;
 }
 
 }  // namespace
@@ -245,7 +304,8 @@ void PickerClientImpl::StartCrosSearch(
   }
 
   switch (*category) {
-    case ash::PickerCategory::kEditor:
+    case ash::PickerCategory::kEditorWrite:
+    case ash::PickerCategory::kEditorRewrite:
     case ash::PickerCategory::kExpressions:
     case ash::PickerCategory::kClipboard:
     case ash::PickerCategory::kDatesTimes:
@@ -298,15 +358,36 @@ void PickerClientImpl::StopCrosQuery() {
   search_engine_->StopQuery();
 }
 
-void PickerClientImpl::ShowEditor() {
-  auto* editor_mediator =
-      ash::input_method::EditorMediatorFactory::GetInstance()->GetForProfile(
-          profile_);
-  if (editor_mediator == nullptr) {
+PickerClientImpl::ShowEditorCallback PickerClientImpl::CacheEditorContext() {
+  ash::input_method::EditorMediator* editor_mediator =
+      GetEditorMediator(profile_);
+  if (editor_mediator == nullptr ||
+      editor_mediator->GetEditorMode() ==
+          ash::input_method::EditorMode::kBlocked) {
+    return {};
+  }
+
+  editor_mediator->CacheContext();
+
+  return base::BindOnce(&PickerClientImpl::ShowEditor,
+                        weak_factory_.GetWeakPtr());
+}
+
+void PickerClientImpl::GetSuggestedEditorResults(
+    SuggestedEditorResultsCallback callback) {
+  ash::input_method::EditorMediator* editor_mediator =
+      GetEditorMediator(profile_);
+  if (editor_mediator == nullptr ||
+      editor_mediator->GetEditorMode() ==
+          ash::input_method::EditorMode::kBlocked ||
+      editor_mediator->panel_manager() == nullptr) {
+    std::move(callback).Run({});
     return;
   }
 
-  editor_mediator->HandleTrigger();
+  editor_mediator->panel_manager()->GetEditorPanelContext(
+      base::BindOnce(GetEditorResultsFromPanelContext)
+          .Then(std::move(callback)));
 }
 
 void PickerClientImpl::GetRecentLocalFileResults(RecentFilesCallback callback) {
@@ -336,6 +417,10 @@ void PickerClientImpl::GetSuggestedLinkResults(
       base::BindRepeating(
           &PickerClientImpl::OnZeroStateLinksSearchResultsUpdated,
           weak_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+bool PickerClientImpl::IsFeatureAllowedForDogfood() {
+  return gaia::IsGoogleInternalAccountEmail(profile_->GetProfileUserName());
 }
 
 void PickerClientImpl::ActiveUserChanged(user_manager::User* active_user) {
@@ -393,7 +478,8 @@ std::unique_ptr<app_list::SearchProvider>
 PickerClientImpl::CreateSearchProviderForCategory(
     ash::PickerCategory category) {
   switch (category) {
-    case ash::PickerCategory::kEditor:
+    case ash::PickerCategory::kEditorWrite:
+    case ash::PickerCategory::kEditorRewrite:
     case ash::PickerCategory::kExpressions:
     case ash::PickerCategory::kClipboard:
     case ash::PickerCategory::kDatesTimes:
@@ -414,6 +500,16 @@ PickerClientImpl::CreateSearchProviderForCategory(
       return CreateDriveSearchProvider(profile_);
     case ash::PickerCategory::kLocalFiles:
       return CreateFileSearchProvider(profile_);
+  }
+}
+
+void PickerClientImpl::ShowEditor(std::optional<std::string> preset_query_id,
+                                  std::optional<std::string> freeform_text) {
+  ash::input_method::EditorMediator* editor_mediator =
+      GetEditorMediator(profile_);
+  if (editor_mediator != nullptr) {
+    editor_mediator->HandleTrigger(std::move(preset_query_id),
+                                   std::move(freeform_text));
   }
 }
 

@@ -87,10 +87,10 @@ class NET_EXPORT HostResolver {
   // Handler for an individual host resolution request. Created by
   // HostResolver::CreateRequest().
   //
-  // TODO(crbug.com/1290920): Most result retrieval here follows a pattern where
-  // it may return null or empty for requests where that result type is not
-  // available. Clean this up to always return empty for such cases and remove
-  // nullability from the return types.
+  // TODO(crbug.com/40212535): Most result retrieval here follows a pattern
+  // where it may return null or empty for requests where that result type is
+  // not available. Clean this up to always return empty for such cases and
+  // remove nullability from the return types.
   class ResolveHostRequest {
    public:
     // Destruction cancels the request if running asynchronously, causing the
@@ -120,7 +120,7 @@ class NET_EXPORT HostResolver {
     // returning a result other than |ERR_IO_PENDING|. May return nullptr or
     // empty for non-address requests.
     //
-    // TODO(crbug.com/1264933): Remove and replace all usage with
+    // TODO(crbug.com/40203587): Remove and replace all usage with
     // GetEndpointResults().
     virtual const AddressList* GetAddressResults() const = 0;
 
@@ -392,11 +392,11 @@ class NET_EXPORT HostResolver {
     // the system resolver, e.g. non-address requests or requests specifying a
     // non-`SYSTEM` `source`.
     //
-    // TODO(crbug.com/1282281): Consider allowing the built-in resolver to still
-    // be used with this parameter. Would then function as a request to just
-    // keep the single final name from the alias chain instead of all aliases,
-    // and also skip the canonicalization unless that canonicalization is found
-    // to be fine for usage.
+    // TODO(crbug.com/40209534): Consider allowing the built-in resolver to
+    // still be used with this parameter. Would then function as a request to
+    // just keep the single final name from the alias chain instead of all
+    // aliases, and also skip the canonicalization unless that canonicalization
+    // is found to be fine for usage.
     bool include_canonical_name = false;
 
     // Hint to the resolver that resolution is only being requested for loopback
@@ -482,12 +482,19 @@ class NET_EXPORT HostResolver {
       std::optional<ResolveHostParameters> optional_parameters) = 0;
 
   // Create requests when scheme is unknown or non-standard.
-  // TODO(crbug.com/1206799): Rename to discourage use when scheme is known.
+  // TODO(crbug.com/40181080): Rename to discourage use when scheme is known.
   virtual std::unique_ptr<ResolveHostRequest> CreateRequest(
       const HostPortPair& host,
       const NetworkAnonymizationKey& network_anonymization_key,
       const NetLogWithSource& net_log,
       const std::optional<ResolveHostParameters>& optional_parameters) = 0;
+
+  // Creates a service endpoint resolution request.
+  virtual std::unique_ptr<ServiceEndpointRequest> CreateServiceEndpointRequest(
+      Host host,
+      NetworkAnonymizationKey network_anonymization_key,
+      NetLogWithSource net_log,
+      ResolveHostParameters parameters) = 0;
 
   // Creates a request to probe configured DoH servers to find which can be used
   // successfully.
@@ -566,7 +573,7 @@ class NET_EXPORT HostResolver {
   // Builds an AddressList from the first non-protocol endpoint found in
   // `endpoints`.
   //
-  // TODO(crbug.com/1264933): Delete once `AddressList` usage is fully replaced
+  // TODO(crbug.com/40203587): Delete once `AddressList` usage is fully replaced
   // in `HostResolver` and results.
   static AddressList EndpointResultToAddressList(
       base::span<const HostResolverEndpointResult> endpoints,

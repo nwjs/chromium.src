@@ -103,18 +103,9 @@ namespace {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 bool IsPrivilegedCrosSetting(const std::string& pref_name) {
-  if (!ash::CrosSettings::IsCrosSettings(pref_name)) {
-    return false;
-  }
-  if (!ash::system::PerUserTimezoneEnabled()) {
-    // kSystemTimezone should be changeable by all users.
-    if (pref_name == ash::kSystemTimezone) {
-      return false;
-    }
-  }
   // Cros settings are considered privileged and are either policy
   // controlled or owner controlled.
-  return true;
+  return ash::CrosSettings::IsCrosSettings(pref_name);
 }
 
 bool IsRestrictedCrosSettingForChildUser(Profile* profile,
@@ -201,6 +192,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[bookmarks::prefs::kShowBookmarkBar] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[bookmarks::prefs::kShowTabGroupsInBookmarkBar] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kSidePanelHorizontalAlignment] =
       settings_api::PrefType::kBoolean;
 
@@ -271,6 +264,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[drive::prefs::kDriveFsBulkPinningVisible] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[drive::prefs::kDisableDriveOverCellular] =
+      settings_api::PrefType::kBoolean;
+  (*s_allowlist)[drive::prefs::kDriveFsEnableMirrorSync] =
       settings_api::PrefType::kBoolean;
 #endif
   (*s_allowlist)[::prefs::kDownloadBubblePartialViewEnabled] =
@@ -435,6 +430,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kOfficeFilesAlwaysMoveToOneDrive] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::prefs::kLocalUserFilesAllowed] =
+      settings_api::PrefType::kBoolean;
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -476,6 +473,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
           settings_api::PrefType::kBoolean;
   (*s_allowlist)[prefs::kEnableProactiveNudge] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[prefs::kProactiveNudgeDisabledSitesWithTime] =
+      settings_api::PrefType::kDictionary;
 
   // Clear browsing data settings.
   (*s_allowlist)[browsing_data::prefs::kDeleteBrowsingHistory] =
@@ -691,8 +690,6 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityMouseKeysEnabled] =
       settings_api::PrefType::kBoolean;
-  (*s_allowlist)[ash::prefs::kAccessibilityMouseKeysShortcutToPauseEnabled] =
-      settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityMouseKeysDisableInTextFields] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityMouseKeysAcceleration] =
@@ -789,7 +786,13 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[::ash::prefs::kIsolatedWebAppsEnabled] =
       settings_api::PrefType::kBoolean;
 
+  // App - On-Device Parental Controls
+  (*s_allowlist)[::ash::prefs::kOnDeviceAppControlsSetupCompleted] =
+      settings_api::PrefType::kBoolean;
+
   // Ambient Mode.
+  (*s_allowlist)[ash::prefs::kDarkModeScheduleType] =
+      settings_api::PrefType::kNumber;
   (*s_allowlist)[ash::ambient::prefs::kAmbientModeEnabled] =
       settings_api::PrefType::kBoolean;
   // The following prefs are not displayed to the user but are configurable to
@@ -1129,6 +1132,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       [performance_manager::user_tuning::prefs::kMemorySaverModeState] =
           settings_api::PrefType::kNumber;
   (*s_allowlist)[performance_manager::user_tuning::prefs::
+                     kMemorySaverModeAggressiveness] =
+      settings_api::PrefType::kNumber;
+  (*s_allowlist)[performance_manager::user_tuning::prefs::
                      kMemorySaverModeTimeBeforeDiscardInMinutes] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)
@@ -1140,6 +1146,9 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[performance_manager::user_tuning::prefs::
                      kManagedTabDiscardingExceptions] =
       settings_api::PrefType::kList;
+  (*s_allowlist)
+      [performance_manager::user_tuning::prefs::kDiscardRingTreatmentEnabled] =
+          settings_api::PrefType::kBoolean;
 
   // AI settings.
   (*s_allowlist)
@@ -1476,13 +1485,15 @@ bool PrefsUtil::IsPrefEnterpriseManaged(const std::string& pref_name) {
   if (!connector->IsDeviceEnterpriseManaged()) {
     return false;
   }
-  if (IsPrivilegedCrosSetting(pref_name)) {
-    return true;
-  }
+
+  // The enterprise management of ash::kSystemTimezone and prefs::kUserTimezone
+  // is determined by the system timezone policies (kSystemTimezonePolicy and
+  // kSystemTimezoneAutomaticDetectionPolicy).
   if (pref_name == ash::kSystemTimezone || pref_name == prefs::kUserTimezone) {
     return ash::system::IsTimezonePrefsManaged(pref_name);
   }
-  return false;
+
+  return IsPrivilegedCrosSetting(pref_name);
 }
 
 bool PrefsUtil::IsPrefOwnerControlled(const std::string& pref_name) {

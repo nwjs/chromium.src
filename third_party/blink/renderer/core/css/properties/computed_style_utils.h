@@ -16,7 +16,6 @@
 #include "third_party/blink/renderer/core/css/css_value_list.h"
 #include "third_party/blink/renderer/core/css/css_value_pair.h"
 #include "third_party/blink/renderer/core/css/zoom_adjusted_pixel_value.h"
-#include "third_party/blink/renderer/core/layout/counter_node.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
@@ -164,8 +163,7 @@ class CORE_EXPORT ComputedStyleUtils {
                                       bool will_change_contents,
                                       bool will_change_scroll_position);
 
-  static CSSValue* ValueForAnimationDelayStart(const Timing::Delay& delay);
-  static CSSValue* ValueForAnimationDelayEnd(const Timing::Delay& delay);
+  static CSSValue* ValueForAnimationDelay(const Timing::Delay& delay);
   static CSSValue* ValueForAnimationDirection(Timing::PlaybackDirection);
   static CSSValue* ValueForAnimationDuration(const std::optional<double>&,
                                              bool resolve_auto_to_zero);
@@ -182,8 +180,7 @@ class CORE_EXPORT ComputedStyleUtils {
       const scoped_refptr<TimingFunction>&);
   static CSSValue* ValueForAnimationTimeline(const StyleTimeline&);
 
-  static CSSValue* ValueForAnimationDelayStartList(const CSSTimingData*);
-  static CSSValue* ValueForAnimationDelayEndList(const CSSTimingData*);
+  static CSSValue* ValueForAnimationDelayList(const CSSTimingData*);
   static CSSValue* ValueForAnimationDirectionList(const CSSAnimationData*);
   static CSSValue* ValueForAnimationDurationList(const CSSAnimationData*,
                                                  CSSValuePhase phase);
@@ -246,8 +243,9 @@ class CORE_EXPORT ComputedStyleUtils {
                                        bool allow_visited_style,
                                        CSSValuePhase value_phase);
 
-  static CSSValue* ValueForCounterDirectives(const ComputedStyle&,
-                                             CounterNode::Type type);
+  static CSSValue* ValueForCounterDirectives(
+      const ComputedStyle&,
+      CountersAttachmentContext::Type type);
   static CSSValue* ValueForShape(const ComputedStyle&,
                                  bool allow_visited_style,
                                  ShapeValue*,

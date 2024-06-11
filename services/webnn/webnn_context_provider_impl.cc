@@ -177,7 +177,8 @@ void WebNNContextProviderImpl::CreateWebNNContext(
 #if BUILDFLAG(IS_CHROMEOS)
   auto* context_impl = new tflite::ContextImplCrOS(std::move(receiver), this);
 #else
-  auto* context_impl = new tflite::ContextImpl(std::move(receiver), this);
+  auto* context_impl =
+      new tflite::ContextImpl(std::move(receiver), this, std::move(options));
 #endif
   impls_.push_back(base::WrapUnique<WebNNContextImpl>(context_impl));
   std::move(callback).Run(
@@ -189,7 +190,7 @@ void WebNNContextProviderImpl::CreateWebNNContext(
     std::move(callback).Run(ToError<mojom::CreateContextResult>(
         mojom::Error::Code::kNotSupportedError,
         "The cpu device is not supported."));
-    DLOG(ERROR) << "WebNN Service is not supported on CPU on Windows.";
+    LOG(ERROR) << "[WebNN] Service is not supported on CPU on Windows.";
     return;
   }
 
@@ -199,7 +200,7 @@ void WebNNContextProviderImpl::CreateWebNNContext(
     std::move(callback).Run(ToError<mojom::CreateContextResult>(
         mojom::Error::Code::kNotSupportedError,
         "WebNN is not compatible with GPU."));
-    DLOG(ERROR) << "WebNN is not compatible with GPU.";
+    LOG(ERROR) << "[WebNN] is not compatible with GPU.";
     return;
   }
 
@@ -233,7 +234,7 @@ void WebNNContextProviderImpl::CreateWebNNContext(
     std::move(callback).Run(mojom::CreateContextResult::NewError(
         dml::CreateError(mojom::Error::Code::kUnknownError,
                          "Failed to create a WebNN context.")));
-    DLOG(ERROR) << "Failed to open the command recorder.";
+    LOG(ERROR) << "[WebNN] Failed to open the command recorder.";
     return;
   }
 
@@ -260,14 +261,14 @@ void WebNNContextProviderImpl::CreateWebNNContext(
     std::move(callback).Run(ToError<mojom::CreateContextResult>(
         mojom::Error::Code::kNotSupportedError,
         "WebNN Service is not supported on this platform."));
-    DLOG(ERROR) << "WebNN Service is not supported on this platform.";
+    LOG(ERROR) << "[WebNN] Service is not supported on this platform.";
   }
 #else
-  // TODO(crbug.com/1273291): Supporting WebNN Service on the platform.
+  // TODO(crbug.com/40206287): Supporting WebNN Service on the platform.
   std::move(callback).Run(ToError<mojom::CreateContextResult>(
       mojom::Error::Code::kNotSupportedError,
       "WebNN Service is not supported on this platform."));
-  DLOG(ERROR) << "WebNN Service is not supported on this platform.";
+  LOG(ERROR) << "[WebNN] Service is not supported on this platform.";
 #endif
 }
 

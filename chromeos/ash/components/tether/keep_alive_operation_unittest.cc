@@ -27,9 +27,7 @@ using testing::_;
 using testing::Invoke;
 using testing::NotNull;
 
-namespace ash {
-
-namespace tether {
+namespace ash::tether {
 
 namespace {
 
@@ -43,13 +41,11 @@ class MockOperationObserver : public KeepAliveOperation::Observer {
 
   ~MockOperationObserver() = default;
 
-  MOCK_METHOD2(OnOperationFinishedRaw,
-               void(multidevice::RemoteDeviceRef, DeviceStatus*));
+  MOCK_METHOD1(OnOperationFinishedRaw, void(DeviceStatus*));
 
   void OnOperationFinished(
-      multidevice::RemoteDeviceRef remote_device,
       std::unique_ptr<DeviceStatus> device_status) override {
-    OnOperationFinishedRaw(remote_device, device_status.get());
+    OnOperationFinishedRaw(device_status.get());
   }
 };
 
@@ -87,9 +83,9 @@ class KeepAliveOperationTest : public testing::Test {
     fake_secure_channel_client_->set_next_listen_connection_attempt(
         remote_device_, local_device_, std::move(connection_attempt));
 
-    auto operation = base::WrapUnique(
-        new KeepAliveOperation(remote_device_, fake_device_sync_client_.get(),
-                               fake_secure_channel_client_.get()));
+    auto operation = base::WrapUnique(new KeepAliveOperation(
+        TetherHost(remote_device_), fake_device_sync_client_.get(),
+        fake_secure_channel_client_.get()));
     operation->AddObserver(&mock_observer_);
 
     operation->SetTimerFactoryForTest(
@@ -154,10 +150,8 @@ TEST_F(KeepAliveOperationTest, NotifiesObserversOnResponse) {
   DeviceStatus test_status = CreateDeviceStatusWithFakeFields();
 
   // Verify that the observer is called with the correct parameters.
-  EXPECT_CALL(mock_observer_, OnOperationFinishedRaw(remote_device_, NotNull()))
-      .WillOnce(Invoke([this, &test_status](multidevice::RemoteDeviceRef device,
-                                            DeviceStatus* status) {
-        EXPECT_EQ(remote_device_, device);
+  EXPECT_CALL(mock_observer_, OnOperationFinishedRaw(NotNull()))
+      .WillOnce(Invoke([&test_status](DeviceStatus* status) {
         EXPECT_EQ(test_status.SerializeAsString(), status->SerializeAsString());
       }));
 
@@ -171,7 +165,7 @@ TEST_F(KeepAliveOperationTest, RecordsResponseDuration) {
   static constexpr base::TimeDelta kKeepAliveTickleResponseTime =
       base::Seconds(3);
 
-  EXPECT_CALL(mock_observer_, OnOperationFinishedRaw(remote_device_, _));
+  EXPECT_CALL(mock_observer_, OnOperationFinishedRaw(_));
 
   // Advance the clock in order to verify a non-zero response duration is
   // recorded and verified (below).
@@ -186,6 +180,4 @@ TEST_F(KeepAliveOperationTest, RecordsResponseDuration) {
       kKeepAliveTickleResponseTime, 1);
 }
 
-}  // namespace tether
-
-}  // namespace ash
+}  // namespace ash::tether

@@ -11,6 +11,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/types/cxx23_to_underlying.h"
 #include "chrome/browser/ash/input_method/editor_consent_enums.h"
+#include "chrome/browser/ash/input_method/editor_context.h"
 #include "chrome/browser/ash/input_method/editor_identity_utils.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -20,10 +21,13 @@
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/standalone_browser/feature_refs.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "chromeos/ui/base/app_types.h"
+#include "chromeos/ui/base/window_properties.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "content/public/test/browser_task_environment.h"
 #include "extensions/common/constants.h"
 #include "net/base/mock_network_change_notifier.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ime/text_input_type.h"
@@ -39,9 +43,26 @@ const char kDeniedTestCountry[] = "br";
 
 const char kAllowedTestUrl[] = "https://allowed.testurl.com/allowed/path";
 
-class FakeEditorSwitchDelegate : public EditorSwitch::Delegate {
+class FakeEditorContextObserver : public EditorContext::Observer {
  public:
-  // EditorSwitch::Delegate overrides
+  // EditorContext::Observer overrides
+  void OnContextUpdated() override {}
+};
+
+class FakeSystem : public EditorContext::System {
+ public:
+  FakeSystem() = default;
+  ~FakeSystem() override = default;
+
+  // EditorContext::System overrides
+  std::optional<ukm::SourceId> GetUkmSourceId() override {
+    return std::nullopt;
+  }
+};
+
+class FakeEditorSwitchObserver : public EditorSwitch::Observer {
+ public:
+  // EditorSwitch::Observer overrides
   void OnEditorModeChanged(const EditorMode& mode) override {}
 };
 
@@ -68,7 +89,7 @@ struct EditorSwitchTriggerTestCase {
   std::string url;
   std::string app_id;
   ui::TextInputType input_type;
-  ash::AppType app_type;
+  chromeos::AppType app_type;
   bool is_in_tablet_mode;
   net::NetworkChangeNotifier::ConnectionType network_status;
   bool user_pref;
@@ -86,7 +107,7 @@ using EditorSwitchAvailabilityTest =
 using EditorSwitchTriggerTest = TestWithParam<EditorSwitchTriggerTestCase>;
 
 TextFieldContextualInfo CreateFakeTextFieldContextualInfo(
-    ash::AppType app_type,
+    chromeos::AppType app_type,
     std::string_view url,
     std::string_view app_key) {
   auto text_field_contextual_info = TextFieldContextualInfo();
@@ -165,13 +186,16 @@ TEST_P(EditorSwitchAvailabilityTest, TestEditorAvailability) {
   feature_list.InitWithFeatures(/*enabled_features=*/test_case.enabled_flags,
                                 /*disabled_features=*/test_case.disabled_flags);
 
-  TestingProfile profile_;
-  profile_.GetProfilePolicyConnector()->OverrideIsManagedForTesting(
+  TestingProfile profile;
+  profile.GetProfilePolicyConnector()->OverrideIsManagedForTesting(
       test_case.is_managed);
-  FakeEditorSwitchDelegate delegate;
-  EditorSwitch editor_switch(/*delegate=*/&delegate,
-                             /*profile=*/&profile_,
-                             /*country_code=*/test_case.country_code);
+  FakeSystem system;
+  FakeEditorContextObserver context_observer;
+  FakeEditorSwitchObserver switch_observer;
+  EditorContext context(&context_observer, &system, test_case.country_code);
+  EditorSwitch editor_switch(/*observer=*/&switch_observer,
+                             /*profile=*/&profile,
+                             /*context=*/&context);
 
   EXPECT_EQ(editor_switch.IsAllowedForUse(), test_case.expected_availability);
 }
@@ -188,7 +212,7 @@ INSTANTIATE_TEST_SUITE_P(
             .locale = "en-us",
             .url = kAllowedTestUrl,
             .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-            .app_type = AppType::BROWSER,
+            .app_type = chromeos::AppType::BROWSER,
             .is_in_tablet_mode = false,
             .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
             .user_pref = true,
@@ -207,7 +231,7 @@ INSTANTIATE_TEST_SUITE_P(
             .locale = "en-us",
             .url = kAllowedTestUrl,
             .input_type = ui::TEXT_INPUT_TYPE_PASSWORD,
-            .app_type = AppType::BROWSER,
+            .app_type = chromeos::AppType::BROWSER,
             .is_in_tablet_mode = false,
             .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
             .user_pref = true,
@@ -225,7 +249,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = "https://mail.google.com/mail",
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -242,7 +266,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = "https://mail.google.com/mail",
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -260,7 +284,7 @@ INSTANTIATE_TEST_SUITE_P(
          .url = "",
          .app_id = extension_misc::kGoogleDocsDemoAppId,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -277,7 +301,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = "https://mail.google.com/mail",
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -293,7 +317,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -310,7 +334,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::ARC_APP,
+         .app_type = chromeos::AppType::ARC_APP,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -326,7 +350,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = false,
@@ -342,7 +366,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = true,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -359,7 +383,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_NONE,
          .user_pref = true,
@@ -376,7 +400,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -394,7 +418,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -410,7 +434,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -426,7 +450,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -443,7 +467,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "fr",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -460,7 +484,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "en-us",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -477,7 +501,7 @@ INSTANTIATE_TEST_SUITE_P(
          .locale = "fr",
          .url = kAllowedTestUrl,
          .input_type = ui::TEXT_INPUT_TYPE_TEXT,
-         .app_type = AppType::BROWSER,
+         .app_type = chromeos::AppType::BROWSER,
          .is_in_tablet_mode = false,
          .network_status = net::NetworkChangeNotifier::CONNECTION_UNKNOWN,
          .user_pref = true,
@@ -509,10 +533,13 @@ TEST_P(EditorSwitchTriggerTest, TestEditorMode) {
 
   std::unique_ptr<TestingProfile> profile =
       CreateTestingProfile(test_case.email);
-  FakeEditorSwitchDelegate delegate;
-  EditorSwitch editor_switch(/*delegate=*/&delegate,
+  FakeSystem system;
+  FakeEditorContextObserver context_observer;
+  FakeEditorSwitchObserver switch_observer;
+  EditorContext context(&context_observer, &system, kAllowedTestCountry);
+  EditorSwitch editor_switch(/*observer=*/&switch_observer,
                              /*profile=*/profile.get(),
-                             /*country_code=*/kAllowedTestCountry);
+                             /*context=*/&context);
 
   auto mock_notifier = net::test::MockNetworkChangeNotifier::Create();
   profile->GetProfilePolicyConnector()->OverrideIsManagedForTesting(false);
@@ -522,13 +549,13 @@ TEST_P(EditorSwitchTriggerTest, TestEditorMode) {
   profile->GetPrefs()->SetBoolean(prefs::kOrcaEnabled, test_case.user_pref);
   profile->GetPrefs()->SetInteger(
       prefs::kOrcaConsentStatus, base::to_underlying(test_case.consent_status));
-  editor_switch.OnTabletModeUpdated(test_case.is_in_tablet_mode);
-  editor_switch.OnActivateIme(test_case.active_engine_id);
-  editor_switch.OnInputContextUpdated(
+  context.OnTabletModeUpdated(test_case.is_in_tablet_mode);
+  context.OnActivateIme(test_case.active_engine_id);
+  context.OnInputContextUpdated(
       TextInputMethod::InputContext(test_case.input_type),
       CreateFakeTextFieldContextualInfo(test_case.app_type, test_case.url,
                                         test_case.app_id));
-  editor_switch.OnTextSelectionLengthChanged(test_case.num_chars_selected);
+  context.OnTextSelectionLengthChanged(test_case.num_chars_selected);
 
   ASSERT_TRUE(editor_switch.IsAllowedForUse());
   EXPECT_EQ(editor_switch.GetEditorMode(), test_case.expected_editor_mode);
@@ -537,6 +564,180 @@ TEST_P(EditorSwitchTriggerTest, TestEditorMode) {
 
   EXPECT_THAT(editor_switch.GetBlockedReasons(),
               testing::ElementsAreArray(test_case.expected_blocked_reasons));
+}
+
+using InputMethodTestCase = std::pair<std::string, EditorMode>;
+
+using EditorSwitchEnglishOnlyTest = TestWithParam<InputMethodTestCase>;
+
+INSTANTIATE_TEST_SUITE_P(EditorSwitchEnglishOnly,
+                         EditorSwitchEnglishOnlyTest,
+                         testing::ValuesIn<InputMethodTestCase>({
+                             // English
+                             {"xkb:ca:eng:eng", EditorMode::kWrite},
+                             {"xkb:gb::eng", EditorMode::kWrite},
+                             {"xkb:gb:extd:eng", EditorMode::kWrite},
+                             {"xkb:gb:dvorak:eng", EditorMode::kWrite},
+                             {"xkb:in::eng", EditorMode::kWrite},
+                             {"xkb:pk::eng", EditorMode::kWrite},
+                             {"xkb:us:altgr-intl:eng", EditorMode::kWrite},
+                             {"xkb:us:colemak:eng", EditorMode::kWrite},
+                             {"xkb:us:dvorak:eng", EditorMode::kWrite},
+                             {"xkb:us:dvp:eng", EditorMode::kWrite},
+                             {"xkb:us:intl_pc:eng", EditorMode::kWrite},
+                             {"xkb:us:intl:eng", EditorMode::kWrite},
+                             {"xkb:us:workman-intl:eng", EditorMode::kWrite},
+                             {"xkb:us:workman:eng", EditorMode::kWrite},
+                             {"xkb:us::eng", EditorMode::kWrite},
+                             {"xkb:za:gb:eng", EditorMode::kWrite},
+                             // French
+                             {"xkb:be::fra", EditorMode::kBlocked},
+                             {"xkb:ca::fra", EditorMode::kBlocked},
+                             {"xkb:ca:multix:fra", EditorMode::kBlocked},
+                             {"xkb:fr::fra", EditorMode::kBlocked},
+                             {"xkb:fr:bepo:fra", EditorMode::kBlocked},
+                             {"xkb:ch:fr:fra", EditorMode::kBlocked},
+                             // German
+                             {"xkb:be::ger", EditorMode::kBlocked},
+                             {"xkb:de::ger", EditorMode::kBlocked},
+                             {"xkb:de:neo:ger", EditorMode::kBlocked},
+                             {"xkb:ch::ger", EditorMode::kBlocked},
+                             // Japanese
+                             {"xkb:jp::jpn", EditorMode::kBlocked},
+                             {"nacl_mozc_us", EditorMode::kBlocked},
+                             {"nacl_mozc_jp", EditorMode::kBlocked},
+                             // Dutch (example case where always disabled)
+                             {"xkb:be::nld", EditorMode::kBlocked},
+                             {"xkb:us:intl_pc:nld", EditorMode::kBlocked},
+                             {"xkb:us:intl:nld", EditorMode::kBlocked},
+                         }));
+
+TEST_P(EditorSwitchEnglishOnlyTest, EditorIsEnabledForEnglishInputMethodsOnly) {
+  const InputMethodTestCase& test_case = GetParam();
+  const std::string& engine_id = std::get<0>(test_case);
+  const EditorMode& expected_mode = std::get<1>(test_case);
+  content::BrowserTaskEnvironment task_environment;
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{chromeos::features::kOrca,
+                            chromeos::features::kFeatureManagementOrca},
+      /*disabled_features=*/{ash::features::kOrcaUseAccountCapabilities});
+  ScopedBrowserLocale browser_locale("en");
+
+  std::unique_ptr<TestingProfile> profile =
+      CreateTestingProfile("testuser@gmail.com");
+  FakeSystem system;
+  FakeEditorContextObserver context_observer;
+  FakeEditorSwitchObserver switch_observer;
+  EditorContext context(&context_observer, &system, kAllowedTestCountry);
+  EditorSwitch editor_switch(/*observer=*/&switch_observer,
+                             /*profile=*/profile.get(),
+                             /*context=*/&context);
+
+  auto mock_notifier = net::test::MockNetworkChangeNotifier::Create();
+  profile->GetProfilePolicyConnector()->OverrideIsManagedForTesting(false);
+  mock_notifier->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  profile->GetPrefs()->SetBoolean(prefs::kOrcaEnabled, true);
+  profile->GetPrefs()->SetInteger(
+      prefs::kOrcaConsentStatus, base::to_underlying(ConsentStatus::kApproved));
+  context.OnTabletModeUpdated(false);
+  context.OnActivateIme(engine_id);
+  context.OnInputContextUpdated(
+      TextInputMethod::InputContext(ui::TEXT_INPUT_TYPE_TEXT),
+      CreateFakeTextFieldContextualInfo(chromeos::AppType::BROWSER,
+                                        kAllowedTestUrl, ""));
+  context.OnTextSelectionLengthChanged(0);
+
+  EXPECT_TRUE(editor_switch.IsAllowedForUse());
+  EXPECT_EQ(editor_switch.GetEditorMode(), expected_mode);
+}
+
+using EditorSwitchInternationalizeTest = TestWithParam<InputMethodTestCase>;
+
+INSTANTIATE_TEST_SUITE_P(EditorSwitchInternationalize,
+                         EditorSwitchInternationalizeTest,
+                         testing::ValuesIn<InputMethodTestCase>({
+                             // English
+                             {"xkb:ca:eng:eng", EditorMode::kWrite},
+                             {"xkb:gb::eng", EditorMode::kWrite},
+                             {"xkb:gb:extd:eng", EditorMode::kWrite},
+                             {"xkb:gb:dvorak:eng", EditorMode::kWrite},
+                             {"xkb:in::eng", EditorMode::kWrite},
+                             {"xkb:pk::eng", EditorMode::kWrite},
+                             {"xkb:us:altgr-intl:eng", EditorMode::kWrite},
+                             {"xkb:us:colemak:eng", EditorMode::kWrite},
+                             {"xkb:us:dvorak:eng", EditorMode::kWrite},
+                             {"xkb:us:dvp:eng", EditorMode::kWrite},
+                             {"xkb:us:intl_pc:eng", EditorMode::kWrite},
+                             {"xkb:us:intl:eng", EditorMode::kWrite},
+                             {"xkb:us:workman-intl:eng", EditorMode::kWrite},
+                             {"xkb:us:workman:eng", EditorMode::kWrite},
+                             {"xkb:us::eng", EditorMode::kWrite},
+                             {"xkb:za:gb:eng", EditorMode::kWrite},
+                             // French
+                             {"xkb:be::fra", EditorMode::kWrite},
+                             {"xkb:ca::fra", EditorMode::kWrite},
+                             {"xkb:ca:multix:fra", EditorMode::kWrite},
+                             {"xkb:fr::fra", EditorMode::kWrite},
+                             {"xkb:fr:bepo:fra", EditorMode::kWrite},
+                             {"xkb:ch:fr:fra", EditorMode::kWrite},
+                             // German
+                             {"xkb:be::ger", EditorMode::kWrite},
+                             {"xkb:de::ger", EditorMode::kWrite},
+                             {"xkb:de:neo:ger", EditorMode::kWrite},
+                             {"xkb:ch::ger", EditorMode::kWrite},
+                             // Japanese
+                             {"xkb:jp::jpn", EditorMode::kWrite},
+                             {"nacl_mozc_us", EditorMode::kWrite},
+                             {"nacl_mozc_jp", EditorMode::kWrite},
+                             // Dutch (example case where always disabled)
+                             {"xkb:be::nld", EditorMode::kBlocked},
+                             {"xkb:us:intl_pc:nld", EditorMode::kBlocked},
+                             {"xkb:us:intl:nld", EditorMode::kBlocked},
+                         }));
+
+TEST_P(EditorSwitchInternationalizeTest,
+       EditorIsEnabledForEnglishAndOtherInputMethods) {
+  const InputMethodTestCase& test_case = GetParam();
+  const std::string& engine_id = std::get<0>(test_case);
+  const EditorMode& expected_mode = std::get<1>(test_case);
+  content::BrowserTaskEnvironment task_environment;
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{chromeos::features::kOrca,
+                            chromeos::features::kFeatureManagementOrca,
+                            chromeos::features::kOrcaInternationalize},
+      /*disabled_features=*/{ash::features::kOrcaUseAccountCapabilities});
+  ScopedBrowserLocale browser_locale("en");
+
+  std::unique_ptr<TestingProfile> profile =
+      CreateTestingProfile("testuser@gmail.com");
+  FakeSystem system;
+  FakeEditorContextObserver context_observer;
+  FakeEditorSwitchObserver switch_observer;
+  EditorContext context(&context_observer, &system, kAllowedTestCountry);
+  EditorSwitch editor_switch(/*observer=*/&switch_observer,
+                             /*profile=*/profile.get(),
+                             /*context=*/&context);
+
+  auto mock_notifier = net::test::MockNetworkChangeNotifier::Create();
+  profile->GetProfilePolicyConnector()->OverrideIsManagedForTesting(false);
+  mock_notifier->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  profile->GetPrefs()->SetBoolean(prefs::kOrcaEnabled, true);
+  profile->GetPrefs()->SetInteger(
+      prefs::kOrcaConsentStatus, base::to_underlying(ConsentStatus::kApproved));
+  context.OnTabletModeUpdated(false);
+  context.OnActivateIme(engine_id);
+  context.OnInputContextUpdated(
+      TextInputMethod::InputContext(ui::TEXT_INPUT_TYPE_TEXT),
+      CreateFakeTextFieldContextualInfo(chromeos::AppType::BROWSER,
+                                        kAllowedTestUrl, ""));
+  context.OnTextSelectionLengthChanged(0);
+
+  EXPECT_TRUE(editor_switch.IsAllowedForUse());
+  EXPECT_EQ(editor_switch.GetEditorMode(), expected_mode);
 }
 
 }  // namespace

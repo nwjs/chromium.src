@@ -109,6 +109,8 @@ enum AppMenuAction {
   MENU_ACTION_SHOW_SAFETY_HUB = 86,
   MENU_ACTION_SHOW_PASSWORD_CHECKUP = 87,
   MENU_ACTION_SET_BROWSER_AS_DEFAULT = 88,
+  MENU_ACTION_SHOW_SAVED_TAB_GROUPS = 89,
+  MENU_ACTION_SHOW_LENS_OVERLAY = 90,
   LIMIT_MENU_ACTION
 };
 
@@ -165,6 +167,7 @@ class AppMenuModel : public ui::SimpleMenuModel,
                      public ui::ButtonMenuItemModel::Delegate {
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kBookmarksMenuItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kTabGroupsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kDownloadsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kHistoryMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kExtensionsMenuItem);
@@ -172,6 +175,7 @@ class AppMenuModel : public ui::SimpleMenuModel,
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kIncognitoMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kPasswordAndAutofillMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kPasswordManagerMenuItem);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kShowLensOverlay);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kShowSearchCompanion);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kPerformanceMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSaveAndShareMenuItem);
@@ -184,14 +188,15 @@ class AppMenuModel : public ui::SimpleMenuModel,
   // varies depending upon the underlying model. The command IDs for items in
   // these menus will be staggered and each increment by this value, so they
   // don't have conflicts. Currently, this accounts for the bookmarks, recent
-  // tabs menus, and the profile submenu.
-  static constexpr int kNumUnboundedMenuTypes = 3;
+  // tabs menus, the profile submenu and tab groups submenu.
+  static constexpr int kNumUnboundedMenuTypes = 4;
 
   // First command ID to use for each unbounded menu. These should be staggered,
   // and there should be kNumUnboundedMenuTypes of them.
   static constexpr int kMinBookmarksCommandId = IDC_FIRST_UNBOUNDED_MENU;
   static constexpr int kMinRecentTabsCommandId = kMinBookmarksCommandId + 1;
   static constexpr int kMinOtherProfileCommandId = kMinRecentTabsCommandId + 1;
+  static constexpr int kMinTabGroupsCommandId = kMinOtherProfileCommandId + 1;
 
   // Creates an app menu model for the given browser. Init() must be called
   // before passing this to an AppMenu. |app_menu_icon_controller|, if provided,
@@ -257,9 +262,8 @@ class AppMenuModel : public ui::SimpleMenuModel,
   // in the menu. When an expected module is provided, the metrics will only be
   // logged when the module matches the one for which there is an active menu
   // notification.
-  static void LogSafetyHubInteractionMetrics(
-      safety_hub::SafetyHubModuleType sh_module,
-      int event_flags);
+  void LogSafetyHubInteractionMetrics(safety_hub::SafetyHubModuleType sh_module,
+                                      int event_flags);
 
  private:
   // Adds actionable global error menu items to the menu.

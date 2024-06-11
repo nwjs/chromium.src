@@ -251,6 +251,13 @@ void FragmentBuilder::PropagateFromFragment(
     LogicalOffset child_offset,
     LogicalOffset relative_offset,
     const OofInlineContainer<LogicalOffset>* inline_container) {
+  if (GetBoxType() == PhysicalFragment::kPageBorderBox) {
+    // This is the boundary between page boxes and document contents. No
+    // propagation should take place.
+    DCHECK_EQ(child.GetBoxType(), PhysicalFragment::kPageArea);
+    return;
+  }
+
   // Propagate anchors from the |child|. Anchors are in |OofData| but the
   // |child| itself may have an anchor.
   PropagateChildAnchors(child, child_offset + relative_offset);
@@ -295,13 +302,13 @@ void FragmentBuilder::PropagateFromFragment(
     const auto& child_style = child.Style();
     if (child.IsCSSBox() && child_style.GetPosition() == EPosition::kRelative) {
       if (IsHorizontalWritingMode(Style().GetWritingMode())) {
-        if (child_style.Top().IsPercentOrCalc() ||
-            child_style.Bottom().IsPercentOrCalc()) {
+        if (child_style.Top().HasPercent() ||
+            child_style.Bottom().HasPercent()) {
           has_descendant_that_depends_on_percentage_block_size_ = true;
         }
       } else {
-        if (child_style.Left().IsPercentOrCalc() ||
-            child_style.Right().IsPercentOrCalc()) {
+        if (child_style.Left().HasPercent() ||
+            child_style.Right().HasPercent()) {
           has_descendant_that_depends_on_percentage_block_size_ = true;
         }
       }

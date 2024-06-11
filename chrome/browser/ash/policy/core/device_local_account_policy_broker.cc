@@ -86,9 +86,17 @@ std::unique_ptr<CloudPolicyClient> CreateClient(
   return client;
 }
 
-base::Value::Dict GetPrefsFromPolicy(const policy::PolicyMap& policy_map) {
+base::Value::Dict GetAshPrefsFromPolicy(const policy::PolicyMap& policy_map) {
   extensions::ExtensionInstallForceListPolicyHandler policy_handler;
-  return policy_handler.GetPolicyDict(policy_map);
+  return policy_handler.GetAshPolicyDict(policy_map)
+      .value_or(base::Value::Dict());
+}
+
+base::Value::Dict GetLacrosPrefsFromPolicy(
+    const policy::PolicyMap& policy_map) {
+  extensions::ExtensionInstallForceListPolicyHandler policy_handler;
+  return policy_handler.GetLacrosPolicyDict(policy_map)
+      .value_or(base::Value::Dict());
 }
 
 void SendExtensionsToAsh(
@@ -137,8 +145,8 @@ DeviceLocalAccountPolicyBroker::DeviceLocalAccountPolicyBroker(
             base::BindRepeating(&content::GetNetworkConnectionTracker)),
       policy_update_callback_(policy_update_callback),
       resource_cache_task_runner_(resource_cache_task_runner) {
-  if (account.type != DeviceLocalAccount::TYPE_ARC_KIOSK_APP &&
-      account.type != DeviceLocalAccount::TYPE_WEB_KIOSK_APP) {
+  if (account.type != DeviceLocalAccountType::kArcKioskApp &&
+      account.type != DeviceLocalAccountType::kWebKioskApp) {
     extension_tracker_ = std::make_unique<DeviceLocalAccountExtensionTracker>(
         account, store_.get(), &schema_registry_);
   }
@@ -266,11 +274,13 @@ bool DeviceLocalAccountPolicyBroker::IsCacheRunning() const {
 
 void DeviceLocalAccountPolicyBroker::UpdateExtensionListFromStore() {
   external_cache_->UpdateExtensionsList(
-      GetPrefsFromPolicy(store_->policy_map()));
+      /*ash_extensions=*/GetAshPrefsFromPolicy(store_->policy_map()),
+      /*lacros_extensions=*/GetLacrosPrefsFromPolicy(store_->policy_map()));
 }
 
-base::Value::Dict DeviceLocalAccountPolicyBroker::GetCachedExtensions() const {
-  return external_cache_->GetCachedExtensions();
+base::Value::Dict
+DeviceLocalAccountPolicyBroker::GetCachedExtensionsForTesting() const {
+  return external_cache_->GetCachedExtensionsForTesting();  // IN-TEST
 }
 
 }  // namespace policy

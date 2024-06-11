@@ -114,6 +114,7 @@ class WaylandWindow : public PlatformWindow,
   }
   WaylandWindow* parent_window() const { return parent_window_; }
   PlatformWindowDelegate* delegate() { return delegate_; }
+  const PlatformWindowDelegate* delegate() const { return delegate_; }
 
   gfx::AcceleratedWidget GetWidget() const;
 
@@ -159,8 +160,6 @@ class WaylandWindow : public PlatformWindow,
   // moving to a new display (output), or if the scale factor of its current
   // display changes. This is not sent via a configure.
   void SetWindowScale(float new_scale);
-
-  float ui_scale() const { return ui_scale_; }
 
   // Returns the preferred entered output id, if any. The preferred output is
   // the one with the largest scale. This is needed to properly render contents
@@ -219,7 +218,6 @@ class WaylandWindow : public PlatformWindow,
   gfx::Rect GetRestoredBoundsInDIP() const override;
   bool ShouldWindowContentsBeTransparent() const override;
   void SetAspectRatio(const gfx::SizeF& aspect_ratio) override;
-  void SetDecorationInsets(const gfx::Insets* insets_px) override;
   void SetWindowIcons(const gfx::ImageSkia& window_icon,
                       const gfx::ImageSkia& app_icon) override;
   void SizeConstraintsChanged() override;
@@ -330,13 +328,10 @@ class WaylandWindow : public PlatformWindow,
   virtual void OnDragSessionClose(ui::mojom::DragOperation operation);
 
   // Sets the window geometry.
-  virtual void SetWindowGeometry(gfx::Size size_dip);
+  virtual void SetWindowGeometry(const PlatformWindowDelegate::State& state);
 
   // Returns the offset of the window geometry within the window surface.
   gfx::Vector2d GetWindowGeometryOffsetInDIP() const;
-
-  // Returns the effective decoration insets.
-  gfx::Insets GetDecorationInsetsInDIP() const;
 
   // Returns a root parent window within the same hierarchy.
   WaylandWindow* GetRootParentWindow();
@@ -425,8 +420,6 @@ class WaylandWindow : public PlatformWindow,
   // send a request to the compositor even if the screen coordinate is enabled.
   void UpdateBoundsInDIP(const gfx::Rect& bounds_dip);
 
-  void set_ui_scale(float ui_scale) { ui_scale_ = ui_scale; }
-
   // Updates mask for this window.
   virtual void UpdateWindowMask() = 0;
 
@@ -480,10 +473,17 @@ class WaylandWindow : public PlatformWindow,
   // Returns the next state that will be applied, or the currently applied state
   // if there are no later unapplied states. This is used when updating a single
   // property (e.g. window scale) without wanting to modify the others.
-  PlatformWindowDelegate::State GetLatestRequestedState() const {
-    return in_flight_requests_.empty() ? applied_state_
-                                       : in_flight_requests_.back().state;
-  }
+  PlatformWindowDelegate::State GetLatestRequestedState() const;
+
+  // Sets given `window_state` to `applied_state_` so that it reflects the
+  // client side window state change immediately, Not that
+  // `applied_state_.window_state` is the source of truth as a window state.
+  // This should be called only when the client side requests the new window
+  // state and it is expected to become the same when the server side
+  // configures.
+  // DO NOT USE THIS unless it's really needed and okay to use.
+  // TODO(crbug.com/40276379): Remove this.
+  void ForceApplyWindowStateDoNotUse(PlatformWindowState window_state);
 
   bool HasInFlightRequestsForStateForTesting() const {
     return !in_flight_requests_.empty();
@@ -492,6 +492,10 @@ class WaylandWindow : public PlatformWindow,
   // PendingConfigureState describes the content of a configure sent from the
   // wayland server.
   struct PendingConfigureState {
+    std::optional<PlatformWindowState> window_state;
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+    std::optional<PlatformFullscreenType> fullscreen_type;
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
     std::optional<gfx::Rect> bounds_dip;
     std::optional<gfx::Size> size_px;
     std::optional<float> raster_scale;
@@ -626,17 +630,7 @@ class WaylandWindow : public PlatformWindow,
   scoped_refptr<BitmapCursor> cursor_;
 #endif
 
-  // Margins between edges of the surface and the window geometry (i.e., the
-  // area of the window that is visible to the user as the actual window).  The
-  // areas outside the geometry are used to draw client-side window decorations.
-  // TODO(crbug.com/1306688): Use DIP for frame insets.
-  std::optional<gfx::Insets> frame_insets_px_;
-
   bool has_touch_focus_ = false;
-  // The UI scale may be forced through the command line, which means that it
-  // replaces the default value that is equal to the natural device scale.
-  // We need it to place and size the menus properly.
-  float ui_scale_ = 1.0f;
 
   // Stores current opacity of the window. Set on ::Initialize call.
   ui::PlatformWindowOpacity opacity_;
@@ -711,9 +705,6 @@ class WaylandWindow : public PlatformWindow,
   // server. See the comments on applied_state_ for further explanation.
   PlatformWindowDelegate::State latched_state_;
 
-  // Stores the insets in DIP at the time of the last latched state.
-  gfx::Insets latched_insets_;
-
   // In-flight state requests. Once a frame comes from the GPU
   // process with the appropriate viz sequence number, ack_configure request
   // with |serial| will be sent to the Wayland compositor if needed.
@@ -735,9 +726,21 @@ class WaylandWindow : public PlatformWindow,
   bool disable_null_target_dcheck_for_test_ = false;
 #endif
 
-  // Set to true when the state is in the process of request. This is used to
-  // check there is no re-enterancy.
-  bool requesting_state_ = false;
+  // Set to true when we are already in the process of applying a state.
+  // This is used to detect re-entrancy which is hard to reason about and
+  // also will cause memory corruption with the current implementation.
+  bool applying_state_ = false;
+
+  // This has an invariant that it is empty unless `applying_state_` is true.
+  // That is, if we are not in the re-entrant section, then we should never have
+  // a re-entrant request. Note that by deferring re-entrant requests, it means
+  // that PlatformWindow calls that normally would take effect immediately (in
+  // the same stack) will no longer do so. They won't be entirely asynchronous,
+  // but they will apply later once the re-entrant requests are processed.
+  // TODO(crbug.com/40058672): Remove this once we have no
+  // client initiated state requests.
+  std::vector<std::tuple<PlatformWindowDelegate::State, int64_t, bool>>
+      reentrant_requests_;
 
   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner_;
 

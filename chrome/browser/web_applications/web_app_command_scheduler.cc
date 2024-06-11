@@ -124,6 +124,16 @@ void WebAppCommandScheduler::FetchInstallInfoFromInstallUrl(
           std::move(parent_manifest_id), std::move(callback)));
 }
 
+void WebAppCommandScheduler::FetchInstallInfoFromInstallUrl(
+    webapps::ManifestId manifest_id,
+    GURL install_url,
+    base::OnceCallback<void(std::unique_ptr<WebAppInstallInfo>)> callback) {
+  provider_->command_manager().ScheduleCommand(
+      std::make_unique<FetchInstallInfoFromInstallUrlCommand>(
+          std::move(manifest_id), std::move(install_url), std::nullopt,
+          std::move(callback)));
+}
+
 void WebAppCommandScheduler::InstallFromInfoNoIntegrationForTesting(
     std::unique_ptr<WebAppInstallInfo> install_info,
     bool overwrite_existing_manifest_fields,
@@ -508,11 +518,11 @@ void WebAppCommandScheduler::LaunchApp(
             std::move(callback), location);
 }
 
-void WebAppCommandScheduler::LaunchUrlInApp(const webapps::AppId& app_id,
-                                            const GURL& url,
-                                            LaunchWebAppCallback callback,
-                                            const base::Location& location) {
-  CHECK(url.is_valid());
+void WebAppCommandScheduler::LaunchApp(const webapps::AppId& app_id,
+                                       const std::optional<GURL>& url,
+                                       LaunchWebAppCallback callback,
+                                       const base::Location& location) {
+  CHECK(!url || url->is_valid());
   apps::AppLaunchParams params =
       WebAppUiManager::CreateAppLaunchParamsWithoutWindowConfig(
           app_id, *base::CommandLine::ForCurrentProcess(),
@@ -520,7 +530,7 @@ void WebAppCommandScheduler::LaunchUrlInApp(const webapps::AppId& app_id,
           /*url_handler_launch_url=*/std::nullopt,
           /*protocol_handler_launch_url=*/std::nullopt,
           /*file_launch_url=*/std::nullopt, /*launch_files=*/{});
-  params.override_url = url;
+  params.override_url = url.value_or(GURL());
 
   LaunchApp(std::move(params),
             LaunchWebAppWindowSetting::kOverrideWithWebAppConfig,

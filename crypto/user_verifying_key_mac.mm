@@ -143,7 +143,7 @@ bool DoDeleteKey(std::vector<uint8_t> wrapped_key,
   if (!key_provider) {
     return false;
   }
-  return key_provider->DeleteSigningKey(wrapped_key);
+  return key_provider->DeleteSigningKeySlowly(wrapped_key);
 }
 
 class UserVerifyingKeyProviderMac : public UserVerifyingKeyProvider {
@@ -209,8 +209,8 @@ class UserVerifyingKeyProviderMac : public UserVerifyingKeyProvider {
   UnexportableKeyProvider::Config MakeUnexportableKeyConfig() {
     return {
         .keychain_access_group = config_.keychain_access_group,
-        .access_control =
-            UnexportableKeyProvider::Config::AccessControl::kUserPresence,
+        .access_control = UnexportableKeyProvider::Config::AccessControl::
+            kUserPresenceOrWatch,
     };
   }
   LAContext* __strong lacontext_;

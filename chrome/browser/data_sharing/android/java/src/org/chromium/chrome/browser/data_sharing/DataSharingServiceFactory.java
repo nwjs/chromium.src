@@ -13,6 +13,7 @@ import org.chromium.base.ResettersForTesting;
 import org.chromium.base.UserDataHost;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.data_sharing.DataSharingService;
+import org.chromium.components.data_sharing.DataSharingUIDelegate;
 
 /** This factory creates DataSharingService for the given {@link Profile}. */
 public final class DataSharingServiceFactory {
@@ -55,11 +56,13 @@ public final class DataSharingServiceFactory {
      */
     public static DataSharingUIDelegate getUIDelegate(Profile profile) {
         UserDataHost host = getForProfile(profile).getUserDataHost();
-        DataSharingUIDelegate uiDelegate = host.getUserData(DataSharingUIDelegateImpl.class);
-        return uiDelegate != null
-                ? uiDelegate
-                : host.setUserData(
-                        DataSharingUIDelegateImpl.class, new DataSharingUIDelegateImpl(profile));
+        DataSharingUIDelegateImpl uiDelegateImpl =
+                host.getUserData(DataSharingUIDelegateImpl.class);
+        if (uiDelegateImpl == null) {
+            return host.setUserData(
+                    DataSharingUIDelegateImpl.class, new DataSharingUIDelegateImpl(profile));
+        }
+        return uiDelegateImpl;
     }
 
     @NativeMethods

@@ -35,8 +35,8 @@ sys.path.append(
 # In the case that a Rust roll fails and you want to roll Clang alone, reset
 # this back to its previous value _AND_ set `OVERRIDE_CLANG_REVISION` below
 # to the `CLANG_REVISION` that was in place before the roll.
-RUST_REVISION = 'ab71ee7a9214c2793108a41efb065aa77aeb7326'
-RUST_SUB_REVISION = 1
+RUST_REVISION = '31e6e8c6c5b6ce62656c922c7384d3376018c980'
+RUST_SUB_REVISION = 2
 
 # If not None, this overrides the `CLANG_REVISION` in
 # //tools/clang/scripts/update.py in order to download a Rust toolchain that
@@ -141,7 +141,7 @@ def main():
 
     try:
         url = f'{platform_prefix}rust-toolchain-{version}.tar.xz'
-        DownloadAndUnpack(url, THIRD_PARTY_DIR)
+        DownloadAndUnpack(url, RUST_TOOLCHAIN_OUT_DIR)
         # The archive contains a VERSION file. Copy it to INSTALLED_VERSION as
         # the very last step in case the unpack fails after writing VERSION.
         shutil.copyfile(VERSION_SRC_PATH, VERSION_STAMP_PATH)

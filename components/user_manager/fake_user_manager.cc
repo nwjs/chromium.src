@@ -97,7 +97,7 @@ const User* FakeUserManager::AddArcKioskAppUser(const AccountId& account_id) {
 const User* FakeUserManager::AddUserWithAffiliation(const AccountId& account_id,
                                                     bool is_affiliated) {
   User* user = User::CreateRegularUser(account_id, UserType::kRegular);
-  user->SetAffiliation(is_affiliated);
+  user->SetAffiliated(is_affiliated);
   user->set_username_hash(GetFakeUsernameHash(account_id));
   user_storage_.emplace_back(user);
   users_.push_back(user);
@@ -189,7 +189,7 @@ void FakeUserManager::UserLoggedIn(const AccountId& account_id,
         primary_user_ = user;
       }
       if (active_user_) {
-        NotifyUserAddedToSession(user, /*user_switch_pending=*/true);
+        NotifyUserAddedToSession(user);
       } else {
         active_user_ = user;
       }
@@ -360,10 +360,6 @@ bool FakeUserManager::IsEphemeralAccountIdByPolicy(
   return GetEphemeralModeConfig().IsAccountIdIncluded(account_id);
 }
 
-bool FakeUserManager::IsEnterpriseManaged() const {
-  return false;
-}
-
 bool FakeUserManager::IsDeviceLocalAccountMarkedForRemoval(
     const AccountId& account_id) const {
   return false;
@@ -378,23 +374,9 @@ bool FakeUserManager::IsDeprecatedSupervisedAccountId(
   return false;
 }
 
-void FakeUserManager::ScheduleResolveLocale(
-    const std::string& locale,
-    base::OnceClosure on_resolved_callback,
-    std::string* out_resolved_locale) const {
-  NOTIMPLEMENTED();
-  return;
-}
-
 bool FakeUserManager::IsValidDefaultUserImageId(int image_index) const {
   NOTIMPLEMENTED();
   return false;
-}
-
-MultiUserSignInPolicyController*
-FakeUserManager::GetMultiUserSignInPolicyController() {
-  NOTIMPLEMENTED();
-  return nullptr;
 }
 
 }  // namespace user_manager

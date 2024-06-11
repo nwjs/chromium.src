@@ -73,8 +73,9 @@ bool AutocompleteHistoryManager::OnGetSingleFieldSuggestions(
     const AutofillClient& client,
     OnSuggestionsReturnedCallback on_suggestions_returned,
     const SuggestionsContext& context) {
-  if (!field.should_autocomplete)
+  if (!field.should_autocomplete()) {
     return false;
+  }
 
   CancelPendingQueries();
 
@@ -130,14 +131,14 @@ void AutocompleteHistoryManager::CancelPendingQueries() {
 void AutocompleteHistoryManager::OnRemoveCurrentSingleFieldSuggestion(
     const std::u16string& field_name,
     const std::u16string& value,
-    PopupItemId popup_item_id) {
+    SuggestionType type) {
   if (profile_database_)
     profile_database_->RemoveFormValueForElementName(field_name, value);
 }
 
 void AutocompleteHistoryManager::OnSingleFieldSuggestionSelected(
     const std::u16string& value,
-    PopupItemId popup_item_id) {
+    SuggestionType type) {
   // Try to find the AutofillEntry associated with the given suggestion.
   auto last_entries_iter = last_entries_.find(value);
   if (last_entries_iter == last_entries_.end()) {
@@ -303,10 +304,10 @@ bool AutocompleteHistoryManager::IsFieldValueSaveable(
          !field.name().empty() && field.IsTextInputElement() &&
          !field.IsPasswordInputElement() &&
          field.form_control_type() != FormControlType::kInputNumber &&
-         field.should_autocomplete && !IsValidCreditCardNumber(field.value()) &&
-         !IsSSN(field.value()) &&
-         (field.properties_mask & kUserTyped || field.is_focusable) &&
-         field.role != FormFieldData::RoleAttribute::kPresentation;
+         field.should_autocomplete() &&
+         !IsValidCreditCardNumber(field.value()) && !IsSSN(field.value()) &&
+         (field.properties_mask() & kUserTyped || field.is_focusable()) &&
+         field.role() != FormFieldData::RoleAttribute::kPresentation;
 }
 
 }  // namespace autofill

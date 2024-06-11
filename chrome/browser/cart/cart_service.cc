@@ -533,7 +533,7 @@ void CartService::SetCartDiscountEnabled(bool enabled) {
   if (enabled) {
     StartGettingDiscount();
   } else {
-    // TODO(crbug.com/1207197): Use sequence checker instead.
+    // TODO(crbug.com/40181210): Use sequence checker instead.
     DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
     fetch_discount_worker_.reset();
   }
@@ -659,7 +659,7 @@ void CartService::Shutdown() {
 void CartService::OnHistoryDeletions(
     history::HistoryService* history_service,
     const history::DeletionInfo& deletion_info) {
-  // TODO(crbug.com/1157892): Add more fine-grained deletion of cart data when
+  // TODO(crbug.com/40161045): Add more fine-grained deletion of cart data when
   // history deletion happens.
   if (deletion_info.is_from_expiration()) {
     return;

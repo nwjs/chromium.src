@@ -10,6 +10,7 @@
 #import "base/ranges/algorithm.h"
 #import "components/autofill/core/browser/form_structure.h"
 #import "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
+#import "components/autofill/core/browser/payments_data_manager.h"
 #import "components/autofill/core/browser/personal_data_manager.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #import "components/autofill/core/browser/ui/payments/virtual_card_enroll_ui_model.h"
@@ -86,10 +87,7 @@ void AutofillBottomSheetTabHelper::ShowVirtualCardEnrollmentBottomSheet(
   [commands_handler_ showVirtualCardEnrollmentBottomSheet:model];
 }
 
-void AutofillBottomSheetTabHelper::ShowEditAddressBottomSheet(
-    const autofill::AutofillProfile* profile) {
-  address_profile_for_edit_ =
-      std::make_unique<autofill::AutofillProfile>(*profile);
+void AutofillBottomSheetTabHelper::ShowEditAddressBottomSheet() {
   [commands_handler_ showEditAddressBottomSheet];
 }
 
@@ -319,7 +317,7 @@ void AutofillBottomSheetTabHelper::OnFieldTypesDetermined(
     return;
   }
   if (auto* pdm = manager.client().GetPersonalDataManager();
-      pdm->GetCreditCardsToSuggest().empty()) {
+      pdm->payments_data_manager().GetCreditCardsToSuggest().empty()) {
     return;
   }
   std::vector<autofill::FieldRendererId> renderer_ids;
@@ -331,7 +329,7 @@ void AutofillBottomSheetTabHelper::OnFieldTypesDetermined(
   if (renderer_ids.empty()) {
     return;
   }
-  // TODO(crbug.com/1441921): Remove `frame` once `renderer_ids` are
+  // TODO(crbug.com/40266699): Remove `frame` once `renderer_ids` are
   // FieldGlobalIds.
   web::WebFrame* frame =
       static_cast<autofill::AutofillDriverIOS&>(manager.driver()).web_frame();

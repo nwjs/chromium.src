@@ -374,6 +374,7 @@ TEST_F(RecordHandlerUploadTest, SuccessfulInitiation) {
       .force_confirm = false};
 
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   EXPECT_CALL(mock_delegate_,
@@ -402,11 +403,13 @@ TEST_F(RecordHandlerUploadTest, SuccessfulInitiation) {
         std::move(callback).Run(Status::StatusOK());
       }));
 
-  handler_->HandleRecords(/*need_encryption_key=*/false,
-                          /*config_file_version=*/-1,
-                          std::vector(1, std::move(init_encrypted_record)),
-                          std::move(record_reservation), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+  handler_->HandleRecords(
+      /*need_encryption_key=*/false,
+      /*config_file_version=*/-1,
+      std::vector(1, std::move(init_encrypted_record)),
+      std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+      responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+      config_file_attached_event.repeating_cb());
   VerifyUploadRequestAndRespond();
   auto response = responder_event.result();
   EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -423,6 +426,7 @@ TEST_F(RecordHandlerUploadTest, SuccessfulNextStep) {
       .force_confirm = false};
 
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   EXPECT_CALL(mock_delegate_, DoInitiate).Times(0);
@@ -452,11 +456,13 @@ TEST_F(RecordHandlerUploadTest, SuccessfulNextStep) {
         EXPECT_FALSE(log_upload_event.upload_tracker().has_status());
         std::move(callback).Run(Status::StatusOK());
       }));
-  handler_->HandleRecords(/*need_encryption_key=*/false,
-                          /*config_file_version=*/-1,
-                          std::vector(1, std::move(next_step_encrypted_record)),
-                          std::move(record_reservation), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+  handler_->HandleRecords(
+      /*need_encryption_key=*/false,
+      /*config_file_version=*/-1,
+      std::vector(1, std::move(next_step_encrypted_record)),
+      std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+      responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+      config_file_attached_event.repeating_cb());
   VerifyUploadRequestAndRespond();
   auto response = responder_event.result();
   EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -473,6 +479,7 @@ TEST_F(RecordHandlerUploadTest, SuccessfulFinalize) {
       .force_confirm = false};
 
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   EXPECT_CALL(mock_delegate_, DoInitiate).Times(0);
@@ -499,11 +506,13 @@ TEST_F(RecordHandlerUploadTest, SuccessfulFinalize) {
         EXPECT_FALSE(log_upload_event.upload_tracker().has_status());
         std::move(callback).Run(Status::StatusOK());
       }));
-  handler_->HandleRecords(/*need_encryption_key=*/false,
-                          /*config_file_version=*/-1,
-                          std::vector(1, std::move(fin_encrypted_record)),
-                          std::move(record_reservation), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+  handler_->HandleRecords(
+      /*need_encryption_key=*/false,
+      /*config_file_version=*/-1,
+      std::vector(1, std::move(fin_encrypted_record)),
+      std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+      responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+      config_file_attached_event.repeating_cb());
   VerifyUploadRequestAndRespond();
   auto response = responder_event.result();
   EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -520,6 +529,7 @@ TEST_F(RecordHandlerUploadTest, AlreadyFinalized) {
       .force_confirm = false};
 
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   EXPECT_CALL(mock_delegate_, DoInitiate).Times(0);
@@ -528,11 +538,13 @@ TEST_F(RecordHandlerUploadTest, AlreadyFinalized) {
 
   EXPECT_CALL(*test_storage_, AddRecord).Times(0);
 
-  handler_->HandleRecords(/*need_encryption_key=*/false,
-                          /*config_file_version=*/-1,
-                          std::vector(1, std::move(fin_encrypted_record)),
-                          std::move(record_reservation), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+  handler_->HandleRecords(
+      /*need_encryption_key=*/false,
+      /*config_file_version=*/-1,
+      std::vector(1, std::move(fin_encrypted_record)),
+      std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+      responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+      config_file_attached_event.repeating_cb());
   VerifyUploadRequestAndRespond();
   auto response = responder_event.result();
   EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -549,6 +561,7 @@ TEST_F(RecordHandlerUploadTest, FailedProcessing) {
       .force_confirm = false};
 
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+  test::TestEvent<ConfigFile> config_file_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
   EXPECT_CALL(mock_delegate_, DoInitiate).Times(0);
@@ -579,11 +592,13 @@ TEST_F(RecordHandlerUploadTest, FailedProcessing) {
                   MatchError(Status(error::CANCELLED, "Failure by test"))));
         std::move(callback).Run(Status::StatusOK());
       }));
-  handler_->HandleRecords(/*need_encryption_key=*/false,
-                          /*config_file_version=*/-1,
-                          std::vector(1, std::move(next_step_encrypted_record)),
-                          std::move(record_reservation), responder_event.cb(),
-                          encryption_key_attached_event.repeating_cb());
+  handler_->HandleRecords(
+      /*need_encryption_key=*/false,
+      /*config_file_version=*/-1,
+      std::vector(1, std::move(next_step_encrypted_record)),
+      std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+      responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+      config_file_attached_event.repeating_cb());
   VerifyUploadRequestAndRespond();
   auto response = responder_event.result();
   EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -628,11 +643,14 @@ TEST_F(RecordHandlerUploadTest, RepeatedInitiationAttempts) {
     ScopedReservation record_reservation(init_encrypted_record.ByteSizeLong(),
                                          memory_resource_);
     test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+    test::TestEvent<ConfigFile> config_file_attached_event;
     test::TestEvent<CompletionResponse> responder_event;
     handler_->HandleRecords(
         /*need_encryption_key=*/false, /*config_file_version=*/-1,
         std::vector(1, init_encrypted_record), std::move(record_reservation),
-        responder_event.cb(), encryption_key_attached_event.repeating_cb());
+        /*enqueued_cb=*/base::DoNothing(), responder_event.cb(),
+        encryption_key_attached_event.repeating_cb(),
+        config_file_attached_event.repeating_cb());
     VerifyUploadRequestAndRespond();
     auto response = responder_event.result();
     EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -699,12 +717,15 @@ TEST_F(RecordHandlerUploadTest, InitiationFailureTriggersRetry) {
     ScopedReservation record_reservation(init_encrypted_record.ByteSizeLong(),
                                          memory_resource_);
     test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+    test::TestEvent<ConfigFile> config_file_attached_event;
     test::TestEvent<CompletionResponse> responder_event;
-    handler_->HandleRecords(/*need_encryption_key=*/false,
-                            /*config_file_version=*/-1,
-                            std::vector(1, std::move(init_encrypted_record)),
-                            std::move(record_reservation), responder_event.cb(),
-                            encryption_key_attached_event.repeating_cb());
+    handler_->HandleRecords(
+        /*need_encryption_key=*/false,
+        /*config_file_version=*/-1,
+        std::vector(1, std::move(init_encrypted_record)),
+        std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+        responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+        config_file_attached_event.repeating_cb());
     VerifyUploadRequestAndRespond();
     auto response = responder_event.result();
     EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -754,12 +775,14 @@ TEST_F(RecordHandlerUploadTest, RepeatedNextStepAttempts) {
     ScopedReservation record_reservation(
         next_step_encrypted_record.ByteSizeLong(), memory_resource_);
     test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+    test::TestEvent<ConfigFile> config_file_attached_event;
     test::TestEvent<CompletionResponse> responder_event;
-    handler_->HandleRecords(/*need_encryption_key=*/false,
-                            /*config_file_version=*/-1,
-                            std::vector(1, next_step_encrypted_record),
-                            std::move(record_reservation), responder_event.cb(),
-                            encryption_key_attached_event.repeating_cb());
+    handler_->HandleRecords(
+        /*need_encryption_key=*/false,
+        /*config_file_version=*/-1, std::vector(1, next_step_encrypted_record),
+        std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+        responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+        config_file_attached_event.repeating_cb());
     VerifyUploadRequestAndRespond();
     auto response = responder_event.result();
     EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -828,12 +851,14 @@ TEST_F(RecordHandlerUploadTest, NextStepFailureTriggersRetry) {
     ScopedReservation record_reservation(
         next_step_encrypted_record.ByteSizeLong(), memory_resource_);
     test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+    test::TestEvent<ConfigFile> config_file_attached_event;
     test::TestEvent<CompletionResponse> responder_event;
     handler_->HandleRecords(
         /*need_encryption_key=*/false, /*config_file_version=*/-1,
         std::vector(1, std::move(next_step_encrypted_record)),
-        std::move(record_reservation), responder_event.cb(),
-        encryption_key_attached_event.repeating_cb());
+        std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+        responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+        config_file_attached_event.repeating_cb());
     VerifyUploadRequestAndRespond();
     auto response = responder_event.result();
     EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -882,11 +907,14 @@ TEST_F(RecordHandlerUploadTest, RepeatedFinalizeAttempts) {
     ScopedReservation record_reservation(fin_encrypted_record.ByteSizeLong(),
                                          memory_resource_);
     test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+    test::TestEvent<ConfigFile> config_file_attached_event;
     test::TestEvent<CompletionResponse> responder_event;
     handler_->HandleRecords(
         /*need_encryption_key=*/false, /*config_file_version=*/-1,
         std::vector(1, fin_encrypted_record), std::move(record_reservation),
-        responder_event.cb(), encryption_key_attached_event.repeating_cb());
+        /*enqueued_cb=*/base::DoNothing(), responder_event.cb(),
+        encryption_key_attached_event.repeating_cb(),
+        config_file_attached_event.repeating_cb());
     VerifyUploadRequestAndRespond();
     auto response = responder_event.result();
     EXPECT_THAT(response, ResponseEquals(expected_response));
@@ -951,12 +979,15 @@ TEST_F(RecordHandlerUploadTest, FinalizeFailureTriggersRetry) {
     ScopedReservation record_reservation(fin_encrypted_record.ByteSizeLong(),
                                          memory_resource_);
     test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
+    test::TestEvent<ConfigFile> config_file_attached_event;
     test::TestEvent<CompletionResponse> responder_event;
-    handler_->HandleRecords(/*need_encryption_key=*/false,
-                            /*config_file_version=*/-1,
-                            std::vector(1, std::move(fin_encrypted_record)),
-                            std::move(record_reservation), responder_event.cb(),
-                            encryption_key_attached_event.repeating_cb());
+    handler_->HandleRecords(
+        /*need_encryption_key=*/false,
+        /*config_file_version=*/-1,
+        std::vector(1, std::move(fin_encrypted_record)),
+        std::move(record_reservation), /*enqueued_cb=*/base::DoNothing(),
+        responder_event.cb(), encryption_key_attached_event.repeating_cb(),
+        config_file_attached_event.repeating_cb());
     VerifyUploadRequestAndRespond();
     auto response = responder_event.result();
     EXPECT_THAT(response, ResponseEquals(expected_response));

@@ -138,12 +138,10 @@ PlusAddressWebDataService::GetSyncControllerDelegate() {
 }
 
 void PlusAddressWebDataService::NotifyOnWebDataChangedBySync(
-    std::vector<PlusAddressSyncDataChange> changes) {
+    std::vector<PlusAddressDataChange> changes) {
   CHECK(ui_task_runner_->RunsTasksInCurrentSequence());
   for (Observer& o : observers_) {
-    for (const PlusAddressSyncDataChange& change : changes) {
-      o.OnWebDataChangedBySync(change);
-    }
+    o.OnWebDataChangedBySync(changes);
   }
 }
 

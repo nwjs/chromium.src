@@ -49,6 +49,7 @@ base::TimeDelta GetDefaultLocalChangeNudgeDelay(ModelType model_type) {
       return kVeryBigLocalChangeNudgeDelay;
     case SESSIONS:
     case HISTORY:
+    case COOKIES:
       // Sessions is the type that causes the most commit traffic. It gets a
       // custom nudge delay, tuned for a reasonable trade-off between traffic
       // and freshness.
@@ -171,6 +172,7 @@ bool CanGetCommitsFromExtensions(ModelType model_type) {
     case COLLABORATION_GROUP:
     case PLUS_ADDRESS:
     case COMPARE:
+    case COOKIES:
       return false;
     case UNSPECIFIED:
       NOTREACHED();
@@ -271,9 +273,9 @@ bool DataTypeTracker::IsSyncRequired() const {
 }
 
 bool DataTypeTracker::IsGetUpdatesRequired() const {
-  // TODO(crbug.com/926184): Maybe this shouldn't check IsInitialSyncRequired():
-  // The initial sync is done in a configuration cycle, while this method
-  // refers to normal cycles.
+  // TODO(crbug.com/40611499): Maybe this shouldn't check
+  // IsInitialSyncRequired(): The initial sync is done in a configuration cycle,
+  // while this method refers to normal cycles.
   return !IsBlocked() &&
          (HasRefreshRequestPending() || HasPendingInvalidation() ||
           IsInitialSyncRequired() || IsSyncRequiredToResolveConflict());

@@ -30,7 +30,8 @@
 #include "content/services/auction_worklet/public/mojom/auction_shared_storage_host.mojom.h"
 #include "content/services/auction_worklet/public/mojom/auction_worklet_service.mojom.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
-#include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom-forward.h"
+#include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
+#include "content/services/auction_worklet/public/mojom/real_time_reporting.mojom.h"
 #include "content/services/auction_worklet/set_bid_bindings.h"
 #include "content/services/auction_worklet/trusted_signals.h"
 #include "content/services/auction_worklet/trusted_signals_request_manager.h"
@@ -82,6 +83,20 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
 
   using PrivateAggregationRequests =
       std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>;
+
+  using RealTimeReportingContributions =
+      std::vector<auction_worklet::mojom::RealTimeReportingContributionPtr>;
+
+  // Classification of how trusted signals related to this worklet.
+  // This is used for histograms, so entries should not be reordered or
+  // otherwise renumbered.
+  enum class SignalsOriginRelation {
+    kNoTrustedSignals,
+    kSameOriginSignals,
+    kCrossOriginSignals,
+
+    kMaxValue = kCrossOriginSignals
+  };
 
   // Starts loading the worklet script on construction, as well as the trusted
   // bidding data, if necessary. Will then call the script's generateBid()
@@ -376,6 +391,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
             update_priority_signals_overrides,
         PrivateAggregationRequests pa_requests,
         PrivateAggregationRequests non_kanon_pa_requests,
+        RealTimeReportingContributions real_time_contributions,
         base::TimeDelta bidding_latency,
         mojom::RejectReason reject_reason,
         std::vector<std::string> error_msgs)>;
@@ -401,6 +417,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
           base::flat_map<std::string, mojom::PrioritySignalsDoublePtr>
               update_priority_signals_overrides,
           PrivateAggregationRequests pa_requests,
+          RealTimeReportingContributions real_time_contributions,
           mojom::RejectReason reject_reason,
           std::vector<std::string> error_msgs);
 
@@ -425,6 +442,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
           update_priority_signals_overrides;
       PrivateAggregationRequests pa_requests;
       PrivateAggregationRequests non_kanon_pa_requests;
+      RealTimeReportingContributions real_time_contributions;
       mojom::RejectReason reject_reason;
       std::vector<std::string> error_msgs;
     };
@@ -555,8 +573,8 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     void PostErrorBidCallbackToUserThread(
         GenerateBidCallbackInternal callback,
         base::TimeDelta bidding_latency,
-        PrivateAggregationRequests non_kanon_pa_requests =
-            PrivateAggregationRequests(),
+        PrivateAggregationRequests non_kanon_pa_requests,
+        RealTimeReportingContributions real_time_contributions,
         std::vector<std::string> error_msgs = std::vector<std::string>());
 
     static void PostResumeToUserThread(
@@ -582,6 +600,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
     mojom::AuctionWorkletPermissionsPolicyStatePtr permissions_policy_state_;
     const std::optional<GURL> wasm_helper_url_;
     const std::optional<GURL> trusted_bidding_signals_url_;
+    const std::optional<url::Origin> trusted_bidding_signals_origin_;
 
     // This must be above the ContextRecyclers, since they own
     // SharedStorageBindings, which have raw pointers to it.
@@ -606,9 +625,9 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
   void ResumeIfPaused();
   void Start();
 
-  void OnScriptDownloaded(WorkletLoader::Result worklet_script,
+  void OnScriptDownloaded(std::vector<WorkletLoader::Result> worklet_scripts,
                           std::optional<std::string> error_msg);
-  void OnWasmDownloaded(WorkletWasmLoader::Result worklet_script,
+  void OnWasmDownloaded(std::vector<WorkletWasmLoader::Result> worklet_scripts,
                         std::optional<std::string> error_msg);
   void MaybeRecordCodeWait();
   void RunReadyTasks();
@@ -677,6 +696,7 @@ class CONTENT_EXPORT BidderWorklet : public mojom::BidderWorklet,
           update_priority_signals_overrides,
       PrivateAggregationRequests pa_requests,
       PrivateAggregationRequests non_kanon_pa_requests,
+      RealTimeReportingContributions real_time_contributions,
       base::TimeDelta bidding_latency,
       mojom::RejectReason reject_reason,
       std::vector<std::string> error_msgs);

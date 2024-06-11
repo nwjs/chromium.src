@@ -614,15 +614,21 @@ class ComputedStyle final : public ComputedStyleBase {
   // content
   ContentData* GetContentData() const { return ContentInternal().Get(); }
 
-  // line-clamp and -webkit-line-clamp
-  bool HasStandardLineClamp() const { return StandardLineClamp() != 0; }
+  // Returns the value of `line-clamp` or of `-webkit-line-clamp`, whichever
+  // applies (i.e. `-webkit-line-clamp` doesn't apply without
+  // `display: -webkit-box`). To get the raw value of the properties, use
+  // `StandardLineClamp()` or `WebkitLineClamp()`.
   int LineClamp() const {
-    if (HasStandardLineClamp()) {
+    if (StandardLineClamp() != 0) {
       DCHECK(RuntimeEnabledFeatures::CSSLineClampEnabled());
       return StandardLineClamp();
     }
-    return WebkitLineClamp();
+    if (IsDeprecatedWebkitBox() && BoxOrient() == EBoxOrient::kVertical) {
+      return WebkitLineClamp();
+    }
+    return 0;
   }
+  // Returns whether `line-clamp` or `-webkit-line-clamp` are set and apply.
   bool HasLineClamp() const { return LineClamp() != 0; }
 
   bool OpacityChangedStackingContext(const ComputedStyle& other) const {
@@ -721,7 +727,13 @@ class ComputedStyle final : public ComputedStyleBase {
     return ScrollbarWidth() != EScrollbarWidth::kAuto || ScrollbarColor();
   }
 
-  bool HasCustomScrollbarStyle(const Document& document) const;
+  bool HasCustomScrollbarStyle(Element* element) const;
+
+  // Use UsedScrollbarWidth() instead of ScrollbarWidth() to get the used value.
+  EScrollbarWidth UsedScrollbarWidth() const;
+
+  // Use UsedScrollbarColor() instead of ScrollbarColor() to get the used value.
+  StyleScrollbarColor* UsedScrollbarColor() const;
 
   // shape-outside (aka -webkit-shape-outside)
   ShapeValue* ShapeOutside() const { return ShapeOutsideInternal().Get(); }
@@ -831,6 +843,7 @@ class ComputedStyle final : public ComputedStyleBase {
   bool HighlightPseudoElementStylesDependOnRelativeUnits() const;
   bool HighlightPseudoElementStylesDependOnContainerUnits() const;
   bool HighlightPseudoElementStylesDependOnViewportUnits() const;
+  bool HighlightPseudoElementStylesHaveVariableReferences() const;
 
   // font-size
   int FontSize() const { return GetFontDescription().ComputedPixelSize(); }
@@ -1152,9 +1165,6 @@ class ComputedStyle final : public ComputedStyleBase {
   using ComputedStyleBase::GetTextAlign;
   ETextAlign GetTextAlign(bool is_last_line) const;
 
-  // text-indent utility functions.
-  bool ShouldUseTextIndent(bool is_first_line) const;
-
   // text-transform utility functions.
   [[nodiscard]] String ApplyTextTransform(
       const String&,
@@ -1304,7 +1314,7 @@ class ComputedStyle final : public ComputedStyleBase {
 
   bool BorderVisuallyEqual(const ComputedStyle& o) const {
     auto BorderSideVisuallyEqual =
-        [](const blink::Color& color, const blink::Color& other_color,
+        [&](const StyleColor& color, const StyleColor& other_color,
            EBorderStyle style, EBorderStyle other_style, int width,
            int other_width) -> bool {
       if (style == EBorderStyle::kNone && other_style == EBorderStyle::kNone) {
@@ -1315,26 +1325,22 @@ class ComputedStyle final : public ComputedStyleBase {
         return true;
       }
       return width == other_width && style == other_style &&
-             color == other_color;
+             ResolvedColor(color) == o.ResolvedColor(other_color);
     };
 
-    return BorderSideVisuallyEqual(ResolvedColor(BorderTopColor()),
-                                   o.ResolvedColor(o.BorderTopColor()),
+    return BorderSideVisuallyEqual(BorderTopColor(), o.BorderTopColor(),
                                    BorderTopStyle(), o.BorderTopStyle(),
                                    BorderTopWidthInternal(),
                                    o.BorderTopWidthInternal()) &&
-           BorderSideVisuallyEqual(ResolvedColor(BorderRightColor()),
-                                   o.ResolvedColor(o.BorderRightColor()),
+           BorderSideVisuallyEqual(BorderRightColor(), o.BorderRightColor(),
                                    BorderRightStyle(), o.BorderRightStyle(),
                                    BorderRightWidthInternal(),
                                    o.BorderRightWidthInternal()) &&
-           BorderSideVisuallyEqual(ResolvedColor(BorderBottomColor()),
-                                   o.ResolvedColor(o.BorderBottomColor()),
+           BorderSideVisuallyEqual(BorderBottomColor(), o.BorderBottomColor(),
                                    BorderBottomStyle(), o.BorderBottomStyle(),
                                    BorderBottomWidthInternal(),
                                    o.BorderBottomWidthInternal()) &&
-           BorderSideVisuallyEqual(ResolvedColor(BorderLeftColor()),
-                                   o.ResolvedColor(o.BorderLeftColor()),
+           BorderSideVisuallyEqual(BorderLeftColor(), o.BorderLeftColor(),
                                    BorderLeftStyle(), o.BorderLeftStyle(),
                                    BorderLeftWidthInternal(),
                                    o.BorderLeftWidthInternal()) &&
@@ -1345,12 +1351,11 @@ class ComputedStyle final : public ComputedStyleBase {
     return BorderImage().Outset() == o.BorderImage().Outset();
   }
 
-  CORE_EXPORT void AdjustDiffForClipPath(const ComputedStyle& o,
-                                         StyleDifference& diff) const;
+  void AdjustDiffForClipPath(const ComputedStyle& o,
+                             StyleDifference& diff) const;
 
-  CORE_EXPORT void AdjustDiffForBackgroundVisuallyEqual(
-      const ComputedStyle& o,
-      StyleDifference& diff) const;
+  void AdjustDiffForBackgroundVisuallyEqual(const ComputedStyle& o,
+                                            StyleDifference& diff) const;
 
   bool CanRenderBorderImage() const;
 
@@ -2555,8 +2560,8 @@ class ComputedStyle final : public ComputedStyleBase {
   bool DiffNeedsPaintInvalidationForPaintImage(const StyleImage&,
                                                const ComputedStyle& other,
                                                const Document&) const;
-  CORE_EXPORT void UpdatePropertySpecificDifferences(const ComputedStyle& other,
-                                                     StyleDifference&) const;
+  void UpdatePropertySpecificDifferences(const ComputedStyle& other,
+                                         StyleDifference&) const;
   bool PotentialCompositingReasonsFor3DTransformChanged(
       const ComputedStyle& other) const;
 
@@ -2636,66 +2641,16 @@ class ComputedStyle final : public ComputedStyleBase {
                             unforced_color);
   }
 
+  // Returns true if the value for "display" is "none" on the scrollbar
+  // pseudo-element.
+  bool ScrollbarIsHiddenByCustomStyle(Element* element) const;
+
   // Derived flags:
   bool CalculateIsStackingContextWithoutContainment() const;
 
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesRespectsTransformAnimation);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsTransform);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesRespectsScaleAnimation);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesRespectsRotateAnimation);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesRespectsTranslateAnimation);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsOpacity);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsFilter);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsBackdropFilter);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsInlineTransform);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsBackfaceVisibility);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsWillChange);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsUsedStylePreserve3D);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsOverflow);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      UpdatePropertySpecificDifferencesCompositingReasonsContainsPaint);
-  FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest,
-                           UpdatePropertySpecificDifferencesHasAlpha);
   FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest, CustomPropertiesEqual_Values);
   FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest, CustomPropertiesEqual_Data);
-  FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest, InitialVariableNames);
-  FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest,
-                           InitialAndInheritedAndNonInheritedVariableNames);
-  FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest,
-                           GetVariableNamesWithInitialData_Invalidation);
   FRIEND_TEST_ALL_PREFIXES(StyleCascadeTest, ForcedVisitedBackgroundColor);
-  FRIEND_TEST_ALL_PREFIXES(
-      ComputedStyleTest,
-      TextDecorationEqualDoesNotRequireRecomputeInkOverflow);
-  FRIEND_TEST_ALL_PREFIXES(ComputedStyleTest,
-                           TextDecorationNotEqualRequiresRecomputeInkOverflow);
   FRIEND_TEST_ALL_PREFIXES(StyleEngineTest, ScrollbarStyleNoExcessiveCaching);
   FRIEND_TEST_ALL_PREFIXES(PermissionShadowElementTest,
                            PropagateCSSPropertyInnerElement);
@@ -2709,6 +2664,9 @@ inline bool ComputedStyle::HasAnyHighlightPseudoElementStyles() const {
   static_assert(kPseudoIdSelection >= kFirstPublicPseudoId &&
                     kPseudoIdSelection <= kLastTrackedPublicPseudoId,
                 "kPseudoIdSelection must be public");
+  static_assert(kPseudoIdSearchText >= kFirstPublicPseudoId &&
+                    kPseudoIdSearchText <= kLastTrackedPublicPseudoId,
+                "kPseudoIdSearchText must be public");
   static_assert(kPseudoIdTargetText >= kFirstPublicPseudoId &&
                     kPseudoIdTargetText <= kLastTrackedPublicPseudoId,
                 "kPseudoIdTargetText must be public");
@@ -2723,6 +2681,7 @@ inline bool ComputedStyle::HasAnyHighlightPseudoElementStyles() const {
                 "kPseudoIdHighlight must be public");
 
   const unsigned mask = (1 << (kPseudoIdSelection - kFirstPublicPseudoId)) |
+                        (1 << (kPseudoIdSearchText - kFirstPublicPseudoId)) |
                         (1 << (kPseudoIdTargetText - kFirstPublicPseudoId)) |
                         (1 << (kPseudoIdSpellingError - kFirstPublicPseudoId)) |
                         (1 << (kPseudoIdGrammarError - kFirstPublicPseudoId)) |

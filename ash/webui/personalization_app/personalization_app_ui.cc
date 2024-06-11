@@ -523,9 +523,6 @@ void PersonalizationAppUI::AddBooleans(content::WebUIDataSource* source) {
       "isRgbKeyboardSupported",
       Shell::Get()->rgb_keyboard_manager()->IsRgbKeyboardSupported());
 
-  source->AddBoolean("isScreenSaverDurationEnabled",
-                     features::IsScreenSaverDurationEnabled());
-
   source->AddBoolean("isPersonalizationJellyEnabled",
                      features::IsPersonalizationJellyEnabled());
 
@@ -538,9 +535,6 @@ void PersonalizationAppUI::AddBooleans(content::WebUIDataSource* source) {
   source->AddBoolean("isTimeOfDayWallpaperEnabled",
                      features::IsTimeOfDayWallpaperEnabled());
 
-  source->AddBoolean("isTimeOfDayWallpaperForcedAutoScheduleEnabled",
-                     features::IsTimeOfDayWallpaperForcedAutoScheduleEnabled());
-
   source->AddBoolean("isCrosPrivacyHubLocationEnabled",
                      features::IsCrosPrivacyHubLocationEnabled());
 
@@ -552,6 +546,14 @@ void PersonalizationAppUI::AddBooleans(content::WebUIDataSource* source) {
                          common_sea_pen_requirements);
   source->AddBoolean("isSeaPenTextInputEnabled",
                      ::ash::features::IsSeaPenTextInputEnabled() &&
+                         manta::features::IsMantaServiceEnabled() &&
+                         common_sea_pen_requirements);
+  source->AddBoolean("isSeaPenUINextEnabled",
+                     ::ash::features::IsSeaPenUINextEnabled() &&
+                         manta::features::IsMantaServiceEnabled() &&
+                         common_sea_pen_requirements);
+  source->AddBoolean("isSeaPenEnterpriseEnabled",
+                     ::ash::features::IsSeaPenEnterpriseEnabled() &&
                          manta::features::IsMantaServiceEnabled() &&
                          common_sea_pen_requirements);
   source->AddBoolean("isLacrosEnabled",

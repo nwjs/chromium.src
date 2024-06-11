@@ -123,7 +123,8 @@ views::View* DownloadShelfView::GetView() {
   return this;
 }
 
-gfx::Size DownloadShelfView::CalculatePreferredSize() const {
+gfx::Size DownloadShelfView::CalculatePreferredSize(
+    const views::SizeBounds& /*available_size*/) const {
   gfx::Size prefsize(kEndPadding + kStartPadding + kCloseAndLinkPadding, 0);
 
   // Enlarge the preferred size enough to hold various other views side-by-side.
@@ -271,7 +272,7 @@ void DownloadShelfView::RemoveDownloadView(View* view) {
 void DownloadShelfView::ConfigureButtonForTheme(views::MdTextButton* button) {
   const auto* const cp = GetColorProvider();
   DCHECK(cp);
-  button->SetBgColorOverride(cp->GetColor(kColorDownloadShelfButtonBackground));
+  button->SetBgColorIdOverride(kColorDownloadShelfButtonBackground);
   button->SetEnabledTextColors(cp->GetColor(kColorDownloadShelfButtonText));
 }
 

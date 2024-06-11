@@ -114,7 +114,7 @@ bool CanRendererActOnBehalfOfExtension(
 
   // Did `render_process_id` run a content script or user script from
   // `extension_id`?
-  // TODO(https://crbug.com/1186557): Ideally, we'd only check content script/
+  // TODO(crbug.com/40055126): Ideally, we'd only check content script/
   // user script status if the renderer claimed to be acting on behalf of the
   // corresponding type (e.g. mojom::ContextType::kContentScript). We evaluate
   // this later in ProcessMap::CanProcessHostContextType(), but we could be
@@ -126,10 +126,18 @@ bool CanRendererActOnBehalfOfExtension(
     return true;
   }
 
+  // CanRendererHostExtensionOrigin() needs to know if the extension is
+  // sandboxed, so check the sandbox flags if this request is for an extension
+  // frame. Note that extension workers cannot be sandboxed since workers aren't
+  // supported in opaque origins.
+  bool is_sandboxed =
+      render_frame_host &&
+      render_frame_host->IsSandboxed(network::mojom::WebSandboxFlags::kOrigin);
+
   // Can `render_process_id` host a chrome-extension:// origin (frame, worker,
   // etc.)?
   if (util::CanRendererHostExtensionOrigin(render_process_host.GetID(),
-                                           extension_id)) {
+                                           extension_id, is_sandboxed)) {
     return true;
   }
 
@@ -179,7 +187,7 @@ std::optional<bad_message::BadMessageReason> ValidateRequest(
     return bad_message::EFD_INVALID_EXTENSION_ID_FOR_PROCESS;
   }
 
-  // TODO(https://crbug.com/1186447): Validate `params.user_gesture`.
+  // TODO(crbug.com/40055124): Validate `params.user_gesture`.
 
   return std::nullopt;
 }
@@ -299,7 +307,7 @@ void ExtensionFunctionDispatcher::Dispatch(
     return;
   }
 
-  // TODO(https://crbug.com/1227812): Validate (or remove) `params.source_url`.
+  // TODO(crbug.com/40056469): Validate (or remove) `params.source_url`.
   DispatchWithCallbackInternal(
       *params, &frame, *frame.GetProcess(),
       base::BindOnce(
@@ -408,10 +416,13 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
     extension = registry->enabled_extensions().GetHostedAppByURL(
         *render_frame_host_url);
   }
-
+  //commented out because of  eeae1106f478:
+  //[Extensions] Restructure extensions::ProcessMap
+  //breaking react-devtools-extension
+#if 0
   if (!process_map->CanProcessHostContextType(extension, render_process_host,
                                               params.context_type)) {
-    // TODO(https://crbug.com/1186557): Ideally, we'd be able to mark some
+    // TODO(crbug.com/40055126): Ideally, we'd be able to mark some
     // of these as bad messages. We can't do that in all cases because there
     // are times some of these might legitimately fail (for instance, during
     // extension unload), but there are others that should never, ever happen
@@ -422,9 +433,9 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
                             kInvalidContextType);
     return;
   }
-
+#endif
   if (params.context_type == mojom::ContextType::kUntrustedWebUi) {
-    // TODO(https://crbug.com/1435575): We should, at minimum, be using an
+    // TODO(crbug.com/40265193): We should, at minimum, be using an
     // origin here. It'd be even better if we could have a more robust way of
     // checking that a process can host untrusted webui.
     if (extension || !render_frame_host_url ||
@@ -675,7 +686,7 @@ ExtensionFunctionDispatcher::CreateExtensionFunction(
   // We can't use the frame URL in the case of a worker-based request (where
   // there is no frame).
   if (is_worker_request) {
-    // TODO(https://crbug.com/1227812): Validate this URL further. Or, better,
+    // TODO(crbug.com/40056469): Validate this URL further. Or, better,
     // remove it from `mojom::RequestParams`.
     function->set_source_url(params.source_url);
   } else {

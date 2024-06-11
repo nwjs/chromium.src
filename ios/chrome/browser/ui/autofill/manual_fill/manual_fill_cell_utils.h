@@ -38,6 +38,13 @@ struct ManualFillCellView {
     kLabeledChipButton,
     // A chip button that is not the first of its group and is unlabeled.
     kOtherChipButton,
+    // A grey line to separate the header from the rest of the cell.
+    kHeaderSeparator,
+    // The view presenting the instructions on how to use virtual cards.
+    kVirtualCardInstructions,
+    // A grey line to separate the virtual card instruction view from the rest
+    // of the cell.
+    kVirtualCardInstructionsSeparator,
     // Any other element not falling into one of the above types.
     kOther,
   };
@@ -53,6 +60,9 @@ struct ManualFillCellView {
     return !(*this == rhs);
   }
 };
+
+// Returns the horizontal spacing to use between the different chip buttons.
+CGFloat GetHorizontalSpacingBetweenChips();
 
 // Creates a blank button in chip style, for the given `action` and `target`.
 UIButton* CreateChipWithSelectorAndTarget(SEL action, id target);
@@ -107,6 +117,8 @@ void AppendHorizontalConstraintsForViews(
 
 // Adds constraints like `AppendHorizontalConstraintsForViews` above
 // but with given `options`.
+// TODO(crbug.com/326398845): Remove the `margin` parameter once the Keyboard
+// Accessory Upgrade feature has launched both on iPhone and iPad.
 void AppendHorizontalConstraintsForViews(
     NSMutableArray<NSLayoutConstraint*>* constraints,
     NSArray<UIView*>* views,
@@ -114,11 +126,17 @@ void AppendHorizontalConstraintsForViews(
     CGFloat margin,
     AppendConstraints options);
 
-// Adds all baseline anchor constraints for the given `views` to match the first
-// one. Constraints are not activated.
-void AppendEqualBaselinesConstraints(
+// Creates and adds constraints to `constraints` with the goal of laying as many
+// `views` as possible horizontally. The available horizontal space is
+// determined by the width of `layout_guide`. Whenever there's not enough
+// horizontal space left to welcome the next view, a new row of views is
+// generated below. The starting view of every row is then added to
+// `vertical_lead_views`.
+void LayViewsHorizontallyWhenPossible(
+    NSArray<UIView*>* views,
+    UILayoutGuide* guide,
     NSMutableArray<NSLayoutConstraint*>* constraints,
-    NSArray<UIView*>* views);
+    NSMutableArray<UIView*>* vertical_lead_views);
 
 // Creates a blank label with autoresize mask off and adjustable font size.
 UILabel* CreateLabel();
@@ -128,13 +146,30 @@ UILabel* CreateLabel();
 NSMutableAttributedString* CreateHeaderAttributedString(NSString* title,
                                                         NSString* subtitle);
 
-// Creates a gray horizontal line separator, with the same margin as the other
-// components here. The gray line is added to the given `container` and proper
-// constraints are enabled to keep the line at the bottom of the container and
-// within the horizontal safe area.
+// Creates an horizontal stack view containing an icon, a label and an overflow
+// menu button. Used to create the different manual fill cells' header. `label`
+// should never be `nil`.
+UIStackView* CreateHeaderView(UIView* icon,
+                              UILabel* label,
+                              UIButton* overflow_menu_button);
+
+// Creates and configures the overflow menu button that's displayed in the
+// cell's header.
+UIButton* CreateOverflowMenuButton();
+
+// Creates a gray horizontal line separator. The gray line is added to the given
+// `container` and proper constraints are enabled to keep the line in the
+// desired location within the horizontal safe area.
 UIView* CreateGraySeparatorForContainer(UIView* container);
 
+// Creates the button used to fill the current form with the manual fill entity
+// data.
+UIButton* CreateAutofillFormButton();
+
 // Creates a layout guide for the cell and adds it to the given 'content_view`.
-UILayoutGuide* AddLayoutGuideToContentView(UIView* content_view);
+// `cell_has_header` indicates whether or not the layout guide should take a
+// header into account.
+UILayoutGuide* AddLayoutGuideToContentView(UIView* content_view,
+                                           BOOL cell_has_header);
 
 #endif  // IOS_CHROME_BROWSER_UI_AUTOFILL_MANUAL_FILL_MANUAL_FILL_CELL_UTILS_H_

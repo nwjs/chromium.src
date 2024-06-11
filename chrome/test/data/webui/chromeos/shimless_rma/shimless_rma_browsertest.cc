@@ -125,6 +125,56 @@ IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, CalibrationRunPage) {
           "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, CalibrationSetupPage) {
+  RunTest("chromeos/shimless_rma/reimaging_calibration_setup_page_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, FirmwareUpdatePage) {
+  RunTest("chromeos/shimless_rma/reimaging_firmware_update_page_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, RestockPage) {
+  RunTest("chromeos/shimless_rma/wrapup_restock_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, DeviceInformationPage) {
+  RunTest("chromeos/shimless_rma/reimaging_device_information_page_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, ShimlessRmaAppPage) {
+  RunTest("chromeos/shimless_rma/shimless_rma_app_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, ProvisioningPage) {
+  RunTest("chromeos/shimless_rma/reimaging_provisioning_page_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, RepairComponentChip) {
+  RunTest("chromeos/shimless_rma/repair_component_chip_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, FinalizePage) {
+  RunTest("chromeos/shimless_rma/wrapup_finalize_page_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, RepairCompletePage) {
+  RunTest("chromeos/shimless_rma/wrapup_repair_complete_page_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, WaitForManualWpEnable) {
+  RunTest("chromeos/shimless_rma/wrapup_wait_for_manual_wp_enable_page_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ShimlessRmaBrowserTest, Shimless3pDiag) {
+  RunTest("chromeos/shimless_rma/shimless_3p_diag_test.js", "mocha.run()");
+}
+
 }  // namespace
 
 }  // namespace ash

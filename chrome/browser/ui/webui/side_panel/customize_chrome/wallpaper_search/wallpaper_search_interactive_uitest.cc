@@ -15,6 +15,7 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/interaction/webcontents_interaction_test_util.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/search/ntp_features.h"
@@ -42,9 +43,11 @@ class WallpaperSearchInteractiveTest : public InteractiveBrowserTest {
                               optimization_guide::features::
                                   kOptimizationGuideModelExecution,
                               features::kChromeRefresh2023,
-                              features::kChromeWebuiRefresh2023,
-                              ntp_features::kNtpWallpaperSearchButton},
-        /*disabled_features=*/{});
+                              ntp_features::kNtpWallpaperSearchButton,
+                              optimization_guide::features::internal::
+                                  kWallpaperSearchSettingsVisibility},
+        /*disabled_features=*/{
+            optimization_guide::features::internal::kWallpaperSearchGraduated});
     InteractiveBrowserTest::SetUp();
   }
 
@@ -54,6 +57,20 @@ class WallpaperSearchInteractiveTest : public InteractiveBrowserTest {
         IdentityManagerFactory::GetForProfile(browser()->profile());
     signin::MakePrimaryAccountAvailable(identity_manager, "user@example.com",
                                         signin::ConsentLevel::kSignin);
+  }
+
+  InteractiveTestApi::MultiStep WaitForElementExists(
+      const ui::ElementIdentifier& contents_id,
+      const DeepQuery& element,
+      const bool& exists) {
+    DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kElementExists);
+    StateChange element_exists;
+    element_exists.type =
+        exists ? StateChange::Type::kExists : StateChange::Type::kDoesNotExist;
+    element_exists.where = element;
+    element_exists.event = kElementExists;
+
+    return WaitForStateChange(contents_id, element_exists);
   }
 
   InteractiveTestApi::MultiStep WaitForElementVisible(
@@ -278,14 +295,8 @@ class WallpaperSearchOptimizationGuideInteractiveTest
   base::CallbackListSubscription subscription_;
 };
 
-#if BUILDFLAG(IS_MAC)
-// TODO(crbug.com/332992599):
-#define MAYBE_CustomizeButtonsWorkTogether DISABLED_CustomizeButtonsWorkTogether
-#else
-#define MAYBE_CustomizeButtonsWorkTogether CustomizeButtonsWorkTogether
-#endif
 IN_PROC_BROWSER_TEST_F(WallpaperSearchOptimizationGuideInteractiveTest,
-                       MAYBE_CustomizeButtonsWorkTogether) {
+                       CustomizeButtonsWorkTogether) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kReopenedCustomizeChromeElementId);
 
   const DeepQuery kCustomizeChromeButton = {"ntp-app", "#customizeButton"};
@@ -393,17 +404,10 @@ IN_PROC_BROWSER_TEST_F(WallpaperSearchOptimizationGuideInteractiveTest,
 // which cannot be easily tested here. LaCrOS has a separate feedback
 // browser test which gives us some coverage.
 #if !BUILDFLAG(IS_CHROMEOS)
-#if BUILDFLAG(IS_MAC)
-// TODO(crbug.com/332992599):
-#define MAYBE_FeedbackDialogShowsOnThumbsDown \
-  DISABLED_FeedbackDialogShowsOnThumbsDown
-#else
-#define MAYBE_FeedbackDialogShowsOnThumbsDown FeedbackDialogShowsOnThumbsDown
-#endif
 IN_PROC_BROWSER_TEST_F(WallpaperSearchOptimizationGuideInteractiveTest,
-                       MAYBE_FeedbackDialogShowsOnThumbsDown) {
+                       FeedbackDialogShowsOnThumbsDown) {
   EXPECT_CALL(mock_optimization_guide_keyed_service(),
-              ShouldFeatureBeCurrentlyAllowedForLogging(
+              ShouldFeatureBeCurrentlyAllowedForFeedback(
                   optimization_guide::UserVisibleFeatureKey::kWallpaperSearch))
       .WillOnce(testing::Return(true));
 
@@ -481,6 +485,7 @@ IN_PROC_BROWSER_TEST_F(WallpaperSearchOptimizationGuideInteractiveTest,
       Steps(Do(base::BindLambdaForTesting([&]() { offline = true; })),
             OpenNewTabPage(), OpenWallpaperSearchAt(kCustomizeChromeElementId)),
       // 2. Wait for the error CTA to show.
+      WaitForElementExists(kCustomizeChromeElementId, kErrorCTA, true),
       WaitForElementVisible(kCustomizeChromeElementId, kErrorCTA),
       // 3. Assert that the themes page isn't showing yet.
       CheckJsResultAt(kCustomizeChromeElementId, kThemesPage,
@@ -494,6 +499,5 @@ IN_PROC_BROWSER_TEST_F(WallpaperSearchOptimizationGuideInteractiveTest,
             ClickElement(kCustomizeChromeElementId, kWallpaperSearchTile)),
       // 7. Ensure that the error state went away.
       Steps(WaitForElementVisible(kCustomizeChromeElementId, kSubmitButton),
-            CheckJsResultAt(kCustomizeChromeElementId, kErrorCTA,
-                            "(el) => el.offsetParent === null")));
+            WaitForElementExists(kCustomizeChromeElementId, kErrorCTA, false)));
 }

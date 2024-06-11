@@ -3,14 +3,18 @@
 // found in the LICENSE file.
 
 #include "base/test/run_until.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
+#include "chrome/browser/ui/lens/lens_overlay_invocation_source.h"
+#include "chrome/browser/ui/lens/lens_overlay_permission_utils.h"
 #include "chrome/browser/ui/tabs/tab_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/lens/lens_features.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -38,6 +42,19 @@ class LensWebUIBrowserTest : public WebUIMochaBrowserTest {
   void SetUpOnMainThread() override {
     WebUIMochaBrowserTest::SetUpOnMainThread();
     embedded_test_server()->StartAcceptingConnections();
+
+    // Permits sharing the page screenshot by default.
+    PrefService* prefs = browser()->profile()->GetPrefs();
+    prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, true);
+  }
+
+  void TearDownOnMainThread() override {
+    EXPECT_TRUE(embedded_test_server()->ShutdownAndWaitUntilComplete());
+    WebUIMochaBrowserTest::TearDownOnMainThread();
+
+    // Disallow sharing the page screenshot by default.
+    PrefService* prefs = browser()->profile()->GetPrefs();
+    prefs->SetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled, false);
   }
 
  private:
@@ -59,7 +76,7 @@ class LensOverlayTest : public LensWebUIBrowserTest {
     ASSERT_EQ(controller->state(), State::kOff);
 
     // Showing UI should eventually result in overlay state.
-    controller->ShowUI();
+    controller->ShowUI(lens::LensOverlayInvocationSource::kAppMenu);
     ASSERT_TRUE(base::test::RunUntil(
         [&]() { return controller->state() == State::kOverlay; }));
 
@@ -93,8 +110,30 @@ class LensOverlayTest : public LensWebUIBrowserTest {
   }
 };
 
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayBackgroundScrim) {
+  RunOverlayTest("lens/overlay/overlay_background_scrim_test.js",
+                 "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayCloseButton) {
   RunOverlayTest("lens/overlay/overlay_close_button_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayEscapeKey) {
+  RunOverlayTest("lens/overlay/overlay_escape_key_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayMoreOptionsButton) {
+  RunOverlayTest("lens/overlay/overlay_more_options_button_test.js",
+                 "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayScreenshot) {
+  RunOverlayTest("lens/overlay/overlay_screenshot_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, OverlayTheme) {
+  RunOverlayTest("lens/overlay/overlay_theme_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(LensOverlayTest, ManualRegionSelection) {
@@ -117,9 +156,26 @@ IN_PROC_BROWSER_TEST_F(LensOverlayTest, PostSelectionRenderer) {
   RunOverlayTest("lens/overlay/post_selection_renderer_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, FindWordsInRegion) {
+  RunOverlayTest("lens/overlay/find_words_in_region_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayTest, CubicBezier) {
+  RunOverlayTest("lens/overlay/cubic_bezier_test.js", "mocha.run()");
+}
+
 using LensSidePanelTest = LensOverlayTest;
 IN_PROC_BROWSER_TEST_F(LensSidePanelTest, SidePanelResultsFrame) {
   RunOverlayTest("lens/side_panel/results_frame_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(LensSidePanelTest, SearchboxBackButton) {
+  RunOverlayTest("lens/side_panel/searchbox_back_button_test.js",
+                 "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(LensSidePanelTest, SidePanelEscapeKey) {
+  RunOverlayTest("lens/side_panel/side_panel_escape_key_test.js",
+                 "mocha.run()");
+}
 }  // namespace

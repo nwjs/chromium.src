@@ -21,6 +21,7 @@
 #include "base/metrics/persistent_histogram_allocator.h"
 #include "base/metrics/persistent_memory_allocator.h"
 #include "base/observer_list.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/single_thread_task_runner.h"
@@ -392,7 +393,7 @@ ChildProcessTerminationInfo BrowserChildProcessHostImpl::GetTerminationInfo(
   if (!child_process_launcher_) {
     // If the delegate doesn't use Launch() helper.
     ChildProcessTerminationInfo info;
-    // TODO(crbug.com/1412835): iOS is single process mode for now.
+    // TODO(crbug.com/40255458): iOS is single process mode for now.
 #if !BUILDFLAG(IS_IOS)
     info.status = base::GetTerminationStatus(data_.GetProcess().Handle(),
                                              &info.exit_code);
@@ -440,7 +441,7 @@ void BrowserChildProcessHostImpl::OnBadMessageReceived(
     const IPC::Message& message) {
   std::string log_message = "Bad message received of type: ";
   if (message.IsValid()) {
-    log_message += std::to_string(message.type());
+    log_message += base::NumberToString(message.type());
   } else {
     log_message += "unknown";
   }
@@ -563,14 +564,14 @@ bool BrowserChildProcessHostImpl::Send(IPC::Message* message) {
 void BrowserChildProcessHostImpl::CreateMetricsAllocator() {
   // Create a persistent memory segment for subprocess histograms only if
   // they're active in the browser.
-  // TODO(crbug.com/1290457): Remove this.
+  // TODO(crbug.com/40818143): Remove this.
   if (!base::GlobalHistogramAllocator::Get()) {
     DVLOG(1) << "GlobalHistogramAllocator not configured";
     return;
   }
 
   // This class is not expected to be used for renderer child processes.
-  // TODO(crbug/1028263): CHECK, once proven that this scenario does not
+  // TODO(crbug.com/40109064): CHECK, once proven that this scenario does not
   // occur in the wild, else remove dump and just return early if disproven.
   if (data_.process_type == PROCESS_TYPE_RENDERER) {
     base::debug::DumpWithoutCrashing();

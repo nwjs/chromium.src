@@ -758,10 +758,10 @@ TEST_F(OopPixelTest, DrawHdrImageWithMetadata) {
 
 #if BUILDFLAG(IS_ANDROID)
   // Allow large quantization error on Android.
-  // TODO(https://crbug.com/1363056): Ensure higher precision for HDR images.
+  // TODO(crbug.com/40238547): Ensure higher precision for HDR images.
   constexpr float kEpsilon = 1 / 16.f;
 #elif BUILDFLAG(IS_IOS) && BUILDFLAG(SKIA_USE_METAL)
-  // TODO(crbug.com/1476507): Allow larger errors on iOS as well.
+  // TODO(crbug.com/40280014): Allow larger errors on iOS as well.
   constexpr float kEpsilon = 1 / 12.f;
 #else
   constexpr float kEpsilon = 1 / 32.f;
@@ -2632,7 +2632,7 @@ class OopPathPixelTest : public OopPixelTest,
 
     auto comparator =
 #if BUILDFLAG(IS_IOS)
-        // TODO(crbug.com/1476507): We have larger errors on the platform, but
+        // TODO(crbug.com/40280014): We have larger errors on the platform, but
         // the images here still seem visually indistinguishable.
         FuzzyPixelComparator().SetErrorPixelsPercentageLimit(0.5f);
 #else

@@ -63,6 +63,9 @@
 #include "ui/resources/grit/ui_resources.h"
 
 namespace {
+// The index of the first tab in the group menu item. Before the tab item is the
+// "Restore group" item and a separator.
+constexpr int kInitialGroupItem = 2;
 
 // The maximum number of local recently closed entries (tab or window) to be
 // shown in the menu.
@@ -376,21 +379,19 @@ void RecentTabsSubMenuModel::BuildLocalEntries() {
         break;
       }
       switch (entry->type) {
-        case sessions::TabRestoreService::TAB: {
-          auto& tab =
-              static_cast<const sessions::TabRestoreService::Tab&>(*entry);
+        case sessions::tab_restore::Type::TAB: {
+          auto& tab = static_cast<const sessions::tab_restore::Tab&>(*entry);
           BuildLocalTabItem(tab, ++last_local_model_index_);
           break;
         }
-        case sessions::TabRestoreService::WINDOW: {
-          auto& window =
-              static_cast<sessions::TabRestoreService::Window&>(*entry);
+        case sessions::tab_restore::Type::WINDOW: {
+          auto& window = static_cast<sessions::tab_restore::Window&>(*entry);
           BuildLocalWindowItem(window, ++last_local_model_index_);
           break;
         }
-        case sessions::TabRestoreService::GROUP: {
+        case sessions::tab_restore::Type::GROUP: {
           auto& group =
-              static_cast<const sessions::TabRestoreService::Group&>(*entry);
+              static_cast<const sessions::tab_restore::Group&>(*entry);
           BuildLocalGroupItem(group, ++last_local_model_index_);
           break;
         }
@@ -461,7 +462,7 @@ void RecentTabsSubMenuModel::BuildTabsFromOtherDevices() {
 }
 
 void RecentTabsSubMenuModel::BuildLocalTabItem(
-    const sessions::TabRestoreService::Tab& tab,
+    const sessions::tab_restore::Tab& tab,
     size_t curr_model_index) {
   const int command_id = GetAndIncrementNextMenuID();
   const sessions::SerializedNavigationEntry& current_navigation =
@@ -495,7 +496,7 @@ void RecentTabsSubMenuModel::BuildLocalTabItem(
 }
 
 void RecentTabsSubMenuModel::BuildLocalWindowItem(
-    const sessions::TabRestoreService::Window& window,
+    const sessions::tab_restore::Window& window,
     size_t curr_model_index) {
   const int command_id = GetAndIncrementNextMenuID();
   std::unique_ptr<ui::SimpleMenuModel> window_model =
@@ -511,7 +512,7 @@ void RecentTabsSubMenuModel::BuildLocalWindowItem(
 }
 
 void RecentTabsSubMenuModel::BuildLocalGroupItem(
-    const sessions::TabRestoreService::Group& group,
+    const sessions::tab_restore::Group& group,
     size_t curr_model_index) {
   // Set the item label to the name of the group and the number of
   // tabs.
@@ -567,7 +568,7 @@ RecentTabsSubMenuModel::CreateOtherDeviceSubMenu(
 
 std::unique_ptr<ui::SimpleMenuModel>
 RecentTabsSubMenuModel::CreateWindowSubMenuModel(
-    const sessions::TabRestoreService::Window& window) {
+    const sessions::tab_restore::Window& window) {
   std::unique_ptr<ui::SimpleMenuModel> window_model =
       std::make_unique<ui::SimpleMenuModel>(this);
   const int restore_all_command_id = GetAndIncrementNextMenuID();
@@ -577,48 +578,44 @@ RecentTabsSubMenuModel::CreateWindowSubMenuModel(
   local_window_items_.emplace(restore_all_command_id, window.id);
   window_model->AddSeparator(ui::NORMAL_SEPARATOR);
 
-  std::optional<tab_groups::TabGroupId> last_group;
-  tab_groups::TabGroupVisualData current_group_visual_data;
+  base::flat_set<tab_groups::TabGroupId> seen_groups;
   std::unique_ptr<ui::SimpleMenuModel> current_group_model;
-  for (const std::unique_ptr<sessions::TabRestoreService::Tab>& tab :
-       window.tabs) {
-    const int tab_command_id = GetAndIncrementNextMenuID();
-    if (tab->group != last_group && current_group_model) {
-      AddGroupItemToModel(window_model.get(), std::move(current_group_model),
-                          current_group_visual_data);
-    }
-
-    const sessions::SerializedNavigationEntry& current_navigation =
-        tab->navigations.at(tab->normalized_navigation_index());
-    TabItem item(std::string(), tab->id, current_navigation.title(),
-                 current_navigation.virtual_url());
-    local_tab_items_.emplace(tab_command_id, item);
-    if (tab->group.has_value()) {
-      if (!current_group_model) {
-        last_group = tab->group.value();
-        current_group_visual_data = tab->group_visual_data.value();
-        current_group_model = std::make_unique<ui::SimpleMenuModel>(this);
-
-        // TODO(dljames/emshack): crbug/331230893. Add restore all menu item as
-        // first item in model. This becomes possible once we have a way to
-        // retrieve the groups SessionId from a tab.
+  sessions::tab_restore::Group* current_group;
+  for (const auto& tab : window.tabs) {
+    if (tab->group.has_value() && !seen_groups.contains(tab->group.value())) {
+      if (current_group_model) {
+        // Add the current group before we start working on the next one.
+        AddGroupItemToModel(window_model.get(), std::move(current_group_model),
+                            *current_group);
       }
 
-      AddTabItemToModel(tab.get(), current_group_model.get(), tab_command_id);
-    } else {
+      CHECK(window.tab_groups.contains(tab->group.value()));
+      seen_groups.emplace(tab->group.value());
+      current_group = window.tab_groups.at(tab->group.value()).get();
+      current_group_model = CreateGroupSubMenuModel(*current_group);
+    }
+
+    const int tab_command_id = GetAndIncrementNextMenuID();
+    if (!tab->group.has_value()) {
+      // Add the tab item to the window.
       AddTabItemToModel(tab.get(), window_model.get(), tab_command_id);
+    } else {
+      // Add the tab item to the current group.
+      AddTabItemToModel(tab.get(), current_group_model.get(), tab_command_id);
     }
   }
+
   if (current_group_model) {
     AddGroupItemToModel(window_model.get(), std::move(current_group_model),
-                        current_group_visual_data);
+                        *current_group);
   }
+
   return window_model;
 }
 
 std::unique_ptr<ui::SimpleMenuModel>
 RecentTabsSubMenuModel::CreateGroupSubMenuModel(
-    const sessions::TabRestoreService::Group& group) {
+    const sessions::tab_restore::Group& group) {
   std::unique_ptr<ui::SimpleMenuModel> group_model =
       std::make_unique<ui::SimpleMenuModel>(this);
   int command_id = GetAndIncrementNextMenuID();
@@ -626,13 +623,10 @@ RecentTabsSubMenuModel::CreateGroupSubMenuModel(
       command_id, IDS_RESTORE_GROUP,
       ui::ImageModel::FromVectorIcon(vector_icons::kLaunchIcon));
   local_group_items_.emplace(command_id, group.id);
+  group_model->AddSeparator(ui::NORMAL_SEPARATOR);
+  CHECK_EQ(static_cast<int>(group_model->GetItemCount()), kInitialGroupItem);
   for (auto& tab : group.tabs) {
     command_id = GetAndIncrementNextMenuID();
-    const sessions::SerializedNavigationEntry& current_navigation =
-        tab->navigations.at(tab->normalized_navigation_index());
-    TabItem item(std::string(), tab->id, current_navigation.title(),
-                 current_navigation.virtual_url());
-    local_tab_items_.emplace(command_id, item);
     AddTabItemToModel(tab.get(), group_model.get(), command_id);
   }
 
@@ -642,15 +636,18 @@ RecentTabsSubMenuModel::CreateGroupSubMenuModel(
 void RecentTabsSubMenuModel::AddGroupItemToModel(
     SimpleMenuModel* parent_model,
     std::unique_ptr<SimpleMenuModel> group_model,
-    tab_groups::TabGroupVisualData group_visual_data) {
+    const sessions::tab_restore::Group& group) {
+  // We only want to count the tabs in the group model. So we subtract the
+  // "Restore group" and separator items from the count.
+  const int item_count = group_model->GetItemCount() - kInitialGroupItem;
   const int sub_menu_command_id = GetAndIncrementNextMenuID();
   const std::u16string sub_menu_label =
-      GetGroupItemLabel(group_visual_data.title(), group_model->GetItemCount());
+      GetGroupItemLabel(group.visual_data.title(), item_count);
   // Set the item icon to the group color.
   const ui::ColorProvider* color_provider =
       browser_->window()->GetColorProvider();
   const ui::ColorId color_id =
-      GetTabGroupContextMenuColorId(group_visual_data.color());
+      GetTabGroupContextMenuColorId(group.visual_data.color());
   ui::ImageModel group_icon = ui::ImageModel::FromVectorIcon(
       kTabGroupIcon, color_provider->GetColor(color_id), gfx::kFaviconSize);
   parent_model->AddSubMenuWithIcon(sub_menu_command_id, sub_menu_label,
@@ -661,11 +658,14 @@ void RecentTabsSubMenuModel::AddGroupItemToModel(
 }
 
 void RecentTabsSubMenuModel::AddTabItemToModel(
-    const sessions::TabRestoreService::Tab* tab,
+    const sessions::tab_restore::Tab* tab,
     ui::SimpleMenuModel* model,
     int command_id) {
   const sessions::SerializedNavigationEntry& current_navigation =
-      tab->navigations.at(tab->current_navigation_index);
+      tab->navigations.at(tab->normalized_navigation_index());
+  TabItem item(std::string(), tab->id, current_navigation.title(),
+               current_navigation.virtual_url());
+  local_tab_items_.emplace(command_id, item);
 
   // There may be no tab title, in which case, use the url as tab title.
   model->AddItem(command_id, current_navigation.title().empty()

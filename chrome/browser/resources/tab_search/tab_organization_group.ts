@@ -153,7 +153,8 @@ export class TabOrganizationGroupElement extends PolymerElement {
   }
 
   private showNewTabSectionHeader_(index: number) {
-    return this.firstNewTabIndex > 0 && this.firstNewTabIndex === index;
+    return loadTimeData.getBoolean('tabReorganizationDividerEnabled') &&
+        this.firstNewTabIndex > 0 && this.firstNewTabIndex === index;
   }
 
   private onInputFocus_() {

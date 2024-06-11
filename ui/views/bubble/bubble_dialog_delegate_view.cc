@@ -170,6 +170,10 @@ Widget* CreateBubbleWidget(BubbleDialogDelegate* bubble) {
   bubble_params.accept_events = bubble->accept_events();
   bubble_params.remove_standard_frame = true;
   bubble_params.layer_type = bubble->GetLayerType();
+  // TODO(crbug.com/41493925): Remove CHECK once native frame dialogs support
+  // autosize.
+  CHECK(!bubble->is_autosized() || bubble->use_custom_frame())
+      << "Autosizing native frame dialogs is not supported.";
   bubble_params.autosize = bubble->is_autosized();
 
   // Use a window default shadow if the bubble doesn't provides its own.
@@ -450,6 +454,9 @@ BubbleDialogDelegate::BubbleDialogDelegate(View* anchor_view,
   set_title_margins(layout_provider->GetInsetsMetric(INSETS_DIALOG_TITLE));
   set_footnote_margins(
       layout_provider->GetInsetsMetric(INSETS_DIALOG_FOOTNOTE));
+
+  set_desired_bounds_delegate(base::BindRepeating(
+      &BubbleDialogDelegate::GetDesiredBubbleBounds, base::Unretained(this)));
 
   RegisterWidgetInitializedCallback(base::BindOnce(
       [](BubbleDialogDelegate* bubble_delegate) {
@@ -948,7 +955,10 @@ ax::mojom::Role BubbleDialogDelegate::GetAccessibleWindowRole() {
   return ax::mojom::Role::kAlertDialog;
 }
 
-gfx::Rect BubbleDialogDelegate::GetDesiredWidgetBounds() {
+gfx::Rect BubbleDialogDelegate::GetDesiredBubbleBounds() {
+  CHECK(use_custom_frame())
+      << "GetBubbleBounds() for native frame dialogs is not supported.";
+
   gfx::Rect bubble_bounds = GetBubbleBounds();
 
 #if BUILDFLAG(IS_MAC)

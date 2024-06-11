@@ -265,6 +265,11 @@ class JavaParam:
     """Converts to types used over JNI boundary."""
     return JavaParam(self.java_type.to_proxy(), self.name)
 
+  def cpp_name(self):
+    if self.name in ('env', 'jcaller'):
+      return f'_{self.name}'
+    return self.name
+
 
 class JavaParamList(tuple):
   """Represents a parameter list."""
@@ -410,6 +415,6 @@ OBJECT_CLASS = JavaClass('java/lang/Object')
 STRING_CLASS = JavaClass('java/lang/String')
 _EMPTY_TYPE_RESOLVER = TypeResolver(OBJECT_CLASS)
 CLASS = JavaType(java_class=CLASS_CLASS)
-LONG = JavaType(primitive_name='long')
+INT = JavaType(primitive_name='int')
 VOID = JavaType(primitive_name='void')
 EMPTY_PARAM_LIST = JavaParamList()

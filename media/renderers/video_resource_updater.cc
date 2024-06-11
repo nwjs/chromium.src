@@ -206,7 +206,7 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
     case PIXEL_FORMAT_NV12:
       // |target| is set to 0 for Vulkan textures.
       //
-      // TODO(https://crbug.com/1116101): Note that GL_TEXTURE_EXTERNAL_OES is
+      // TODO(crbug.com/40144615): Note that GL_TEXTURE_EXTERNAL_OES is
       // allowed even for two-texture NV12 frames. This is intended to handle a
       // couple of cases: a) when these textures are connected to the
       // corresponding plane of the contents of an EGLStream using
@@ -245,7 +245,7 @@ VideoFrameResourceType ExternalResourceTypeForHardwarePlanes(
         DCHECK_EQ(num_textures, 2u);
         // TODO(mcasas): Support other formats such as e.g. P012.
         si_formats[0] = viz::SinglePlaneFormat::kR_16;
-        // TODO(https://crbug.com/1233228): This needs to be
+        // TODO(crbug.com/40191425): This needs to be
         // gfx::BufferFormat::RG_1616.
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
         si_formats[1] = viz::SinglePlaneFormat::kRG_1616;
@@ -650,8 +650,12 @@ class VideoResourceUpdater::SoftwarePlaneResource
     }
   }
 
-  const gpu::Mailbox& mailbox() const {
-    return shared_image_ ? shared_image_->mailbox() : shared_bitmap_id_;
+  const scoped_refptr<gpu::ClientSharedImage>& shared_image() const {
+    return shared_image_;
+  }
+
+  const viz::SharedBitmapId& shared_bitmap_id() const {
+    return shared_bitmap_id_;
   }
 
   void* pixels() { return shared_mapping_.memory(); }
@@ -702,7 +706,7 @@ class VideoResourceUpdater::HardwarePlaneResource
     DCHECK(context_provider_);
     auto* sii = SharedImageInterface();
     if (format.is_single_plane()) {
-      // TODO(crbug.com/1366495): Set `overlay_candidate_` for multiplanar
+      // TODO(crbug.com/40239769): Set `overlay_candidate_` for multiplanar
       // formats.
       overlay_candidate_ =
           use_gpu_memory_buffer_resources &&
@@ -904,7 +908,7 @@ void VideoResourceUpdater::AppendQuads(
 
       // Get the scaling factor of the YA texture relative to the UV texture.
       const gfx::Size uv_sample_size =
-          VideoFrame::SampleSize(frame->format(), VideoFrame::kUPlane);
+          VideoFrame::SampleSize(frame->format(), VideoFrame::Plane::kU);
 
       auto* yuv_video_quad =
           render_pass->CreateAndAppendDrawQuad<viz::YUVVideoDrawQuad>();
@@ -1097,9 +1101,6 @@ void VideoResourceUpdater::CopyHardwarePlane(
   auto* ri = RasterInterface();
   ri->WaitSyncTokenCHROMIUM(mailbox_holder.sync_token.GetConstData());
 
-  // This is only used on Android where all video mailboxes already use shared
-  // images.
-  CHECK(mailbox_holder.mailbox.IsSharedImage());
   ri->CopySharedImage(
       mailbox_holder.mailbox, hardware_resource->mailbox(), GL_TEXTURE_2D,
       /*xoffset=*/0, /*yoffset=*/0, /*x=*/0, /*y=*/0,
@@ -1372,7 +1373,7 @@ bool VideoResourceUpdater::WriteRGBPixelsToTexture(
 
   const VideoPixelFormat input_frame_format = video_frame->format();
   // Note: Strides may be negative in case of bottom-up layouts.
-  const int stride = video_frame->stride(VideoFrame::kARGBPlane);
+  const int stride = video_frame->stride(VideoFrame::Plane::kARGB);
   const bool has_compatible_stride =
       stride > 0 && static_cast<size_t>(stride) == bytes_per_row;
 
@@ -1382,7 +1383,7 @@ bool VideoResourceUpdater::WriteRGBPixelsToTexture(
     // We can passthrough when the texture format matches. Since we
     // always copy the entire coded area we don't have to worry about
     // origin.
-    source_pixels = video_frame->data(VideoFrame::kARGBPlane);
+    source_pixels = video_frame->data(VideoFrame::Plane::kARGB);
   } else {
     size_t needed_size = bytes_per_row * video_frame->coded_size().height();
     if (upload_pixels_size_[0] < needed_size) {
@@ -1654,7 +1655,7 @@ bool VideoResourceUpdater::WriteYUVPixelsForAllPlanesToTexture(
   SkYUVAInfo::PlaneConfig plane_config = ToSkYUVAPlaneConfig(yuv_si_format);
   SkYUVAInfo::Subsampling subsampling = ToSkYUVASubsampling(yuv_si_format);
 
-  // TODO(crbug.com/828599): This should really default to rec709.
+  // TODO(crbug.com/41380578): This should really default to rec709.
   SkYUVColorSpace color_space = kIdentity_SkYUVColorSpace;
   if (video_frame->ColorSpace().IsValid()) {
     // This feature is disabled for valid but unsupported color spaces, so we
@@ -1784,11 +1785,21 @@ VideoFrameExternalResources VideoResourceUpdater::CreateForSoftwarePlanes(
     if (software_compositor()) {
       SoftwarePlaneResource* software_resource = plane_resource->AsSoftware();
       external_resources.type = VideoFrameResourceType::RGBA_PREMULTIPLIED;
-      transferable_resource = viz::TransferableResource::MakeSoftware(
-          software_resource->mailbox(),
-          software_resource->GetSyncToken(shared_image_interface()),
-          software_resource->resource_size(), plane_resource->si_format(),
-          viz::TransferableResource::ResourceSource::kVideo);
+      const auto& shared_image = software_resource->shared_image();
+      transferable_resource =
+          shared_image
+              ? viz::TransferableResource::MakeSoftwareSharedImage(
+                    shared_image,
+                    software_resource->GetSyncToken(shared_image_interface()),
+                    software_resource->resource_size(),
+                    plane_resource->si_format(),
+                    viz::TransferableResource::ResourceSource::kVideo)
+              : viz::TransferableResource::MakeSoftwareSharedBitmap(
+                    software_resource->shared_bitmap_id(),
+                    software_resource->GetSyncToken(shared_image_interface()),
+                    software_resource->resource_size(),
+                    plane_resource->si_format(),
+                    viz::TransferableResource::ResourceSource::kVideo);
     } else {
       HardwarePlaneResource* hardware_resource = plane_resource->AsHardware();
       external_resources.type = VideoFrameResourceType::RGBA;

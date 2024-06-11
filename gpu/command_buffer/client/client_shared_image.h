@@ -84,7 +84,7 @@ class GPU_EXPORT ClientSharedImage
 
     // ScopedMapping is essentially a wrapper around GpuMemoryBuffer for now for
     // simplicity and will be removed later.
-    // TODO(crbug.com/1474697): Refactor/Rename GpuMemoryBuffer and its
+    // TODO(crbug.com/40279377): Refactor/Rename GpuMemoryBuffer and its
     // implementations  as the end goal after all clients using GMB are
     // converted to use the ScopedMapping and notion of GpuMemoryBuffer is being
     // removed.
@@ -180,7 +180,7 @@ class GPU_EXPORT ClientSharedImage
   // Returns an unowned copy of the current ClientSharedImage. This function
   // is a temporary workaround for the situation where a ClientSharedImage may
   // have more than one reference when being destroyed.
-  // TODO(crbug.com/1494911): Remove this function once ClientSharedImage
+  // TODO(crbug.com/40286368): Remove this function once ClientSharedImage
   // can properly handle shared image destruction internally.
   scoped_refptr<ClientSharedImage> MakeUnowned();
 
@@ -215,6 +215,18 @@ class GPU_EXPORT ClientSharedImage
     client_si->gpu_memory_buffer_ = std::move(gpu_memory_buffer);
     return client_si;
   }
+
+  const SyncToken& creation_sync_token() const { return creation_sync_token_; }
+
+  // Note that this adds an ownership edge to mailbox using mailbox as id.
+  // ScopedMapping::OnMemoryDump() uses underlying GpuMemoryBuffer's Id as
+  // ownership edge which is broken since GMB inside mappableSI doesn't have
+  // unique ids anymore. ScopedMapping::OnMemoryDump() should be removed and
+  // replaced with this method.
+  void OnMemoryDump(
+      base::trace_event::ProcessMemoryDump* pmd,
+      const base::trace_event::MemoryAllocatorDumpGuid& buffer_dump_guid,
+      int importance);
 
  private:
   friend class base::RefCountedThreadSafe<ClientSharedImage>;

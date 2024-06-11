@@ -104,7 +104,8 @@ class InfolistEntryView : public views::View {
 
  private:
   // views::View implementation.
-  gfx::Size CalculatePreferredSize() const override;
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
 
   void UpdateBackground();
 
@@ -158,8 +159,11 @@ void InfolistEntryView::SetEntry(const ui::InfolistEntry& entry) {
   UpdateBackground();
 }
 
-gfx::Size InfolistEntryView::CalculatePreferredSize() const {
-  return gfx::Size(kInfolistEntryWidth, GetHeightForWidth(kInfolistEntryWidth));
+gfx::Size InfolistEntryView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  return gfx::Size(kInfolistEntryWidth,
+                   GetLayoutManager()->GetPreferredHeightForWidth(
+                       this, kInfolistEntryWidth));
 }
 
 void InfolistEntryView::UpdateBackground() {
@@ -182,7 +186,9 @@ void InfolistEntryView::UpdateBackground() {
 InfolistWindow::InfolistWindow(views::View* candidate_window,
                                const std::vector<ui::InfolistEntry>& entries)
     : views::BubbleDialogDelegateView(candidate_window,
-                                      views::BubbleBorder::NONE),
+                                      views::BubbleBorder::NONE,
+                                      views::BubbleBorder::DIALOG_SHADOW,
+                                      true),
       title_font_list_(gfx::Font(kJapaneseFontName, kFontSizeDelta + 15)),
       description_font_list_(
           gfx::Font(kJapaneseFontName, kFontSizeDelta + 11)) {
@@ -229,7 +235,6 @@ void InfolistWindow::InitWidget() {
 
   // BubbleFrameView will be initialized through CreateBubble.
   GetBubbleFrameView()->SetBubbleBorder(std::make_unique<InfolistBorder>());
-  SizeToContents();
 }
 
 void InfolistWindow::Relayout(const std::vector<ui::InfolistEntry>& entries) {
@@ -253,7 +258,6 @@ void InfolistWindow::Relayout(const std::vector<ui::InfolistEntry>& entries) {
   }
 
   DeprecatedLayoutImmediately();
-  SizeToContents();
 }
 
 void InfolistWindow::ShowWithDelay() {

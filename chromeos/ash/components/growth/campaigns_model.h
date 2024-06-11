@@ -29,7 +29,7 @@ namespace growth {
 
 // Entries should not be renumbered and numeric values should never be reused
 // as it is used for logging metrics as well. Please keep in sync with
-// "CampaignSlot" in src/tools/metrics/histograms/enums.xml.
+// "CampaignSlot" in tools/metrics/histograms/metadata/ash_growth/enums.xml.
 enum class Slot {
   kDemoModeApp = 0,
   kDemoModeFreePlayApps = 1,
@@ -40,7 +40,15 @@ enum class Slot {
 
 // These values are deserialized from Growth Campaign, so entries should not
 // be renumbered and numeric values should never be reused.
-enum class BuiltInIcon { kRedeem, kContainerApp };
+enum class TriggeringType {
+  kAppOpened = 0,
+  kCampaignsLoaded = 1,
+  kMaxValue = kCampaignsLoaded
+};
+
+// These values are deserialized from Growth Campaign, so entries should not
+// be renumbered and numeric values should never be reused.
+enum class BuiltInIcon { kRedeem, kContainerApp, kG1 };
 
 // Supported window anchor element.
 // These values are deserialized from Growth Campaign, so entries should not
@@ -98,6 +106,9 @@ std::optional<int> GetStudyId(const Campaign* campaign);
 //   "1": [...]
 // }
 using CampaignsPerSlot = base::Value::Dict;
+
+Campaigns* GetMutableCampaignsBySlot(CampaignsPerSlot* campaigns_per_slot,
+                                     Slot slot);
 
 const Campaigns* GetCampaignsBySlot(const CampaignsPerSlot* campaigns_per_slot,
                                     Slot slot);
@@ -184,6 +195,27 @@ class TimeWindowTargeting {
   raw_ptr<const base::Value::Dict> time_window_dict_;
 };
 
+// Wrapper around number range targeting dictionary.
+//
+// The structure looks like:
+// {
+//   "start": 3,
+//   "end": 5
+// }
+class NumberRangeTargeting {
+ public:
+  explicit NumberRangeTargeting(const base::Value::Dict* number_range_dict);
+  NumberRangeTargeting(const NumberRangeTargeting&) = delete;
+  NumberRangeTargeting& operator=(const NumberRangeTargeting) = delete;
+  ~NumberRangeTargeting();
+
+  const std::optional<int> GetStart() const;
+  const std::optional<int> GetEnd() const;
+
+ private:
+  raw_ptr<const base::Value::Dict> number_range_dict_;
+};
+
 // Wrapper around Device targeting dictionary. The structure looks like:
 // {
 //   "locales": ["en-US", "zh-CN"];
@@ -204,6 +236,7 @@ class DeviceTargeting : public TargetingBase {
   const std::optional<int> GetMaxMilestone() const;
   const std::optional<bool> GetFeatureAwareDevice() const;
   std::unique_ptr<TimeWindowTargeting> GetRegisteredTime() const;
+  const std::unique_ptr<NumberRangeTargeting> GetDeviceAge() const;
 };
 
 // Wrapper around session targeting dictionary.
@@ -224,6 +257,7 @@ class SessionTargeting : public TargetingBase {
   const base::Value::List* GetExperimentTags() const;
 
   std::optional<bool> GetMinorUser() const;
+  std::optional<bool> GetIsOwner() const;
 };
 
 // Wrapper around app targeting dictionary.
@@ -288,6 +322,7 @@ class EventsTargeting {
 //   "runtime": {
 //      "schedulings": [...]
 //      "appsOpend": [...]
+//      "triggers": [...]
 //   }
 // }
 class RuntimeTargeting : public TargetingBase {
@@ -299,8 +334,13 @@ class RuntimeTargeting : public TargetingBase {
 
   const std::vector<std::unique_ptr<TimeWindowTargeting>> GetSchedulings()
       const;
+
+  // Returns a list of triggers against the current trigger, e.g. `AppOpened`.
+  const std::vector<TriggeringType> GetTriggers() const;
+
   // Returns a list of apps to be matched against the current opened app.
   const std::vector<std::unique_ptr<AppTargeting>> GetAppsOpened() const;
+
   const std::vector<std::string> GetActiveUrlRegexes() const;
 
   std::unique_ptr<EventsTargeting> GetEventsConfig() const;

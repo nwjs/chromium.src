@@ -465,6 +465,8 @@ blink::UserAgentMetadata GetUserAgentMetadata(const PrefService* pref_service,
   blink::UserAgentMetadata metadata;
 
   bool enable_updated_grease_by_policy = true;
+  // TODO(crbug.com/40838057): Remove this after M126 which deprecates the
+  // policy.
   if (pref_service) {
     if (pref_service->HasPrefPath(
             policy::policy_prefs::kUserAgentClientHintsGREASEUpdateEnabled))

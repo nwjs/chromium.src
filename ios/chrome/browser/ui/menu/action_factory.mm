@@ -361,6 +361,22 @@
   return action;
 }
 
+- (UIAction*)actionToOpenLinkInNewGroupWithBlock:(ProceduralBlock)block
+                                       inSubmenu:(BOOL)inSubmenu {
+  UIImage* image = DefaultSymbolWithPointSize(kNewTabGroupActionSymbol,
+                                              kSymbolActionPointSize);
+  NSString* title =
+      inSubmenu ? l10n_util::GetNSString(
+                      IDS_IOS_CONTENT_CONTEXT_ADDTABTONEWTABGROUP_SUBMENU)
+                : l10n_util::GetNSString(
+                      IDS_IOS_CONTENT_CONTEXT_OPENLINKINNEWTABGROUP);
+  UIAction* action = [self actionWithTitle:title
+                                     image:image
+                                      type:MenuActionType::OpenLinkInNewGroup
+                                     block:block];
+  return action;
+}
+
 - (UIMenuElement*)
     menuToAddTabToGroupWithGroups:(const std::set<const TabGroup*>&)groups
                      numberOfTabs:(int)tabsNumber
@@ -446,6 +462,53 @@
                       children:moveTabFromGroupMenuElements];
 }
 
+- (UIMenuElement*)
+    menuToOpenLinkInGroupWithGroups:(const std::set<const TabGroup*>&)groups
+                              block:(void (^)(const TabGroup*))block {
+  CHECK(IsTabGroupInGridEnabled())
+      << "You should not be able to create a tab group context menu action "
+         "outside the Tab Groups experiment.";
+
+  if (groups.size() == 0) {
+    ProceduralBlock openInNewGroupBlock = ^{
+      if (block) {
+        block(nil);
+      }
+    };
+    return [self actionToOpenLinkInNewGroupWithBlock:openInNewGroupBlock
+                                           inSubmenu:NO];
+  }
+
+  NSArray<UIMenuElement*>* groupsMenu = [self groupsMenuForGroups:groups
+                                                     currentGroup:nil
+                                                            block:block];
+  UIMenu* menu = [UIMenu menuWithTitle:@""
+                                 image:nil
+                            identifier:nil
+                               options:UIMenuOptionsDisplayInline
+                              children:groupsMenu];
+  ProceduralBlock openInNewGroupBlock = ^{
+    if (block) {
+      block(nil);
+    }
+  };
+  NSArray<UIMenuElement*>* openInGroupMenuElements = @[
+    [self actionToOpenLinkInNewGroupWithBlock:openInNewGroupBlock
+                                    inSubmenu:YES],
+    menu
+  ];
+
+  UIImage* image = DefaultSymbolWithPointSize(kMoveTabToGroupActionSymbol,
+                                              kSymbolActionPointSize);
+
+  return [UIMenu menuWithTitle:l10n_util::GetNSString(
+                                   IDS_IOS_CONTENT_CONTEXT_OPENLINKINTABGROUP)
+                         image:image
+                    identifier:nil
+                       options:UIMenuOptionsSingleSelection
+                      children:openInGroupMenuElements];
+}
+
 - (UIAction*)actionToRenameTabGroupWithBlock:(ProceduralBlock)block {
   CHECK(IsTabGroupInGridEnabled());
   UIImage* image =
@@ -527,6 +590,16 @@
                                       type:MenuActionType::RemoveTabFromGroup
                                      block:block];
   return action;
+}
+
+- (UIAction*)actionToShowDetailsWithBlock:(ProceduralBlock)block {
+  UIImage* image =
+      DefaultSymbolWithPointSize(kInfoCircleSymbol, kSymbolActionPointSize);
+  return [self
+      actionWithTitle:l10n_util::GetNSString(IDS_IOS_SHOW_DETAILS_ACTION_TITLE)
+                image:image
+                 type:MenuActionType::ShowDetails
+                block:block];
 }
 
 // Returns an array of group actions for a given set of groups. If

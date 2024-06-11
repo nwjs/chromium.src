@@ -10,6 +10,7 @@
 #include <variant>
 
 #include "ash/ash_element_identifiers.h"
+#include "ash/bubble/bubble_utils.h"
 #include "ash/picker/model/picker_search_results_section.h"
 #include "ash/picker/picker_asset_fetcher.h"
 #include "ash/picker/views/picker_emoji_item_view.h"
@@ -20,12 +21,14 @@
 #include "ash/picker/views/picker_item_view.h"
 #include "ash/picker/views/picker_list_item_view.h"
 #include "ash/picker/views/picker_pseudo_focus.h"
+#include "ash/picker/views/picker_search_results_view_delegate.h"
 #include "ash/picker/views/picker_section_list_view.h"
 #include "ash/picker/views/picker_section_view.h"
 #include "ash/picker/views/picker_strings.h"
 #include "ash/picker/views/picker_symbol_item_view.h"
 #include "ash/public/cpp/picker/picker_search_result.h"
 #include "ash/strings/grit/ash_strings.h"
+#include "ash/style/typography.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/overloaded.h"
@@ -46,25 +49,48 @@
 
 namespace ash {
 namespace {
+
 // Some of the icons we use do not have a default size, so we need to manually
 // set it.
 constexpr int kIconSize = 20;
+
+constexpr auto kNoResultsViewLabelMargin = gfx::Insets::VH(32, 16);
+
+constexpr int kMaxIndexForMetrics = 10;
+
+PickerCategory GetCategoryForEditorData(
+    const PickerSearchResult::EditorData& data) {
+  switch (data.mode) {
+    case PickerSearchResult::EditorData::Mode::kWrite:
+      return PickerCategory::kEditorWrite;
+    case PickerSearchResult::EditorData::Mode::kRewrite:
+      return PickerCategory::kEditorRewrite;
+  }
+}
+
 }  // namespace
 
 PickerSearchResultsView::PickerSearchResultsView(
+    PickerSearchResultsViewDelegate* delegate,
     int picker_view_width,
-    SelectSearchResultCallback select_search_result_callback,
-    SelectMoreResultsCallback select_more_results_callback,
     PickerAssetFetcher* asset_fetcher)
-    : select_search_result_callback_(std::move(select_search_result_callback)),
-      select_more_results_callback_(std::move(select_more_results_callback)),
-      asset_fetcher_(asset_fetcher) {
+    : delegate_(delegate), asset_fetcher_(asset_fetcher) {
   SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kVertical);
   SetProperty(views::kElementIdentifierKey, kPickerSearchResultsPageElementId);
 
   section_list_view_ =
       AddChildView(std::make_unique<PickerSectionListView>(picker_view_width));
+  no_results_view_ = AddChildView(
+      views::Builder<views::Label>(
+          bubble_utils::CreateLabel(
+              TypographyToken::kCrosBody2,
+              l10n_util::GetStringUTF16(IDS_PICKER_NO_RESULTS_TEXT),
+              cros_tokens::kCrosSysOnSurfaceVariant))
+          .SetVisible(false)
+          .SetProperty(views::kMarginsKey, kNoResultsViewLabelMargin)
+          .SetHorizontalAlignment(gfx::ALIGN_CENTER)
+          .Build());
 }
 
 PickerSearchResultsView::~PickerSearchResultsView() = default;
@@ -182,9 +208,13 @@ void PickerSearchResultsView::AdvancePseudoFocus(
 }
 
 void PickerSearchResultsView::ClearSearchResults() {
+  delegate_->NotifyPseudoFocusChanged(nullptr);
   pseudo_focused_view_ = nullptr;
   section_views_.clear();
   section_list_view_->ClearSectionList();
+  section_list_view_->SetVisible(true);
+  no_results_view_->SetVisible(false);
+  top_results_.clear();
 }
 
 void PickerSearchResultsView::AppendSearchResults(
@@ -200,6 +230,9 @@ void PickerSearchResultsView::AppendSearchResults(
   }
   for (const auto& result : section.results()) {
     AddResultToSection(result, section_view);
+    if (top_results_.size() < kMaxIndexForMetrics) {
+      top_results_.push_back(result);
+    }
   }
   section_views_.push_back(section_view);
 
@@ -208,11 +241,14 @@ void PickerSearchResultsView::AppendSearchResults(
   }
 }
 
+void PickerSearchResultsView::ShowNoResultsFound() {
+  no_results_view_->SetVisible(true);
+  section_list_view_->SetVisible(false);
+}
+
 void PickerSearchResultsView::SelectSearchResult(
     const PickerSearchResult& result) {
-  if (!select_search_result_callback_.is_null()) {
-    std::move(select_search_result_callback_).Run(result);
-  }
+  delegate_->SelectSearchResult(result);
 }
 
 void PickerSearchResultsView::AddResultToSection(
@@ -326,8 +362,7 @@ void PickerSearchResultsView::AddResultToSection(
                 std::move(select_result_callback));
             // TODO: b/330794217 - Add preview once it's available.
             item_view->SetPrimaryText(data.title);
-            item_view->SetLeadingIcon(
-                GetIconForPickerCategory(PickerCategory::kDriveFiles));
+            item_view->SetLeadingIcon(data.icon);
             section_view->AddListItem(std::move(item_view));
           },
           [&](const PickerSearchResult::CategoryData& data) {
@@ -335,6 +370,14 @@ void PickerSearchResultsView::AddResultToSection(
                 std::move(select_result_callback));
             item_view->SetPrimaryText(GetLabelForPickerCategory(data.category));
             item_view->SetLeadingIcon(GetIconForPickerCategory(data.category));
+            section_view->AddListItem(std::move(item_view));
+          },
+          [&](const PickerSearchResult::EditorData& data) {
+            auto item_view = std::make_unique<PickerListItemView>(
+                std::move(select_result_callback));
+            const PickerCategory category = GetCategoryForEditorData(data);
+            item_view->SetPrimaryText(GetLabelForPickerCategory(category));
+            item_view->SetLeadingIcon(GetIconForPickerCategory(category));
             section_view->AddListItem(std::move(item_view));
           },
       },
@@ -350,12 +393,13 @@ void PickerSearchResultsView::SetPseudoFocusedView(views::View* view) {
   pseudo_focused_view_ = view;
   ApplyPickerPseudoFocusToView(pseudo_focused_view_);
   ScrollPseudoFocusedViewToVisible();
+  delegate_->NotifyPseudoFocusChanged(view);
 }
 
 void PickerSearchResultsView::OnTrailingLinkClicked(
     PickerSectionType section_type,
     const ui::Event& event) {
-  select_more_results_callback_.Run(section_type);
+  delegate_->SelectMoreResults(section_type);
 }
 
 void PickerSearchResultsView::ScrollPseudoFocusedViewToVisible() {
@@ -382,6 +426,16 @@ void PickerSearchResultsView::ScrollPseudoFocusedViewToVisible() {
     // Otherwise, just ensure the item is visible.
     pseudo_focused_item->ScrollViewToVisible();
   }
+}
+
+int PickerSearchResultsView::GetIndex(
+    const PickerSearchResult& inserted_result) {
+  auto it = base::ranges::find(top_results_, inserted_result);
+  if (it == top_results_.end()) {
+    return kMaxIndexForMetrics;
+  }
+  return std::min(kMaxIndexForMetrics,
+                  static_cast<int>(it - top_results_.begin()));
 }
 
 BEGIN_METADATA(PickerSearchResultsView)

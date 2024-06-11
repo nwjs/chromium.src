@@ -41,6 +41,7 @@
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
+#include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_service_factory.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -52,6 +53,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/saved_tab_groups/features.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/zoom/page_zoom.h"
@@ -98,6 +100,7 @@
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/menu_scroll_view_container.h"
 #include "ui/views/controls/menu/submenu_view.h"
+#include "ui/views/layout/layout_provider.h"
 #include "ui/views/style/typography.h"
 #include "ui/views/style/typography_provider.h"
 #include "ui/views/view_class_properties.h"
@@ -122,6 +125,13 @@ namespace {
 // Horizontal padding on the edges of the in-menu buttons.
 const int kHorizontalPadding = 15;
 
+constexpr int kBookmarksCommandIdOffset =
+    AppMenuModel::kMinBookmarksCommandId - IDC_FIRST_UNBOUNDED_MENU;
+constexpr int kRecentTabsCommandIdOffset =
+    AppMenuModel::kMinRecentTabsCommandId - IDC_FIRST_UNBOUNDED_MENU;
+constexpr int kTabGroupsCommandIdOffset =
+    AppMenuModel::kMinTabGroupsCommandId - IDC_FIRST_UNBOUNDED_MENU;
+
 #if BUILDFLAG(IS_CHROMEOS)
 // Extra horizontal space to reserve for the fullscreen button.
 const int kFullscreenPadding = 74;
@@ -137,7 +147,7 @@ bool IsBookmarkCommand(int command_id) {
   return command_id >= IDC_FIRST_UNBOUNDED_MENU &&
          ((command_id - IDC_FIRST_UNBOUNDED_MENU) %
               AppMenuModel::kNumUnboundedMenuTypes ==
-          0);
+          kBookmarksCommandIdOffset);
 }
 
 // Returns true if |command_id| identifies a recent tabs menu item.
@@ -145,7 +155,15 @@ bool IsRecentTabsCommand(int command_id) {
   return command_id >= IDC_FIRST_UNBOUNDED_MENU &&
          ((command_id - IDC_FIRST_UNBOUNDED_MENU) %
               AppMenuModel::kNumUnboundedMenuTypes ==
-          1);
+          kRecentTabsCommandIdOffset);
+}
+
+// Returns true if |command_id| identifies a tab group menu item.
+bool IsTabGroupsCommand(int command_id) {
+  return command_id >= IDC_FIRST_UNBOUNDED_MENU &&
+         ((command_id - IDC_FIRST_UNBOUNDED_MENU) %
+              AppMenuModel::kNumUnboundedMenuTypes ==
+          kTabGroupsCommandIdOffset);
 }
 
 // Combination border/background for the buttons contained in the menu. The
@@ -301,11 +319,11 @@ class InMenuButton : public LabelButton {
     LabelButton::OnThemeChanged();
     SetTextColorId(views::Button::STATE_DISABLED,
                    ui::kColorMenuItemForegroundDisabled);
-    SetTextColor(views::Button::STATE_HOVERED,
-                 ui::kColorMenuItemForegroundSelected);
-    SetTextColor(views::Button::STATE_PRESSED,
-                 ui::kColorMenuItemForegroundSelected);
-    SetTextColor(views::Button::STATE_NORMAL, ui::kColorMenuItemForeground);
+    SetTextColorId(views::Button::STATE_HOVERED,
+                   ui::kColorMenuItemForegroundSelected);
+    SetTextColorId(views::Button::STATE_PRESSED,
+                   ui::kColorMenuItemForegroundSelected);
+    SetTextColorId(views::Button::STATE_NORMAL, ui::kColorMenuItemForeground);
   }
 };
 
@@ -536,8 +554,9 @@ class FullscreenButton : public ImageButton {
   FullscreenButton& operator=(const FullscreenButton&) = delete;
 
   // Overridden from ImageButton.
-  gfx::Size CalculatePreferredSize() const override {
-    gfx::Size pref = ImageButton::CalculatePreferredSize();
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
+    gfx::Size pref = ImageButton::CalculatePreferredSize(available_size);
     const gfx::Insets insets = GetInsets();
     pref.Enlarge(insets.width(), insets.height());
     return pref;
@@ -590,7 +609,8 @@ class AppMenu::CutCopyPasteView : public AppMenuView {
   CutCopyPasteView& operator=(const CutCopyPasteView&) = delete;
 
   // Overridden from View.
-  gfx::Size CalculatePreferredSize() const override {
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
     // Returned height doesn't matter as MenuItemView forces everything to the
     // height of the menuitemview.
     return {
@@ -735,7 +755,8 @@ class AppMenu::ZoomView : public AppMenuView {
   ~ZoomView() override = default;
 
   // Overridden from View.
-  gfx::Size CalculatePreferredSize() const override {
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
     // The increment/decrement button are forced to the same width.
     int button_width = std::max(increment_button_->GetPreferredSize().width(),
                                 decrement_button_->GetPreferredSize().width());
@@ -1105,6 +1126,11 @@ bool AppMenu::ShowContextMenu(MenuItemView* source,
                               int command_id,
                               const gfx::Point& p,
                               ui::MenuSourceType source_type) {
+  if (IsTabGroupsCommand(command_id)) {
+    stg_everything_menu_->SetShowPinOption(false);
+    return stg_everything_menu_->ShowContextMenu(source, command_id, p,
+                                                 source_type);
+  }
   return IsBookmarkCommand(command_id)
              ? bookmark_menu_delegate_->ShowContextMenu(source, command_id, p,
                                                         source_type)
@@ -1149,6 +1175,11 @@ bool AppMenu::IsCommandEnabled(int command_id) const {
     return false;  // The root item, a separator, or a title.
   }
 
+  if (command_id == IDC_CREATE_NEW_TAB_GROUP ||
+      IsTabGroupsCommand(command_id)) {
+    return true;
+  }
+
   if (IsBookmarkCommand(command_id) ||
       command_id == IDC_SHOW_BOOKMARK_SIDE_PANEL) {
     return true;
@@ -1182,6 +1213,16 @@ bool AppMenu::IsCommandEnabled(int command_id) const {
 }
 
 void AppMenu::ExecuteCommand(int command_id, int mouse_event_flags) {
+  if (command_id == IDC_CREATE_NEW_TAB_GROUP ||
+      IsTabGroupsCommand(command_id)) {
+    if (command_id != IDC_CREATE_NEW_TAB_GROUP) {
+      base::RecordAction(base::UserMetricsAction(
+          "TabGroups_SavedTabGroups_OpenedFromAppMenu"));
+    }
+    stg_everything_menu_->ExecuteCommand(command_id, mouse_event_flags);
+    return;
+  }
+
   if (IsBookmarkCommand(command_id)) {
     UMA_HISTOGRAM_MEDIUM_TIMES("WrenchMenu.TimeToAction.OpenBookmark",
                                menu_opened_timer_.Elapsed());
@@ -1209,6 +1250,11 @@ bool AppMenu::GetAccelerator(int command_id,
     return false;
   }
 
+  if (command_id == IDC_CREATE_NEW_TAB_GROUP ||
+      IsTabGroupsCommand(command_id)) {
+    return false;
+  }
+
   if (IsBookmarkCommand(command_id) ||
       command_id == IDC_SHOW_BOOKMARK_SIDE_PANEL) {
     return false;
@@ -1231,10 +1277,20 @@ bool AppMenu::GetAccelerator(int command_id,
 }
 
 void AppMenu::WillShowMenu(MenuItemView* menu) {
-  if (menu == bookmark_menu_)
+  if (menu == saved_tab_groups_menu_) {
+    UMA_HISTOGRAM_MEDIUM_TIMES("WrenchMenu.TimeToAction.ShowSavedTabGroups",
+                               menu_opened_timer_.Elapsed());
+    UMA_HISTOGRAM_ENUMERATION("WrenchMenu.MenuAction",
+                              MENU_ACTION_SHOW_SAVED_TAB_GROUPS,
+                              LIMIT_MENU_ACTION);
+    stg_everything_menu_ =
+          std::make_unique<tab_groups::STGEverythingMenu>(nullptr, browser_);
+    stg_everything_menu_->PopulateMenu(menu);
+  } else if (menu == bookmark_menu_) {
     CreateBookmarkMenu();
-  else if (bookmark_menu_delegate_)
+  } else if (bookmark_menu_delegate_) {
     bookmark_menu_delegate_->WillShowMenu(menu);
+  }
 }
 
 void AppMenu::WillHideMenu(MenuItemView* menu) {
@@ -1323,19 +1379,24 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
     if (model->GetTypeAt(i) == MenuModel::TYPE_SUBMENU) {
       PopulateMenu(item, model->GetSubmenuModelAt(i));
     }
+
+    // Helper method that adds a background to a menu item.
+    auto add_menu_row_background = [item](int vertical_margin,
+                                          ui::ColorId background_color) {
+      constexpr int kBackgroundCornerRadius = 12;
+      item->set_vertical_margin(vertical_margin);
+      item->SetMenuItemBackground(MenuItemView::MenuItemBackground(
+          background_color, kBackgroundCornerRadius));
+      item->SetSelectedColorId(ui::kColorAppMenuRowBackgroundHovered);
+    };
+
     switch (model->GetCommandIdAt(i)) {
       case IDC_PROFILE_MENU_IN_APP_MENU: {
         if (features::IsChromeRefresh2023()) {
-          constexpr int background_corner_radii = 12;
-          // Profile row margins are different from the menu config item
-          // margins.
-          item->set_vertical_margin(
+          add_menu_row_background(
               ChromeLayoutProvider::Get()->GetDistanceMetric(
-                  DISTANCE_CONTENT_LIST_VERTICAL_MULTI));
-          item->SetMenuItemBackground(MenuItemView::MenuItemBackground(
-              ui::kColorAppMenuProfileRowBackground, background_corner_radii));
-          item->SetSelectedColorId(
-              ui::kColorAppMenuProfileRowBackgroundHovered);
+                  DISTANCE_CONTENT_LIST_VERTICAL_MULTI),
+              ui::kColorAppMenuProfileRowBackground);
           ProfileAttributesEntry* profile_attributes =
               GetProfileAttributesFromProfile(browser_->profile());
           if (profile_attributes &&
@@ -1346,6 +1407,24 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
                 config.arrow_to_edge_padding + config.arrow_size,
                 profile_menu_item_selected_subscription_list_);
           }
+        }
+        break;
+      }
+      case IDC_UPGRADE_DIALOG: {
+        add_menu_row_background(
+            views::LayoutProvider::Get()->GetDistanceMetric(
+                views::DISTANCE_CONTROL_VERTICAL_TEXT_PADDING),
+            ui::kColorAppMenuUpgradeRowBackground);
+        break;
+      }
+      case IDC_SET_BROWSER_AS_DEFAULT: {
+        // Only highlight the default browser item when it is first in the
+        // AppMenu.
+        if (i == 0) {
+          add_menu_row_background(
+              views::LayoutProvider::Get()->GetDistanceMetric(
+                  views::DISTANCE_CONTROL_VERTICAL_TEXT_PADDING),
+              ui::kColorAppMenuUpgradeRowBackground);
         }
         break;
       }
@@ -1375,6 +1454,11 @@ void AppMenu::PopulateMenu(MenuItemView* parent, MenuModel* model) {
       case IDC_BOOKMARKS_MENU:
         DCHECK(!bookmark_menu_);
         bookmark_menu_ = item;
+        break;
+
+      case IDC_SAVED_TAB_GROUPS_MENU:
+        DCHECK(!saved_tab_groups_menu_);
+        saved_tab_groups_menu_ = item;
         break;
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)

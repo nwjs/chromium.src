@@ -6,11 +6,11 @@
 
 #include <string_view>
 
-#include "ash/constants/app_types.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/ash/crosapi/browser_util.h"
 #include "chrome/browser/ash/guest_os/guest_os_shelf_utils.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
@@ -24,15 +24,14 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
-#include "chrome/browser/web_applications/web_app.h"
-#include "chrome/browser/web_applications/web_app_provider.h"
-#include "chrome/browser/web_applications/web_app_registrar.h"
-#include "chrome/browser/web_applications/web_app_utils.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "chromeos/ui/base/app_types.h"
+#include "chromeos/ui/base/window_properties.h"
 #include "components/app_constants/constants.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
+#include "components/services/app_service/public/cpp/app_registry_cache.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/instance_registry.h"
 #include "components/services/app_service/public/cpp/instance_update.h"
@@ -68,6 +67,9 @@ constexpr auto kAppTypeNameMap =
         {apps::kExtensionHistogramName, apps::AppTypeName::kExtension},
         {apps::kStandaloneBrowserExtensionHistogramName,
          apps::AppTypeName::kStandaloneBrowserExtension},
+        {apps::kStandaloneBrowserWebAppHistogramName,
+         apps::AppTypeName::kStandaloneBrowserWebApp},
+        {apps::kBruschettaHistogramName, apps::AppTypeName::kBruschetta},
     });
 
 constexpr char kInstallReasonUnknownHistogram[] = "Unknown";
@@ -125,7 +127,7 @@ apps::AppTypeName GetAppTypeNameForChromeApp(Profile* profile,
 }
 
 apps::AppTypeName GetWebAppTypeName() {
-  return web_app::IsWebAppsCrosapiEnabled()
+  return crosapi::browser_util::IsLacrosEnabled()
              ? apps::AppTypeName::kStandaloneBrowserWebApp
              : apps::AppTypeName::kWeb;
 }
@@ -157,7 +159,7 @@ constexpr int kUsageTimeBuckets = 50;
 AppTypeName GetAppTypeNameForWebApp(Profile* profile,
                                     const std::string& app_id,
                                     apps::LaunchContainer container) {
-  AppTypeName default_type_name = web_app::IsWebAppsCrosapiEnabled()
+  AppTypeName default_type_name = crosapi::browser_util::IsLacrosEnabled()
                                       ? AppTypeName::kStandaloneBrowser
                                       : AppTypeName::kChromeBrowser;
   AppTypeName type_name = default_type_name;
@@ -248,7 +250,7 @@ bool IsAshBrowserWindow(aura::Window* window) {
 }
 
 bool IsLacrosBrowserWindow(Profile* profile, aura::Window* window) {
-  if (!web_app::IsWebAppsCrosapiEnabled()) {
+  if (!crosapi::browser_util::IsLacrosEnabled()) {
     return false;
   }
 
@@ -264,8 +266,8 @@ bool IsLacrosBrowserWindow(Profile* profile, aura::Window* window) {
 }
 
 bool IsLacrosWindow(aura::Window* window) {
-  return window->GetProperty(aura::client::kAppType) ==
-         static_cast<int>(ash::AppType::LACROS);
+  return window->GetProperty(chromeos::kAppTypeKey) ==
+         chromeos::AppType::LACROS;
 }
 
 bool IsAppOpenedInTab(AppTypeName app_type_name, const std::string& app_id) {
@@ -451,8 +453,13 @@ bool ShouldRecordUkm(Profile* profile) {
   }
 }
 
-bool ShouldRecordUkmForAppId(const std::string& app_id,
-                             const apps::AppRegistryCache& cache) {
+bool ShouldRecordUkmForAppId(Profile* profile,
+                             const AppRegistryCache& cache,
+                             const std::string& app_id) {
+  if (!ShouldRecordUkm(profile)) {
+    return false;
+  }
+
   if (chromeos::IsManagedGuestSession() &&
       !UkmReportingIsAllowedForAppInManagedGuestSession(app_id, cache)) {
     return false;

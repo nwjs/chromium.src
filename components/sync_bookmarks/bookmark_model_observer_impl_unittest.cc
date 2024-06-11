@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/functional/callback_helpers.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
@@ -750,7 +751,7 @@ TEST_P(BookmarkModelObserverImplTest,
       bookmark3_entity->metadata().server_id();
   // Delete folder2.
   EXPECT_CALL(*nudge_for_commit_closure(), Run());
-  bookmark_model()->Remove(folder2_node);
+  bookmark_model()->Remove(folder2_node, FROM_HERE);
 
   // folder2, bookmark2, and bookmark3 should be marked deleted.
   EXPECT_TRUE(bookmark_tracker()
@@ -797,7 +798,7 @@ TEST_P(BookmarkModelObserverImplTest,
   bookmark_tracker()->MarkCommitMayHaveStarted(entity);
 
   // Remove the folder.
-  bookmark_model()->Remove(folder_node);
+  bookmark_model()->Remove(folder_node, FROM_HERE);
 
   // Simulate a commit response for the first commit request (the creation).
   // Don't simulate change in id for simplicity.
@@ -835,7 +836,7 @@ TEST_P(BookmarkModelObserverImplTest,
   ASSERT_THAT(bookmark_tracker()->GetEntitiesWithLocalChanges().size(), 1U);
 
   // Remove the folder.
-  bookmark_model()->Remove(folder_node);
+  bookmark_model()->Remove(folder_node, FROM_HERE);
 
   // Entity should have been dropped.
   EXPECT_THAT(bookmark_tracker()->TrackedEntitiesCountForTest(), 3U);
@@ -919,7 +920,7 @@ TEST_P(BookmarkModelObserverImplTest, ShouldNotSyncUnsyncableBookmarks) {
   EXPECT_CALL(*nudge_for_commit_closure(), Run()).Times(0);
   // In the TestBookmarkClient, descendants of managed nodes shouldn't be
   // synced.
-  model.Remove(unsyncable_node);
+  model.Remove(unsyncable_node, FROM_HERE);
 
   // Only permanent folders should be tracked.
   EXPECT_THAT(bookmark_tracker->TrackedEntitiesCountForTest(), 3U);
@@ -953,7 +954,7 @@ TEST_P(BookmarkModelObserverImplTest, ShouldAddChildrenInArbitraryOrder) {
   for (size_t i = 0; i < 5; i++) {
     nodes[i] = bookmark_model()->AddFolder(
         /*parent=*/bookmark_bar_node, /*index=*/i,
-        base::UTF8ToUTF16("folder" + std::to_string(i)));
+        base::UTF8ToUTF16("folder" + base::NumberToString(i)));
   }
 
   // Now simulate calling the observer as if the nodes are added in that order.
@@ -1145,7 +1146,7 @@ TEST_P(BookmarkModelObserverImplTest,
   ASSERT_FALSE(folder_entity->IsUnsynced());
 
   // Now delete the entity and restore it with the same bookmark node.
-  bookmark_model()->Remove(folder);
+  bookmark_model()->Remove(folder, FROM_HERE);
 
   // The removed bookmark must be saved in the undo service.
   ASSERT_GE(undo_manager()->undo_count(), 1u);

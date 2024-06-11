@@ -58,7 +58,7 @@ const redesignedPages: Route[] = [
   routes.SITE_SETTINGS_WEB_PRINTING,
   // </if>
 
-  // TODO(crbug.com/1128902) After restructure add coverage for elements on
+  // TODO(crbug.com/40719916) After restructure add coverage for elements on
   // routes which depend on flags being enabled.
   // routes.SITE_SETTINGS_BLUETOOTH_SCANNING,
   // routes.SITE_SETTINGS_BLUETOOTH_DEVICES,
@@ -927,7 +927,7 @@ suite('NotificationPermissionReview', function() {
   });
 });
 
-// TODO(crbug.com/1443466): Remove the test once Safety Hub has been rolled out.
+// TODO(crbug.com/40267370): Remove the test once Safety Hub has been rolled out.
 suite('NotificationPermissionReviewSafetyHubDisabled', function() {
   let page: SettingsPrivacyPageElement;
   let siteSettingsBrowserProxy: TestSafetyHubBrowserProxy;

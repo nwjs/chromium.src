@@ -68,6 +68,11 @@ MATCHER_P2(MatchesUsernameAndPassword, username, password, "") {
   return arg.username_value == username && arg.password_value == password;
 }
 
+MATCHER_P(MatchesUpdatedForm, form, "") {
+  return ArePasswordFormUniqueKeysEqual(arg, form) &&
+         arg.date_last_used >= form.date_last_used;
+}
+
 // Creates a matcher for an `autofill::AutofillUploadContents::Field` that
 // checks that the field's signature matches that of `field` and its predicted
 // type is `type`.
@@ -214,30 +219,30 @@ class PasswordSaveManagerImplTestBase : public testing::Test {
 
     FormFieldData field;
     field.set_name(u"firstname");
-    field.id_attribute = field.name();
-    field.name_attribute = field.name();
+    field.set_id_attribute(field.name());
+    field.set_name_attribute(field.name());
     field.set_form_control_type(autofill::FormControlType::kInputText);
     field.set_renderer_id(autofill::FieldRendererId(1));
     observed_form_.fields.push_back(field);
 
     field.set_name(u"username");
-    field.id_attribute = field.name();
-    field.name_attribute = field.name();
+    field.set_id_attribute(field.name());
+    field.set_name_attribute(field.name());
     field.set_form_control_type(autofill::FormControlType::kInputText);
     field.set_renderer_id(autofill::FieldRendererId(2));
     observed_form_.fields.push_back(field);
 
     field.set_name(u"password");
-    field.id_attribute = field.name();
-    field.name_attribute = field.name();
+    field.set_id_attribute(field.name());
+    field.set_name_attribute(field.name());
     field.set_form_control_type(autofill::FormControlType::kInputPassword);
     field.set_renderer_id(autofill::FieldRendererId(3));
     observed_form_.fields.push_back(field);
     observed_form_only_password_fields_.fields.push_back(field);
 
     field.set_name(u"password2");
-    field.id_attribute = field.name();
-    field.name_attribute = field.name();
+    field.set_id_attribute(field.name());
+    field.set_name_attribute(field.name());
     field.set_form_control_type(autofill::FormControlType::kInputPassword);
     field.set_renderer_id(autofill::FieldRendererId(5));
     observed_form_only_password_fields_.fields.push_back(field);
@@ -622,7 +627,7 @@ TEST_P(PasswordSaveManagerImplTest, CreatePendingCredentialsEmptyName) {
   // There is an anonymous password field and set it as the new password field.
   anonymous_signup.fields[2].set_name({});
   anonymous_signup.fields[2].set_value(u"a password");
-  anonymous_signup.fields[2].autocomplete_attribute = "new-password";
+  anonymous_signup.fields[2].set_autocomplete_attribute("new-password");
 
   password_save_manager_impl()->CreatePendingCredentials(
       Parse(anonymous_signup), &observed_form_, anonymous_signup,
@@ -915,7 +920,7 @@ TEST_P(PasswordSaveManagerImplTest, UpdatePasswordValueEmptyStore) {
       expected, password_save_manager_impl()->GetPendingCredentials());
   EXPECT_TRUE(password_save_manager_impl()->IsNewLogin());
 
-  // TODO(https://crbug.com/928690): implement not sending incorrect votes and
+  // TODO(crbug.com/41439338): implement not sending incorrect votes and
   // check that StartUploadRequest is not called.
   EXPECT_CALL(*mock_autofill_crowdsourcing_manager(), StartUploadRequest);
   password_save_manager_impl()->Save(&observed_form_, parsed_submitted_form);
@@ -1211,8 +1216,7 @@ TEST_P(PasswordSaveManagerImplTest, Update) {
 
   const base::Time kNow = base::Time::Now();
 
-  password_save_manager_impl()->Update(saved_match_, &observed_form_,
-                                       parsed_submitted_form);
+  password_save_manager_impl()->Save(&observed_form_, parsed_submitted_form);
 
   EXPECT_TRUE(ArePasswordFormUniqueKeysEqual(saved_match_, updated_form));
   EXPECT_EQ(new_password, updated_form.password_value);
@@ -1302,23 +1306,23 @@ TEST_P(PasswordSaveManagerImplTest, UsernameCorrectionVote) {
   const std::u16string matched_form_username_field_name = u"new_username_id";
   FormFieldData field1;
   field1.set_name(matched_form_username_field_name);
-  field1.id_attribute = field1.name();
-  field1.name_attribute = field1.name();
+  field1.set_id_attribute(field1.name());
+  field1.set_name_attribute(field1.name());
   field1.set_form_control_type(autofill::FormControlType::kInputText);
   saved_match_.form_data.fields.push_back(field1);
 
   FormFieldData field2;
   field2.set_name(u"firstname");
-  field2.id_attribute = field2.name();
-  field2.name_attribute = field2.name();
+  field2.set_id_attribute(field2.name());
+  field2.set_name_attribute(field2.name());
   field2.set_form_control_type(autofill::FormControlType::kInputText);
   saved_match_.form_data.fields.push_back(field2);
   saved_match_.username_element = field2.name();
 
   FormFieldData field3;
   field3.set_name(u"password");
-  field3.id_attribute = field3.name();
-  field3.name_attribute = field3.name();
+  field3.set_id_attribute(field3.name());
+  field3.set_name_attribute(field3.name());
   field3.set_form_control_type(autofill::FormControlType::kInputPassword);
   saved_match_.form_data.fields.push_back(field3);
   saved_match_.password_element = field3.name();
@@ -1573,9 +1577,9 @@ TEST_F(MultiStorePasswordSaveManagerTest, UpdateInBothStores) {
       password_save_manager_impl()->GetPendingCredentials().in_store;
 
   EXPECT_CALL(*mock_profile_form_saver(),
-              Update(expected_profile_updated_form, _, _));
+              Update(MatchesUpdatedForm(expected_profile_updated_form), _, _));
   EXPECT_CALL(*mock_account_form_saver(),
-              Update(expected_account_updated_form, _, _));
+              Update(MatchesUpdatedForm(expected_account_updated_form), _, _));
 
   password_save_manager_impl()->Save(&observed_form_, parsed_submitted_form_);
 }
@@ -2175,6 +2179,86 @@ TEST_F(MultiStorePasswordSaveManagerTest,
 
   password_save_manager_impl()->PresaveGeneratedPassword(
       parsed_submitted_form_);
+}
+
+TEST_F(MultiStorePasswordSaveManagerTest,
+       GetPasswordStoreForSavingReturnsAccountForNewPasswordWhenEnabled) {
+  SetAccountStoreEnabled(/*is_enabled=*/true);
+  SetDefaultPasswordStore(PasswordForm::Store::kAccountStore);
+  PasswordForm::Store store_to_save =
+      password_save_manager_impl()->GetPasswordStoreForSaving(
+          parsed_observed_form_);
+  EXPECT_EQ(PasswordForm::Store::kAccountStore, store_to_save);
+}
+
+TEST_F(
+    MultiStorePasswordSaveManagerTest,
+    GetPasswordStoreForSavingReturnsProfileForNewPasswordWhenAccountDisabled) {
+  SetAccountStoreEnabled(/*is_enabled=*/false);
+  PasswordForm::Store store_to_save =
+      password_save_manager_impl()->GetPasswordStoreForSaving(
+          parsed_observed_form_);
+  EXPECT_EQ(PasswordForm::Store::kProfileStore, store_to_save);
+}
+
+TEST_F(MultiStorePasswordSaveManagerTest,
+       GetPasswordStoreForSavingReturnsProfileWhenUpdatingInProfile) {
+  SetAccountStoreEnabled(/*is_enabled=*/true);
+  SetDefaultPasswordStore(PasswordForm::Store::kAccountStore);
+
+  saved_match_.in_store = PasswordForm::Store::kProfileStore;
+  SetNonFederatedAndNotifyFetchCompleted({&saved_match_});
+
+  PasswordForm::Store store_to_save =
+      password_save_manager_impl()->GetPasswordStoreForSaving(
+          parsed_observed_form_);
+  EXPECT_EQ(PasswordForm::Store::kProfileStore, store_to_save);
+}
+
+TEST_F(MultiStorePasswordSaveManagerTest,
+       GetPasswordStoreForSavingReturnsBothWhenCredentialDuplicated) {
+  SetAccountStoreEnabled(/*is_enabled=*/true);
+  SetDefaultPasswordStore(PasswordForm::Store::kAccountStore);
+
+  saved_match_.in_store =
+      PasswordForm::Store::kProfileStore | PasswordForm::Store::kAccountStore;
+  SetNonFederatedAndNotifyFetchCompleted({&saved_match_});
+
+  PasswordForm::Store store_to_save =
+      password_save_manager_impl()->GetPasswordStoreForSaving(
+          parsed_observed_form_);
+  EXPECT_EQ(
+      PasswordForm::Store::kProfileStore | PasswordForm::Store::kAccountStore,
+      store_to_save);
+}
+
+TEST_F(
+    MultiStorePasswordSaveManagerTest,
+    GetPasswordStoreForSavingReturnsBothForUpdateInProfileWithGeneratedPassword) {
+  SetAccountStoreEnabled(/*is_enabled=*/true);
+  SetDefaultPasswordStore(PasswordForm::Store::kAccountStore);
+
+  saved_match_.in_store = PasswordForm::Store::kProfileStore;
+  SetNonFederatedAndNotifyFetchCompleted({&saved_match_});
+
+  password_save_manager_impl()->PresaveGeneratedPassword(parsed_observed_form_);
+  PasswordForm::Store store_to_save =
+      password_save_manager_impl()->GetPasswordStoreForSaving(
+          parsed_observed_form_);
+  EXPECT_EQ(
+      PasswordForm::Store::kProfileStore | PasswordForm::Store::kAccountStore,
+      store_to_save);
+}
+
+TEST_F(MultiStorePasswordSaveManagerTest,
+       GetPasswordStoreForSavingReturnsProfileWhenAccountDisabled) {
+  SetAccountStoreEnabled(/*is_enabled=*/false);
+
+  password_save_manager_impl()->PresaveGeneratedPassword(parsed_observed_form_);
+  PasswordForm::Store store_to_save =
+      password_save_manager_impl()->GetPasswordStoreForSaving(
+          parsed_observed_form_);
+  EXPECT_EQ(PasswordForm::Store::kProfileStore, store_to_save);
 }
 
 // Since conflicts in the profile store should not be taken into account during

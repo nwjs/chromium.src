@@ -52,8 +52,13 @@ class WebStateID;
                                    completion:(void (^)(size_t))completion;
 
 // Tells the receiver to select the item with identifier `itemID`. If there is
-// no item with that identifier, no change in selection should be made.
-- (void)selectItemWithID:(web::WebStateID)itemID pinned:(BOOL)pinned;
+// no item with that identifier, no change in selection should be made. `pinned`
+// is `YES` If the selected item is a pinned item. `isFirstActionOnTabGrid` is
+// whether the itme selection is the first action that happens since the user
+// enters tab grid.
+- (void)selectItemWithID:(web::WebStateID)itemID
+                    pinned:(BOOL)pinned
+    isFirstActionOnTabGrid:(BOOL)isFirstActionOnTabGrid;
 
 // Tells the receiver to select the `tabGroup`.
 - (void)selectTabGroup:(const TabGroup*)tabGroup;
@@ -67,9 +72,6 @@ class WebStateID;
 
 // Tells the receiver to ungroup the `group`.
 - (void)ungroupTabGroup:(const TabGroup*)group;
-
-// Tells the receiver to add a tab to the `group`. Returns whether it succeed.
-- (BOOL)addTabToGroup:(const TabGroup*)group;
 
 // Tells the receiver to pin or unpin the tab with identifier `itemID`.
 - (void)setPinState:(BOOL)pinState forItemWithID:(web::WebStateID)itemID;

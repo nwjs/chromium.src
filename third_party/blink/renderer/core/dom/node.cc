@@ -105,9 +105,15 @@
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html/html_embed_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
+#include "third_party/blink/renderer/core/html/html_image_element.h"
+#include "third_party/blink/renderer/core/html/html_object_element.h"
+#include "third_party/blink/renderer/core/html/html_script_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -154,13 +160,29 @@ namespace blink {
 
 using ReattachHookScope = LayoutShiftTracker::ReattachHookScope;
 
+// We want to keep Node small.  This struct + assert calls our attention to a
+// change that might be undesirable, so that we make sure to consider whether
+// it's worthwhile.
 struct SameSizeAsNode : EventTarget {
+  uint32_t node_flags_;
+  subtle::UncompressedMember<int> uncompressed[2];
+  Member<void*> members[4];
+};
+
+ASSERT_SIZE(Node, SameSizeAsNode);
+
+// Right now we have the member variables of Node ordered so as to
+// reduce padding.  If the object layout of its base class changes, this
+// ordering might stop being optimal.  This struct + assert are intended
+// to catch if that happens, so that we can reorder the members again.
+struct NotSmallerThanNode : EventTarget {
   subtle::UncompressedMember<int> uncompressed[2];
   Member<void*> members[4];
   uint32_t node_flags_;
 };
 
-ASSERT_SIZE(Node, SameSizeAsNode);
+static_assert(sizeof(Node) <= sizeof(NotSmallerThanNode),
+              "members of node should be reordered for better packing");
 
 #if DUMP_NODE_STATISTICS
 using WeakNodeSet = HeapHashSet<WeakMember<Node>>;
@@ -300,13 +322,13 @@ void Node::DumpStatistics() {
 #endif
 
 Node::Node(TreeScope* tree_scope, ConstructionType type)
-    : parent_or_shadow_host_node_(nullptr),
+    : node_flags_(type),
+      parent_or_shadow_host_node_(nullptr),
       tree_scope_(tree_scope),
       previous_(nullptr),
       next_(nullptr),
       layout_object_(nullptr),
-      data_(nullptr),
-      node_flags_(type) {
+      data_(nullptr) {
   DCHECK(tree_scope_ || type == kCreateDocument || type == kCreateShadowRoot);
 #if DUMP_NODE_STATISTICS
   LiveNodeSet().insert(this);
@@ -603,16 +625,15 @@ Node* Node::moveBefore(Node* new_child,
                        ExceptionState& exception_state) {
   DCHECK(new_child);
 
-  // TODO(https://crbug.com/40150299): We likely want more conditions to
-  // disqualify a state-preserving move, like moves that would be across a
-  // shadow boundary. Add more conditions and tests.
-  //
   // Only perform a state-preserving atomic move if the child is ALREADY
-  // connected. If the child is NOT connected, then script can run during the
-  // node's initial post-insertion steps (i.e.,
+  // connected to this document, and doesn't cross shadow boundaries.
+  // If the child is NOT connected to this document, then script can run during
+  // the node's initial post-insertion steps (i.e.,
   // `Node::DidNotifySubtreeInsertionsToDocument()`), and no script is permitted
   // to run during atomic moves.
-  const bool perform_state_preserving_atomic_move = new_child->isConnected();
+  const bool perform_state_preserving_atomic_move =
+      isConnected() && new_child->isConnected() && GetDocument().IsActive() &&
+      (GetTreeScope() == new_child->GetTreeScope());
 
   if (perform_state_preserving_atomic_move) {
     // When `moveBefore()` is called, AND we're actually performing a
@@ -621,6 +642,12 @@ Node* Node::moveBefore(Node* new_child,
     // occur. Assert that no atomic move is already in progress.
     DCHECK(!GetDocument().StatePreservingAtomicMoveInProgress());
     GetDocument().SetStatePreservingAtomicMoveInProgress(true);
+  } else if (GetTreeScope() != new_child->GetTreeScope() &&
+             GetDocument() == new_child->GetDocument()) {
+    // Currently we disable atomic move for same-document cross-shadow use
+    // cases, but this UseCounter can help use discern if this is an interesting
+    // use case in the future.
+    UseCounter::Count(&GetDocument(), WebFeature::kCrossShadowAtomicMove);
   }
 
   Node* return_node = insertBefore(new_child, ref_child, exception_state);
@@ -2203,6 +2230,10 @@ Node::InsertionNotificationRequest Node::InsertedInto(
   if (auto* cache = GetDocument().ExistingAXObjectCache()) {
     cache->NodeIsConnected(this);
   }
+
+  if (GetDocument().StatePreservingAtomicMoveInProgress()) {
+    FlatTreeParentChanged();
+  }
   return kInsertionDone;
 }
 
@@ -3234,11 +3265,17 @@ bool Node::HasMediaControlAncestor() const {
   return false;
 }
 
-void Node::FlatTreeParentChanged() {
+void Node::ParentSlotChanged() {
   if (!isConnected()) {
     return;
   }
   DCHECK(IsSlotable());
+  DCHECK(IsShadowHost(parentNode()) || IsA<HTMLSlotElement>(parentNode()));
+  FlatTreeParentChanged();
+}
+
+void Node::FlatTreeParentChanged() {
+  DCHECK(isConnected());
   const ComputedStyle* style =
       IsElementNode() ? To<Element>(this)->GetComputedStyle() : nullptr;
   bool detach = false;

@@ -80,7 +80,7 @@ bool WaylandPopup::CreateShellPopup() {
 
   auto bounds_dip =
       wl::TranslateWindowBoundsToParentDIP(this, xdg_parent_window);
-  bounds_dip.Inset(GetDecorationInsetsInDIP());
+  bounds_dip.Inset(delegate()->CalculateInsetsInDIP(GetPlatformWindowState()));
 
   ShellPopupParams params;
   params.bounds = bounds_dip;
@@ -196,7 +196,8 @@ void WaylandPopup::SetBoundsInDIP(const gfx::Rect& bounds_dip) {
   if (shell_popup_ && old_bounds_dip != bounds_dip) {
     auto bounds_dip_in_parent =
         wl::TranslateWindowBoundsToParentDIP(this, xdg_parent_window);
-    bounds_dip_in_parent.Inset(GetDecorationInsetsInDIP());
+    bounds_dip_in_parent.Inset(
+        delegate()->CalculateInsetsInDIP(GetPlatformWindowState()));
 
     // If Wayland moved the popup (for example, a dnd arrow icon), schedule
     // redraw as Aura doesn't do that for moved surfaces. If redraw has not been
@@ -237,8 +238,12 @@ void WaylandPopup::HandlePopupConfigure(const gfx::Rect& bounds_dip) {
           pending_bounds_dip, xdg_parent_window->GetBoundsInDIP()) +
       xdg_parent_window->GetWindowGeometryOffsetInDIP();
 
-  // Bounds are in the geometry space. Need to add decoration insets backs.
-  const auto insets = GetDecorationInsetsInDIP();
+  // Bounds are in the geometry space. Need to add decoration insets backs. Note
+  // that the window state for WaylandPopup is always `kNormal` now, but we
+  // check `pending_configure_state_.window_state` to make it consistent.
+  const auto insets = delegate()->CalculateInsetsInDIP(
+      pending_configure_state_.window_state.value_or(
+          PlatformWindowState::kNormal));
   pending_configure_state_.bounds_dip->Inset(-insets);
   pending_configure_state_.size_px =
       delegate()->ConvertRectToPixels(pending_bounds_dip).size();
@@ -317,13 +322,16 @@ void WaylandPopup::OnCloseRequest() {
 bool WaylandPopup::OnInitialize(PlatformWindowInitProperties properties,
                                 PlatformWindowDelegate::State* state) {
   DCHECK(parent_window());
+
+  // `window_state` is always `kNormal` on WaylandPopup.
+  state->window_state = PlatformWindowState::kNormal;
+
   state->window_scale = parent_window()->applied_state().window_scale;
 
   // See details in WaylandWindow::RequestState().
   state->size_px = ScaleToEnclosingRectIgnoringError(
                        gfx::Rect(state->bounds_dip.size()), state->window_scale)
                        .size();
-  set_ui_scale(parent_window()->ui_scale());
   shadow_type_ = properties.shadow_type;
   return true;
 }
@@ -336,13 +344,13 @@ bool WaylandPopup::IsSurfaceConfigured() {
   return shell_popup() ? shell_popup()->IsConfigured() : false;
 }
 
-void WaylandPopup::SetWindowGeometry(gfx::Size size_dip) {
+void WaylandPopup::SetWindowGeometry(
+    const PlatformWindowDelegate::State& state) {
   if (!shell_popup_) {
     return;
   }
-  const auto insets = GetDecorationInsetsInDIP();
-  gfx::Rect geometry_dip(size_dip);
-  geometry_dip.Inset(insets);
+  gfx::Rect geometry_dip(state.bounds_dip.size());
+  geometry_dip.Inset(delegate()->CalculateInsetsInDIP(state.window_state));
   shell_popup_->SetWindowGeometry(geometry_dip);
 }
 

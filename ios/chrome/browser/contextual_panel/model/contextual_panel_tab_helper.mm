@@ -40,9 +40,22 @@ bool ContextualPanelTabHelper::HasCachedConfigsAvailable() {
   return !sorted_weak_configurations_.empty();
 }
 
+std::vector<base::WeakPtr<ContextualPanelItemConfiguration>>
+ContextualPanelTabHelper::GetCurrentCachedConfigurations() {
+  return sorted_weak_configurations_;
+}
+
 base::WeakPtr<ContextualPanelItemConfiguration>
 ContextualPanelTabHelper::GetFirstCachedConfig() {
   return HasCachedConfigsAvailable() ? sorted_weak_configurations_[0] : nullptr;
+}
+
+bool ContextualPanelTabHelper::IsContextualPanelCurrentlyOpened() {
+  return is_contextual_panel_currently_opened_;
+}
+
+void ContextualPanelTabHelper::SetContextualPanelCurrentlyOpened(bool opened) {
+  is_contextual_panel_currently_opened_ = opened;
 }
 
 bool ContextualPanelTabHelper::WasLargeEntrypointShown() {
@@ -65,6 +78,7 @@ void ContextualPanelTabHelper::DidStartNavigation(
     return;
   }
 
+  is_contextual_panel_currently_opened_ = false;
   large_entrypoint_shown_for_curent_page_navigation_ = false;
 
   // Clear the configs and notify the observers.
@@ -97,6 +111,10 @@ void ContextualPanelTabHelper::PageLoaded(
 #pragma mark - Private
 
 void ContextualPanelTabHelper::QueryModels() {
+  // Invalidate existing weak pointers to cancel any in-flight
+  // fetches/callbacks.
+  weak_ptr_factory_.InvalidateWeakPtrs();
+
   responses_.clear();
 
   // First, create all the response objects, to track completed responses
@@ -121,6 +139,9 @@ void ContextualPanelTabHelper::ModelCallbackReceived(
     ContextualPanelItemType item_type,
     std::unique_ptr<ContextualPanelItemConfiguration> configuration) {
   DCHECK(!responses_[item_type].completed);
+  if (configuration) {
+    DCHECK_EQ(item_type, configuration->item_type);
+  }
   responses_[item_type] = ModelResponse(std::move(configuration));
 
   // Check if all models have returned.

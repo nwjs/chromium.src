@@ -65,13 +65,6 @@ const char kAutofillEnableMerchantDomainInUnmaskCardRequestDescription[] =
     "merchant_domain parameter populated with the last origin of the main "
     "frame.";
 
-const char kAutofillEnablePaymentsMandatoryReauthName[] =
-    "Enable mandatory re-auth for payments autofill";
-const char kAutofillEnablePaymentsMandatoryReauthDescription[] =
-    "When this is enabled, in use-cases where we would not have triggered any "
-    "user-visible authentication to autofill payment methods, we will trigger "
-    "a device authentication.";
-
 const char kAutofillEnablePrefetchingRiskDataForRetrievalName[] =
     "Enable prefetching of risk data during payments autofill retrieval";
 const char kAutofillEnablePrefetchingRiskDataForRetrievalDescription[] =
@@ -120,6 +113,11 @@ const char kAutofillEnableCardProductNameDescription[] =
     "When enabled, card product name (instead of issuer network) will be shown "
     "in Payments UI.";
 
+const char kAutofillEnableVerveCardSupportName[] =
+    "Enable autofill support for Verve cards";
+const char kAutofillEnableVerveCardSupportDescription[] =
+    "When enabled, Verve-branded card art will be shown for Verve cards.";
+
 const char kAutofillEnableVirtualCardsName[] =
     "Enable virtual card enrollment and retrieval";
 const char kAutofillEnableVirtualCardsDescription[] =
@@ -146,13 +144,6 @@ const char kAutofillStickyInfobarName[] = "Sticky Autofill Infobar";
 const char kAutofillStickyInfobarDescription[] =
     "Makes the Address Infobar sticky to only dismiss on navigation from user "
     "gesture.";
-
-const char kAutofillSuggestServerCardInsteadOfLocalCardName[] =
-    "Suggest Server card instead of Local card for deduped cards";
-const char kAutofillSuggestServerCardInsteadOfLocalCardDescription[] =
-    "When enabled, Autofill suggestions that consist of a local and server "
-    "version of the same card will attempt to fill the server card upon "
-    "selection instead of the local card.";
 
 const char kAutofillUpdateChromeSettingsLinkToGPayWebName[] =
     "Update Chrome Settings Link to GPay Web";
@@ -214,6 +205,11 @@ extern const char kAppleCalendarExperienceKitName[] =
 extern const char kAppleCalendarExperienceKitDescription[] =
     "When enabled, long pressing on dates will trigger Experience Kit Apple "
     "Calendar event handling.";
+
+const char kContentNotificationExperimentName[] =
+    "Content Notification Experiment";
+const char kContentNotificationExperimentDescription[] =
+    "Enable Content Notification Experiment.";
 
 const char kContentPushNotificationsName[] = "Content Push Notifications";
 const char kContentPushNotificationsDescription[] =
@@ -509,9 +505,10 @@ const char kHttpsUpgradesDescription[] =
     "When enabled, eligible navigations will automatically be upgraded to "
     "HTTPS.";
 
-const char kIncognitoNtpRevampName[] = "Revamped Incognito New Tab Page";
-const char kIncognitoNtpRevampDescription[] =
-    "When enabled, Incognito new tab page will have an updated UI.";
+const char kIdentityDiscAccountSwitchName[] = "Identity Disc Account Switcher";
+const char kIdentityDiscAccountSwitchDescription[] =
+    "When enabled, tapping the identity disc on the New Tab page shows an "
+    "account switcher UI.";
 
 const char kIndicateIdentityErrorInOverflowMenuName[] =
     "Indicate Identity Error in Overflow Menu";
@@ -529,6 +526,12 @@ const char kInProductHelpDemoModeDescription[] =
 const char kIOSBrowserEditMenuMetricsName[] = "Browser edit menu metrics";
 const char kIOSBrowserEditMenuMetricsDescription[] =
     "Collect metrics for edit menu usage.";
+
+// Title and description for the flag to enable detecting the username in the
+// username first flows for saving.
+const char kIOSDetectUsernameInUffName[] = "Detect username in UFF";
+const char kIOSDetectUsernameInUffDescription[] =
+    "Detect the username in UFF for saving.";
 
 const char kIOSDockingPromoName[] = "Docking Promo";
 const char kIOSDockingPromoDescription[] =
@@ -551,10 +554,6 @@ extern const char kIOSEditMenuHideSearchWebName[] =
 extern const char kIOSEditMenuHideSearchWebDescription[] =
     "Hides the Search Web entry in edit menu.";
 
-extern const char kIOSExternalActionURLsName[] = "iOS external action URLs";
-extern const char kIOSExternalActionURLsDescription[] =
-    "When enabled, the browser will support handling external action URLs.";
-
 const char kIOSKeyboardAccessoryUpgradeName[] =
     "Enable the keyboard accessory upgrade on iOS";
 const char kIOSKeyboardAccessoryUpgradeDescription[] =
@@ -565,10 +564,6 @@ const char kIOSMagicStackCollectionViewName[] =
 const char kIOSMagicStackCollectionViewDescription[] =
     "When enabled, the Magic Stack will be using a UICollectionView "
     "implementation";
-
-const char kIOSParcelTrackingName[] = "Parcel Tracking";
-const char kIOSParcelTrackingDescription[] =
-    "When enabled, the user will be able to track their packages.";
 
 const char kIOSPasswordAuthOnEntryV2Name[] =
     "Password Manager Auth on Entry V2";
@@ -601,6 +596,11 @@ const char kSyncWebauthnCredentialsDescription[] =
 const char kIOSPasswordSignInUffName[] = "Password sign-in uff";
 const char kIOSPasswordSignInUffDescription[] =
     "Enables filling the username in username-first sign-in flows.";
+
+const char kIOSQuickDeleteName[] = "Quick Delete for iOS";
+const char kIOSQuickDeleteDescription[] =
+    "Enables a new way for users to more easily delete their browsing data in "
+    "iOS.";
 
 const char kNewTabPageFieldTrialName[] =
     "New tab page features that target new users";
@@ -655,6 +655,11 @@ const char kIPHiOSTabGridSwipeRightForIncognitoDescription[] =
     "Enables displaying the gesture IPH instructing users to swipe right on "
     "regular tab grid to view incognito tabs to new users.";
 
+const char kLensWebPageEarlyTransitionEnabledName[] =
+    "Lens web page early transition";
+const char kLensWebPageEarlyTransitionEnabledDescription[] =
+    "Enables earlier transitions from Lens UI to web page.";
+
 const char kLinkedServicesSettingIosName[] = "Linked Services Setting";
 const char kLinkedServicesSettingIosDescription[] =
     "Add Linked Services Setting to the Sync Settings page.";
@@ -702,6 +707,10 @@ const char kOverflowMenuCustomizationDescription[] =
 const char kNTPViewHierarchyRepairName[] = "NTP View Hierarchy Repair";
 const char kNTPViewHierarchyRepairDescription[] =
     "Checks if NTP view hierarchy is broken and fixes it if necessary.";
+
+const char kOmniboxActionsInSuggestName[] = "Omnibox actions in suggest";
+const char kOmniboxActionsInSuggestDescription[] =
+    "Enables actions in suggest for IOS";
 
 const char kOmniboxCompanyEntityIconAdjustmentName[] =
     "Omnibox Company Entity Icon Adjustment";
@@ -947,10 +956,22 @@ const char kScreenTimeIntegrationName[] = "Enables ScreenTime Integration";
 const char kScreenTimeIntegrationDescription[] =
     "Enables integration with ScreenTime in iOS 14.0 and above.";
 
+const char kSegmentationPlatformIosModuleRankerCachingName[] =
+    "Enabled Magic Stack Segmentation Ranking Caching";
+const char kSegmentationPlatformIosModuleRankerCachingDescription[] =
+    "Enables the Segmentation platform to cache the Magic Stack module rank "
+    "for Start";
+
 const char kSegmentationPlatformIosModuleRankerName[] =
     "Enable Magic Stack Segmentation Ranking";
 const char kSegmentationPlatformIosModuleRankerDescription[] =
     "Enables the Segmentation platform to rank Magic Stack modules";
+
+const char kSegmentationPlatformIosModuleRankerSplitBySurfaceName[] =
+    "Enable Magic Stack Segmentation Ranking split by surface";
+const char kSegmentationPlatformIosModuleRankerSplitBySurfaceDescription[] =
+    "Enables the Magic Stack module ranking to be split by surface for "
+    "engagement";
 
 const char kSendUmaOverAnyNetwork[] =
     "Send UMA data over any network available.";
@@ -979,12 +1000,6 @@ const char kSpotlightReadingListSourceName[] = "Show Reading List in Spotlight";
 const char kSpotlightReadingListSourceDescription[] =
     "Donate Reading List items to iOS Search Engine Spotlight";
 
-const char kSyncRememberCustomPassphraseAfterSignoutName[] =
-    "Remember custom passphrase after sign-out";
-const char kSyncRememberCustomPassphraseAfterSignoutDescription[] =
-    "Remember custom passphrase after sign-out, instead of asking the user to "
-    "re-enter it after every sign-in.";
-
 const char kSyncSandboxName[] = "Use Chrome Sync sandbox";
 const char kSyncSandboxDescription[] =
     "Connects to the testing server for Chrome Sync.";
@@ -998,6 +1013,11 @@ const char kSyncSegmentsDataName[] = "Use synced segments data";
 const char kSyncSegmentsDataDescription[] =
     "Enables history's segments to include foreign visits from syncing "
     "devices.";
+
+const char kTabGroupSync[] = "Enable Tab Group Sync";
+const char kTabGroupSyncDescription[] =
+    "When enabled, if tab-groups-in-grid is enabled, tab groups are synced "
+    "between syncing devices.";
 
 const char kStartSurfaceName[] = "Start Surface";
 const char kStartSurfaceDescription[] =
@@ -1023,11 +1043,6 @@ const char kThemeColorInTopToolbarName[] = "Top toolbar use page's theme color";
 const char kThemeColorInTopToolbarDescription[] =
     "When enabled with bottom omnibox, the top toolbar background color is the "
     "page's theme color. Disabled when a dynamic color flag is enabled.";
-
-const char kIOSHideFeedWithSearchChoiceName[] = "Hide Feed with Search Choice";
-const char kIOSHideFeedWithSearchChoiceDescription[] =
-    "When enabled, the feed and feed header are hidden depending on the "
-    "Search Engine setting.";
 
 const char kIOSLargeFakeboxName[] = "Enable Large Fakebox on Home";
 const char kIOSLargeFakeboxDescription[] =
@@ -1112,13 +1127,6 @@ const char kUnifiedBookmarkModelName[] = "Use unified bookmark model";
 const char kUnifiedBookmarkModelDescription[] =
     "When enabled, all bookmarks are represented in a single BookmarkModel "
     "object per BrowserState, instead of using two instances.";
-
-const char kUseLoadSimulatedRequestForOfflinePageName[] =
-    "Use loadSimulatedRequest:responseHTMLString: when displaying offline "
-    "pages";
-const char kUseLoadSimulatedRequestForOfflinePageDescription[] =
-    "When enabled, the offline pages uses the iOS 15 "
-    "loadSimulatedRequest:responseHTMLString: API";
 
 const char kWaitThresholdMillisecondsForCapabilitiesApiName[] =
     "Maximum wait time (in seconds) for a response from the Account "

@@ -242,9 +242,14 @@ bool IsABookmarkNodeSectionForIdentifier(
 - (void)generateTableViewDataForRootNode {
   BOOL showProfileSection =
       [self hasBookmarksOrFoldersInModel:_localOrSyncableBookmarkModel.get()];
+  // Whether the account part should be displayed, if possible.
+  BOOL shouldShowIfPossible =
+      [self hasBookmarksOrFoldersInModel:_accountBookmarkModel.get()] ||
+      showProfileSection;
   BOOL showAccountSection =
-      bookmark_utils_ios::IsAccountBookmarkStorageOptedIn(_syncService) &&
-      [self hasBookmarksOrFoldersInModel:_accountBookmarkModel.get()];
+      shouldShowIfPossible &&
+      bookmark_utils_ios::IsAccountBookmarkStorageAvailable(
+          _syncService, _accountBookmarkModel.get());
   if (showProfileSection) {
     [self
         generateTableViewDataForModel:_localOrSyncableBookmarkModel.get()
@@ -330,7 +335,8 @@ bool IsABookmarkNodeSectionForIdentifier(
   *query.word_phrase_query = base::SysNSStringToUTF16(searchText);
   // Total count of search result for both models.
   int totalSearchResultCount = 0;
-  if (bookmark_utils_ios::IsAccountBookmarkStorageOptedIn(self.syncService)) {
+  if (bookmark_utils_ios::IsAccountBookmarkStorageAvailable(
+          self.syncService, _accountBookmarkModel.get())) {
     totalSearchResultCount =
         [self populateNodeItemWithQuery:query
                           bookmarkModel:_accountBookmarkModel.get()
@@ -629,7 +635,7 @@ bool IsABookmarkNodeSectionForIdentifier(
 
 // All non-permanent nodes have been removed.
 - (void)bookmarkModelRemovedAllNodes:(LegacyBookmarkModel*)model {
-  // TODO(crbug.com/695749) Check if this case is applicable in the new UI.
+  // TODO(crbug.com/40508042) Check if this case is applicable in the new UI.
 }
 
 - (void)bookmarkModel:(LegacyBookmarkModel*)model
@@ -715,7 +721,7 @@ bool IsABookmarkNodeSectionForIdentifier(
   if (!_browser.get()) {
     // If `_browser` has been removed, the mediator can be disconnected and the
     // event can be ignored. See http://crbug.com/1442174.
-    // TODO(crbug.com/1440937): This `if` is a workaround until this bug is
+    // TODO(crbug.com/40064261): This `if` is a workaround until this bug is
     // fixed. This if should be remove when the bug will be closed.
     [self disconnect];
     return;
@@ -916,7 +922,8 @@ bool IsABookmarkNodeSectionForIdentifier(
             hasBookmarksOrFoldersInModel:_localOrSyncableBookmarkModel.get()]) {
       return YES;
     }
-    return bookmark_utils_ios::IsAccountBookmarkStorageOptedIn(_syncService) &&
+    return bookmark_utils_ios::IsAccountBookmarkStorageAvailable(
+               _syncService, _accountBookmarkModel.get()) &&
            [self hasBookmarksOrFoldersInModel:_accountBookmarkModel.get()];
   }
   return self.displayedNode && !self.displayedNode->children().empty();

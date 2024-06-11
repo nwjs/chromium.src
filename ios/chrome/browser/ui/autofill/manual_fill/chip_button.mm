@@ -11,9 +11,6 @@
 
 namespace {
 
-// Corner radius for the button.
-constexpr CGFloat kChipCornerRadius = 20;
-
 // Padding for the button. Used when the kIOSKeyboardAccessoryUpgrade feature is
 // disabled.
 constexpr CGFloat kChipPadding = 14;
@@ -29,6 +26,9 @@ constexpr CGFloat kChipVerticalPadding = 11.5;
 // Vertical margin for the button. How much bigger the tap target is. Used when
 // the kIOSKeyboardAccessoryUpgrade feature is disabled.
 constexpr CGFloat kChipVerticalMargin = 4;
+
+// Minimal height and width for the button.
+constexpr CGFloat kChipMinSize = 44;
 
 // Font size for the button's title.
 constexpr CGFloat kFontSize = 14;
@@ -95,12 +95,10 @@ CGFloat GetChipVerticalPadding() {
 
 - (void)layoutSubviews {
   [super layoutSubviews];
-  if (IsKeyboardAccessoryUpgradeEnabled()) {
-    self.backgroundView.layer.cornerRadius = kChipCornerRadius;
-  } else {
-    self.backgroundView.layer.cornerRadius =
-        self.backgroundView.bounds.size.height / 2.0;
-  }
+  CGFloat height = IsKeyboardAccessoryUpgradeEnabled()
+                       ? kChipMinSize
+                       : self.backgroundView.bounds.size.height;
+  self.backgroundView.layer.cornerRadius = height / 2.0;
 }
 
 - (void)setHighlighted:(BOOL)highlighted {
@@ -136,7 +134,8 @@ CGFloat GetChipVerticalPadding() {
       [[NSMutableParagraphStyle alloc] init];
   paragraphStyle.lineSpacing = kLineSpacing;
   _titleAttributes = @{
-    NSFontAttributeName : font,
+    NSFontAttributeName :
+        [[UIFontMetrics defaultMetrics] scaledFontForFont:font],
     NSParagraphStyleAttributeName : paragraphStyle,
   };
 
@@ -176,6 +175,16 @@ CGFloat GetChipVerticalPadding() {
 
   [self addSubview:_backgroundView];
   [self sendSubviewToBack:_backgroundView];
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    [NSLayoutConstraint activateConstraints:@[
+      [_backgroundView.heightAnchor
+          constraintGreaterThanOrEqualToConstant:kChipMinSize],
+      [_backgroundView.widthAnchor
+          constraintGreaterThanOrEqualToConstant:kChipMinSize],
+    ]];
+  }
+
   [NSLayoutConstraint activateConstraints:@[
     [_backgroundView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
     [_backgroundView.trailingAnchor

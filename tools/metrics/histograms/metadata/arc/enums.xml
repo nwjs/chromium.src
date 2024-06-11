@@ -372,13 +372,6 @@ chromium-metrics-reviews@google.com.
   <int value="42" label="Disconnect service (ArcHostVpnService)"/>
 </enum>
 
-<enum name="ArcNotificationExpandState">
-  <int value="0" label="Fixed size"/>
-  <int value="1" label="Expandable"/>
-  <int value="2" label="Expanded"/>
-  <int value="3" label="Collapsed"/>
-</enum>
-
 <enum name="ArcNotificationStyle">
   <int value="0" label="No Style"/>
   <int value="1" label="Big Picture Style"/>
@@ -779,6 +772,13 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="The migration has finished"/>
 </enum>
 
+<enum name="ArcWallpaperApi">
+  <summary>Defines the Wallpaper APIs called from Android.</summary>
+  <int value="0" label="Set"/>
+  <int value="1" label="SetDefault"/>
+  <int value="2" label="Get"/>
+</enum>
+
 <enum name="BooleanIsCustomNotification">
   <int value="0" label="Not Custom Notification"/>
   <int value="1" label="Is Custom Notification"/>
@@ -875,16 +875,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="OEM"/>
   <int value="3" label="Policy based App"/>
   <int value="4" label="Unknown Reason"/>
-</enum>
-
-<enum name="LowLatencyStylusLibraryApisList">
-<!-- Value from components/arc/mojom/metrics.mojom -->
-
-  <int value="0" label="Unsupported"/>
-  <int value="1" label="InkOverlay::LowLatencyStylusLibInActiveUse"/>
-  <int value="2" label="GLInkOverlay::LowLatencyStylusLibInActiveUse"/>
-  <int value="3" label="GLInkRenderer::SetProjectionMatrix"/>
-  <int value="4" label="GLInkRenderer::SetViewMatrix"/>
 </enum>
 
 <enum name="NearbyShareArcBridgeFailResult">

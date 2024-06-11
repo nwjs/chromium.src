@@ -29,13 +29,13 @@
 #include "content/browser/navigation_subresource_loader_params.h"
 #include "content/browser/renderer_host/browsing_context_group_swap.h"
 #include "content/browser/renderer_host/commit_deferring_condition_runner.h"
-#include "content/browser/renderer_host/cross_origin_opener_policy_status.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 #include "content/browser/renderer_host/navigation_policy_container_builder.h"
 #include "content/browser/renderer_host/navigation_throttle_runner.h"
 #include "content/browser/renderer_host/navigation_type.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/scoped_view_transition_resources.h"
+#include "content/browser/security/coop/cross_origin_opener_policy_status.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
 #include "content/browser/webui/web_ui_impl.h"
@@ -235,7 +235,7 @@ class CONTENT_EXPORT NavigationRequest
   // should use CreateBrowserInitiated() and renderer-initiated navigations
   // should use CreateRendererInitiated().
   //
-  // TODO(crbug.com/1399292): Refactor the remaining uses of this function to
+  // TODO(crbug.com/40249771): Refactor the remaining uses of this function to
   // use either CreateBrowserInitiated() or CreateRendererInitiated() and then
   // remove this helper.
   static std::unique_ptr<NavigationRequest> Create(
@@ -360,6 +360,7 @@ class CONTENT_EXPORT NavigationRequest
   net::Error GetNetErrorCode() override;
   RenderFrameHostImpl* GetRenderFrameHost() const override;
   bool IsSameDocument() const override;
+  bool IsHistory() const override;
   bool HasCommitted() const override;
   bool IsErrorPage() const override;
   bool HasSubframeNavigationEntryCommitted() override;
@@ -560,8 +561,8 @@ class CONTENT_EXPORT NavigationRequest
   // - The value should not be sent back to the browser.
   // - The value on DocumentLoader may be generated in the renderer in some
   // cases, and thus shouldn't be trusted.
-  // TODO(crbug.com/783506): Replace devtools navigation token with the generic
-  // navigation token that can be passed from renderer to the browser.
+  // TODO(crbug.com/40549185): Replace devtools navigation token with the
+  // generic navigation token that can be passed from renderer to the browser.
   const base::UnguessableToken& devtools_navigation_token() const {
     return devtools_navigation_token_;
   }
@@ -891,7 +892,7 @@ class CONTENT_EXPORT NavigationRequest
   // the origin gets calculated, to help debug if the browser-side calculated
   // origin for this navigation differs from the origin calculated on the
   // renderer side.
-  // TODO(https://crbug.com/1220238): Remove this.
+  // TODO(crbug.com/40772732): Remove this.
   std::pair<std::optional<url::Origin>, std::string>
   GetOriginToCommitWithDebugInfo();
 
@@ -1065,7 +1066,7 @@ class CONTENT_EXPORT NavigationRequest
   // Otherwise, returns the fenced frame properties associated with the given
   // source. See `FrameTreeNode::GetFencedFrameProperties()` on how fenced
   // frame properties are obtained for different sources.
-  // TODO(crbug.com/1355857): Once navigation support for urn::uuid in iframes
+  // TODO(crbug.com/40060657): Once navigation support for urn::uuid in iframes
   // is deprecated, remove the parameter `node_source`.
   const std::optional<FencedFrameProperties>& ComputeFencedFrameProperties(
       FencedFramePropertiesNodeSource node_source =
@@ -1640,7 +1641,7 @@ class CONTENT_EXPORT NavigationRequest
 
   // When called, this NavigationRequest will no longer interpret the interface
   // disconnection on the renderer side as an AbortNavigation.
-  // TODO(https://crbug.com/1467502): remove this function when
+  // TODO(crbug.com/40276805): remove this function when
   // NavigationRequest properly handles interface disconnection in all cases.
   void IgnoreInterfaceDisconnection();
 
@@ -1934,7 +1935,7 @@ class CONTENT_EXPORT NavigationRequest
   // except that they include information about how the origin gets calculated,
   // to help debug if the browser-side calculated origin for this navigation
   // differs from the origin calculated on the renderer side.
-  // TODO(https://crbug.com/1220238): Remove this.
+  // TODO(crbug.com/40772732): Remove this.
   std::pair<url::Origin, std::string>
   GetOriginForURLLoaderFactoryBeforeResponseWithDebugInfo(
       network::mojom::WebSandboxFlags sandbox_flags);
@@ -1971,7 +1972,7 @@ class CONTENT_EXPORT NavigationRequest
   // process. It is left empty for browser side initiated navigation. This is a
   // problem. This function is an incomplete attempt to start computing it from
   // the browser process instead.
-  // TODO(https://crbug.com/1395742): Complete the implementation the browser
+  // TODO(crbug.com/40249217): Complete the implementation the browser
   // side implementation.
   void ComputeDownloadPolicy();
 
@@ -1992,7 +1993,7 @@ class CONTENT_EXPORT NavigationRequest
   // from the back-forward cache or from prerendered pages as work would be
   // redundant.
   //
-  // TODO(crbug.com/1407150): Remove this when deprecation trial is complete.
+  // TODO(crbug.com/40887671): Remove this when deprecation trial is complete.
   void MaybeRegisterOriginForUnpartitionedSessionStorageAccess();
 
   // See https://crbug.com/1412365
@@ -2058,7 +2059,7 @@ class CONTENT_EXPORT NavigationRequest
   // commit in (i.e. when we receive the final network response for most
   // navigations). Note that currently this can be reset to std::nullopt for
   // cross-document restarts and some failed navigations.
-  // TODO(https://crbug.com/1416916): Don't reset this on failed navigations,
+  // TODO(crbug.com/40063115): Don't reset this on failed navigations,
   // and ensure the NavigationRequest doesn't outlive the `render_frame_host_`
   // picked for failed Back/Forward Cache restores.
   // Invariant: At least one of |loader_| or |render_frame_host_| is
@@ -2224,7 +2225,7 @@ class CONTENT_EXPORT NavigationRequest
 
   // The NavigationClient interface used to commit the navigation. For now, this
   // is only used for same-site renderer-initiated navigation.
-  // TODO(https://crbug.com/1467502): Extend to all types of navigation.
+  // TODO(crbug.com/40276805): Extend to all types of navigation.
   mojo::AssociatedRemote<mojom::NavigationClient> commit_navigation_client_;
 
   // If set, any redirects to HTTP for this navigation will be upgraded to
@@ -2598,7 +2599,7 @@ class CONTENT_EXPORT NavigationRequest
   // fenced frame root. That is to say, the navigation is caused by a `src`
   // attribute mutation on the <fencedframe> element, which cannot be performed
   // from inside the fenced frame tree.
-  // TODO(crbug.com/1262022): Make this `const` again once ShadowDOM is gone.
+  // TODO(crbug.com/40202462): Make this `const` again once ShadowDOM is gone.
   bool is_embedder_initiated_fenced_frame_navigation_ = false;
 
   // On every embedder-initiated navigation of a fenced frame, i.e.

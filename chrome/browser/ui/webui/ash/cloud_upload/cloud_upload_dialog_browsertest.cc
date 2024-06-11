@@ -112,8 +112,9 @@ void CreateFakeWebApps(
   for (int i = 0; i < n; ++i) {
     std::string start_url =
         "https://www.example" + base::NumberToString(i) + ".com";
-    auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    web_app_info->start_url = GURL(start_url);
+    auto web_app_info =
+        web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+            GURL(start_url));
     web_app_info->scope = GURL(start_url);
     apps::FileHandler handler;
     std::string url = start_url + "/handle_file";
@@ -1523,6 +1524,14 @@ class CloudOpenTaskBrowserTest : public InProcessBrowserTest {
 
   CloudOpenTaskBrowserTest(const CloudOpenTaskBrowserTest&) = delete;
   CloudOpenTaskBrowserTest& operator=(const CloudOpenTaskBrowserTest&) = delete;
+
+  void TearDownOnMainThread() override {
+    // Explictly destroy the `upload_task_` before the Profile* is destroyed.
+    // Otherwise the `upload_task_` will be destroyed afterwards and the profile
+    // pointer owned by the `upload_task_` will become dangling
+    upload_task_.reset();
+    InProcessBrowserTest::TearDownOnMainThread();
+  }
 
   void SetUpLocalToDriveTask() {
     SetUpMyFiles();

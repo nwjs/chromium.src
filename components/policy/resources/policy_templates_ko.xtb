@@ -14,6 +14,13 @@
 <translation id="1002829167638728809">도메인 안정성 관련 데이터 보고 허용</translation>
 <translation id="1004590217607585595">웹 앱 관리 설정</translation>
 <translation id="1006218396155867129">원격 액세스 사용자가 원격 호스트와 파일을 주고받지 못하도록 차단</translation>
+<translation id="1007043180702842391"><ph name="PRODUCT_NAME" />의 PDF 뷰어에서 프로세스 외부 iframe(OOPIF)을 사용할지 여부를 제어합니다. 더 간단해지고 새로운 기능을 더 쉽게 추가할 수 있으므로 향후 새로운 PDF 뷰어 아키텍처가 될 것입니다. 기존 GuestView PDF 뷰어는 오래되고 복잡한 아키텍처로서 지원이 중단됩니다.
+
+정책을 '사용'으로 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 OOPIF PDF 뷰어 아키텍처를 사용할 수 있습니다. 사용 설정하거나 설정하지 않으면 <ph name="PRODUCT_NAME" />에서 기본 동작을 결정합니다.
+
+정책을 '사용 안함'으로 설정하면 <ph name="PRODUCT_NAME" />에서 기존 GuestView PDF 뷰어를 엄격하게 사용합니다. 별도의 프레임 트리가 있는 웹페이지를 다른 웹페이지에 삽입합니다.
+
+이 정책은 OOPIF PDF 뷰어 기능이 완전히 출시되면 향후 삭제될 예정입니다.</translation>
 <translation id="1007149936182752368">북마크 수정 사용 중지</translation>
 <translation id="1009336698423963085">다음 사이트에서 자동 전체 화면 허용</translation>
 <translation id="1010151305531217567">기본 마우스 버튼을 오른쪽 버튼으로 전환</translation>
@@ -459,6 +466,7 @@ PromptInTab으로 설정하면, 사용자의 인증이 만료되는 즉시 Googl
       삭제된 페이지는 로드 취소되고 리소스가 완전히 회수됩니다. 연결된 탭은 탭 표시줄에 남아 있지만, 표시되도록 하면 전체 새로고침이 트리거됩니다.
       </translation>
 <translation id="138847842893090358">OS 업데이트 상태 보고</translation>
+<translation id="1389138080311956934">최대 수준으로 메모리 절약</translation>
 <translation id="1390529781843037070">정책을 사용 설정하거나 설정하지 않으면 사용자가 <ph name="PRODUCT_NAME" /> 인쇄 대화상자에서 <ph name="CLOUD_PRINT_NAME" />(으)로 인쇄할 수 있습니다. <ph name="PRODUCT_NAME" />에서 인쇄를 위해 <ph name="CLOUD_PRINT_NAME" />에 문서를 보낼 수 있습니다. 이렇게 해도 사용자는 웹사이트에서 계속 인쇄 작업을 제출할 수 있습니다.
 
       정책을 사용 중지하면 사용자가 <ph name="PRODUCT_NAME" /> 인쇄 대화상자에서 <ph name="CLOUD_PRINT_NAME" />(으)로 인쇄할 수 없습니다.
@@ -519,6 +527,13 @@ https://support.google.com/chrome/a/?p=extended_updates_support 페이지를 참
       <ph name="BATTERY_SAVER_MODE_ENABLED_ON_BATTERY" /> (2): 이 값은 M121부터 지원 중단됩니다. M121부터는 값이 EnabledBelowThreshold로 처리됩니다.
       </translation>
 <translation id="1434300053894025056">맞춤법 검사 사용 중지</translation>
+<translation id="1435031247649241006">사용자는 잠금 화면에서 온라인 재인증 창을 열고 인증 프로세스에 이를 사용하여 세션을 다시 시작할 수 있습니다. 온라인 재인증이 필요한 경우 이 정책을 사용하여 창을 자동으로 열 수 있습니다.
+
+정책이 사용으로 설정되어 있고 온라인 재인증이 필요한 경우 온라인 재인증 창이 자동으로 열립니다.
+
+정책을 사용 안함으로 설정하거나 설정하지 않으면 온라인 재인증 창을 직접 열어야 합니다.
+
+온라인 재인증은 비밀번호 변경과 같은 여러 이유로 필요할 수 있지만 <ph name="GAIA_LOCK_SCREEN_OFFLINE_SIGNIN_TIME_LIMIT_DAYS_POLICY_NAME" /> 또는 <ph name="SAML_LOCK_SCREEN_OFFLINE_SIGNIN_TIME_LIMIT_DAYS_POLICY_NAME" /> 같은 특정 정책에 의해 시행될 수도 있습니다.</translation>
 <translation id="1435493974546396517"><ph name="MS_WIN_NAME" /> 및 <ph name="MAC_OS_NAME" />에서 <ph name="PRODUCT_NAME" />이 PDF를 인쇄할 때 이미지로 인쇄 옵션을 제공하는 방식을 관리합니다.
 
       <ph name="MS_WIN_NAME" /> 또는 <ph name="MAC_OS_NAME" />에서 PDF를 인쇄할 때 일부 프린터에서 올바른 출력물을 인쇄할 수 있도록 인쇄 작업을 이미지로 래스터화해야 하는 경우가 있습니다.
@@ -638,6 +653,7 @@ URL 패턴은 <ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" />와 충돌�
 
       이 정책은 지원 중단되었으므로 <ph name="DEVICE_PRINTERS_POLICY_NAME" /> 정책을 대신 사용하세요.</translation>
 <translation id="1509692106376861764">이 정책은 <ph name="PRODUCT_NAME" /> 버전 29를 기준으로 지원 중단되었습니다.</translation>
+<translation id="1509839615768187049">내장 DNS 클라이언트 항상 사용</translation>
 <translation id="1514888685242892912"><ph name="PRODUCT_NAME" /> 사용</translation>
 <translation id="1515230621229117540">플로팅 접근성 메뉴를 사용 설정합니다.</translation>
 <translation id="1515824657887788963">페이지를 닫는 중에 페이지에서 동기 XHR 요청을 실행하도록 허용합니다.</translation>
@@ -673,6 +689,7 @@ URL 패턴은 <ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" />와 충돌�
 <translation id="1557113199339446336">정책을 True로 설정하면 등록된 기기에서 확장 감지 및 반응(XDR) 이벤트와 관련된 정보를 보고합니다.
 
       정책을 False로 설정하거나 설정하지 않으면 등록된 기기에서 확장 감지 및 반응(XDR) 이벤트를 보고하지 않습니다.</translation>
+<translation id="1559343998807576489">렌즈 오버레이 기능 설정</translation>
 <translation id="1560279917909364275"><ph name="PRODUCT_OS_NAME" /> 잠금 화면에서 사용 설정된 메모 앱을 허용 목록에 추가</translation>
 <translation id="1561424797596341174">정책은 원격 액세스 호스트의 디버그 빌드를 무시합니다.</translation>
 <translation id="1561967320164410511">개별 인증을 위한 U2F 및 확장 프로그램</translation>
@@ -1685,7 +1702,6 @@ URI 템플릿에 <ph name="HTTP_VARIABLE_DNS" /> 변수가 포함된 경우 리�
       사용자는 이 설정을 변경하거나 재정의할 수 없습니다.
 
       참고: 정책을 사용하면 https://support.google.com/a/answer/1668854에서 설명된 바와 같이 X-GoogApps-Allowed-Domains 헤더가 모든 google.com 도메인에 대한 HTTP 및 HTTPS 요청에 첨부됩니다.</translation>
-<translation id="2282174652047982960">항상 내장 DNS 클라이언트 사용(가능한 경우)</translation>
 <translation id="2288506601233091655">인쇄 작업 내역 삭제 허용 안함</translation>
 <translation id="2289688405312849186">사용자 주 구성원 'user@realm'입니다. <ph name="LOGIN_ID_PLACEHOLDER" /> 자리표시자가 사용자 이름 'user'로 교체됩니다. <ph name="LOGIN_EMAIL_PLACEHOLDER" /> 자리표시자가 전체 주 구성원 'user@realm'으로 교체됩니다.</translation>
 <translation id="2290270645214705008">정책을 사용 안함으로 설정하면 수신되는 연결을 허용하도록 원격 액세스 호스트 서비스를 시작하거나 구성할 수 없습니다.  이 정책은 원격 지원 시나리오에 영향을 주지 않습니다.
@@ -1718,13 +1734,6 @@ URI 템플릿에 <ph name="HTTP_VARIABLE_DNS" /> 변수가 포함된 경우 리�
 <translation id="2309284543927494965">업데이트 차단</translation>
 <translation id="2309341709647905294">기기에 연결된 주변기기 관련 정보 보고 안함</translation>
 <translation id="2309390639296060546">기본 위치정보 설정</translation>
-<translation id="2310254963100942637">정책을 사용 설정하면 사용자가 가족 서비스에 따라 가족 구성원과 비밀번호를 주고받을 수 있습니다.
-정책을 사용 설정하거나 설정하지 않으면 비밀번호 관리자에 비밀번호를 전송할 수 있는 버튼이 표시됩니다.
-받은 비밀번호는 사용자 계정에 저장되며 비밀번호 관리자에서 확인할 수 있습니다.
-
-정책을 사용 중지하면 사용자가 비밀번호 관리자에서 다른 사용자에게 비밀번호를 전송할 수 없으며 다른 사용자로부터 비밀번호를 받을 수도 없습니다.
-
-사용자 설정을 통해 또는 <ph name="SYNC_DISABLED" /> 정책을 사용 설정하여 비밀번호 동기화가 사용 중지되어 있으면 이 기능을 사용할 수 없습니다.</translation>
 <translation id="2316700579410680894">정책을 설정하면 주어진 공급업체 및 제품 ID로 USB 기기 액세스 권한을 자동으로 부여받는 사이트를 지정하는 URL 패턴 목록을 작성할 수 있습니다. 정책이 유효하려면 목록의 각 항목에 <ph name="DEVICES_FIELD_NAME" /> 및 <ph name="URLS_FIELD_NAME" /> 필드가 모두 있어야 합니다. <ph name="DEVICES_FIELD_NAME" /> 필드에 포함된 각 항목은 <ph name="VENDOR_ID_FIELD_NAME" /> 및 <ph name="PRODUCT_ID_FIELD_NAME" /> 필드를 가질 수 있습니다. <ph name="VENDOR_ID_FIELD_NAME" /> 필드를 생략하면 모든 기기와 일치하는 정책이 생성됩니다. <ph name="PRODUCT_ID_FIELD_NAME" /> 필드를 생략하면 주어진 공급업체 ID가 있는 모든 기기와 일치하는 정책이 생성됩니다. <ph name="PRODUCT_ID_FIELD_NAME" /> 필드는 있지만 <ph name="VENDOR_ID_FIELD_NAME" /> 필드가 없는 정책은 유효하지 않습니다.
 
       USB 권한 모델은 지정된 URL에 USB 기기 액세스 권한을 최상위 원본으로 부여합니다. 삽입된 프레임에 USB 기기 액세스 권한이 필요한 경우 액세스 권한을 부여할 때 'usb' <ph name="FEATURE_POLICY_HEADER_NAME" /> 헤더를 사용해야 합니다. URL은 유효해야 하며 그렇지 않으면 정책이 무시됩니다.
@@ -1889,19 +1898,6 @@ False로 설정하면 개인 정보 보호 화면은 항상 사용 중지됩니�
 <translation id="2452225615952836461">요청 메서드를 항상 대문자로 표시</translation>
 <translation id="2454228136871844693">안정성에 최적화합니다.</translation>
 <translation id="2455033019778127130">기본 브라우저 동작을 사용하고 서비스 약관을 표시한 다음 사용자가 수락할 때까지 기다림</translation>
-<translation id="2459668012482208475"><ph name="PRODUCT_NAME" />의 DevTools에 있는 이러한 기능은 생성형 AI 모델을 사용하여 추가 디버깅 정보를 제공합니다. 이러한 기능을 사용하려면 <ph name="PRODUCT_NAME" />에서 오류 메시지, 스택 트레이스, 코드 스니펫, 네트워크 요청과 같은 데이터를 수집하고 생성형 AI 모델을 실행하는 Google 소유의 서버로 이를 전송해야 합니다. 네트워크 요청의 응답 본문 또는 인증 및 쿠키 헤더는 서버로 전송되는 데이터에 포함되지 않습니다.
-
-0 = 사용자를 위해 이 기능을 사용 설정하고 AI 모델을 학습시키거나 개선하는 데 도움이 되도록 관련 데이터를 Google에 전송합니다.
-
-아래에 명시된 경우를 제외하고 0이 기본값입니다.
-
-1 = 사용자를 위해 기능을 사용 설정하지만 AI 모델을 학습시키거나 개선하기 위한 데이터를 Google로 전송하지 않습니다. 이 값은 아직 완전히 지원되지 않으며, 현재 '완전히 사용 중지됨'으로 취급됩니다. 1은 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 관리되는 기업 사용자의 기본값입니다.
-
-2 = 기능을 사용 중지합니다. 2는 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />에서 관리되는 Education 계정의 기본값입니다.
-
-DevTools 생성형 AI 기능에는 다음이 포함됩니다.
-
-- 콘솔 통계: 콘솔 메시지를 설명하고, 콘솔 오류 수정 방법을 제안합니다.</translation>
 <translation id="2460127623195247744">이 정책은 지원 중단되었으므로 ‘<ph name="WINDOW_OCCLUSION_ENABLED_POLICY_NAME" />’ 정책을 대신 사용하세요.
 
       <ph name="PRODUCT_NAME" />에서 네이티브 창 오클루전을 사용 설정합니다.
@@ -3137,6 +3133,7 @@ false로 설정된 경우 기존 및 신규 Crostini 컨테이너에 대한 루�
 
       나중에 새 로그인 절차가 모든 SSO 로그인 방식을 완전히 지원하면 시험용 설정은 삭제됩니다.</translation>
 <translation id="3435796032110614169">인쇄 작업 내역 삭제 허용</translation>
+<translation id="3435896845095436175">사용</translation>
 <translation id="3436217793443508863">배터리 전원으로 구동될 때 사용자 입력이 없어서 화면이 잠기기까지 걸리는 시간(밀리초)입니다.</translation>
 <translation id="3437924696598384725">사용자가 VPN 연결을 관리할 수 있도록 허용합니다.</translation>
 <translation id="3441664787678256816">이 머신에 대한 기업 원격 지원 연결을 허용합니다.</translation>
@@ -3293,6 +3290,11 @@ false로 설정된 경우 기존 및 신규 Crostini 컨테이너에 대한 루�
 <translation id="3554498762428140109">네이티브 창 오클루전 사용 설정</translation>
 <translation id="3554984410014457319">Google 어시스턴트가 음성 활성화 문구를 감지하도록 허용</translation>
 <translation id="3557586898458302131">생성된 Kerberos SPN에 비표준 포트 포함</translation>
+<translation id="3557705296383573923">이 정책은 운영체제 DNS 클라이언트나 <ph name="PRODUCT_NAME" />의 내장 DNS 클라이언트와 같이 DNS 서버와의 통신에 사용되는 소프트웨어 스택을 제어합니다. 이 정책은 사용되는 DNS 서버에 영향을 미치지 않습니다. 예를 들어 엔터프라이즈 DNS 서버를 사용하도록 운영체제가 구성된 경우 내장 DNS 클라이언트에도 동일한 서버가 사용됩니다. DNS-over-HTTPS가 사용되는 경우에도 제어를 하지 않습니다. <ph name="PRODUCT_NAME" />에서는 항상 DNS-over-HTTPS 요청에 관한 내장 리졸버를 사용합니다. DNS-over-HTTPS 제어에 관한 자세한 내용은 <ph name="DNS_OVER_HTTPS_MODE_POLICY_NAME" /> 정책을 참고하세요.
+
+      정책을 사용 설정하거나 설정하지 않으면 내장 DNS 클라이언트가 사용됩니다.
+
+      정책을 사용 중지하면 DNS-over-HTTPS가 사용 중인 경우에만 내장 DNS 클라이언트가 사용됩니다.</translation>
 <translation id="3558024517032824255">안정화 버전부터 항상 허용되어야 하는 <ph name="PRODUCT_OS_NAME" />의 최소 주요 롤백 수를 지정합니다.
 
 기본값은 소비자의 경우 0이며, 엔터프라이즈 등록 기기의 경우 4(약 반년)입니다.
@@ -3355,6 +3357,7 @@ false로 설정된 경우 기존 및 신규 Crostini 컨테이너에 대한 루�
 <translation id="3606571057705314194">시작 시 프로필 선택도구 사용 안함</translation>
 <translation id="3608206578291537084">암호화된 보고 파이프라인을 사용 설정합니다.</translation>
 <translation id="3608281460204780443"><ph name="PRODUCT_OS_NAME" /> 런처와 새 탭 페이지에 Chrome 웹 스토어 아이콘 표시</translation>
+<translation id="3612482251405108708">잠금 화면에서 온라인 재인증 자동 시작</translation>
 <translation id="3616490235694929053">이 정책으로 처음 로그인할 때 사용자에게 디스플레이 크기 설정 화면을 표시할지 설정할 수 있습니다.
       false로 설정하면 디스플레이 크기 설정 화면이 표시되지 않습니다.
       true로 설정하면 디스플레이 크기 설정 화면이 표시됩니다.</translation>
@@ -3636,6 +3639,7 @@ URL은 http://example.com 또는 https://example.com과 같은 표준 스킴이�
 <translation id="3863409707075047163">최소 SSL 버전 사용 설정됨</translation>
 <translation id="3864129983143201415">사용자 세션에서 허용되는 언어를 구성합니다.</translation>
 <translation id="3866249974567520381">설명</translation>
+<translation id="3866481716008450417">온라인 재인증 자동 시작을 사용 중지합니다.</translation>
 <translation id="386723261607812952">로그인 화면에서 화면 돋보기 유형 설정</translation>
 <translation id="3868347814555911633">이 정책은 판매 모드일 때만 사용할 수 있습니다.
 
@@ -3661,13 +3665,6 @@ URL은 http://example.com 또는 https://example.com과 같은 표준 스킴이�
       정책을 2로 설정하면 사이트에서 방해가 되는 광고를 차단합니다.</translation>
 <translation id="3876564097829884243">EphemeralNetworkPolicies 기능을 사용 설정합니다.</translation>
 <translation id="3877517141460819966">통합된 2단계 인증 모드</translation>
-<translation id="3877908683993837673">이 정책은 운영 체제 DNS 서버나 <ph name="PRODUCT_NAME" />의 내장 DNS 클라이언트와 같이 DNS 서버와의 통신에 사용되는 소프트웨어 스택을 제어합니다. 이 정책은 사용되는 DNS 서버에 영향을 미치지 않습니다. 예를 들어 엔터프라이즈 DNS 서버를 사용하도록 운영 체제가 구성된 경우 내장 DNS 클라이언트에도 동일한 서버가 사용됩니다. DNS-over-HTTPS가 사용되는 경우에도 영향을 미치지 않습니다. <ph name="PRODUCT_NAME" />에서는 항상 DNS-over-HTTPS 요청에 관한 내장 리졸버를 사용합니다. DNS-over-HTTPS 제어에 관한 자세한 내용은 <ph name="DNS_OVER_HTTPS_MODE_POLICY_NAME" /> 정책을 참고하세요.
-
-      정책을 사용 설정하면 가능한 경우 내장 DNS 클라이언트를 사용합니다.
-
-      정책을 사용 중지하면 DNS-over-HTTPS가 사용 중인 경우에만 내장 DNS 클라이언트가 사용됩니다.
-
-      정책을 설정하지 않으면 내장 DNS 클라이언트가 <ph name="MS_WIN_NAME" />, <ph name="MAC_OS_NAME" />, <ph name="ANDROID_NAME" />(비공개 DNS와 VPN이 사용 설정되지 않은 경우) 및 <ph name="PRODUCT_OS_NAME" />에서 기본으로 사용 설정됩니다.</translation>
 <translation id="3879208481373875102">강제로 설치된 웹 앱 목록 구성</translation>
 <translation id="3879700444818346084">처음 실행 시 저장된 비밀번호 가져오기 사용 중지</translation>
 <translation id="388237772682176890">SPDY/3.1 지원이 삭제되어 이 정책은 M53에서 지원 중단되고 M54에서 삭제되었습니다.
@@ -3815,6 +3812,19 @@ URL은 http://example.com 또는 https://example.com과 같은 표준 스킴이�
 <translation id="3989829840000169163">브라우저 기존 확장 프로그램 포인트 차단</translation>
 <translation id="3990391739475801018">절전 모드가 사용 중지됩니다.</translation>
 <translation id="3990834929384096140">시스템 오디오 에코 제거 적용 안 함</translation>
+<translation id="3992185577030665825"><ph name="PRODUCT_NAME" />의 DevTools에 있는 이러한 기능은 생성형 AI 모델을 사용하여 추가 디버깅 정보를 제공합니다. 이러한 기능을 사용하려면 <ph name="PRODUCT_NAME" />에서 오류 메시지, 스택 트레이스, 코드 스니펫, 네트워크 요청과 같은 데이터를 수집하고 생성형 AI 모델을 실행하는 Google 소유의 서버로 이를 전송해야 합니다. 네트워크 요청의 응답 본문 또는 인증 및 쿠키 헤더는 서버로 전송되는 데이터에 포함되지 않습니다.
+
+0 = 사용자를 위해 이 기능을 사용 설정하고 AI 모델을 학습시키거나 개선하는 데 도움이 되도록 관련 데이터를 Google에 전송합니다.
+
+아래에 명시된 경우를 제외하고 0이 기본값입니다.
+
+1 = 사용자를 위해 기능을 사용 설정하지만 AI 모델을 학습시키거나 개선하기 위한 데이터를 Google로 전송하지 않습니다. 1은 <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />에서 관리되는 기업 사용자의 기본값입니다.
+
+2 = 기능을 사용 중지합니다. 2는 <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />에서 관리되는 Education 계정의 기본값입니다.
+
+DevTools 생성형 AI 기능에는 다음이 포함됩니다.
+
+- 콘솔 통계: 콘솔 메시지를 설명하고, 콘솔 오류 수정 방법을 제안합니다.</translation>
 <translation id="3994043824457743421">새 탭 페이지에서 가운데 슬롯 알림 표시</translation>
 <translation id="399433537808390819">사용자가 통합 바탕화면 모드를 사용할 수 없도록 설정</translation>
 <translation id="3995880046827722248">매니페스트 v2가 사용 중지됨</translation>
@@ -3913,6 +3923,7 @@ Chrome 114까지 이 정책을 적용하려면 <ph name="SYNC_DISABLED_POLICY_NA
 유효한 <ph name="URL_LABEL" /> 패턴에 관해 자세히 알아보려면 https://support.google.com/chrome/a?p=url_blocklist_filter_format을 참고하세요.</translation>
 <translation id="4070039109671307724">기타</translation>
 <translation id="4072225853834793549">로그인 화면에서 접근성 바로가기 사용 중지</translation>
+<translation id="4074922053013383215">보통 수준으로 메모리 절약</translation>
 <translation id="4075675819066819571">앱 표시줄을 화면 왼쪽에 놓기</translation>
 <translation id="4079306023113982053">사용자가 <ph name="BOREALIS_NAME" />를 사용하도록 허용할지 설정합니다.
 
@@ -4296,6 +4307,7 @@ Chrome Root Store를 공개 신뢰의 소스로 사용하는 내장된
 <translation id="4389073105055031853">사용자가 모든 인증서를 관리하도록 허용</translation>
 <translation id="4389091865841123886">TPM 메커니즘으로 원격 인증을 구성합니다.</translation>
 <translation id="4389113579547582722">App Store 평가 프로모션이 표시되도록 허용</translation>
+<translation id="4394049700291259645">사용 중지</translation>
 <translation id="4395619678972620537">사용 설정하면 WebRTC 동종 연결이 지원 중단된 버전의
       TLS/DTLS(DTLS 1.0, TLS 1.0, TLS 1.1) 프로토콜로 다운그레이드될 수 있습니다.
       이 정책이 사용 중지되거나 설정되지 않으면 이러한 TLS/DTLS 버전은
@@ -4414,6 +4426,15 @@ false로 설정되면 확장 프로그램 및 플러그인 데이터가 수집�
 <translation id="4483738129334574255">등록된 <ph name="PRODUCT_OS_NAME" /> 기기에서 공룡 이스터 에그 게임을 사용 중지하고 다른 상황에서는 사용 설정합니다.</translation>
 <translation id="4484515651939984695">액세스 코드 또는 QR 코드로 선택된 Cast 기기가 <ph name="PRODUCT_NAME" /> 메뉴의 Cast 기기 목록에 표시되는 기간 지정(단위: 초)</translation>
 <translation id="4485425108474077672">새 탭 페이지 URL 설정</translation>
+<translation id="4488959486611931919">참고: M118부터 Chrome에서 이러한 쿠키를 기본적으로 차단하기 시작했으므로 사이트가 손상되었다는 보고가 없었으며, 따라서 M127부터는 이 기능을 구성할 수 없고 이 정책은 적용되지 않습니다.
+
+이 정책은 특정 제어 문자(NULL, 캐리지 리턴, 라인 피드)가 포함된 JavaScript를 통해 설정된 쿠키를 Chrome이 처리하는 방식을 변경하는 기능을 일시적으로 선택 해제합니다.
+이전에는 쿠키 문자열에 이러한 문자가 있으면 잘림 처리되어도 계속 설정되었습니다.
+이제 이러한 문자가 있으면 전체 쿠키 문자열이 무시됩니다.
+
+정책이 True(기본값)로 설정되면 새 동작이 사용 설정됩니다.
+
+정책이 False로 설정되면 이전 동작이 사용 설정됩니다.</translation>
 <translation id="4490420545181481759">X.509 인증서는 인증서의 확장 프로그램에 이름 제약조건과 같은 제약조건을 인코딩할 수 있습니다. RFC 5280은 신뢰 앵커 인증서에 이러한 제약조건을 적용하는 것이 선택사항임을 명시합니다. 이제 <ph name="PRODUCT_NAME" /> 112부터 플랫폼 인증서 저장소에서 로드된 인증서에 이러한 제약조건이 적용됩니다.
 
 이 정책은 기업에서 비공개 루트에 인코딩된 제약조건 문제가 발생하는 경우 일시적인 선택 해제로 존재합니다. 이 경우 인증서 정책을 수정하는 동안 제약조건 시행을 일시적으로 중지하는 데 이 정책을 사용할 수 있습니다.
@@ -4797,6 +4818,15 @@ None으로 설정하거나 설정하지 않으면 ARC 앱에서 <ph name="PRODUC
       설정을 끄면 사용자가 휴대전화 허브 사용을 선택할 수 없습니다.
 
       정책을 설정하지 않으면 기본적으로 기업 관리 사용자에게는 허용되지 않고 관리되지 않는 사용자에게는 허용됩니다.</translation>
+<translation id="4775667151768335538">정책을 사용 설정하면 세이프 브라우징에서 내가 지정한 도메인을 신뢰합니다. 지정한 도메인에서는 세이프 브라우징이 위험한 리소스(예: 피싱, 멀웨어, 원치 않는 소프트웨어) 여부를 확인하지 않습니다. 세이프 브라우징의 다운로드 보호 서비스가 이러한 도메인에 호스팅된 다운로드 항목을 확인하지 않습니다. 비밀번호 보호 서비스는 비밀번호 재사용 여부를 확인하지 않습니다.
+
+정책을 설정하지 않으면 기본 세이프 브라우징 보호 기능이 모든 리소스에 적용됩니다.
+
+이 정책은 정규 표현식을 지원하지 않지만 특정 도메인의 하위 도메인은 허용 목록에 추가되어 있습니다. 정규화된 도메인 이름(FQDN)은 필수 항목이 아닙니다.
+
+<ph name="MS_WIN_NAME" />의 경우 이 정책은 <ph name="MS_AD_NAME" /> 도메인에 연결되거나, <ph name="MS_AAD_NAME" />에 연결되거나, <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />에 등록된 인스턴스에서만 사용할 수 있습니다.
+
+<ph name="MAC_OS_NAME" />의 경우 이 정책은 MDM을 통해 관리되거나, MCX를 통해 도메인에 연결되거나, <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />에 등록된 인스턴스에서만 사용할 수 있습니다.</translation>
 <translation id="4783415902268741066">브라우저 측면 패널에 가장 최근의 기본 검색엔진 결과 페이지가 표시되도록 허용합니다.</translation>
 <translation id="4786784434769279324">컴퓨터가 유휴 상태일 때 실행할 작업</translation>
 <translation id="4787763197941188108">기본 인쇄 페이지 크기를 재정의합니다.
@@ -4920,6 +4950,7 @@ None으로 설정하거나 설정하지 않으면 ARC 앱에서 <ph name="PRODUC
       M76 이하 버전에서 정책을 설정하지 않으면 기본적으로 <ph name="PRODUCT_NAME" />에서 이러한 로그를 수집하거나 업로드할 수 없습니다. M77부터는 <ph name="PRODUCT_NAME" />에서 기본적으로 클라우드 기반 사용자 수준 엔터프라이즈 정책의 영향을 받는 대부분의 프로필에서 이러한 로그를 수집하고 업로드할 수 있습니다. M77부터 M80까지는 <ph name="PRODUCT_NAME" />에서 기본적으로 <ph name="PRODUCT_NAME" /> 온프레미스 관리의 영향을 받는 프로필에서 이러한 로그를 수집하고 업로드할 수도 있습니다.</translation>
 <translation id="4911334289324462969">포트 989(2022년 2월 1일까지 차단 해제될 수 있음)</translation>
 <translation id="4917385247580444890">강력</translation>
+<translation id="4918150584200819898">자동 온라인 재인증 시작을 사용 설정합니다.</translation>
 <translation id="4918261735182294270">사용자가 <ph name="CHROME_SYNC_NAME" /> 설정 여부를 선택하도록 허용</translation>
 <translation id="491889618361437456"><ph name="GOOGLE_CALENDAR_NAME" /> 통합을 사용 설정합니다.</translation>
 <translation id="4919122295221518724">혼합 콘텐츠에 엄격한 처리 방식 사용</translation>
@@ -5422,6 +5453,15 @@ False로 설정하면 <ph name="PRODUCT_NAME" />에서 시스템 알림을 사�
 <translation id="5323200200131319468">로그인 화면에서 음성 피드백 사용 설정</translation>
 <translation id="5323271643727095577">beforeunload 이벤트에 대해 event.preventDefault()가 호출될 때 취소 대화상자를 표시하지 않습니다. beforeunload event.returnValue가 beforeunload 이벤트의 빈 문자열인 경우 취소 대화상자를 표시합니다.</translation>
 <translation id="5324430722441910403">사이트 검색 설정</translation>
+<translation id="5326431956495937408">정책을 사용 설정하면 사용자가 가족 서비스에 따라 가족 구성원과 비밀번호를 주고받을 수 있습니다.
+정책을 사용 설정하거나 설정하지 않으면 비밀번호 관리자에 비밀번호를 전송할 수 있는 버튼이 표시됩니다.
+받은 비밀번호는 사용자 계정에 저장되며 비밀번호 관리자에서 확인할 수 있습니다.
+
+정책을 사용 중지하면 사용자가 비밀번호 관리자에서 다른 사용자에게 비밀번호를 전송할 수 없으며 다른 사용자로부터 비밀번호를 받을 수도 없습니다.
+
+사용자 설정을 통해 또는 <ph name="SYNC_DISABLED" /> 정책을 사용 설정하여 비밀번호 동기화가 사용 중지되어 있으면 이 기능을 사용할 수 없습니다.
+
+관리 계정은 가족 그룹에 가입하거나 가족 그룹을 만들 수 없으므로 비밀번호를 공유할 수 없습니다.</translation>
 <translation id="532848608876725157">안전하지 않은 대체를 포함하여 DNS-over-HTTPS 사용</translation>
 <translation id="5328965694451556034">로그인/로그아웃 보고</translation>
 <translation id="5329018127554115226">고효율 모드가 사용 중지됩니다.</translation>
@@ -7032,7 +7072,6 @@ false로 설정하면 P2P가 사용되지 않습니다.
 <translation id="6558013557780651644">유휴 작업 실행 전 지연</translation>
 <translation id="6558812160831988140">앱 사용량 보고</translation>
 <translation id="6559057113164934677">카메라 및 마이크에 대한 모든 사이트의 액세스 허용 안함</translation>
-<translation id="65591220958874949">Windows, macOS, Android, ChromeOS에서 내장 DNS 클라이언트 사용</translation>
 <translation id="6559221564468029245">정책을 사용 설정하거나 설정하지 않으면 오디오 재생 중에는 사용자를 유휴 상태로 간주하지 않습니다. 따라서 유휴 제한 시간에 도달하지 않고 유휴 작업이 실행되지 않습니다. 하지만 설정된 시간 제한 후에는 오디오 활동과 관계없이 화면 어둡게 하기, 화면 꺼짐, 화면 잠금이 실행됩니다.
 
       정책을 사용 중지하면 시스템에서 오디오 활동과 관계없이 사용자를 유휴 상태로 간주할 수 있습니다.</translation>
@@ -7147,13 +7186,6 @@ false로 설정하면 P2P가 사용되지 않습니다.
 <translation id="66265932317331474">CPU 정보 보고</translation>
 <translation id="6628120204569232711">저장용량 상태 보고</translation>
 <translation id="662991036483361836">사용자가 Nearby Share를 사용 설정하지 못하도록 차단</translation>
-<translation id="6634974629075330608">이 정책은 특정 제어 문자(NULL, 캐리지 리턴, 라인 피드)가 포함된 JavaScript를 통해 설정된 쿠키를 Chrome이 처리하는 방식을 변경하는 기능을 일시적으로 선택 해제합니다.
-이전에는 쿠키 문자열에 이러한 문자가 있으면 잘림 처리되어도 계속 설정되었습니다.
-이제 이러한 문자가 있으면 전체 쿠키 문자열이 무시됩니다.
-
-정책이 True(기본값)로 설정되면 새 동작이 사용 설정됩니다.
-
-정책이 False로 설정되면 이전 동작이 사용 설정됩니다.</translation>
 <translation id="663685822663765995">컬러 인쇄 모드 제한</translation>
 <translation id="6640355849038068978">설정을 사용하면 사용자가 예를 들어 휴대전화 허브 알림을 클릭하여 Eche 애플리케이션을 실행할 수 있습니다.
 
@@ -7366,6 +7398,7 @@ false로 설정되면 Crostini 컨테이너로 포트 전달이 사용 중지됩
 <translation id="6795485990775913659">PIN이 없으면 인쇄만 허용</translation>
 <translation id="6796215185873669533">사용자 에이전트 문자열 버전의 브라우저 설정을 기본값으로 설정합니다.</translation>
 <translation id="6800181452282128474">Quirks 서버 쿼리 안함</translation>
+<translation id="6802412020718145539">PDF 뷰어는 OOPIF 아키텍처를 사용합니다.</translation>
 <translation id="68031099365512050">오디오 상태 보고</translation>
 <translation id="680356860463873420">사용자가 PluginVm을 사용하도록 허용 안함</translation>
 <translation id="6807947647944603395">TLS의 Kyber 포스트 퀀텀 키 계약 사용 중지</translation>
@@ -7380,11 +7413,6 @@ false로 설정되면 Crostini 컨테이너로 포트 전달이 사용 중지됩
 정책을 사용 설정하거나 설정하지 않으면 사용자가 컨텍스트 메뉴에서 <ph name="GOOGLE_PHOTOS_PRODUCT_NAME" />에 이미지를 저장할 수 있습니다. 정책을 사용 중지하면 컨텍스트 메뉴에서 사용자에게 옵션이 표시되지 않습니다.
 이 정책은 사용자가 컨텍스트 메뉴 외에 다른 방법을 사용하여 <ph name="GOOGLE_PHOTOS_PRODUCT_NAME" />에 이미지를 저장하는 것을 차단하지 않습니다.</translation>
 <translation id="6823711520976094072">1MB 미만으로 설정하거나 설정하지 않으면 <ph name="PRODUCT_OS_NAME" />에서 하나의 기기에서 여러 사용자가 앱 및 확장 프로그램을 설치할 때 캐시에 기본 크기(256MiB)를 사용하여 모든 사용자가 매번 다시 다운로드하지 않아도 됩니다.</translation>
-<translation id="6827666400941600157">이 정책은 자동 정지 일정의 주간 간격을 설정합니다. 간격이 시작되면 <ph name="PRODUCT_OS_NAME" /> 기기가 정지 모드로 전환되고, 간격이 끝나면 정지 모드가 해제됩니다.
-
-간격이 겹치는 일정은 지원되지 않습니다. 일정에 간격이 2개 이상 겹치는 경우 이 정책은 아무런 영향을 미치지 않습니다.
-
-<ph name="PRODUCT_OS_NAME" /> 기기에서 시스템 시간대를 사용하여 간격을 적용합니다.</translation>
 <translation id="6828729771894228555">서드 파티 저장용량 파티셔닝(교차 출처 iframe 저장용량의 파티셔닝)을 차단하는 최상위 수준(탭의 주소 표시줄에 있는 URL) 출처를 지정하도록 URL 패턴 목록을 설정할 수 있습니다.
           정책을 설정하지 않거나 최상위 출처가 일치하지 않으면 <ph name="DEFAULT_THIRD_PARTY_STORAGE_PARTITIONING_SETTING_POLICY_NAME" />의 값이 사용됩니다.
           유효한 패턴에 관해 자세히 알아보려면 https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns 페이지를 참고하세요.
@@ -7513,6 +7541,7 @@ URL 패턴은 <ph name="DIRECT_SOCKETS_BLOCKED_FOR_URLS_POLICY_NAME" />와 충�
 <translation id="6903818804346914108">기기 팬 정보 보고 사용 설정</translation>
 <translation id="690734633209203892"><ph name="PRODUCT_OS_NAME" /> 업데이트가 적용되는 방식과 시기를 제어합니다.</translation>
 <translation id="6907778402784621686">이 사이트에서 안전하지 않은 콘텐츠 차단</translation>
+<translation id="6908335885425855120">프로세스 외부 iframe PDF 뷰어 사용</translation>
 <translation id="6908640907898649429">기본 검색 공급자를 설정합니다. 사용자가 사용할 기본 검색 공급자를 지정하거나 기본 검색을 사용 중지하도록 선택할 수 있습니다.</translation>
 <translation id="6913068954484253496"><ph name="PRODUCT_NAME" />에서 모든 IP 주소의 Cast 기기에 연결하도록 허용</translation>
 <translation id="6915493311660114995">정책을 사용 설정하면 <ph name="PRODUCT_NAME" />에서 오류가 있는 TLS 인증서가 있는 웹사이트(안전하지 않은 것으로 간주되는 웹사이트)의 웹 인증 요청을 허용합니다.
@@ -7920,6 +7949,13 @@ EphemeralNetworkPolicies 기능이 기본적으로 사용 설정되면 이 정�
       유효한 <ph name="URL_LABEL" /> 패턴에 관해 자세히 알아보려면 https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns를 참고하세요.</translation>
 <translation id="719398790886719721">Linux 가상 머신에 대한 루트 액세스 권한 사용 중지</translation>
 <translation id="7194407337890404814">기본 검색 공급자 이름</translation>
+<translation id="7196336906814426783">이 정책은 자동 정지 일정의 주간 간격을 설정합니다. 간격이 시작되면 <ph name="PRODUCT_OS_NAME" /> 기기가 정지 모드로 전환되고, 간격이 끝나면 정지 모드가 해제됩니다.
+
+간격이 겹치는 일정은 지원되지 않습니다. 일정에 간격이 2개 이상 겹치는 경우 이 정책은 아무런 영향을 미치지 않습니다.
+
+<ph name="PRODUCT_OS_NAME" /> 기기에서 시스템 시간대를 사용하여 간격을 적용합니다.
+
+중요: 이 정책에서 설정한 일정이 다른 전원 관리 설정(예: <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />)과 충돌하는 경우 예상대로 적용되지 않을 수 있습니다. 이러한 설정이 예약된 정지 간격이 적용되도록 구성되어 있는지 확인하세요.</translation>
 <translation id="7198134478421755850">확장 프로그램</translation>
 <translation id="7199304109870655950">Chrome 원격 데스크톱 호스트의 원격 액세스 옵션을 설정합니다.
 
@@ -8113,18 +8149,10 @@ EphemeralNetworkPolicies 기능이 기본적으로 사용 설정되면 이 정�
 
       사이트에 해당 정책을 설정하지 않으면 <ph name="DEFAULT_WINDOW_PLACEMENT_SETTING_POLICY_NAME" />의 정책이 설정되어 있는 경우 사이트에 적용됩니다. 설정되어 있지 않다면 권한이 브라우저의 기본값을 따르고 사용자는 사이트별로 이 권한을 선택할 수 있습니다.</translation>
 <translation id="7358359585412734876"><ph name="LACROS_NAME" /> 사용</translation>
+<translation id="7362566456990049303">사용자만</translation>
 <translation id="736486789939370545">외부 확장 프로그램 설치 허용</translation>
 <translation id="7366948865469126526">빠른 답변 단위 변환 사용 안함</translation>
 <translation id="7367734504783638685">타사 SSO 제공업체 및 Chrome 기기 간 비밀번호 동기화</translation>
-<translation id="7372169427762612484">정책을 사용 설정하면 세이프 브라우징에서 내가 지정한 도메인을 신뢰합니다. 지정한 도메인에서는 세이프 브라우징이 위험한 리소스(예: 피싱, 멀웨어, 원치 않는 소프트웨어) 여부를 확인하지 않습니다. 세이프 브라우징의 다운로드 보호 서비스가 이러한 도메인에 호스팅된 다운로드 항목을 확인하지 않습니다. 비밀번호 보호 서비스는 비밀번호 재사용 여부를 확인하지 않습니다.
-
-정책을 설정하지 않으면 기본 세이프 브라우징 보호 기능이 모든 리소스에 적용됩니다.
-
-이 정책은 정규화된 도메인 이름 목록으로 설정해야 합니다. 정규 표현식을 지원하지 않으며, 정책에 명시된 도메인의 하위 도메인을 허용하지 않습니다.
-
-<ph name="MS_WIN_NAME" />의 경우 이 정책은 <ph name="MS_AD_NAME" /> 도메인에 연결되거나, <ph name="MS_AAD_NAME" />에 연결되거나, <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />에 등록된 인스턴스에서만 사용할 수 있습니다.
-
-<ph name="MAC_OS_NAME" />의 경우 이 정책은 MDM을 통해 관리되거나, MCX를 통해 도메인에 연결되거나, <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />에 등록된 인스턴스에서만 사용할 수 있습니다.</translation>
 <translation id="7372831798009983116">자동 클릭 접근성 기능 사용</translation>
 <translation id="7373200034079131670">Android 또는 VM이 시작되었을 때 사용자가 로그아웃하면 재부팅합니다.</translation>
 <translation id="7374784840090523241">기본적으로 <ph name="PRODUCT_NAME" /> 프로필과 같은 다른 저장소에서 패스키를 만듭니다.</translation>
@@ -8648,6 +8676,7 @@ Internet Explorer의 <ph name="IEEM_SITELIST_POLICY" /> 정책(https://docs.micr
       정책을 False로 설정하거나 설정하지 않으면 다른 출처의 <ph name="FLASH_PLUGIN_NAME" /> 콘텐츠 또는 크기가 작은 콘텐츠가 차단될 수 있습니다.
 
       참고: <ph name="FLASH_PLUGIN_NAME" /> 플러그인을 실행할 수 있는 웹사이트를 제어하려면 <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" />, <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />, <ph name="PLUGINS_BLOCKED_FOR_URLS_POLICY_NAME" /> 정책을 참고하세요.</translation>
+<translation id="7801163363326128751">메모리 절약 모드의 절약 수준 변경</translation>
 <translation id="7804859754080118507">등록된 기기에서 네트워크 연결 및 신호 강도 이벤트를 보고합니다.
 
       정책을 false로 설정하거나 정책이 설정되어 있지 않으면 정보가 보고되지 않습니다.
@@ -9228,6 +9257,7 @@ Windows에서는 GPO를 통해 정책을 설정하는 것이 좋습니다. 하�
 <translation id="8274926413890711289">상세 보고 제어 사용</translation>
 <translation id="8275103737670730746">이전 사용자 동작 없이 파일 또는 디렉터리 선택 도구 API를 호출할 수 있도록 허용</translation>
 <translation id="8278133379873210419">다른 출처 서브프레임에서 실행된 자바스크립트 대화상자 차단</translation>
+<translation id="8284028944941138279">균형 있는 수준으로 메모리 절약</translation>
 <translation id="8284296539558710573">교차 도메인 HTTP 인증 프롬프트</translation>
 <translation id="8284527236880877730"><ph name="POWER_SMART_DIM_ENABLED_POLICY_NAME" />를 사용 중지한 경우 <ph name="PRESENTATION_SCREEN_DIM_DELAY_SCALE_POLICY_NAME" />을 설정하면 기기에서 프레젠테이션 중일 때 화면 어둡게 하기 지연 시간이 조정되는 비율을 지정할 수 있습니다. 화면 어둡게 하기 지연 시간이 조정되면 화면 꺼짐, 화면 잠금 및 유휴 지연 시간이 원래 설정된 화면 어둡게 하기 지연 시간과 같은 간격을 유지하도록 조정됩니다.
 
@@ -9728,6 +9758,12 @@ false로 설정되면 정책 데이터 및 정책을 가져오는 시간이 수�
 
       자바스크립트/ECMAScript 미디어 유형에 관한 자세한 내용은 다음을 참고하세요. https://html.spec.whatwg.org/multipage/scripting.html#scriptingLanguage
       </translation>
+<translation id="8668202868357089313">렌즈 오버레이를 사용하면 실제 웹 콘텐츠 위에 표시된 현재 페이지의 스크린샷과 상호작용하여 Google 검색을 실행할 수 있습니다.
+
+이 기능을 제어하는 사용자 설정은 없으며, 이 정책에서 사용 중지하지 않는 한 일반적으로 Google을 기본 검색엔진으로 사용하는 모든 사용자에게 이 기능이 제공됩니다.
+
+정책을 0(사용 설정)으로 설정하거나 설정하지 않으면 사용자가 이 기능을 사용할 수 있습니다.
+정책을 1(사용 안함)로 설정하면 이 기능을 사용할 수 없습니다.</translation>
 <translation id="8671119576957984818">데스크톱 공유 허브 사용 설정</translation>
 <translation id="8671193325113134911">작업자 스크립트에 엄격한 MIME 유형 검사 사용 설정</translation>
 <translation id="8671303329680827168">이 정책은 지원 중단되었으므로 대신 '<ph name="AUTH_NEGOTIATE_DELEGATE_ALLOWLIST_POLICY_NAME" />' 정책을 사용하세요.</translation>
@@ -9908,6 +9944,17 @@ URL 패턴은 <ph name="WEB_PRINTING_BLOCKED_FOR_URLS_POLICY_NAME" />와 충돌�
 <translation id="8835322836315560274">정책을 설정하면 대체 브라우저에서 URL을 여는 데 사용할 명령어를 제어할 수 있습니다. 정책은 <ph name="INTERNET_EXPLORER_VALUE_PLACEHOLDER" />, <ph name="FIREFOX_VALUE_PLACEHOLDER" />, <ph name="SAFARI_VALUE_PLACEHOLDER" />, <ph name="OPERA_VALUE_PLACEHOLDER" />, <ph name="EDGE_VALUE_PLACEHOLDER" /> 중 하나 또는 파일 경로로 설정할 수 있습니다. 정책을 파일 경로로 설정하면 파일이 실행 파일로 사용됩니다. <ph name="INTERNET_EXPLORER_VALUE_PLACEHOLDER" />은(는) <ph name="MS_WIN_NAME" />에서만 사용할 수 있습니다. <ph name="SAFARI_VALUE_PLACEHOLDER" /> 및 <ph name="EDGE_VALUE_PLACEHOLDER" />은(는) <ph name="MS_WIN_NAME" /> 및 <ph name="MAC_OS_NAME" />에서만 사용할 수 있습니다.
 
       정책을 설정하지 않으면 <ph name="MS_WIN_NAME" />에서는 <ph name="IE_PRODUCT_NAME" />, <ph name="MAC_OS_NAME" />에서는 <ph name="SAFARI_PRODUCT_NAME" />와 같이 플랫폼별 기본값이 사용됩니다. <ph name="LINUX_OS_NAME" />에서는 대체 브라우저가 실행되지 않습니다.</translation>
+<translation id="8836227957461360521">이 정책은 메모리 절약 모드의 절약 수준을 변경합니다.
+
+설정 또는 <ph name="HIGH_EFFICIENCY_MODE_ENABLED_POLICY_NAME" /> 정책을 통해 메모리 절약 모드가 사용 설정된 경우에만 적용되며, 탭을 삭제할 시점을 결정하는 데 휴리스틱이 사용되는 방식에 영향을 미칩니다. 예를 들어 비활성 탭을 삭제하기 전에 탭이 비활성화 상태인 기간을 줄이면 메모리를 절약할 수는 있지만, 탭이 더 자주 새로고침되므로 사용자 환경이 악화되고 네트워크 트래픽 비용이 증가할 수 있습니다.
+
+정책을 0 - 메모리 절약 모드로 설정하면 메모리가 보통 수준으로 절약되며, 좀 더 긴 시간이 지난 후 탭이 비활성화됩니다.
+
+정책을 1 - 메모리 절약 모드로 설정하면 메모리가 균형 있는 수준으로 절약되며, 최적의 시간이 지난 후 탭이 비활성화됩니다.
+
+정책을 2 - 메모리 절약 모드로 설정하면 메모리가 최대 수준으로 절약되며, 좀 더 짧은 시간이 지난 후 탭이 비활성화됩니다.
+
+정책을 설정하지 않으면 최종 사용자가 chrome://settings/performance에서 이 설정을 제어할 수 있습니다.</translation>
 <translation id="8836975838488342340">액세스 코드가 유효한 시간(초)입니다.</translation>
 <translation id="883744045558067826">기능 출시 프로세스에 따라 Chrome Root Store를 사용할 수 있습니다.</translation>
 <translation id="8837957135252624017">하나 이상의 Chrome 탭을 열린 상태로 유지</translation>
@@ -10229,6 +10276,7 @@ URL 패턴은 <ph name="WEB_PRINTING_BLOCKED_FOR_URLS_POLICY_NAME" />와 충돌�
       이 정책을 설정하지 않으면 어떠한 사이트에서도 인증서가 자동으로 선택되지 않습니다.
 
       유효한 URL 패턴을 자세히 알아보려면 https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns를 참고하세요.</translation>
+<translation id="9063485115966829754">PDF 뷰어는 GuestView 아키텍처를 사용합니다.</translation>
 <translation id="9066311316566875681">원하는 DNS-over-HTTPS 리졸버의 URI 템플릿입니다. 여러 개의 DNS-over-HTTPS 리졸버를 지정하려면 해당하는 URI 템플릿을 공백으로 구분하세요.
 
       DnsOverHttpsMode 정책을 <ph name="SECURE_DNS_MODE_SECURE" /> 모드로 설정하면 이 정책을 설정해야 하며 비어있으면 안 됩니다. <ph name="PRODUCT_OS_NAME" />에만 이 정책 또는 <ph name="DOH_TEMPLATES_WITH_IDENTIFIERS_POLICY_NAME" /> 정책을 설정해야 합니다. 그러지 않으면 DNS 변환에 실패합니다.

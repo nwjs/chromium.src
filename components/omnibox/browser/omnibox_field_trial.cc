@@ -641,32 +641,6 @@ const base::FeatureParam<int> OmniboxFieldTrial::kRichSuggestionVerticalMargin(
     "OmniboxRichSuggestionVerticalMargin",
     6);
 
-bool OmniboxFieldTrial::IsChromeRefreshIconsEnabled() {
-  static bool enabled = omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-      omnibox::kOmniboxCR23SteadyStateIcons);
-  return enabled;
-}
-
-bool OmniboxFieldTrial::IsChromeRefreshSuggestIconsEnabled() {
-  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-      omnibox::kExpandedStateSuggestIcons);
-}
-
-bool OmniboxFieldTrial::IsChromeRefreshActionChipIconsEnabled() {
-  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-      omnibox::kCr2023ActionChipsIcons);
-}
-
-bool OmniboxFieldTrial::IsChromeRefreshActionChipShapeEnabled() {
-  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-      omnibox::kCr2023ActionChips);
-}
-
-bool OmniboxFieldTrial::IsChromeRefreshSuggestHoverFillShapeEnabled() {
-  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-      omnibox::kSuggestionHoverFillShape);
-}
-
 bool OmniboxFieldTrial::IsGM3TextStyleEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kOmniboxSteadyStateTextStyle);
 }
@@ -698,16 +672,6 @@ const base::FeatureParam<int> OmniboxFieldTrial::kFontSizeNonTouchUI(
     &omnibox::kOmniboxSteadyStateTextStyle,
     "OmniboxFontSizeNonTouchUI",
     13);
-
-bool OmniboxFieldTrial::IsCr23LayoutEnabled() {
-  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-      omnibox::kExpandedLayout);
-}
-
-bool OmniboxFieldTrial::IsChromeRefreshSteadyStateBackgroundColorEnabled() {
-  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-      omnibox::kOmniboxSteadyStateBackgroundColor);
-}
 
 const char OmniboxFieldTrial::kBundledExperimentFieldTrialName[] =
     "OmniboxBundledExperimentV1";
@@ -1133,6 +1097,11 @@ const base::FeatureParam<std::string> kGeminiUrlOverride(
 bool IsStarterPackExpansionEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kStarterPackExpansion);
 }
+
+const base::FeatureParam<int> kStarterPackIPHPerSessionLimit(
+    &omnibox::kStarterPackIPH,
+    "StarterPackIPHPerSessionLimit",
+    3);
 
 bool IsStarterPackIPHEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kStarterPackIPH);

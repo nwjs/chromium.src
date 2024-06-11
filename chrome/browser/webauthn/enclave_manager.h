@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_WEBAUTHN_ENCLAVE_MANAGER_H_
 
 #include <deque>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
+#include "chrome/browser/webauthn/enclave_manager_interface.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/trusted_vault/trusted_vault_connection.h"
 #include "device/fido/enclave/types.h"
@@ -30,6 +32,12 @@
 namespace crypto {
 class RefCountedUserVerifyingSigningKey;
 }  // namespace crypto
+
+#if BUILDFLAG(IS_MAC)
+namespace device::enclave {
+class ICloudRecoveryKey;
+}  // namespace device::enclave
+#endif  // BUILDFLAG(IS_MAC)
 
 namespace network {
 class SharedURLLoaderFactory;
@@ -54,7 +62,7 @@ namespace trusted_vault {
 struct GpmPinMetadata;
 class RecoveryKeyStoreConnection;
 class TrustedVaultAccessTokenFetcherFrontend;
-}
+}  // namespace trusted_vault
 
 // EnclaveManager stores and manages the passkey enclave state. One instance
 // exists per-profile, owned by `EnclaveManagerFactory`.
@@ -69,14 +77,8 @@ class TrustedVaultAccessTokenFetcherFrontend;
 // When `is_ready` is true then this class can produce wrapped security domain
 // secrets and signing callbacks to use to perform passkey operations with the
 // enclave, which is the ultimate point of this class.
-class EnclaveManager : public KeyedService {
+class EnclaveManager : public EnclaveManagerInterface {
  public:
-  // Many actions report results using a `Callback`. The boolean argument
-  // is true if the operation is successful and false otherwise.
-  // These callbacks never hairpin. (I.e. are never called before the function
-  // that they were passed to returns.)
-  using Callback = base::OnceCallback<void(bool)>;
-
   struct StoreKeysArgs;
   class Observer : public base::CheckedObserver {
    public:
@@ -108,13 +110,16 @@ class EnclaveManager : public KeyedService {
   EnclaveManager(const EnclaveManager&) = delete;
   EnclaveManager(const EnclaveManager&&) = delete;
 
+  // Returns `this`.
+  EnclaveManager* GetEnclaveManager() override;
+
   // Returns true if there are no current operations pending.
   bool is_idle() const;
   // Returns true if the persistent state has been loaded from the disk. (Or
   // else the loading failed and an empty state is being used.)
   bool is_loaded() const;
   // Returns true if the current user has been registered with the enclave.
-  bool is_registered() const;
+  bool is_registered() const override;
   // Returns true if `StoreKeys` has been called and thus `AddDeviceToAccount`
   // or `AddDeviceAndPINToAccount` can be called.
   bool has_pending_keys() const;
@@ -152,6 +157,31 @@ class EnclaveManager : public KeyedService {
   void ChangePIN(std::string updated_pin,
                  std::optional<std::string> rapt,
                  Callback callback);
+  // Renew the current PIN. Requires `has_wrapped_pin` to be true.
+  void RenewPIN(Callback callback);
+#if BUILDFLAG(IS_MAC)
+  // Adds an iCloud recovery key to the security domain. This can only be called
+  // immediately after enrollment while we still have the security domain secret
+  // around.
+  void AddICloudRecoveryKey(
+      std::unique_ptr<device::enclave::ICloudRecoveryKey> icloud_recovery_key,
+      Callback callback);
+#endif  // BUILDFLAG(IS_MAC)
+  // Send a request to the enclave to delete the registration for the current
+  // user, erase local keys, and erase local state for the user. Safe to call in
+  // any state and is a no-op if no registration exists.
+  void Unenroll(Callback callback) override;
+  // Process the current security domain state. Requires `is_registered()`. This
+  // can update the locally-cached view of the current GPM PIN, or can make
+  // `is_ready()` false if the security domain has been reset.
+  //
+  // Returns whether `is_ready()` will return true in the future. (Because
+  // other operations may be running at the time, is_ready() may not update
+  // immediately.)
+  bool ConsiderSecurityDomainState(
+      const trusted_vault::DownloadAuthenticationFactorsRegistrationStateResult&
+          state,
+      Callback callback);
 
   // Get a callback to sign with the registered "hw" key. Only valid to call if
   // `is_ready`.
@@ -160,6 +190,11 @@ class EnclaveManager : public KeyedService {
   // `is_ready`.
   device::enclave::SigningCallback UserVerifyingKeySigningCallback(
       UVKeyOptions options);
+  // Get a callback that creates a new "uv" key. This can only be called when
+  // `is_ready` and the user's state has `deferred_uv_key_creation` = true.
+  // The callback will create a new UV key and provides the public key to the
+  // invoker.
+  device::enclave::UVKeyCreationCallback UserVerifyingKeyCreationCallback();
   // Fetch a wrapped security domain secret for the given epoch. Only valid to
   // call if `is_ready`.
   std::optional<std::vector<uint8_t>> GetWrappedSecret(int32_t version);
@@ -188,12 +223,19 @@ class EnclaveManager : public KeyedService {
     // A UV key is present and `UserVerifyingKeySigningCallback` will return a
     // signing callback where the UI is handled by the system.
     kUsesSystemUI,
+    // A UV key has not yet been created but can be.
+    // `UserVerifyingKeyCreationCallback` will return a callback that creates
+    // the UV key.
+    kUsesSystemUIDeferredCreation,
     // A UV key is present and `UserVerifyingKeySigningCallback` will return a
     // valid callback. However, Chrome UI needs to be shown in order to collect
     // biometrics.
     kUsesChromeUI,
   };
   UvKeyState uv_key_state() const;
+  // Calls the given callback with `true` if the current platform supports
+  // making user-verifying keys.
+  static void AreUserVerifyingKeysSupported(Callback callback);
 
   // Get an access token for contacting the enclave.
   std::unique_ptr<signin::PrimaryAccountAccessTokenFetcher> GetAccessToken(
@@ -222,11 +264,23 @@ class EnclaveManager : public KeyedService {
   // Release the cached HW and UV key references.
   void ClearCachedKeysForTesting();
 
+  // Reset the EnclaveManager to simulate creating a new one in initialized
+  // state.
+  void ResetForTesting();
+
+  // Clears the registration as if we were starting from scratch.
+  void ClearRegistrationForTesting();
+
+  // Toggle invariant checks.
+  static void EnableInvariantChecksForTesting(bool enable);
+
   // Create a wrapped PIN, suitable for putting into a simulated security domain
   // member.
   static std::string MakeWrappedPINForTesting(
       base::span<const uint8_t> security_domain_secret,
       std::string_view pin);
+
+  base::WeakPtr<EnclaveManager> GetWeakPtr();
 
  private:
   class StateMachine;
@@ -279,6 +333,8 @@ class EnclaveManager : public KeyedService {
   // in an unrecoverable state. In this case the registration state needs to be
   // reset, and can be initiated from scratch.
   void ClearRegistration();
+
+  void UnregisterComplete(Callback callback, bool success);
 
   // Store the secret that `TakeSecret` will make available.
   void SetSecret(int32_t key_version, base::span<const uint8_t> secret);

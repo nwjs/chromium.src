@@ -24,6 +24,7 @@ import dagger.Lazy;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.R;
@@ -37,9 +38,12 @@ import org.chromium.chrome.browser.customtabs.CustomTabObserver;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationDelegateImpl;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.StartStopWithNativeObserver;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
@@ -102,6 +106,7 @@ public class CustomTabActivityNavigationController
         String getDefaultBrowser();
     }
 
+    private final OneshotSupplier<ProfileProvider> mProfileProviderSupplier;
     private final CustomTabActivityTabController mTabController;
     private final CustomTabActivityTabProvider mTabProvider;
     private final BrowserServicesIntentDataProvider mIntentDataProvider;
@@ -150,6 +155,7 @@ public class CustomTabActivityNavigationController
 
     @Inject
     public CustomTabActivityNavigationController(
+            OneshotSupplier<ProfileProvider> profileProviderSupplier,
             CustomTabActivityTabController tabController,
             CustomTabActivityTabProvider tabProvider,
             BrowserServicesIntentDataProvider intentDataProvider,
@@ -160,6 +166,7 @@ public class CustomTabActivityNavigationController
             Activity activity,
             ActivityLifecycleDispatcher lifecycleDispatcher,
             DefaultBrowserProvider customTabsDefaultBrowserProvider) {
+        mProfileProviderSupplier = profileProviderSupplier;
         mTabController = tabController;
         mTabProvider = tabProvider;
         mIntentDataProvider = intentDataProvider;
@@ -264,24 +271,33 @@ public class CustomTabActivityNavigationController
                 return false;
             }
         }
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_BEFORE_UNLOAD)
+                && mTabController.onlyOneTabRemaining()) {
+            finishActivity();
+            return true;
+        }
+
         if (mTabController.dispatchBeforeUnloadIfNeeded()) {
             MinimizeAppAndCloseTabBackPressHandler.record(MinimizeAppAndCloseTabType.CLOSE_TAB);
             return true;
         }
-
         if (mTabController.onlyOneTabRemaining()) {
-            // If we're closing the last tab and it it doesn't have beforeunload, just finish
-            // the Activity manually. If we had called mTabController.closeTab() and waited for
-            // the Activity to close as a result we would have a visual glitch:
-            // https://crbug.com/1087108.
-            MinimizeAppAndCloseTabBackPressHandler.record(MinimizeAppAndCloseTabType.MINIMIZE_APP);
-            finish(USER_NAVIGATION);
+            finishActivity();
         } else {
             MinimizeAppAndCloseTabBackPressHandler.record(MinimizeAppAndCloseTabType.CLOSE_TAB);
             mTabController.closeTab();
         }
 
         return true;
+    }
+
+    private void finishActivity() {
+        // If we're closing the last tab and it doesn't have beforeunload, just finish the Activity
+        // manually. If we had called mTabController.closeTab() and waited for the Activity to close
+        // as a result we would have a visual glitch: https://crbug.com/1087108.
+        MinimizeAppAndCloseTabBackPressHandler.record(MinimizeAppAndCloseTabType.MINIMIZE_APP);
+        finish(USER_NAVIGATION);
     }
 
     @Override
@@ -373,13 +389,17 @@ public class CustomTabActivityNavigationController
         mFinishReason = reason;
 
         if (reason != REPARENTING) {
+            assert mProfileProviderSupplier.hasValue();
+            Profile profile = mProfileProviderSupplier.get().getOriginalProfile();
             // Closing the activity destroys the renderer as well. Re-create a spare renderer some
             // time after, so that we have one ready for the next tab open. This does not increase
             // memory consumption, as the current renderer goes away. We create a renderer as a lot
             // of users open several Custom Tabs in a row. The delay is there to avoid jank in the
             // transition animation when closing the tab.
             PostTask.postDelayedTask(
-                    TaskTraits.UI_DEFAULT, CustomTabsConnection::createSpareWebContents, 500);
+                    TaskTraits.UI_DEFAULT,
+                    () -> CustomTabsConnection.createSpareWebContents(profile),
+                    500);
         }
 
         if (mFinishHandler != null) {

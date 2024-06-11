@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.feed;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -75,7 +76,7 @@ import java.util.Map;
 /** Unit tests for {@link FeedStream}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-// TODO(crbug.com/1210371): Rewrite using paused loop. See crbug for details.
+// TODO(crbug.com/40182398): Rewrite using paused loop. See crbug for details.
 @LooperMode(LooperMode.Mode.LEGACY)
 public class SingleWebFeedStreamTest {
     private static final int LOAD_MORE_TRIGGER_LOOKAHEAD = 5;
@@ -235,7 +236,8 @@ public class SingleWebFeedStreamTest {
                         eq(org.chromium.ui.mojom.WindowOpenDisposition.CURRENT_TAB),
                         any(),
                         eq(false),
-                        any(),
+                        anyInt(),
+                        eq(handler),
                         any());
     }
 
@@ -265,7 +267,8 @@ public class SingleWebFeedStreamTest {
                         eq(org.chromium.ui.mojom.WindowOpenDisposition.CURRENT_TAB),
                         mLoadUrlParamsCaptor.capture(),
                         eq(false),
-                        any(),
+                        anyInt(),
+                        eq(handler),
                         any());
 
         assertEquals(
@@ -302,7 +305,8 @@ public class SingleWebFeedStreamTest {
                         eq(org.chromium.ui.mojom.WindowOpenDisposition.CURRENT_TAB),
                         mLoadUrlParamsCaptor.capture(),
                         eq(false),
-                        any(),
+                        anyInt(),
+                        eq(handler),
                         any());
 
         assertEquals(
@@ -354,7 +358,8 @@ public class SingleWebFeedStreamTest {
                         eq(org.chromium.ui.mojom.WindowOpenDisposition.NEW_BACKGROUND_TAB),
                         any(),
                         eq(false),
-                        any(),
+                        anyInt(),
+                        eq(handler),
                         any());
     }
 
@@ -372,7 +377,8 @@ public class SingleWebFeedStreamTest {
                         eq(org.chromium.ui.mojom.WindowOpenDisposition.NEW_BACKGROUND_TAB),
                         any(),
                         eq(true),
-                        any(),
+                        anyInt(),
+                        eq(handler),
                         any());
     }
 
@@ -389,7 +395,8 @@ public class SingleWebFeedStreamTest {
                         eq(org.chromium.ui.mojom.WindowOpenDisposition.OFF_THE_RECORD),
                         any(),
                         eq(false),
-                        any(),
+                        anyInt(),
+                        eq(handler),
                         any());
     }
 

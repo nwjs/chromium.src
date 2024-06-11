@@ -134,7 +134,7 @@ class CC_PAINT_EXPORT PaintOpBuffer : public SkRefCnt {
     bool context_supports_distance_field_text = true;
     int max_texture_size = 0;
 
-    // TODO(crbug.com/1096123): Cleanup after study completion.
+    // TODO(crbug.com/40136055): Cleanup after study completion.
     //
     // If true, perform serializaion in a way that avoids serializing transient
     // members, such as IDs, so that a stable digest can be calculated. This
@@ -157,7 +157,7 @@ class CC_PAINT_EXPORT PaintOpBuffer : public SkRefCnt {
     // e.g. in the case of UI.
     bool is_privileged = false;
     // The HDR headroom to apply when deserializing.
-    // TODO(https://crbug.com/1483235): Move this to playback instead of
+    // TODO(crbug.com/40281980): Move this to playback instead of
     // deserialization.
     float hdr_headroom = 1.f;
     SharedImageProvider* shared_image_provider = nullptr;
@@ -267,7 +267,7 @@ class CC_PAINT_EXPORT PaintOpBuffer : public SkRefCnt {
 
     new (op) T{std::forward<Args>(args)...};
     DCHECK_EQ(op->type, static_cast<uint8_t>(T::kType));
-    op->aligned_size = aligned_size;
+    DCHECK_EQ(aligned_size, op->AlignedSize());
     AnalyzeAddedOp(op);
     return *op;
   }

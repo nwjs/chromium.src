@@ -14,6 +14,23 @@
 
 namespace ash {
 
+PickerSearchResult::TextData::TextData(std::u16string primary_text,
+                                       std::u16string secondary_text,
+                                       ui::ImageModel icon,
+                                       Source source)
+    : primary_text(std::move(primary_text)),
+      secondary_text(std::move(secondary_text)),
+      icon(std::move(icon)),
+      source(source) {}
+
+PickerSearchResult::TextData::TextData(const PickerSearchResult::TextData&) =
+    default;
+
+PickerSearchResult::TextData& PickerSearchResult::TextData::operator=(
+    const PickerSearchResult::TextData&) = default;
+
+PickerSearchResult::TextData::~TextData() = default;
+
 bool PickerSearchResult::TextData::operator==(
     const PickerSearchResult::TextData&) const = default;
 
@@ -86,6 +103,29 @@ bool PickerSearchResult::BrowsingHistoryData::operator==(
 bool PickerSearchResult::CategoryData::operator==(const CategoryData&) const =
     default;
 
+PickerSearchResult::EditorData::EditorData(
+    Mode mode,
+    std::u16string display_name,
+    std::optional<chromeos::editor_menu::PresetQueryCategory> category,
+    std::optional<std::string> preset_query_id,
+    std::optional<std::string> freeform_text)
+    : mode(mode),
+      display_name(std::move(display_name)),
+      category(std::move(category)),
+      preset_query_id(std::move(preset_query_id)),
+      freeform_text(std::move(freeform_text)) {}
+
+PickerSearchResult::EditorData::EditorData(
+    const PickerSearchResult::EditorData&) = default;
+
+PickerSearchResult::EditorData& PickerSearchResult::EditorData::operator=(
+    const PickerSearchResult::EditorData&) = default;
+
+PickerSearchResult::EditorData::~EditorData() = default;
+
+bool PickerSearchResult::EditorData::operator==(const EditorData&) const =
+    default;
+
 PickerSearchResult::~PickerSearchResult() = default;
 
 PickerSearchResult::PickerSearchResult(const PickerSearchResult&) = default;
@@ -98,19 +138,19 @@ PickerSearchResult::PickerSearchResult(PickerSearchResult&&) = default;
 PickerSearchResult& PickerSearchResult::operator=(PickerSearchResult&&) =
     default;
 
-PickerSearchResult PickerSearchResult::Text(std::u16string_view text) {
-  return PickerSearchResult(TextData{.primary_text = std::u16string(text),
-                                     .secondary_text = u"",
-                                     .icon = ui::ImageModel()});
+PickerSearchResult PickerSearchResult::Text(std::u16string_view text,
+                                            TextData::Source source) {
+  return PickerSearchResult(
+      TextData(std::u16string(text), u"", ui::ImageModel(), source));
 }
 
 PickerSearchResult PickerSearchResult::Text(std::u16string_view primary_text,
                                             std::u16string_view secondary_text,
-                                            ui::ImageModel icon) {
-  return PickerSearchResult(
-      TextData{.primary_text = std::u16string(primary_text),
-               .secondary_text = std::u16string(secondary_text),
-               .icon = std::move(icon)});
+                                            ui::ImageModel icon,
+                                            TextData::Source source) {
+  return PickerSearchResult(TextData(std::u16string(primary_text),
+                                     std::u16string(secondary_text),
+                                     std::move(icon), source));
 }
 
 PickerSearchResult PickerSearchResult::SearchRequest(std::u16string_view text,
@@ -166,13 +206,25 @@ PickerSearchResult PickerSearchResult::LocalFile(std::u16string title,
 }
 
 PickerSearchResult PickerSearchResult::DriveFile(std::u16string title,
-                                                 const GURL& url) {
-  return PickerSearchResult(
-      DriveFileData{.url = url, .title = std::move(title)});
+                                                 const GURL& url,
+                                                 ui::ImageModel icon) {
+  return PickerSearchResult(DriveFileData{
+      .title = std::move(title), .url = url, .icon = std::move(icon)});
 }
 
 PickerSearchResult PickerSearchResult::Category(PickerCategory category) {
   return PickerSearchResult(CategoryData{.category = category});
+}
+
+PickerSearchResult PickerSearchResult::Editor(
+    PickerSearchResult::EditorData::Mode mode,
+    std::u16string display_name,
+    std::optional<chromeos::editor_menu::PresetQueryCategory> category,
+    std::optional<std::string> text_query_id,
+    std::optional<std::string> freeform_text) {
+  return PickerSearchResult(
+      EditorData(mode, std::move(display_name), std::move(category),
+                 std::move(text_query_id), std::move(freeform_text)));
 }
 
 bool PickerSearchResult::operator==(const PickerSearchResult&) const = default;

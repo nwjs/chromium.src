@@ -34,10 +34,23 @@ class OobeScreensHandlerFactory
 
  private:
   // screens_factory::mojom::ScreensFactory:
+  void CreateDrivePinningScreenHandler(
+      mojo::PendingRemote<screens_common::mojom::DrivePinningPage> page,
+      mojo::PendingReceiver<screens_common::mojom::DrivePinningPageHandler>
+          receiver) override;
+  void CreateGestureNavigationPageHandler(
+      mojo::PendingReceiver<screens_common::mojom::GestureNavigationPageHandler>
+          receiver) override;
+
   void CreateGaiaInfoScreenHandler(
       mojo::PendingRemote<screens_common::mojom::GaiaInfoPage> page,
       mojo::PendingReceiver<screens_common::mojom::GaiaInfoPageHandler>
           receiver) override;
+
+  void CreateConsumerUpdatePageHandler(
+      mojo::PendingRemote<screens_oobe::mojom::ConsumerUpdatePage> page,
+      mojo::PendingReceiver<screens_oobe::mojom::ConsumerUpdatePageHandler>
+          handler) override;
 
   void CreatePackagedLicensePageHandler(
       mojo::PendingReceiver<screens_oobe::mojom::PackagedLicensePageHandler>

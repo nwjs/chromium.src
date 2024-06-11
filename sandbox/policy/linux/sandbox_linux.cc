@@ -22,7 +22,6 @@
 #include "base/feature_list.h"
 #include "base/files/scoped_file.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/metrics/histogram_macros.h"
@@ -59,6 +58,7 @@
 #include "sandbox/policy/sandbox_type.h"
 #include "sandbox/policy/switches.h"
 #include "sandbox/sandbox_buildflags.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 
 #if BUILDFLAG(USING_SANITIZER)
 #include <sanitizer/common_interface_defs.h>
@@ -233,9 +233,6 @@ void SandboxLinux::PreinitializeSandbox() {
     }
   }
 
-  // Check if Landlock is supported.
-  ReportLandlockStatus();
-
   // Yama is a "global", system-level status. We assume it will not regress
   // after startup.
   const int yama_status = Yama::GetStatus();
@@ -380,14 +377,11 @@ bool SandboxLinux::InitializeSandbox(sandbox::mojom::Sandbox sandbox_type,
 
   // We need to make absolutely sure that our sandbox is "sealed" before
   // returning.
-  // Unretained() since the current object is a Singleton.
-  base::ScopedClosureRunner sandbox_sealer(
-      base::BindOnce(&SandboxLinux::SealSandbox, base::Unretained(this)));
+  absl::Cleanup sandbox_sealer = [this] { SealSandbox(); };
   // Make sure that this function enables sandboxes as promised by GetStatus().
-  // Unretained() since the current object is a Singleton.
-  base::ScopedClosureRunner sandbox_promise_keeper(
-      base::BindOnce(&SandboxLinux::CheckForBrokenPromises,
-                     base::Unretained(this), sandbox_type));
+  absl::Cleanup sandbox_promise_keeper = [this, sandbox_type] {
+    CheckForBrokenPromises(sandbox_type);
+  };
 
   const bool has_threads = !IsSingleThreaded();
 
@@ -470,7 +464,7 @@ bool SandboxLinux::InitializeSandbox(sandbox::mojom::Sandbox sandbox_type,
     // libraries).
     // On ChromeOS none of these third party libraries are installed, so there
     // is no need to discourage getaddrinfo().
-    // TODO(crbug.com/1312224): in the future this should depend on the
+    // TODO(crbug.com/40220505): in the future this should depend on the
     // libraries listed in /etc/nsswitch.conf, and should be a
     // SandboxLinux::Options option.
     DiscourageGetaddrinfo();
@@ -715,7 +709,7 @@ void SandboxLinux::ReportLandlockStatus() {
     landlock_state = LandlockState::kEnabled;
   }
 
-  UMA_HISTOGRAM_ENUMERATION("Sandbox.LandlockState", landlock_state);
+  UMA_HISTOGRAM_ENUMERATION("Security.Sandbox.LandlockState", landlock_state);
 }
 
 }  // namespace policy

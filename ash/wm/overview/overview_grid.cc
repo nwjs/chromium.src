@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "ash/accessibility/accessibility_controller.h"
-#include "ash/constants/app_types.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/notifier_catalogs.h"
 #include "ash/metrics/histogram_macros.h"
@@ -56,7 +55,7 @@
 #include "ash/wm/overview/overview_constants.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_drop_target.h"
-#include "ash/wm/overview/overview_focus_cycler.h"
+#include "ash/wm/overview/overview_focus_cycler_old.h"
 #include "ash/wm/overview/overview_focusable_view.h"
 #include "ash/wm/overview/overview_grid_event_handler.h"
 #include "ash/wm/overview/overview_item.h"
@@ -95,6 +94,9 @@
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "components/app_restore/full_restore_utils.h"
+#include "overview_focus_cycler_old.h"
+#include "overview_session.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/compositor_observer.h"
@@ -151,13 +153,6 @@ constexpr int kScrollingLayoutRow = 2;
 constexpr int kMinimumItemsForScrollingLayout = 6;
 
 constexpr int kTabletModeOverviewItemTopPaddingDp = 16;
-
-// The padding applied to the side of the effective bounds without neighboring
-// widget.
-constexpr int kSpaciousPaddingForEffectiveBounds = 32;
-// The padding applied to the side of the effective bounds with neighboring
-// widget.
-constexpr int kCompactPaddingForEffectiveBounds = 16;
 
 // The horizontal and vertical distance from the bottom left corner of the grid
 // area to the origin of the `feedback_widget_`.
@@ -683,7 +678,7 @@ void OverviewGrid::PrepareForOverview() {
 
   MaybeInitBirchBarWidget();
 
-  if (IsForestFeatureEnabled()) {
+  if (features::IsOakFeatureEnabled() || IsForestFeatureEnabled()) {
     scoped_overview_wallpaper_clipper_ =
         std::make_unique<ScopedOverviewWallpaperClipper>(this);
   }
@@ -994,9 +989,11 @@ void OverviewGrid::RemoveItem(OverviewItemBase* overview_item,
   // will be cleaned up and its associated view may be nullptr. `overview_item`
   // still needs to be in `item_list_` to compute the corresponding index.
   if (overview_session_) {
-    for (auto* focusable_view : overview_item->GetFocusableViews()) {
-      overview_session_->focus_cycler()->OnViewDestroyingOrDisabling(
-          focusable_view);
+    if (OverviewFocusCyclerOld* focus_cycler_old =
+            overview_session_->focus_cycler_old()) {
+      for (auto* focusable_view : overview_item->GetFocusableViews()) {
+        focus_cycler_old->OnViewDestroyingOrDisabling(focusable_view);
+      }
     }
   }
 
@@ -1198,16 +1195,16 @@ void OverviewGrid::UpdateDropTargetBackgroundVisibility(
       gfx::ToRoundedPoint(location_in_screen));
 }
 
-void OverviewGrid::OnOverviewItemDragStarted(OverviewItemBase* item) {
+void OverviewGrid::OnOverviewItemDragStarted() {
   CommitNameChanges();
-  for (auto& overview_mode_item : item_list_) {
-    overview_mode_item->OnOverviewItemDragStarted(item);
+  for (auto& item : item_list_) {
+    item->OnOverviewItemDragStarted();
   }
 }
 
 void OverviewGrid::OnOverviewItemDragEnded(bool snap) {
-  for (auto& overview_mode_item : item_list_) {
-    overview_mode_item->OnOverviewItemDragEnded(snap);
+  for (auto& item : item_list_) {
+    item->OnOverviewItemDragEnded(snap);
   }
 }
 
@@ -1218,7 +1215,7 @@ void OverviewGrid::OnWindowDragStarted(aura::Window* dragged_window,
   // Stack the |dragged_window| at top during drag.
   dragged_window->parent()->StackChildAtTop(dragged_window);
   // Called to set caption and title visibility during dragging.
-  OnOverviewItemDragStarted(/*item=*/nullptr);
+  OnOverviewItemDragStarted();
 }
 
 void OverviewGrid::OnWindowDragContinued(
@@ -1287,11 +1284,20 @@ void OverviewGrid::SetVisibleDuringWindowDragging(bool visible, bool animate) {
   }
 }
 
-void OverviewGrid::OnDisplayMetricsChanged() {
+void OverviewGrid::OnDisplayMetricsChanged(uint32_t changed_metrics) {
   if (split_view_drag_indicators_)
     split_view_drag_indicators_->OnDisplayBoundsChanged();
 
   UpdateCannotSnapWarningVisibility(/*animate=*/true);
+
+  // The `PineContentsView` may need to be updated to match the primary display
+  // orientation. If the pine widget exists, then this overview grid is on the
+  // primary display, so we can tell the contents view to update on rotation.
+  if (pine_widget_ &&
+      (changed_metrics & display::DisplayObserver::DISPLAY_METRIC_ROTATION)) {
+    views::AsViewClass<PineContentsView>(pine_widget_->GetContentsView())
+        ->UpdateOrientation();
+  }
 
   // In case of split view mode, the grid bounds and item positions will be
   // updated in |OnSplitViewDividerPositionChanged|.
@@ -1662,7 +1668,7 @@ gfx::Rect OverviewGrid::GetGridEffectiveBounds() const {
 }
 
 gfx::Insets OverviewGrid::GetGridHorizontalPaddings() const {
-  if (!IsForestFeatureEnabled()) {
+  if (!features::IsOakFeatureEnabled() && !IsForestFeatureEnabled()) {
     return gfx::Insets();
   }
 
@@ -1693,10 +1699,11 @@ gfx::Insets OverviewGrid::GetGridHorizontalPaddings() const {
 }
 
 gfx::Insets OverviewGrid::GetGridVerticalPaddings() const {
-  const bool forest_enabled = IsForestFeatureEnabled();
+  const bool oak_enabled =
+      features::IsOakFeatureEnabled() || IsForestFeatureEnabled();
 
   // Use compact paddings for partial overview.
-  if (forest_enabled &&
+  if (oak_enabled &&
       SplitViewController::Get(root_window_)->InSplitViewMode()) {
     return gfx::Insets::VH(kCompactPaddingForEffectiveBounds, 0);
   }
@@ -1713,11 +1720,11 @@ gfx::Insets OverviewGrid::GetGridVerticalPaddings() const {
       desks_bar_view_ || desks_util::ShouldDesksBarBeCreated();
 
   const int no_desk_bar_padding =
-      forest_enabled ? kSpaciousPaddingForEffectiveBounds : 0;
+      oak_enabled ? kSpaciousPaddingForEffectiveBounds : 0;
   vertical_paddings.set_top(has_desk_bar ? GetDesksBarHeight()
                                          : no_desk_bar_padding);
 
-  if (!forest_enabled) {
+  if (!oak_enabled) {
     return vertical_paddings;
   }
 
@@ -1802,20 +1809,6 @@ bool OverviewGrid::MaybeDropItemOnDeskMiniViewOrNewDeskButton(
 
   auto* desks_controller = DesksController::Get();
 
-  auto move_windows_to_target_desk = [&](Desk* target_desk) -> bool {
-    bool did_any_window_move = false;
-    for (aura::Window* dragged_window : dragged_item->GetWindows()) {
-      if (!desks_controller->MoveWindowFromActiveDeskTo(
-              dragged_window, target_desk, root_window_,
-              DesksMoveWindowFromActiveDeskSource::kDragAndDrop)) {
-        CHECK(!did_any_window_move);
-        return false;
-      }
-      did_any_window_move = true;
-    }
-    return true;
-  };
-
   for (ash::DeskMiniView* mini_view : desks_bar_view_->mini_views()) {
     if (!mini_view->IsPointOnMiniView(screen_location))
       continue;
@@ -1829,7 +1822,10 @@ bool OverviewGrid::MaybeDropItemOnDeskMiniViewOrNewDeskButton(
     desks_bar_view_->UpdateDeskIconButtonState(
         desks_bar_view_->new_desk_button(),
         /*target_state=*/DeskIconButton::State::kExpanded);
-    return move_windows_to_target_desk(target_desk);
+
+    return desks_controller->MoveWindowFromActiveDeskTo(
+        dragged_item->GetWindow(), target_desk, root_window_,
+        DesksMoveWindowFromActiveDeskSource::kDragAndDrop);
   }
 
   if (!desks_controller->CanCreateDesks()) {
@@ -1858,7 +1854,9 @@ bool OverviewGrid::MaybeDropItemOnDeskMiniViewOrNewDeskButton(
     }
   }
 
-  return move_windows_to_target_desk(target_desk);
+  return desks_controller->MoveWindowFromActiveDeskTo(
+      dragged_item->GetWindow(), target_desk, root_window_,
+      DesksMoveWindowFromActiveDeskSource::kDragAndDrop);
 }
 
 void OverviewGrid::StartScroll() {
@@ -2305,7 +2303,7 @@ void OverviewGrid::RefreshGridBounds(bool animate) {
 }
 
 void OverviewGrid::UpdateSaveDeskButtons() {
-  // TODO(crbug.com/1275282): The button should be updated whenever the
+  // TODO(crbug.com/40207000): The button should be updated whenever the
   // overview grid changes, i.e. switches between active desks and/or the
   // saved desk grid. This will be needed when we make it so that switching
   // desks keeps us in overview mode.
@@ -2336,12 +2334,11 @@ void OverviewGrid::UpdateSaveDeskButtons() {
 
   // Adds or removes the widget from the accessibility focus order when exiting
   // the scope. Skip the update if the widget's visibility hasn't changed.
-  base::ScopedClosureRunner update_accessibility_focus(base::BindOnce(
-      [](OverviewSession* session, bool widget_visibility_changed) {
-        if (widget_visibility_changed)
-          session->UpdateAccessibilityFocus();
-      },
-      overview_session_, visibility_changed));
+  absl::Cleanup update_accessibility_focus = [this, visibility_changed] {
+    if (visibility_changed) {
+      overview_session_->UpdateAccessibilityFocus();
+    }
+  };
 
   if (!target_visible) {
     if (visibility_changed && save_desk_button_container_widget_) {
@@ -2851,7 +2848,7 @@ std::vector<gfx::RectF> OverviewGrid::GetWindowRects(
                            &max_right);
   }
 
-  MaybeCenterOverviewItems(rects, ignored_items);
+  MaybeCenterOverviewItems(ignored_items, rects);
 
   gfx::Vector2dF offset(0, (total_bounds.bottom() - max_bottom) / 2.f);
   for (auto& rect : rects)
@@ -3007,9 +3004,13 @@ bool OverviewGrid::FitWindowRectsInBounds(
 }
 
 void OverviewGrid::MaybeCenterOverviewItems(
-    std::vector<gfx::RectF>& out_window_rects,
-    const base::flat_set<OverviewItemBase*>& ignored_items) {
-  if (!IsForestFeatureEnabled() || out_window_rects.empty()) {
+    const base::flat_set<OverviewItemBase*>& ignored_items,
+    std::vector<gfx::RectF>& out_window_rects) {
+  if (!features::IsOakFeatureEnabled() && !IsForestFeatureEnabled()) {
+    return;
+  }
+
+  if (out_window_rects.empty()) {
     return;
   }
 
@@ -3025,7 +3026,7 @@ void OverviewGrid::MaybeCenterOverviewItems(
     const float range_center =
         (current_row_union_range.start() + current_row_union_range.end()) / 2.f;
     const int center_position = GetGridEffectiveBounds().CenterPoint().x();
-    float current_diff = std::abs(center_position - range_center);
+    float current_diff = std::round(std::abs(center_position - range_center));
     for (size_t j = current_row_first_item_index; j < end_index; j++) {
       out_window_rects[j].Offset(current_diff, 0);
     }
@@ -3262,15 +3263,17 @@ void OverviewGrid::UpdateNumSavedDeskUnsupportedWindows(
     // its supported/incognito type and a proper fix is made.
     if (num_unsupported_windows_ < 0) {
       num_unsupported_windows_ = 0;
-      SCOPED_CRASH_KEY_NUMBER("OG_UNSDUW", "unsupported_app_type",
-                              window->GetProperty(aura::client::kAppType));
+      SCOPED_CRASH_KEY_NUMBER(
+          "OG_UNSDUW", "unsupported_app_type",
+          static_cast<int>(window->GetProperty(chromeos::kAppTypeKey)));
       SCOPED_CRASH_KEY_STRING32("OG_UNSDUW", "unsupported_app_id",
                                 ::full_restore::GetAppId(window));
       base::debug::DumpWithoutCrashing();
     } else if (num_incognito_windows_ < 0) {
       num_incognito_windows_ = 0;
-      SCOPED_CRASH_KEY_NUMBER("OG_UNSDUW", "incognito_app_type",
-                              window->GetProperty(aura::client::kAppType));
+      SCOPED_CRASH_KEY_NUMBER(
+          "OG_UNSDUW", "incognito_app_type",
+          static_cast<int>(window->GetProperty(chromeos::kAppTypeKey)));
       SCOPED_CRASH_KEY_STRING32("OG_UNSDUW", "incognito_app_id",
                                 ::full_restore::GetAppId(window));
       base::debug::DumpWithoutCrashing();
@@ -3329,9 +3332,10 @@ void OverviewGrid::UpdateFasterSplitViewWidget() {
   if (!window_util::IsInFasterSplitScreenSetupSession(root_window_)) {
     // If we weren't started by faster splitview, don't show the widget.
     if (auto* faster_split_view = GetFasterSplitView()) {
-      auto* focus_cycler = overview_session_->focus_cycler();
-      focus_cycler->OnViewDestroyingOrDisabling(faster_split_view->GetToast());
-      focus_cycler->OnViewDestroyingOrDisabling(
+      auto* focus_cycler_old = overview_session_->focus_cycler_old();
+      focus_cycler_old->OnViewDestroyingOrDisabling(
+          faster_split_view->GetToast());
+      focus_cycler_old->OnViewDestroyingOrDisabling(
           faster_split_view->settings_button());
     }
     faster_splitview_widget_.reset();

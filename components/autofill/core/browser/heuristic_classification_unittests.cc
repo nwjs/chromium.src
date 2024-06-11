@@ -321,22 +321,22 @@ FormFieldData ParseFieldFromJsonDict(const base::Value::Dict& field_dict,
   FormFieldData field;
 
   if (const std::string* id = field_dict.FindString("id_attr")) {
-    field.id_attribute = base::UTF8ToUTF16(*id);
+    field.set_id_attribute(base::UTF8ToUTF16(*id));
   }
   if (const std::string* name = field_dict.FindString("name_attr")) {
-    field.name_attribute = base::UTF8ToUTF16(*name);
+    field.set_name_attribute(base::UTF8ToUTF16(*name));
   }
   // `FormFieldData::name` is used for form signature calculation and a fallback
   // from a field's name to the field's id.
   field.set_name(std::u16string(
-      base::TrimWhitespace(field.name_attribute, base::TRIM_ALL)));
+      base::TrimWhitespace(field.name_attribute(), base::TRIM_ALL)));
   if (field.name().empty()) {
     field.set_name(std::u16string(
-        base::TrimWhitespace(field.id_attribute, base::TRIM_ALL)));
+        base::TrimWhitespace(field.id_attribute(), base::TRIM_ALL)));
   }
 
   if (const std::string* label = field_dict.FindString("label_attr")) {
-    field.label = base::UTF8ToUTF16(*label);
+    field.set_label(base::UTF8ToUTF16(*label));
   }
   field.set_form_control_type(FormControlType::kInputText);
   if (const std::string* json_type = field_dict.FindString("type_attr")) {
@@ -346,33 +346,35 @@ FormFieldData ParseFieldFromJsonDict(const base::Value::Dict& field_dict,
   }
   if (const std::string* autocomplete =
           field_dict.FindString("autocomplete_attr")) {
-    field.autocomplete_attribute = *autocomplete;
-    field.parsed_autocomplete = ParseAutocompleteAttribute(*autocomplete);
+    field.set_autocomplete_attribute(*autocomplete);
+    field.set_parsed_autocomplete(ParseAutocompleteAttribute(*autocomplete));
   }
   if (const std::string* placeholder =
           field_dict.FindString("placeholder_attr")) {
-    field.placeholder = base::UTF8ToUTF16(*placeholder);
+    field.set_placeholder(base::UTF8ToUTF16(*placeholder));
   }
   if (const std::string* maxlength = field_dict.FindString("maxlength_attr")) {
     uint64_t max_length = 0;
     base::StringToUint64(*maxlength, &max_length);
-    field.max_length = max_length;
+    field.set_max_length(max_length);
   }
-  field.is_focusable = true;
-  field.role = FormFieldData::RoleAttribute::kOther;
-  field.origin = form_data.main_frame_origin;
-  field.host_frame = form_data.host_frame;
-  field.host_form_id = form_data.renderer_id;
+  field.set_is_focusable(true);
+  field.set_role(FormFieldData::RoleAttribute::kOther);
+  field.set_origin(form_data.main_frame_origin);
+  field.set_host_frame(form_data.host_frame);
+  field.set_host_form_id(form_data.renderer_id);
   field.set_renderer_id(test::MakeFieldRendererId());
-  if (const base::Value::List* options =
+  std::vector<SelectOption> options;
+  if (const base::Value::List* select_options =
           field_dict.FindList("select_options")) {
-    for (const base::Value& option : *options) {
+    for (const base::Value& option : *select_options) {
       const base::Value::Dict& option_dict = option.GetDict();
-      field.options.push_back(SelectOption{
+      options.push_back(SelectOption{
           .value = base::UTF8ToUTF16(*option_dict.FindString("value")),
           .content = base::UTF8ToUTF16(*option_dict.FindString("label"))});
     }
   }
+  field.set_options(std::move(options));
   return field;
 }
 
@@ -545,6 +547,7 @@ TEST_P(HeuristicClassificationTests, EndToEnd) {
       features::kAutofillUseI18nAddressModel,
       features::kAutofillUseBRAddressModel,
       features::kAutofillUseMXAddressModel,
+      features::kAutofillUsePLAddressModel,
       features::kAutofillEnableSupportForBetweenStreets,
       features::kAutofillEnableSupportForAdminLevel2,
       features::kAutofillEnableSupportForAddressOverflow,

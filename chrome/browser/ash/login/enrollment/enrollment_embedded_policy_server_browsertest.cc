@@ -250,8 +250,8 @@ class AutoEnrollmentWithStatistics : public AutoEnrollmentEmbeddedPolicyServer {
   AutoEnrollmentWithStatistics() {
     // `AutoEnrollmentTypeChecker` assumes that VPD is in valid state if
     // "serial_number" or "Product_S/N" could be read from it.
-    fake_statistics_provider_.SetMachineStatistic(
-        system::kSerialNumberKeyForTest, test::kTestSerialNumber);
+    fake_statistics_provider_.SetMachineStatistic(system::kSerialNumberKey,
+                                                  test::kTestSerialNumber);
     fake_statistics_provider_.SetVpdStatus(
         system::StatisticsProvider::VpdStatus::kValid);
   }
@@ -274,8 +274,7 @@ class AutoEnrollmentWithStatistics : public AutoEnrollmentEmbeddedPolicyServer {
   }
 
   void SetVPDCorrupted() {
-    fake_statistics_provider_.ClearMachineStatistic(
-        system::kSerialNumberKeyForTest);
+    fake_statistics_provider_.ClearMachineStatistic(system::kSerialNumberKey);
     fake_statistics_provider_.SetVpdStatus(
         system::StatisticsProvider::VpdStatus::kRwInvalid);
   }
@@ -1096,7 +1095,7 @@ IN_PROC_BROWSER_TEST_F(EnrollmentRecoveryTest, DifferentDomain) {
   enrollment_ui_.RetryAndWaitForSigninStep();
 }
 
-// TODO(crbug.com/1454755): Flaky on ChromeOS.
+// TODO(crbug.com/40917081): Flaky on ChromeOS.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_EnrollmentForced DISABLED_EnrollmentForced
 #else

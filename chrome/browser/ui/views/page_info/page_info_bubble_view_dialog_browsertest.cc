@@ -105,7 +105,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
   PageInfoBubbleViewDialogBrowserTest() {
     feature_list_.InitWithFeatures(
         {},
-        {// TODO(crbug.com/1394910): Use HTTPS URLs in tests to avoid having
+        {// TODO(crbug.com/40248833): Use HTTPS URLs in tests to avoid having
          // to disable this feature.
          features::kHttpsUpgrades,
          content_settings::features::kTrackingProtection3pcd});
@@ -288,7 +288,7 @@ class PageInfoBubbleViewDialogBrowserTest : public DialogBrowserTest {
             content_settings::ContentSettingsRegistry::GetInstance()
                 ->Get(info.type)
                 ->GetInitialDefaultSetting();
-        info.source = content_settings::SettingSource::SETTING_SOURCE_USER;
+        info.source = content_settings::SettingSource::kUser;
         permissions_list.push_back(info);
       }
 
@@ -951,7 +951,7 @@ class PageInfoBubbleViewIsolatedWebAppBrowserTest : public DialogBrowserTest {
   webapps::AppId app_id_;
 
   // Stop test from installing OS hooks.
-  web_app::OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
+  web_app::OsIntegrationTestOverrideBlockingRegistration faked_os_integration_;
 };
 
 // Test renamed, as currently Skia Gold doesn't support resetting test

@@ -161,38 +161,32 @@ void DrmOverlayValidatorTest::InitDrmStatesAndControllers(
            "same number of planes per CRTC";
   }
 
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  drm_->ResetStateWithAllProperties();
 
-  // Set up the default format property ID for the cursor planes:
-  drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-      kInFormatsBlobIdBase, {DRM_FORMAT_XRGB8888}, {}));
-
-  uint32_t blob_id = kInFormatsBlobIdBase + 1;
   std::vector<uint32_t> crtc_ids;
   for (const auto& crtc_state : crtc_states) {
-    const auto& crtc = drm_state.AddCrtcAndConnector().first;
-    crtc_ids.push_back(crtc.id);
+    uint32_t crtc_id = drm_->AddCrtcAndConnector().first.id;
+    crtc_ids.push_back(crtc_id);
 
     for (size_t i = 0; i < crtc_state.planes.size(); ++i) {
-      uint32_t new_blob_id = blob_id++;
-      drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-          new_blob_id, crtc_state.planes[i].formats, {}));
+      auto in_formats_blob =
+          drm_->CreateInFormatsBlob(crtc_state.planes[i].formats, {});
 
-      auto& plane = drm_state.AddPlane(
-          crtc.id, i == 0 ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY);
-      plane.SetProp(kInFormatsPropId, new_blob_id);
+      auto& plane = drm_->AddPlane(
+          crtc_id, i == 0 ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY);
+      drm_->AddProperty(
+          plane.id, {.id = kInFormatsPropId, .value = in_formats_blob->id()});
     }
   }
 
   for (const auto& movable_plane : movable_planes) {
-    uint32_t new_blob_id = blob_id++;
-    drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-        new_blob_id, movable_plane.formats, {}));
-    auto& plane = drm_state.AddPlane(crtc_ids, DRM_PLANE_TYPE_OVERLAY);
-    plane.SetProp(kInFormatsPropId, new_blob_id);
+    auto in_formats_blob = drm_->CreateInFormatsBlob(movable_plane.formats, {});
+    auto& plane = drm_->AddPlane(crtc_ids, DRM_PLANE_TYPE_OVERLAY);
+    drm_->AddProperty(plane.id,
+                      {.id = kInFormatsPropId, .value = in_formats_blob->id()});
   }
 
-  drm_->InitializeState(drm_state, /*use_atomic=*/true);
+  drm_->InitializeState(/*use_atomic=*/true);
 
   SetupControllers();
 }

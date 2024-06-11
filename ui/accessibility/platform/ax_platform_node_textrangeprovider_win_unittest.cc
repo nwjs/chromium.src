@@ -2663,7 +2663,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest, TestITextRangeProviderMove) {
   ComPtr<ITextRangeProvider> text_range_provider;
   GetTextRangeProviderFromTextNode(text_range_provider, root_node);
 
-  // TODO(https://crbug.com/928948): test intermixed unit types
+  // TODO(crbug.com/41439481): test intermixed unit types
 }
 
 TEST_F(AXPlatformNodeTextRangeProviderTest,
@@ -5346,7 +5346,7 @@ TEST_F(AXPlatformNodeTextRangeProviderTest,
   EXPECT_EQ(50, text_field->data().relative_bounds.bounds.y());
 }
 
-// TODO(crbug.com/1124051): Remove this test once this crbug is fixed.
+// TODO(crbug.com/40717049): Remove this test once this crbug is fixed.
 TEST_F(AXPlatformNodeTextRangeProviderTest,
        TestITextRangeProviderSelectListMarker) {
   ui::AXNodeData root_data;

@@ -5,14 +5,16 @@
 package org.chromium.chrome.browser.tab_resumption;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.util.AttributeSet;
+import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 
+import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleMetricsUtils.ModuleShowConfig;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallbacks;
-import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 
 /**
@@ -21,23 +23,32 @@ import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 public class TabResumptionModuleView extends LinearLayout {
     private TabResumptionTileContainerView mTileContainerView;
     private UrlImageProvider mUrlImageProvider;
-    private TabListFaviconProvider mFaviconProvider;
     private ThumbnailProvider mThumbnailProvider;
     private SuggestionClickCallbacks mClickCallbacks;
     private SuggestionBundle mBundle;
+    private boolean mUseSalientImage;
 
     private boolean mIsSuggestionBundleReady;
     private String mTitle;
+    private String mSeeMoreViewText;
     private String mAllTilesTexts;
 
     public TabResumptionModuleView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+        mUseSalientImage = TabResumptionModuleUtils.TAB_RESUMPTION_USE_SALIENT_IMAGE.getValue();
     }
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
         mTileContainerView = findViewById(R.id.tab_resumption_module_tiles_container);
+        Resources res = getContext().getResources();
+        mSeeMoreViewText = res.getString(R.string.tab_resumption_module_see_more);
+        ((TextView) findViewById(R.id.tab_resumption_see_more_link))
+                .setVisibility(
+                        TabResumptionModuleUtils.TAB_RESUMPTION_SHOW_SEE_MORE.getValue()
+                                ? View.VISIBLE
+                                : View.GONE);
     }
 
     void destroy() {
@@ -49,14 +60,22 @@ public class TabResumptionModuleView extends LinearLayout {
         renderIfReady();
     }
 
-    void setFaviconProvider(TabListFaviconProvider faviconProvider) {
-        mFaviconProvider = faviconProvider;
-        renderIfReady();
-    }
-
     void setThumbnailProvider(ThumbnailProvider thumbnailProvider) {
         mThumbnailProvider = thumbnailProvider;
         renderIfReady();
+    }
+
+    void setSeeMoreLinkClickCallback(Runnable seeMoreClickCallback) {
+        ((TextView) findViewById(R.id.tab_resumption_see_more_link))
+                .setOnClickListener(
+                        v -> {
+                            seeMoreClickCallback.run();
+                            @ModuleShowConfig
+                            int config =
+                                    TabResumptionModuleMetricsUtils.computeModuleShowConfig(
+                                            mBundle);
+                            TabResumptionModuleMetricsUtils.recordSeeMoreLinkClicked(config);
+                        });
     }
 
     void setClickCallbacks(SuggestionClickCallbacks clickCallbacks) {
@@ -85,7 +104,6 @@ public class TabResumptionModuleView extends LinearLayout {
         if (mIsSuggestionBundleReady
                 && mUrlImageProvider != null
                 && mClickCallbacks != null
-                && mFaviconProvider != null
                 && mThumbnailProvider != null) {
             if (mBundle == null) {
                 mTileContainerView.removeAllViews();
@@ -95,9 +113,9 @@ public class TabResumptionModuleView extends LinearLayout {
                         mTileContainerView.renderAllTiles(
                                 mBundle,
                                 mUrlImageProvider,
-                                mFaviconProvider,
                                 mThumbnailProvider,
-                                mClickCallbacks);
+                                mClickCallbacks,
+                                mUseSalientImage);
             }
             setContentDescriptionOfTabResumption();
         }
@@ -105,8 +123,8 @@ public class TabResumptionModuleView extends LinearLayout {
 
     /** Sets the content description for the tab resumption module. */
     private void setContentDescriptionOfTabResumption() {
-        if (mTitle != null && mAllTilesTexts != null) {
-            setContentDescription(mTitle + ". " + mAllTilesTexts);
+        if (mTitle != null && mSeeMoreViewText != null && mAllTilesTexts != null) {
+            setContentDescription(mTitle + ". " + mSeeMoreViewText + ". " + mAllTilesTexts);
         } else {
             setContentDescription(null);
         }

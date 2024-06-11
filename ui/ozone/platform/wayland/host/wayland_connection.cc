@@ -318,12 +318,9 @@ void WaylandConnection::SetCursorBitmap(const std::vector<SkBitmap>& bitmaps,
 
 bool WaylandConnection::IsDragInProgress() const {
   // |data_drag_controller_| can be null when running on headless weston.
-  return (data_drag_controller_ &&
-          data_drag_controller_->state() !=
-              WaylandDataDragController::State::kIdle) ||
+  return (data_drag_controller_ && data_drag_controller_->IsDragInProgress()) ||
          (window_drag_controller_ &&
-          window_drag_controller_->state() !=
-              WaylandWindowDragController::State::kIdle);
+          window_drag_controller_->IsDragInProgress());
 }
 
 bool WaylandConnection::SupportsSetWindowGeometry() const {
@@ -465,9 +462,8 @@ base::TimeTicks WaylandConnection::ConvertPresentationTime(uint32_t tv_sec_hi,
   if (ret < 0) {
     presentation_now.tv_sec = 0;
     presentation_now.tv_nsec = 0;
-    LOG(ERROR) << "Error: failure to read the wp_presentation clock "
-               << presentation_clk_id_ << ": '" << strerror(errno) << "' "
-               << errno;
+    PLOG(ERROR) << "Error: failure to read the wp_presentation clock "
+                << presentation_clk_id_;
     return base::TimeTicks::Now();
   }
 

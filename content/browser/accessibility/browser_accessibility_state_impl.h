@@ -80,7 +80,6 @@ class CONTENT_EXPORT BrowserAccessibilityStateImpl
   void AddOtherThreadHistogramCallback(base::OnceClosure callback) override;
   void UpdateUniqueUserHistograms() override;
   void UpdateHistogramsForTesting() override;
-  void SetCaretBrowsingState(bool enabled) override;
   void SetPerformanceFilteringAllowed(bool enabled) override;
   bool IsPerformanceFilteringAllowed() override;
   base::CallbackListSubscription RegisterFocusChangedCallback(
@@ -96,32 +95,17 @@ class CONTENT_EXPORT BrowserAccessibilityStateImpl
   void SetAXModeChangeAllowed(bool allowed) override;
   bool IsAXModeChangeAllowed() const override;
 
-  // Returns whether caret browsing is enabled for the most recently
-  // used profile.
-  bool IsCaretBrowsingEnabled() const;
 
   // ui::AXPlatform::Delegate:
   ui::AXMode GetProcessMode() override;
   void SetProcessMode(ui::AXMode new_mode) override;
+  void OnAccessibilityApiUsage() override;
 
   // The global accessibility mode is automatically enabled based on
   // usage of accessibility APIs. When we detect a significant amount
   // of user inputs within a certain time period, but no accessibility
   // API usage, we automatically disable accessibility.
   void OnUserInputEvent();
-  void OnAccessibilityApiUsage();
-
-  // Accessibility objects can have the "hot tracked" state set when
-  // the mouse is hovering over them, but this makes tests flaky because
-  // the test behaves differently when the mouse happens to be over an
-  // element.  This is a global switch to not use the "hot tracked" state
-  // in a test.
-  void set_disable_hot_tracking_for_testing(bool disable_hot_tracking) {
-    disable_hot_tracking_ = disable_hot_tracking;
-  }
-  bool disable_hot_tracking_for_testing() const {
-    return disable_hot_tracking_;
-  }
 
   // Calls InitBackgroundTasks with short delays for scheduled tasks,
   // and then calls the given completion callback when done.
@@ -164,7 +148,7 @@ class CONTENT_EXPORT BrowserAccessibilityStateImpl
                                    ui::AXMode new_mode);
 
   // The process's single AXPlatform instance.
-  ui::AXPlatform ax_platform_{*this};
+  ui::AXPlatform ax_platform_;
 
   base::TimeDelta histogram_delay_;
 
@@ -182,13 +166,6 @@ class CONTENT_EXPORT BrowserAccessibilityStateImpl
   // Changes are disallowed while running tests or when
   // --force-renderer-accessibility is used on the command line.
   bool allow_ax_mode_changes_ = true;
-
-  // Disable hot tracking, i.e. hover state - needed just to avoid flaky tests.
-  bool disable_hot_tracking_ = false;
-
-  // Keeps track of whether caret browsing is enabled for the most
-  // recently used profile.
-  bool caret_browsing_enabled_ = false;
 
   // Keeps track of whether performance filtering is allowed for the device.
   // Default is true to defer to feature flag. Value may be set to false by

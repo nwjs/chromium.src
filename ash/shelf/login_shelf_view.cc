@@ -39,7 +39,6 @@
 #include "ash/system/tray/tray_background_view.h"
 #include "ash/wm/lock_state_controller.h"
 #include "base/functional/bind.h"
-#include "base/functional/callback_helpers.h"
 #include "base/metrics/user_metrics.h"
 #include "base/sequence_checker.h"
 #include "base/task/single_thread_task_runner.h"
@@ -47,6 +46,7 @@
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/vector_icons/vector_icons.h"
 #include "components/account_id/account_id.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -330,7 +330,7 @@ LoginShelfView::LoginShelfView(
                                  base::Unretained(this)),
              IDS_ASH_ADD_USER_BUTTON, kShelfAddPersonButtonIcon);
   add_button(kParentAccess, base::BindRepeating([]() {
-               // TODO(https://crbug.com/999387): Remove this when handling
+               // TODO(crbug.com/40642787): Remove this when handling
                // touch cancellation is fixed for system modal windows.
                base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
                    FROM_HERE, base::BindOnce([]() {
@@ -429,11 +429,6 @@ void LoginShelfView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   GetViewAccessibility().SetNextFocus(shelf->GetStatusAreaWidget());
   node_data->role = ax::mojom::Role::kToolbar;
   node_data->SetName(l10n_util::GetStringUTF8(IDS_ASH_SHELF_ACCESSIBLE_NAME));
-}
-
-void LoginShelfView::Layout(PassKey) {
-  LayoutSuperclass<views::View>(this);
-  UpdateButtonUnionBounds();
 }
 
 void LoginShelfView::OnShelfConfigUpdated() {
@@ -650,13 +645,11 @@ void LoginShelfView::SetButtonVisible(ButtonId button_id, bool visible) {
 
 void LoginShelfView::UpdateUi() {
   // Make sure observers are notified.
-  base::ScopedClosureRunner fire_observer(base::BindOnce(
-      [](LoginShelfView* self) {
-        if (self->test_ui_update_delegate()) {
-          self->test_ui_update_delegate()->OnUiUpdate();
-        }
-      },
-      base::Unretained(this)));
+  absl::Cleanup fire_observer = [this] {
+    if (test_ui_update_delegate()) {
+      test_ui_update_delegate()->OnUiUpdate();
+    }
+  };
 
   SessionState session_state =
       Shell::Get()->session_controller()->GetSessionState();
@@ -745,16 +738,6 @@ void LoginShelfView::UpdateUi() {
     PreferredSizeChanged();
   } else {
     DeprecatedLayoutImmediately();
-  }
-}
-
-void LoginShelfView::UpdateButtonUnionBounds() {
-  button_union_bounds_ = gfx::Rect();
-  View::Views children = GetChildrenInZOrder();
-  for (views::View* child : children) {
-    if (child->GetVisible()) {
-      button_union_bounds_.Union(child->bounds());
-    }
   }
 }
 
@@ -936,6 +919,9 @@ void LoginShelfView::OnAddUserButtonClicked() {
     return;
   }
   AuthEventsRecorder::Get()->OnAddUser();
+
+  // TODO(b/333882432): Remove this log after the bug fixed.
+  LOG(WARNING) << "b/333882432: LoginShelfView::OnAddUserButtonClicked";
   Shell::Get()->login_screen_controller()->ShowGaiaSignin(EmptyAccountId());
 }
 

@@ -75,8 +75,7 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "services/device/public/cpp/device_features.h"
-#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
-#include "services/device/public/cpp/geolocation/location_system_permission_status.h"
+#include "services/device/public/cpp/geolocation/buildflags.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
@@ -98,15 +97,17 @@
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #endif
 
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
+#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
+#include "services/device/public/cpp/geolocation/location_system_permission_status.h"
+#endif
+
 using base::UserMetricsAction;
 using content::WebContents;
 using content_settings::PageSpecificContentSettings;
-using content_settings::SETTING_SOURCE_NONE;
-using content_settings::SETTING_SOURCE_USER;
 using content_settings::SettingInfo;
 using content_settings::SettingSource;
 using content_settings::mojom::SessionModel;
-using device::LocationSystemPermissionStatus;
 
 namespace {
 using ContentSettingBubbleAction =
@@ -162,7 +163,7 @@ bool GetSettingManagedByUser(const GURL& url,
 
   // Prevent creation of content settings for illegal urls like about:blank by
   // disallowing user management.
-  return info.source == SETTING_SOURCE_USER &&
+  return info.source == SettingSource::kUser &&
          map->CanSetNarrowestContentSetting(url, url, type);
 }
 
@@ -730,7 +731,7 @@ ContentSettingStorageAccessBubbleModel::ContentSettingStorageAccessBubbleModel(
                         ContentSettingBubbleAction::kOpened);
   set_title(l10n_util::GetStringUTF16(IDS_SITE_SETTINGS_TYPE_STORAGE_ACCESS));
 
-  // TODO(crbug.com/1433644): Consider to add subtitles to all permissions.
+  // TODO(crbug.com/40064079): Consider to add subtitles to all permissions.
   set_subtitle(url_formatter::FormatUrlForSecurityDisplay(
       web_contents->GetURL(),
       url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC));
@@ -1301,7 +1302,7 @@ ContentSettingGeolocationBubbleModel::ContentSettingGeolocationBubbleModel(
                                      web_contents,
                                      ContentSettingsType::GEOLOCATION) {
   SetCustomLink();
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
   // Get the stored geolocation content setting and the system permission state
   // to determine whether geolocation is blocked by a system permission.
   //
@@ -1318,20 +1319,20 @@ ContentSettingGeolocationBubbleModel::ContentSettingGeolocationBubbleModel(
   if (content_setting == CONTENT_SETTING_ALLOW &&
       device::GeolocationSystemPermissionManager::GetInstance()
               ->GetSystemPermission() !=
-          LocationSystemPermissionStatus::kAllowed) {
+          device::LocationSystemPermissionStatus::kAllowed) {
     // If the permission is turned off in supported operating systems
     // preferences, overwrite the bubble to enable the user to trigger the
     // system dialog.
     InitializeSystemGeolocationPermissionBubble();
   }
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 }
 
 ContentSettingGeolocationBubbleModel::~ContentSettingGeolocationBubbleModel() =
     default;
 
 void ContentSettingGeolocationBubbleModel::OnDoneButtonClicked() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
   if (show_system_geolocation_bubble_) {
     base::RecordAction(UserMetricsAction(
         "ContentSettings.GeolocationDialog.OpenPreferencesClicked"));
@@ -1341,7 +1342,7 @@ void ContentSettingGeolocationBubbleModel::OnDoneButtonClicked() {
     DCHECK(geolocation_system_permission_manager);
     geolocation_system_permission_manager->OpenSystemPermissionSetting();
   }
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 }
 
 void ContentSettingGeolocationBubbleModel::OnManageButtonClicked() {
@@ -1357,7 +1358,7 @@ void ContentSettingGeolocationBubbleModel::CommitChanges() {
 
 void ContentSettingGeolocationBubbleModel::
     InitializeSystemGeolocationPermissionBubble() {
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 #if BUILDFLAG(IS_MAC)
   if (base::FeatureList::IsEnabled(features::kLocationPermissionsExperiment)) {
     set_title(l10n_util::GetStringUTF16(
@@ -1367,7 +1368,7 @@ void ContentSettingGeolocationBubbleModel::
   }
 #else
   set_title(l10n_util::GetStringUTF16(IDS_GEOLOCATION_TURNED_OFF_IN_OS));
-#endif
+#endif  // BUILDFLAG(IS_MAC)
 
   clear_message();
   AddListItem(ContentSettingBubbleModel::ListItem(
@@ -1378,7 +1379,7 @@ void ContentSettingGeolocationBubbleModel::
   set_done_button_text(l10n_util::GetStringUTF16(IDS_OPEN_SETTINGS_LINK));
   set_radio_group(RadioGroup());
   show_system_geolocation_bubble_ = true;
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 }
 
 void ContentSettingGeolocationBubbleModel::SetCustomLink() {

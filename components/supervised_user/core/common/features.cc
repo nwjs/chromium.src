@@ -18,9 +18,6 @@ BASE_FEATURE(kKidFriendlyContentFeed,
              "KidFriendlyContentFeed",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-constexpr base::FeatureParam<std::string> kKidFriendlyContentFeedEndpoint{
-    &kKidFriendlyContentFeed, "supervised_feed_endpoint", ""};
-
 // Enables local parent approvals for the blocked website on the Family Link
 // user's device.
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
@@ -105,10 +102,6 @@ BASE_FEATURE(kMigrateAccountManagementSettingsToCapabilities,
              "MigrateAccountManagementSettingsToCapabilities",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-BASE_FEATURE(kRemoveForceAppliedYoutubeRestrictPolicy,
-             "RemoveForceAppliedYoutubeRestrictPolicy",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWaitUntilAccessTokenAvailableForClassifyUrl,
              "WaitUntilAccessTokenAvailableForClassifyUrl",

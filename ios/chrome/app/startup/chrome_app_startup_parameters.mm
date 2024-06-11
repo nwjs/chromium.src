@@ -53,7 +53,7 @@ NSString* const kExternalActionOpenNTP = @"OpenNTP";
 // here due to a Smart App Banner presentation on a Google.com page.
 NSString* const kSmartAppBannerKey = @"safarisab";
 
-// TODO(crbug.com/1138702): When swift is supported move WidgetKit constants to
+// TODO(crbug.com/40725595): When swift is supported move WidgetKit constants to
 // a file where they can be shared with the extension. Currently these are also
 // declared as URLs in ios/c/widget_kit_extension/widget_constants.swift.
 //
@@ -324,7 +324,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
   } else if (IsXCallbackURL(parsedURL)) {
     base::UmaHistogramEnumeration(kAppLaunchSource,
                                   AppLaunchSource::X_CALLBACK);
-    // TODO(crbug.com/228098): Temporary fix.
+    // TODO(crbug.com/41004788): Temporary fix.
     NSString* action = [completeURL path];
     // Currently only "open" and "extension-command" are supported.
     // Other actions are being considered (see b/6914153).
@@ -375,8 +375,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
     // so this assignment should not DCHECK, no matter what the URL is.
     startupParameters.postOpeningAction = postOpeningAction;
     return startupParameters;
-  } else if (IsExternalActionSchemeHandlingEnabled() &&
-             [self isChromeExternalActionURL:completeURL]) {
+  } else if ([self isChromeExternalActionURL:completeURL]) {
     base::RecordAction(
         base::UserMetricsAction("MobileExternalActionURLOpened"));
     UMA_HISTOGRAM_ENUMERATION(kUMAMobileSessionStartActionHistogram,

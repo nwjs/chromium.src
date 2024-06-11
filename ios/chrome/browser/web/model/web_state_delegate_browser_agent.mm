@@ -226,7 +226,7 @@ web::WebState* WebStateDelegateBrowserAgent::CreateNewWebState(
       // window.open before its initial load is committed.  Rather than relying
       // on the last committed or pending NavigationItem's referrer policy, just
       // use ReferrerPolicyDefault.
-      // TODO(crbug.com/719993): Update this to a more appropriate referrer
+      // TODO(crbug.com/41317904): Update this to a more appropriate referrer
       // policy once referrer policies are correctly recorded in
       // NavigationItems.
       web::Referrer referrer(opener_url, web::ReferrerPolicyDefault);
@@ -295,7 +295,7 @@ void WebStateDelegateBrowserAgent::ShowRepostFormWarningDialog(
 
   switch (warning_type) {
     case web::FormWarningType::kRepost:
-      // TODO(crbug.com/1266052) : Clean up this API.
+      // TODO(crbug.com/40203973) : Clean up this API.
       RepostFormTabHelper::FromWebState(source)->PresentDialog(
           [container_view_provider_ dialogLocation], std::move(callback));
       return;

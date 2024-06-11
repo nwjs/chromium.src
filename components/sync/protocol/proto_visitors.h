@@ -18,7 +18,9 @@
 #include "components/sync/protocol/collaboration_group_specifics.pb.h"
 #include "components/sync/protocol/compare_specifics.pb.h"
 #include "components/sync/protocol/contact_info_specifics.pb.h"
+#include "components/sync/protocol/cookie_specifics.pb.h"
 #include "components/sync/protocol/data_type_progress_marker.pb.h"
+#include "components/sync/protocol/deletion_origin.pb.h"
 #include "components/sync/protocol/dictionary_specifics.pb.h"
 #include "components/sync/protocol/encryption.pb.h"
 #include "components/sync/protocol/entity_metadata.pb.h"
@@ -251,6 +253,7 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT(address_home_apt_num);
   VISIT(address_home_apt_type);
   VISIT(address_home_street_location_and_locality);
+  VISIT(address_home_thoroughfare_number_and_apt);
 
   VISIT_ENUM(address_home_city_status);
   VISIT_ENUM(address_home_state_status);
@@ -274,6 +277,7 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillProfileSpecifics& proto) {
   VISIT_ENUM(address_home_apt_num_status);
   VISIT_ENUM(address_home_apt_type_status);
   VISIT_ENUM(address_home_street_location_and_locality_status);
+  VISIT_ENUM(address_home_thoroughfare_number_and_apt_status);
 
   VISIT(address_home_language_code);
   VISIT_REP(phone_home_whole_number);
@@ -395,6 +399,7 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics& proto) {
   VISIT(address_between_streets_or_landmark);
   VISIT(address_overflow_and_landmark);
   VISIT(address_street_location_and_locality);
+  VISIT(address_thoroughfare_number_and_apt);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics::Observation& proto) {
@@ -411,6 +416,32 @@ VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics::TokenMetadata& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::ContactInfoSpecifics::StringToken& proto) {
   VISIT(value);
   VISIT(metadata);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::CookieSpecifics& proto) {
+  VISIT(unique_key);
+  VISIT(name);
+  VISIT(value);
+  VISIT(domain);
+  VISIT(path);
+  VISIT(creation_time_windows_epoch_micros);
+  VISIT(expiry_time_windows_epoch_micros);
+  VISIT(last_access_time_windows_epoch_micros);
+  VISIT(last_update_time_windows_epoch_micros);
+  VISIT(secure);
+  VISIT(httponly);
+  VISIT_ENUM(site_restrictions);
+  VISIT_ENUM(priority);
+  VISIT_ENUM(source_scheme);
+  VISIT(partition_key);
+  VISIT(source_port);
+  VISIT_ENUM(source_type);
+}
+
+VISIT_PROTO_FIELDS(
+    const sync_pb::CookieSpecifics::SerializedCookiePartitionKey& proto) {
+  VISIT(top_level_site);
+  VISIT(has_cross_site_ancestor);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::CustomNudgeDelay& proto) {
@@ -533,6 +564,15 @@ VISIT_PROTO_FIELDS(const sync_pb::DebugInfo& proto) {
   VISIT(events_dropped);
 }
 
+VISIT_PROTO_FIELDS(const sync_pb::DeletionOrigin& proto) {
+  VISIT(chromium_version);
+  VISIT(google_play_services_apk_version_name);
+  VISIT(file_name_hash);
+  VISIT(file_line_number);
+  VISIT(file_name_possibly_truncated);
+  VISIT(unique_source_tag_no_pii_possibly_truncated);
+}
+
 VISIT_PROTO_FIELDS(const sync_pb::DeviceInfoSpecifics& proto) {
   VISIT(cache_guid);
   VISIT(client_name);
@@ -609,6 +649,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntityMetadata& proto) {
   VISIT(possibly_trimmed_base_specifics);
   VISIT(deleted_by_version);
   VISIT(collaboration);
+  VISIT(deletion_origin);
 }
 
 VISIT_PROTO_FIELDS(
@@ -617,7 +658,7 @@ VISIT_PROTO_FIELDS(
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(51 == GetNumModelTypes(),
+  static_assert(52 == GetNumModelTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -635,6 +676,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(collaboration_group);
   VISIT(compare);
   VISIT(contact_info);
+  VISIT(cookie);
   VISIT(device_info);
   VISIT(dictionary);
   VISIT(extension);
@@ -843,22 +885,6 @@ VISIT_PROTO_FIELDS(const sync_pb::CrossUserSharingPrivateKey& proto) {
 VISIT_PROTO_FIELDS(const sync_pb::NigoriSpecifics& proto) {
   VISIT(encryption_keybag);
   VISIT(keybag_is_frozen);
-  VISIT(encrypt_bookmarks);
-  VISIT(encrypt_preferences);
-  VISIT(encrypt_autofill_profile);
-  VISIT(encrypt_autofill);
-  VISIT(encrypt_themes);
-  VISIT(encrypt_typed_urls);
-  VISIT(encrypt_extension_settings);
-  VISIT(encrypt_extensions);
-  VISIT(encrypt_sessions);
-  VISIT(encrypt_app_settings);
-  VISIT(encrypt_apps);
-  VISIT(encrypt_search_engines);
-  VISIT(encrypt_dictionary);
-  VISIT(encrypt_app_list);
-  VISIT(encrypt_arc_package);
-  VISIT(encrypt_reading_list);
   VISIT(encrypt_everything);
   VISIT(server_only_was_missing_keystore_migration_time);
   VISIT(sync_tab_favicons);
@@ -939,17 +965,18 @@ VISIT_PROTO_FIELDS(const sync_pb::HistorySpecifics& proto) {
 }
 
 VISIT_PROTO_FIELDS(
-    const sync_pb::NigoriSpecifics::AutoUpgradeDebugInfo& proto) {
-  VISIT_ENUM(auto_upgrade_experiment_group);
-  VISIT(auto_upgrade_cohort_id);
+    const sync_pb::TrustedVaultAutoUpgradeExperimentGroup& proto) {
+  VISIT(cohort);
+  VISIT_ENUM(type);
+  VISIT(type_index);
 }
 
 VISIT_PROTO_FIELDS(
     const sync_pb::NigoriSpecifics::TrustedVaultDebugInfo& proto) {
   VISIT(migration_time);
   VISIT(key_version);
-  VISIT(auto_upgrade_debug_info);
-  VISIT(auto_upgrade_debug_info_modification_time_unix_epoch_millis);
+  VISIT(auto_upgrade_experiment_group);
+  VISIT(auto_upgrade_experiment_group_modification_time_unix_epoch_millis);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::OsPreferenceSpecifics& proto) {
@@ -1298,6 +1325,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SyncEntity& proto) {
   VISIT(folder);
   VISIT(client_tag_hash);
   VISIT(collaboration);
+  VISIT(deletion_origin);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SyncEntity::CollaborationMetadata& proto) {

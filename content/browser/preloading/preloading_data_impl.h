@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
 #include "content/browser/preloading/preloading_confidence.h"
+#include "content/browser/preloading/preloading_prediction.h"
 #include "content/public/browser/preloading_data.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -21,8 +22,6 @@
 namespace content {
 
 class PreloadingAttemptImpl;
-class PreloadingPrediction;
-class ExperimentalPreloadingPrediction;
 
 // Defines predictors confusion matrix enums used by UMA records. Entries should
 // not be renumbered and numeric values should never be reused. Please update
@@ -44,7 +43,7 @@ enum class PredictorConfusionMatrix {
 // The scope of current preloading logging is only limited to the same
 // WebContents navigations. If the predicted URL is opened in a new tab we lose
 // the data corresponding to the navigation in different WebContents.
-// TODO(crbug.com/1332123): Expand PreloadingData scope to consider multiple
+// TODO(crbug.com/40227626): Expand PreloadingData scope to consider multiple
 // WebContent navigations.
 class CONTENT_EXPORT PreloadingDataImpl
     : public PreloadingData,
@@ -170,8 +169,7 @@ class CONTENT_EXPORT PreloadingDataImpl
   // Stores all the experimental preloading predictions that are happening for
   // the next navigation until the navigation takes place or the WebContents is
   // destroyed.
-  std::vector<std::unique_ptr<ExperimentalPreloadingPrediction>>
-      experimental_predictions_;
+  std::vector<ExperimentalPreloadingPrediction> experimental_predictions_;
 
   // Stores all the preloading attempts that are happening for the next
   // navigation until the navigation takes place.
@@ -179,7 +177,7 @@ class CONTENT_EXPORT PreloadingDataImpl
 
   // Stores all the preloading predictions that are happening for the next
   // navigation until the navigation takes place.
-  std::vector<std::unique_ptr<PreloadingPrediction>> preloading_predictions_;
+  std::vector<PreloadingPrediction> preloading_predictions_;
 
   // The random seed used to determine if a preloading attempt should be sampled
   // in UKM logs. We use a different random seed for each session and then hash

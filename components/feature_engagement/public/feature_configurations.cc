@@ -216,6 +216,19 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHSignoutWebInterceptFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->trigger = EventConfig("iph_signout_web_intercept_triggered",
+                                  Comparator(ANY, 0), 0, 0);
+    config->used =
+        EventConfig("iph_signout_web_intercept_used", Comparator(ANY, 0), 0, 0);
+    return config;
+  }
+
   if (kIPHGMCCastStartStopFeature.name == feature->name) {
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -276,6 +289,22 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHExplicitBrowserSigninPreferenceRememberedFeature.name ==
+      feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::ALL;
+    config->trigger = EventConfig(
+        "iph_explicit_browser_signin_preference_remembered_triggered",
+        Comparator(ANY, 0), 0, 0);
+    config->used =
+        EventConfig("iph_explicit_browser_signin_preference_remembered_used",
+                    Comparator(ANY, 0), 0, 0);
+    return config;
+  }
+
   if (kIPHTrackingProtectionOffboardingFeature.name == feature->name) {
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -298,6 +327,19 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
         EventConfig("iph_tracking_protection_onboarding_triggered",
                     Comparator(GREATER_THAN_OR_EQUAL, 0), 0, 0);
     config->used = EventConfig("iph_tracking_protection_onboarding_used",
+                               Comparator(ANY, 0), 0, 0);
+    return config;
+  }
+
+  if (kIPHTrackingProtectionReminderFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->trigger = EventConfig("iph_tracking_protection_reminder_triggered",
+                                  Comparator(GREATER_THAN_OR_EQUAL, 0), 0, 0);
+    config->used = EventConfig("iph_tracking_protection_reminder_used",
                                Comparator(ANY, 0), 0, 0);
     return config;
   }
@@ -560,6 +602,19 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHDiscardRingFeature.name == feature->name) {
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger =
+        EventConfig("discard_ring_trigger", Comparator(EQUAL, 0), 360, 360);
+    // This event is never logged but is included for consistency.
+    config->used =
+        EventConfig("discard_ring_used", Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
   if (kIPHDownloadEsbPromoFeature.name == feature->name) {
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -575,6 +630,42 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->event_configs.insert(
         EventConfig("download_bubble_dangerous_download_detected",
                     Comparator(GREATER_THAN_OR_EQUAL, 1), 21, 360));
+    return config;
+  }
+
+  if (kEsbDownloadRowPromoFeature.name == feature->name) {
+    // A config that allows a promotion row referring users to enable Enhanced
+    // Safe Browsing (ESB), to be shown on the Downloads manager page. It
+    // can be viewed at most 7 times without interaction across a 90 day period.
+    // If the user clicks, then we aritificially increment the viewed event by 4
+    // so that the row can be seen at most 2 more times.
+    //
+    // The trigger management can be found in
+    // c/b/ui/webui/downloads/downloads_dom_handler.cc
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+
+    // This isn't an IPH so we don't suppress other engagement features.
+    SessionRateImpact session_rate_impact;
+    session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->session_rate_impact = session_rate_impact;
+
+    // This isn't an IPH so we don't want to block or be blocked by any other
+    // engagement features.
+    config->blocked_by.type = BlockedBy::Type::NONE;
+    config->blocking.type = Blocking::Type::NONE;
+
+    config->trigger = EventConfig("dangerous_download_esb_promo_row_trigger",
+                                  Comparator(ANY, 0), 360, 360);
+    config->used = EventConfig("enable_enhanced_protection",
+                              Comparator(EQUAL, 0), 21, 90);
+    config->event_configs.insert(EventConfig("esb_download_promo_row_viewed",
+                                            Comparator(LESS_THAN, 7), 90, 90));
+    config->event_configs.insert(EventConfig("esb_download_promo_row_clicked",
+                                            Comparator(LESS_THAN, 3), 90, 90));
+
     return config;
   }
 
@@ -665,6 +756,21 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
 #if BUILDFLAG(IS_ANDROID)
 
+  if (kIPHAppSpecificHistory.name == feature->name) {
+    // A config that allows the AppSpecificHistory IPH to be shown once
+    // a week, up to 3 times, unless the button is clicked at least once.
+    std::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger = EventConfig("app_specific_history_iph_trigger",
+                                  Comparator(LESS_THAN, 3), 360, 360);
+    config->event_configs.insert(EventConfig("app_specific_history_iph_trigger",
+                                             Comparator(LESS_THAN, 1), 7, 360));
+    config->used = EventConfig("history_toolbar_search_menu_item_clicked",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
   if (kIPHCCTHistory.name == feature->name) {
     // A config that allows the CCTHistory IPH to be shown once
     // a week, up to 3 times, unless the button is clicked at least once.
@@ -1450,7 +1556,7 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(EQUAL, 0);
+    config->session_rate = Comparator(ANY, 0);
     config->session_rate_impact.type = SessionRateImpact::Type::NONE;
     config->trigger = EventConfig("autofill_manual_fallback_trigger",
                                   Comparator(LESS_THAN, 1), 90, 360);
@@ -1498,24 +1604,27 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
 
     std::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
-    config->availability = Comparator(ANY, 0);
+#if BUILDFLAG(IS_ANDROID)
     config->session_rate = Comparator(EQUAL, 0);
-    config->session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
+#else
+    // On desktop, toasts should always be available.
+    config->availability = Comparator(ANY, 0);
+#endif
     config->trigger = EventConfig("autofill_virtual_card_cvc_iph_trigger",
                                   Comparator(LESS_THAN, 3), 90, 360);
     config->used = EventConfig("autofill_virtual_card_cvc_suggestion_accepted",
                                Comparator(LESS_THAN, 2), 90, 360);
-    SessionRateImpact session_rate_impact;
-    session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
-    std::vector<std::string> affected_features;
-    affected_features.push_back("IPH_AutofillVirtualCardSuggestion");
 
+    // This promo blocks specific promos in the same session.
+    config->session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
+    config->session_rate_impact.affected_features.emplace();
+    config->session_rate_impact.affected_features->push_back(
+        "IPH_AutofillVirtualCardSuggestion");
 #if BUILDFLAG(IS_ANDROID)
-    affected_features.push_back("IPH_KeyboardAccessoryBarSwiping");
+    config->session_rate_impact.affected_features->push_back(
+        "IPH_KeyboardAccessoryBarSwiping");
 #endif  // BUILDFLAG(IS_ANDROID)
 
-    session_rate_impact.affected_features = affected_features;
-    config->session_rate_impact = session_rate_impact;
     return config;
   }
 
@@ -1536,25 +1645,6 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
-  if (kIPH3pcdUserBypassFeature.name == feature->name) {
-    std::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = true;
-    config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(ANY, 0);
-    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
-    // Show promo only once and only if user hasn't interacted with
-    // the cookie controls bubble in the last year.
-    config->trigger =
-        EventConfig("iph_3pcd_user_bypass_triggered", Comparator(EQUAL, 0),
-                    feature_engagement::kMaxStoragePeriod,
-                    feature_engagement::kMaxStoragePeriod);
-#if !BUILDFLAG(IS_ANDROID)
-    config->used =
-        EventConfig(feature_engagement::events::kCookieControlsBubbleShown,
-                    Comparator(ANY, 0), 360, 360);
-#endif  // !BUILDFLAG(IS_ANDROID)
-    return config;
-  }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)

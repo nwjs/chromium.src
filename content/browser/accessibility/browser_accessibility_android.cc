@@ -327,6 +327,10 @@ bool BrowserAccessibilityAndroid::IsReportingCheckable() const {
          GetData().GetCheckedState() != ax::mojom::CheckedState::kMixed;
 }
 
+bool BrowserAccessibilityAndroid::IsRequired() const {
+  return HasState(ax::mojom::State::kRequired);
+}
+
 bool BrowserAccessibilityAndroid::IsScrollable() const {
   return GetBoolAttribute(ax::mojom::BoolAttribute::kScrollable);
 }
@@ -850,7 +854,7 @@ std::u16string BrowserAccessibilityAndroid::GetStateDescription() const {
 
   // For multiselectable state, generate a state description. We do not set a
   // state description for pop up/<select> to prevent double utterances.
-  // TODO(crbug.com/1362834): Consider whether other combobox roles should be
+  // TODO(crbug.com/40864556): Consider whether other combobox roles should be
   // accounted for.
   if (IsMultiselectable() && GetRole() != ax::mojom::Role::kPopUpButton &&
       GetRole() != ax::mojom::Role::kComboBoxSelect) {
@@ -878,6 +882,13 @@ std::u16string BrowserAccessibilityAndroid::GetStateDescription() const {
   // For nodes with non-trivial aria-current values, communicate state.
   if (HasAriaCurrent())
     state_descs.push_back(GetAriaCurrentStateDescription());
+
+  // For nodes of any type that are required, add this to the end of the state.
+  if (IsRequired()) {
+    ContentClient* content_client = GetContentClient();
+    state_descs.push_back(
+        content_client->GetLocalizedString(IDS_AX_ARIA_REQUIRED_STATE_DESCRIPTION));
+  }
 
   // Concatenate all state descriptions and return.
   return base::JoinString(state_descs, u" ");
@@ -1189,6 +1200,7 @@ std::u16string BrowserAccessibilityAndroid::GetRoleDescription() const {
     case ax::mojom::Role::kForm:
     case ax::mojom::Role::kHeaderAsNonLandmark:
     case ax::mojom::Role::kRowGroup:
+    case ax::mojom::Role::kSectionWithoutName:
     case ax::mojom::Role::kStrong:
     case ax::mojom::Role::kSubscript:
     case ax::mojom::Role::kSuperscript:

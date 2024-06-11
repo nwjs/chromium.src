@@ -371,7 +371,10 @@ class CalendarMonthViewFetchTest
   }
 
   void TearDown() override {
-    widget_.reset();
+    calendar_list_model_ = nullptr;
+    calendar_model_ = nullptr;
+
+    DestroyCalendarMonthViewWidget();
     time_overrides_.reset();
     controller_.reset();
     scoped_feature_list_.Reset();
@@ -397,7 +400,10 @@ class CalendarMonthViewFetchTest
     views::test::RunScheduledLayout(calendar_month_view_);
   }
 
-  void DestroyCalendarMonthViewWidget() { widget_.reset(); }
+  void DestroyCalendarMonthViewWidget() {
+    calendar_month_view_ = nullptr;
+    widget_.reset();
+  }
 
   void SetCalendarList() {
     // Sets a mock calendar list.
@@ -465,10 +471,10 @@ class CalendarMonthViewFetchTest
   std::unique_ptr<base::subtle::ScopedTimeClockOverrides> time_overrides_;
 
   std::unique_ptr<views::Widget> widget_;
-  raw_ptr<CalendarListModel, DanglingUntriaged> calendar_list_model_;
-  raw_ptr<CalendarModel, DanglingUntriaged> calendar_model_;
+  raw_ptr<CalendarListModel> calendar_list_model_ = nullptr;
+  raw_ptr<CalendarModel> calendar_model_ = nullptr;
   std::unique_ptr<calendar_test_utils::CalendarClientTestImpl> calendar_client_;
-  raw_ptr<CalendarMonthView, DanglingUntriaged> calendar_month_view_;
+  raw_ptr<CalendarMonthView> calendar_month_view_ = nullptr;
   std::unique_ptr<CalendarViewController> controller_;
   AccountId account_id_;
   base::test::ScopedFeatureList scoped_feature_list_;

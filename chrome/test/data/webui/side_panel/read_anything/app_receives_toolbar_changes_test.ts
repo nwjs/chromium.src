@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything_toolbar.js';
+import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import {BrowserProxy} from '//resources/cr_components/color_change_listener/browser_proxy.js';
 import {flush} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import type {ReadAnythingElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/app.js';
-import {defaultFontName} from 'chrome-untrusted://read-anything-side-panel.top-chrome/common.js';
-import {FONT_EVENT, FONT_SIZE_EVENT, HIGHLIGHT_TOGGLE_EVENT, LETTER_SPACING_EVENT, LINE_SPACING_EVENT, NEXT_GRANULARITY_EVENT, PLAY_PAUSE_EVENT, PREVIOUS_GRANULARITY_EVENT, RATE_EVENT, THEME_EVENT} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything_toolbar.js';
+import {BrowserProxy} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import type {ReadAnythingElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {defaultFontName, FONT_EVENT, FONT_SIZE_EVENT, HIGHLIGHT_TOGGLE_EVENT, LANGUAGE_TOGGLE_EVENT, LETTER_SPACING_EVENT, LINE_SPACING_EVENT, NEXT_GRANULARITY_EVENT, PLAY_PAUSE_EVENT, PREVIOUS_GRANULARITY_EVENT, RATE_EVENT, THEME_EVENT} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
 import {emitEvent, suppressInnocuousErrors} from './common.js';
@@ -212,6 +211,47 @@ suite('AppReceivesToolbarChanges', () => {
     });
   });
 
+  suite('on language toggle', () => {
+    function emitLanguageToggle(lang: string): void {
+      emitEvent(app, LANGUAGE_TOGGLE_EVENT, {detail: {language: lang}});
+    }
+
+    test('enabled languages are added', () => {
+      const firstLanguage = 'English';
+      emitLanguageToggle(firstLanguage);
+      // Bypass Typescript compiler to allow us to read a private property
+      // @ts-ignore
+      assertTrue(app.enabledLanguagesInPref.includes(firstLanguage));
+      assertTrue(chrome.readingMode.getLanguagesEnabledInPref()
+        .includes(firstLanguage));
+
+      const secondLanguage = 'French';
+      emitLanguageToggle(secondLanguage);
+      // Bypass Typescript compiler to allow us to read a private property
+      // @ts-ignore
+      assertTrue(app.enabledLanguagesInPref.includes(secondLanguage));
+      assertTrue(chrome.readingMode.getLanguagesEnabledInPref()
+        .includes(secondLanguage));
+    });
+
+    test('disabled languages are removed', () => {
+      const firstLanguage = 'English';
+      emitLanguageToggle(firstLanguage);
+      // Bypass Typescript compiler to allow us to read a private property
+      // @ts-ignore
+      assertTrue(app.enabledLanguagesInPref.includes(firstLanguage));
+      assertTrue(chrome.readingMode.getLanguagesEnabledInPref()
+        .includes(firstLanguage));
+
+      emitLanguageToggle(firstLanguage);
+      // Bypass Typescript compiler to allow us to read a private property
+      // @ts-ignore
+      assertFalse(app.enabledLanguagesInPref.includes(firstLanguage));
+      assertFalse(chrome.readingMode.getLanguagesEnabledInPref()
+        .includes(firstLanguage));
+    });
+  });
+
   suite('on speech rate change', () => {
     function emitRate(rate: number): void {
       emitEvent(app, RATE_EVENT, {detail: {rate}});
@@ -233,7 +273,12 @@ suite('AppReceivesToolbarChanges', () => {
   });
 
   suite('play/pause', () => {
+    let propagatedPauseState: boolean;
+
     setup(() => {
+      chrome.readingMode.onSpeechPlayingStateChanged = paused => {
+        propagatedPauseState = paused;
+      };
       app.updateContent();
     });
 
@@ -245,6 +290,7 @@ suite('AppReceivesToolbarChanges', () => {
       test('is paused', () => {
         assertTrue(app.speechPlayingState.paused);
         assertFalse(app.speechPlayingState.speechStarted);
+        assertTrue(propagatedPauseState);
       });
     });
 
@@ -255,9 +301,8 @@ suite('AppReceivesToolbarChanges', () => {
 
       test('starts speech', () => {
         assertFalse(app.speechPlayingState.paused);
-        // TODO: b/323960128 - Since this test browser doesn't have any
-        // voices, speechStarted doesn't get set to true. Find a way to add a
-        // mock voice to this browser, and test that app.speechStarted is true.
+        assertTrue(app.speechPlayingState.speechStarted);
+        assertFalse(propagatedPauseState);
       });
     });
 
@@ -269,6 +314,8 @@ suite('AppReceivesToolbarChanges', () => {
 
       test('stops speech', () => {
         assertTrue(app.speechPlayingState.paused);
+        assertTrue(app.speechPlayingState.speechStarted);
+        assertTrue(propagatedPauseState);
       });
     });
 
@@ -280,14 +327,16 @@ suite('AppReceivesToolbarChanges', () => {
       });
 
       test('first press plays', () => {
-        app.$.flexParent!.dispatchEvent(kPress);
+        app.$.appFlexParent!.dispatchEvent(kPress);
         assertFalse(app.speechPlayingState.paused);
+        assertFalse(propagatedPauseState);
       });
 
       test('second press pauses', () => {
-        app.$.flexParent!.dispatchEvent(kPress);
-        app.$.flexParent!.dispatchEvent(kPress);
+        app.$.appFlexParent!.dispatchEvent(kPress);
+        app.$.appFlexParent!.dispatchEvent(kPress);
         assertTrue(app.speechPlayingState.paused);
+        assertTrue(propagatedPauseState);
       });
     });
   });
@@ -316,6 +365,20 @@ suite('AppReceivesToolbarChanges', () => {
     test('on show, uses colored highlight', () => {
       emitHighlight(true);
       assertNotEquals(highlightColor(), 'transparent');
+    });
+
+    suite('after update color theme', () => {
+      test('uses colored highlight with highlights on', () => {
+        emitHighlight(true);
+        emitEvent(app, THEME_EVENT, {detail: {data: '-blue'}});
+        assertNotEquals(highlightColor(), 'transparent');
+      });
+
+      test('uses transparent highlight with highlights off', () => {
+        emitHighlight(false);
+        emitEvent(app, THEME_EVENT, {detail: {data: '-yellow'}});
+        assertEquals(highlightColor(), 'transparent');
+      });
     });
   });
 

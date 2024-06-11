@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
+#include "third_party/blink/renderer/core/html/html_html_element.h"
 #include "third_party/blink/renderer/core/layout/constraint_space.h"
 #include "third_party/blink/renderer/core/layout/geometry/transform_state.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
@@ -752,8 +753,9 @@ LayoutUnit LayoutBoxModelObject::ComputedCSSPadding(
     const Length& padding) const {
   NOT_DESTROYED();
   LayoutUnit w;
-  if (padding.IsPercentOrCalc())
+  if (padding.HasPercent()) {
     w = ContainingBlockLogicalWidthForContent();
+  }
   return MinimumValueForLength(padding, w);
 }
 

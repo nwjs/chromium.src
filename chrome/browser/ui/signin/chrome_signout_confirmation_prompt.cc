@@ -13,7 +13,6 @@
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
-#include "chrome_signout_confirmation_prompt.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
@@ -41,7 +40,7 @@ CreateChromeSignoutConfirmationPromptDialogModel(
       break;
     case ChromeSignoutConfirmationPromptVariant::kUnsyncedDataWithReauthButton:
       body_string_id = IDS_CHROME_SIGNOUT_CONFIRMATION_PROMPT_VERIFY_BODY;
-      ok_string_id = IDS_CHROME_SIGNOUT_CONFIRMATION_PROMPT_VERIFY_BUTTON;
+      ok_string_id = IDS_PROFILES_VERIFY_ACCOUNT_BUTTON;
       ok_choice = ChromeSignoutConfirmationChoice::kReauth;
       break;
   }

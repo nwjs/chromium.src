@@ -4,19 +4,53 @@
 
 #import "ios/chrome/browser/shared/ui/symbols/symbol_names.h"
 
-// Custom symbol names.
+// Branded symbol names.
 #if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+// TODO(crbug.com/1489185): Move PNG images out of this file.
+NSString* const kChromeDefaultBrowserIllustrationImage =
+    @"chrome_default_browser_illustration";
+NSString* const kChromeDefaultBrowserScreenBannerImage =
+    @"chrome_default_browser_screen_banner";
+NSString* const kChromeNotificationsOptInBannerImage =
+    @"chrome_notifications_opt_in_banner";
+NSString* const kChromeNotificationsOptInBannerLandscapeImage =
+    @"chrome_notifications_opt_in_banner_landscape";
+NSString* const kChromeSigninBannerImage = @"chrome_signin_banner";
+NSString* const kChromeSigninPromoLogoImage = @"chrome_signin_promo_logo";
 NSString* const kGoogleIconSymbol = @"google_icon";
 NSString* const kGoogleShieldSymbol = @"google_shield";
-NSString* const kMulticolorChromeballSymbol = @"multicolor_chromeball";
 NSString* const kGoogleMapsSymbol = @"google_maps";
+NSString* const kGooglePasswordManagerWidgetPromoImage =
+    @"google_password_manager_widget_promo";
+NSString* const kGooglePasswordManagerWidgetPromoDisabledImage =
+    @"google_password_manager_widget_promo_disabled";
 NSString* const kGooglePhotosSymbol = @"google_photos";
+NSString* const kGoogleSettingsPasswordsInOtherAppsBannerImage =
+    @"google_settings_passwords_in_other_apps_banner";
+NSString* const kMulticolorChromeballSymbol = @"multicolor_chromeball";
 NSString* const kPageInsightsSymbol = @"page_insights";
-// TODO(crbug.com/1489185): Move PNG images out of this file.
+// TODO(crbug.com/40934931): Move PNG images out of this file.
 NSString* const kFedexCarrierImage = @"parcel_tracking_carrier_fedex";
 NSString* const kUPSCarrierImage = @"parcel_tracking_carrier_ups";
 NSString* const kUSPSCarrierImage = @"parcel_tracking_carrier_usps";
+#else
+NSString* const kChromiumDefaultBrowserScreenBannerImage =
+    @"chromium_default_browser_screen_banner";
+NSString* const kChromiumNotificationsOptInBannerImage =
+    @"chromium_notifications_opt_in_banner";
+NSString* const kChromiumNotificationsOptInBannerLandscapeImage =
+    @"chromium_notifications_opt_in_banner_landscape";
+NSString* const kChromiumPasswordManagerWidgetPromoImage =
+    @"chromium_password_manager_widget_promo";
+NSString* const kChromiumPasswordManagerWidgetPromoDisabledImage =
+    @"chromium_password_manager_widget_promo_disabled";
+NSString* const kChromiumSettingsPasswordsInOtherAppsBannerImage =
+    @"chromium_settings_passwords_in_other_apps_banner";
+NSString* const kChromiumSigninBannerImage = @"chromium_signin_banner";
+NSString* const kChromiumSigninPromoLogoImage = @"chromium_signin_promo_logo";
 #endif  // BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+
+// Custom symbol names.
 NSString* const kPrivacySymbol = @"checkerboard_shield";
 NSString* const kSyncDisabledSymbol = @"arrow_triangle_slash_circlepath";
 NSString* const kSafetyCheckSymbol = @"checkermark_shield";
@@ -31,6 +65,7 @@ NSString* const kPhotoBadgeMagnifyingglassSymbol =
     @"photo_badge_magnifyingglass";
 NSString* const kReadingListSymbol = @"square_bullet_square";
 NSString* const kRecentTabsSymbol = @"laptopcomputer_and_phone";
+NSString* const kTabGroupsSymbol = @"square.grid.2x2";
 NSString* const kLanguageSymbol = @"language";
 NSString* const kLocationSymbol = @"location";
 NSString* const kPasswordSymbol = @"password";
@@ -206,6 +241,7 @@ NSString* const kClockSymbol = @"clock";
 NSString* const kUngroupTabGroupSymbol = @"viewfinder";
 NSString* const kPlusInSquareSymbol = @"plus.square";
 NSString* const kMinusInCircleSymbol = @"minus.circle";
+NSString* const kMultiIdentitySymbol = @"person.2.fill";
 
 // Names of the default symbol being non-monochrome by default. When using them,
 // you probably want to set their color to monochrome.

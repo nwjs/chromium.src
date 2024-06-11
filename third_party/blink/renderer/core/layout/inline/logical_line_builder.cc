@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/core/layout/inline/logical_line_builder.h"
 
+#include <algorithm>
+
 #include "base/containers/adapters.h"
 #include "third_party/blink/renderer/core/layout/disable_layout_side_effects_scope.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_box_state.h"
@@ -11,6 +13,8 @@
 #include "third_party/blink/renderer/core/layout/inline/inline_item_result_ruby_column.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_node.h"
+#include "third_party/blink/renderer/core/layout/inline/justification_utils.h"
+#include "third_party/blink/renderer/core/layout/inline/line_breaker.h"
 #include "third_party/blink/renderer/core/layout/inline/line_info.h"
 #include "third_party/blink/renderer/core/layout/inline/logical_line_item.h"
 #include "third_party/blink/renderer/core/layout/inline/ruby_utils.h"
@@ -22,10 +26,12 @@ namespace blink {
 
 LogicalLineBuilder::LogicalLineBuilder(InlineNode node,
                                        const ConstraintSpace& constraint_space,
+                                       const InlineBreakToken* break_token,
                                        InlineLayoutStateStack* state_stack,
                                        InlineChildLayoutContext* context)
     : node_(node),
       constraint_space_(constraint_space),
+      break_token_(break_token),
       box_states_(state_stack),
       context_(context),
       baseline_type_(node.Style().GetFontBaseline()),
@@ -70,10 +76,19 @@ void LogicalLineBuilder::CreateLine(LineInfo* line_info,
 
   if (UNLIKELY(node_.IsBidiEnabled())) {
     box_states_->PrepareForReorder(line_box);
-    BidiReorder(line_info->BaseDirection(), line_box);
+    BidiReorder(line_info->BaseDirection(), line_box,
+                box_states_->RubyColumnList());
     box_states_->UpdateAfterReorder(line_box);
   } else {
     DCHECK(IsLtr(line_info->BaseDirection()));
+  }
+
+  for (auto& logical_column : box_states_->RubyColumnList()) {
+    std::pair<LayoutUnit, LayoutUnit>& insets = logical_column->base_insets;
+    LogicalLineItems::iterator start =
+        line_box->begin() + logical_column->start_index;
+    ApplyLeftAndRightExpansion(insets.first, insets.second, start,
+                               start + logical_column->size);
   }
 }
 
@@ -143,7 +158,7 @@ InlineBoxState* LogicalLineBuilder::HandleItemResults(
       PlaceControlItem(item, line_info.ItemsData().text_content, &item_result,
                        line_box, box);
     } else if (item.Type() == InlineItem::kOpenTag) {
-      box = HandleOpenTag(item, item_result, line_box, box_states_);
+      box = HandleOpenTag(item, item_result, line_box);
     } else if (item.Type() == InlineItem::kCloseTag) {
       box = HandleCloseTag(item, item_result, line_box, box);
     } else if (item.Type() == InlineItem::kAtomicInline) {
@@ -227,9 +242,8 @@ InlineBoxState* LogicalLineBuilder::HandleItemResults(
 InlineBoxState* LogicalLineBuilder::HandleOpenTag(
     const InlineItem& item,
     const InlineItemResult& item_result,
-    LogicalLineItems* line_box,
-    InlineLayoutStateStack* box_states) const {
-  InlineBoxState* box = box_states->OnOpenTag(
+    LogicalLineItems* line_box) {
+  InlineBoxState* box = box_states_->OnOpenTag(
       constraint_space_, item, item_result, baseline_type_, line_box);
   // Compute text metrics for all inline boxes since even empty inlines
   // influence the line height, except when quirks mode and the box is empty
@@ -341,7 +355,8 @@ InlineBoxState* LogicalLineBuilder::PlaceAtomicInline(
       constraint_space_, item, *item_result, baseline_type_, *line_box);
 
   if (LIKELY(!IsA<LayoutTextCombine>(layout_object))) {
-    PlaceLayoutResult(item_result, line_box, box, box->margin_inline_start);
+    PlaceLayoutResult(item_result, line_box, box,
+                      box->margin_inline_start + item_result->spacing_before);
   } else {
     // The metrics should be as text instead of atomic inline box.
     const auto& style = layout_object->Parent()->StyleRef();
@@ -411,7 +426,20 @@ InlineBoxState* LogicalLineBuilder::PlaceRubyColumn(
     LogicalLineItems& line_box,
     InlineBoxState* box) {
   InlineItemResultRubyColumn& ruby_column = *item_result.ruby_column;
-  ApplyRubyAlign(item_result.inline_size, ruby_column.base_line);
+  bool on_start_edge = false;
+  bool on_end_edge = false;
+  if (RuntimeEnabledFeatures::RubyLineEdgeAlignmentEnabled() &&
+      !node_.IsBidiEnabled()) {
+    on_start_edge =
+        ruby_column.base_line.StartOffset() == line_info.StartOffset() ||
+        item_result.StartOffset() == line_info.StartOffset();
+    wtf_size_t end_text_offset = ruby_column.base_line.EndTextOffset();
+    wtf_size_t inflow_end = line_info.InflowEndOffsetWithoutForcedBreak();
+    on_end_edge = end_text_offset == inflow_end;
+  }
+  std::pair<LayoutUnit, LayoutUnit> base_insets =
+      ApplyRubyAlign(item_result.inline_size, on_start_edge, on_end_edge,
+                     ruby_column.base_line);
 
   // Set up LogicalRubyColumns. This should be done before consuming the base
   // InlineItemResults because it might contain ruby columns, and annotation
@@ -432,6 +460,23 @@ InlineBoxState* LogicalLineBuilder::PlaceRubyColumn(
   for (wtf_size_t i = 0; i < ruby_column.annotation_line_list.size(); ++i) {
     LogicalRubyColumn& logical_column =
         box_states_->RubyColumnAt(ruby_column_start_index + i);
+    if (!ruby_column.annotation_line_list[i].IsEmptyLine()) {
+      if (!line_box[start_index].has_over_annotation &&
+          logical_column.ruby_position == RubyPosition::kOver) {
+        for (wtf_size_t j = start_index; j < line_box.size(); ++j) {
+          line_box[j].has_over_annotation = true;
+        }
+      }
+      if (!line_box[start_index].has_under_annotation &&
+          logical_column.ruby_position == RubyPosition::kUnder) {
+        for (wtf_size_t j = start_index; j < line_box.size(); ++j) {
+          line_box[j].has_under_annotation = true;
+        }
+      }
+    }
+    if (i == 0) {
+      logical_column.base_insets = base_insets;
+    }
     logical_column.size = column_base_size;
     PlaceRubyAnnotation(item_result, i, ruby_column.annotation_line_list[i],
                         logical_column);
@@ -445,24 +490,30 @@ void LogicalLineBuilder::PlaceRubyAnnotation(
     wtf_size_t index,
     LineInfo& annotation_line,
     LogicalRubyColumn& logical_column) {
-  ApplyRubyAlign(item_result.inline_size, annotation_line);
+  std::pair<LayoutUnit, LayoutUnit> insets =
+      ApplyRubyAlign(item_result.inline_size, /* on_start_edge */ false,
+                     /* on_end_edge */ false, annotation_line);
 
   auto* line_items = MakeGarbageCollected<LogicalLineItems>();
-  InlineLayoutStateStack state_stack;
-  LogicalLineBuilder annotation_builder(node_, constraint_space_, &state_stack,
-                                        context_);
+  LogicalLineBuilder annotation_builder(node_, constraint_space_, nullptr,
+                                        &logical_column.state_stack, context_);
+  if (item_result.ruby_column->is_continuation &&
+      !annotation_line.Results().empty()) {
+    CHECK(break_token_->RubyData());
+    annotation_builder.RebuildBoxStates(
+        annotation_line,
+        break_token_->RubyData()->annotation_data[index].start_item_index,
+        annotation_line.Results()[0].item_index);
+  }
   annotation_builder.CreateLine(&annotation_line, line_items,
                                 /* main_line_helper */ nullptr);
+  ApplyLeftAndRightExpansion(insets.first, insets.second, line_items->begin(),
+                             line_items->end());
 
-  state_stack.ComputeInlinePositions(
+  logical_column.state_stack.ComputeInlinePositions(
       line_items, LayoutUnit(), /* ignore_box_margin_border_padding */ false);
-  if (state_stack.HasBoxFragments()) {
-    state_stack.CreateBoxFragments(constraint_space_, line_items,
-                                   /* is_opaque */ false);
-  }
 
   logical_column.annotation_items = line_items;
-  logical_column.ruby_column_list = state_stack.TakeRubyColumnList();
 }
 
 // Place a list marker.
@@ -474,8 +525,10 @@ void LogicalLineBuilder::PlaceListMarker(const InlineItem& item,
   }
 }
 
-void LogicalLineBuilder::BidiReorder(TextDirection base_direction,
-                                     LogicalLineItems* line_box) {
+void LogicalLineBuilder::BidiReorder(
+    TextDirection base_direction,
+    LogicalLineItems* line_box,
+    HeapVector<Member<LogicalRubyColumn>>& column_list) {
   if (line_box->IsEmpty()) {
     return;
   }
@@ -543,6 +596,55 @@ void LogicalLineBuilder::BidiReorder(TextDirection base_direction,
   DCHECK_EQ(line_box->size(), visual_items.size());
   line_box->swap(visual_items);
   context_->ReleaseTempLogicalLineItems(visual_items);
+
+  // Adjust LogicalRubyColumn::start_index.
+  if (column_list.size() > 0) {
+    Vector<unsigned, 32> logical_to_visual(line_box->size());
+    for (unsigned i = 0; i < indices_in_visual_order.size(); ++i) {
+      logical_to_visual[indices_in_visual_order[i]] = i;
+    }
+    for (auto& column : column_list) {
+      // Find the minimum visual index in the logical range
+      // [column->start_index, column->EndIndex()).
+      //
+      // Base items in a ruby column are placed consecutively even after the
+      // reorder because they are isolated.
+      //
+      // std::min_element() below doesn't return the end iterator because we
+      // ensure there is at least one item in the range.
+      auto begin = logical_to_visual.begin();
+      column->start_index = *std::min_element(begin + column->start_index,
+                                              begin + column->EndIndex());
+    }
+    // The order is important for RubyBlockPositionCalculator::HandleRubyLine().
+    std::stable_sort(
+        column_list.begin(), column_list.end(),
+        [](const auto& column1, const auto& column2) {
+          int32_t diff = column2->start_index - column1->start_index;
+          return diff != 0 ? (diff > 0) : (column1->size > column2->size);
+        });
+  }
+}
+
+void LogicalLineBuilder::RebuildBoxStates(const LineInfo& line_info,
+                                          wtf_size_t start_item_index,
+                                          wtf_size_t end_item_index) {
+  // Compute which tags are not closed at the beginning of this line.
+  InlineItemsData::OpenTagItems open_items;
+  line_info.ItemsData().GetOpenTagItems(
+      start_item_index, end_item_index - start_item_index, &open_items);
+
+  // Create box states for tags that are not closed yet.
+  LogicalLineItems& line_box = context_->AcquireTempLogicalLineItems();
+  box_states_->OnBeginPlaceItems(node_, line_info.LineStyle(), baseline_type_,
+                                 quirks_mode_, &line_box);
+  for (const InlineItem* item : open_items) {
+    InlineItemResult item_result;
+    LineBreaker::ComputeOpenTagResult(*item, constraint_space_,
+                                      node_.IsSvgText(), &item_result);
+    HandleOpenTag(*item, item_result, &line_box);
+  }
+  context_->ReleaseTempLogicalLineItems(line_box);
 }
 
 }  // namespace blink

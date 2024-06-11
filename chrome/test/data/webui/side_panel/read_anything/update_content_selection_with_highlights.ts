@@ -1,11 +1,11 @@
 // Copyright 2024 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything_toolbar.js';
+import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import {BrowserProxy} from '//resources/cr_components/color_change_listener/browser_proxy.js';
-import type {ReadAnythingElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/app.js';
-import {currentReadHighlightClass, previousReadHighlightClass} from 'chrome-untrusted://read-anything-side-panel.top-chrome/app.js';
+import {BrowserProxy} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import type {ReadAnythingElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {currentReadHighlightClass, previousReadHighlightClass} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome-untrusted://webui-test/polymer_test_util.js';
 
@@ -120,8 +120,7 @@ suite('UpdateContentSelectionWithHighlights', () => {
 
     // Looks for the node containing the given text inside the given selectors
     function getTextNode(selector: string, text: string): Node {
-      const nodesToCheck =
-          Array.from(app.shadowRoot!.querySelectorAll(selector));
+      const nodesToCheck = Array.from(app.querySelectorAll(selector));
       const parentNodeWithText =
           nodesToCheck.find((element) => element.textContent!.includes(text));
       return parentNodeWithText!.firstChild!;
@@ -178,7 +177,6 @@ suite('UpdateContentSelectionWithHighlights', () => {
 
     test('multiple nodes selected before single node highlight', async () => {
       highlightNode(textNodeIds[2]!);
-
       // select a subset of previous nodes
       const expectedAnchorOffset = 1;
       const expectedFocusOffset = 7;
@@ -289,7 +287,7 @@ suite('UpdateContentSelectionWithHighlights', () => {
 
       // select node starting after the end of the highlight
       const selectedText = texts[2]!.slice(highlightEnd);
-      const nodesToCheck = Array.from(app.shadowRoot!.querySelectorAll('span'));
+      const nodesToCheck = Array.from(app.querySelectorAll('span'));
       const parentNodeWithText = nodesToCheck.find(
           (element) => element.textContent!.includes(selectedText));
       const textNode = parentNodeWithText!.lastChild!;

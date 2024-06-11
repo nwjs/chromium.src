@@ -285,7 +285,7 @@ void AuthenticationService::SignIn(id<SystemIdentity> identity,
 
   ResetReauthPromptForSignInAndSync();
 
-  // TODO(crbug.com/1442202): Move this reset to a place more consistent with
+  // TODO(crbug.com/40266839): Move this reset to a place more consistent with
   // bookmarks.
   ResetLastUsedBookmarkFolder(pref_service_);
 
@@ -358,7 +358,7 @@ void AuthenticationService::GrantSyncConsent(
 
   // When sync is disabled by enterprise, sync consent is not removed.
   // Consent can be skipped.
-  // TODO(crbug.com/1259054): Remove this if once the sync consent is removed
+  // TODO(crbug.com/40797392): Remove this if once the sync consent is removed
   // when enteprise disable sync.
   if (!HasPrimaryIdentity(signin::ConsentLevel::kSync)) {
     const signin::PrimaryAccountMutator::PrimaryAccountError error =
@@ -389,7 +389,7 @@ void AuthenticationService::SignOut(
     return;
   }
 
-  // TODO(crbug.com/1442202): Move this reset to a place more consistent with
+  // TODO(crbug.com/40266839): Move this reset to a place more consistent with
   // bookmarks.
   ResetLastUsedBookmarkFolder(pref_service_);
 

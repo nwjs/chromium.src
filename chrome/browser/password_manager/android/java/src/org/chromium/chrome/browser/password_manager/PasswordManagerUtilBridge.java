@@ -65,6 +65,14 @@ public class PasswordManagerUtilBridge {
     }
 
     /**
+     * Returns whether Chrome's internal backend is available and the minimum GMS Core requirements
+     * for UPM are met.
+     */
+    public static boolean areMinUpmRequirementsMet() {
+        return PasswordManagerUtilBridgeJni.get().areMinUpmRequirementsMet();
+    }
+
+    /**
      * Checks whether the UPM with sync only available in GMS Core is active for this client.
      *
      * @return True if UPM with sync only available in GMS Core is active, false otherwise.
@@ -81,6 +89,8 @@ public class PasswordManagerUtilBridge {
         boolean usesSplitStoresAndUPMForLocal(PrefService prefService);
 
         boolean isGmsCoreUpdateRequired(PrefService prefService, boolean isPwdSyncEnabled);
+
+        boolean areMinUpmRequirementsMet();
 
         boolean isUnifiedPasswordManagerSyncOnlyInGMSCoreEnabled();
     }

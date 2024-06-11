@@ -35,6 +35,7 @@
 #include "ash/style/style_util.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/utility/forest_util.h"
+#include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/work_area_insets.h"
 #include "base/command_line.h"
@@ -490,7 +491,9 @@ void ShelfWidget::DelegateView::UpdateOpaqueBackground() {
   const bool in_app = ShelfConfig::Get()->is_in_app();
 
   const bool in_overview_mode = ShelfConfig::Get()->in_overview_mode();
-  const bool in_oak_session = IsForestFeatureEnabled() && in_overview_mode;
+  const bool in_oak_session =
+      in_overview_mode &&
+      (features::IsOakFeatureEnabled() || IsForestFeatureEnabled());
   const bool split_view = ShelfConfig::Get()->in_split_view_with_overview();
   bool show_opaque_background =
       (!in_oak_session) && (!tablet_mode || in_app || split_view);
@@ -702,6 +705,8 @@ void ShelfWidget::Initialize(aura::Window* shelf_container) {
   background_animator_.AddObserver(delegate_view_);
   shelf_->AddObserver(this);
 
+  Shell::Get()->overview_controller()->AddObserver(this);
+
   // Sets initial session state to make sure the UI is properly shown.
   OnSessionStateChanged(Shell::Get()->session_controller()->GetSessionState());
   delegate_view_->SetEnableArrowKeyTraversal(true);
@@ -729,6 +734,10 @@ void ShelfWidget::Shutdown() {
   // Don't need to observe focus/activation during shutdown.
   Shell::Get()->focus_cycler()->RemoveWidget(this);
   SetFocusCycler(nullptr);
+
+  if (auto* overview_controller = Shell::Get()->overview_controller()) {
+    overview_controller->RemoveObserver(this);
+  }
 }
 
 void ShelfWidget::RegisterHotseatWidget(HotseatWidget* hotseat_widget) {
@@ -996,7 +1005,7 @@ void ShelfWidget::OnSessionStateChanged(session_manager::SessionState state) {
     // be painted over the hotseat/navigation buttons/status area). Make sure
     // the shelf widget is restacked at the bottom of the shelf container when
     // the session state changes.
-    // TODO(https://crbug.com/1057207): Ideally, the shelf widget position at
+    // TODO(crbug.com/40120650): Ideally, the shelf widget position at
     // the bottom of window stack would be maintained using a "stacked at
     // bottom" window property - switch to that approach once it's ready for
     // usage.

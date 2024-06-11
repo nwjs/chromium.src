@@ -54,6 +54,11 @@
     "fuchsia-x64-cast-receiver-dbg": "ci/fuchsia-x64-cast-receiver-dbg/gn-args.json",
     "fuchsia-x64-cast-receiver-rel": "ci/fuchsia-x64-cast-receiver-rel/gn-args.json"
   },
+  "chromium.fuzz": {
+    "Centipede Upload Linux ASan": "ci/Centipede Upload Linux ASan/gn-args.json",
+    "Libfuzzer Upload Linux ASan": "ci/Libfuzzer Upload Linux ASan/gn-args.json",
+    "Libfuzzer Upload Windows ASan": "ci/Libfuzzer Upload Windows ASan/gn-args.json"
+  },
   "chromium.gpu": {
     "Android Release (Nexus 5X)": "ci/Android Release (Nexus 5X)/gn-args.json",
     "GPU Linux Builder": "ci/GPU Linux Builder/gn-args.json",
@@ -188,6 +193,8 @@
     "mac12-arm64-rel": "try/mac12-arm64-rel/gn-args.json",
     "mac12-tests": "try/mac12-tests/gn-args.json",
     "mac13-arm64-rel": "try/mac13-arm64-rel/gn-args.json",
+    "mac14-arm64-rel": "try/mac14-arm64-rel/gn-args.json",
+    "mac14-tests": "try/mac14-tests/gn-args.json",
     "mac_chromium_10.15_rel_ng": "try/mac_chromium_10.15_rel_ng/gn-args.json",
     "mac_chromium_11.0_rel_ng": "try/mac_chromium_11.0_rel_ng/gn-args.json",
     "mac_chromium_compile_dbg_ng": "try/mac_chromium_compile_dbg_ng/gn-args.json",

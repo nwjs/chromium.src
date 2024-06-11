@@ -30,7 +30,7 @@ class SecureChannelTetherAvailabilityOperationOrchestratorTest
   // TetherAvailabilityOperationOrchestrator::Observer:
   void OnTetherAvailabilityResponse(
       const std::vector<ScannedDeviceInfo>& scanned_device_list_so_far,
-      const multidevice::RemoteDeviceRefList&
+      const std::vector<ScannedDeviceInfo>&
           gms_core_notifications_disabled_devices,
       bool is_final_scan_result) override {
     scanned_device_list_so_far_ = scanned_device_list_so_far;
@@ -54,16 +54,16 @@ class SecureChannelTetherAvailabilityOperationOrchestratorTest
     return orchestrator;
   }
 
-  ScannedDeviceInfo CreateFakeScannedDeviceInfo(
-      const multidevice::RemoteDeviceRef& remote_device) {
+  ScannedDeviceInfo CreateFakeScannedDeviceInfo(const TetherHost& tether_host) {
     auto device_status = CreateTestDeviceStatus(
         "Google Fi", 75 /* battery_percentage */, 4 /* connection_strength */);
-    return ScannedDeviceInfo(remote_device, device_status,
-                             /*setup_required=*/false);
+    return ScannedDeviceInfo(
+        tether_host.GetDeviceId(), tether_host.GetName(), device_status,
+        /*setup_required=*/false, /*notifications_enabled=*/true);
   }
 
   std::vector<ScannedDeviceInfo> scanned_device_list_so_far_;
-  multidevice::RemoteDeviceRefList gms_core_notifications_disabled_devices_;
+  std::vector<ScannedDeviceInfo> gms_core_notifications_disabled_devices_;
   bool is_final_scan_;
 
  protected:
@@ -75,9 +75,10 @@ class SecureChannelTetherAvailabilityOperationOrchestratorTest
 
 TEST_F(SecureChannelTetherAvailabilityOperationOrchestratorTest,
        HostFetcher_StartsOperation) {
-  const multidevice::RemoteDeviceRef test_device =
-      multidevice::CreateRemoteDeviceRefForTest();
-  FakeTetherHostFetcher fake_tether_host_fetcher(test_device);
+  const TetherHost test_device =
+      TetherHost(multidevice::CreateRemoteDeviceRefForTest());
+  FakeTetherHostFetcher fake_tether_host_fetcher(
+      *test_device.remote_device_ref());
   FakeTetherAvailabilityOperation::Initializer*
       fake_tether_availability_operation_initializer =
           new FakeTetherAvailabilityOperation::Initializer();

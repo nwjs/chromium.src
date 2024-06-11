@@ -15,7 +15,10 @@
 #include "base/ranges/algorithm.h"
 #include "base/types/expected.h"
 #include "components/ml/webnn/graph_validation_utils.h"
+#include "services/webnn/error.h"
 #include "services/webnn/public/mojom/webnn_error.mojom.h"
+#include "services/webnn/webnn_buffer_impl.h"
+#include "services/webnn/webnn_context_impl.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -176,15 +179,6 @@ bool ValidateLinearAttributes(const mojom::LinearPtr& linear) {
   return true;
 }
 
-bool ValidateSoftplusAttributes(const mojom::SoftplusPtr& softplus) {
-  if (std::isnan(softplus->steepness)) {
-    // The value of steepness should not be NAN.
-    return false;
-  }
-
-  return true;
-}
-
 bool ValidateActivation(const mojom::ActivationPtr& activation) {
   switch (activation->which()) {
     case mojom::Activation::Tag::kClamp:
@@ -197,16 +191,15 @@ bool ValidateActivation(const mojom::ActivationPtr& activation) {
       return ValidateLeakyReluAttributes(activation->get_leaky_relu());
     case mojom::Activation::Tag::kLinear:
       return ValidateLinearAttributes(activation->get_linear());
-    case mojom::Activation::Tag::kSoftplus:
-      return ValidateSoftplusAttributes(activation->get_softplus());
+    case mojom::Activation::Tag::kGelu:
     case mojom::Activation::Tag::kRelu:
     case mojom::Activation::Tag::kSigmoid:
     case mojom::Activation::Tag::kSoftmax:
+    case mojom::Activation::Tag::kSoftplus:
     case mojom::Activation::Tag::kSoftsign:
     case mojom::Activation::Tag::kTanh:
       return true;
   }
-  NOTREACHED_NORETURN();
 }
 
 const mojom::Operand* GetMojoOperand(const IdToOperandMap& id_to_operand_map,
@@ -916,24 +909,29 @@ bool ValidateElu(const IdToOperandMap& id_to_operand_map,
   return true;
 }
 
-static constexpr auto kUnaryOperatorConstraints = base::MakeFixedFlatMap<
-    mojom::ElementWiseUnary::Kind,
-    webnn::DataTypeConstraintSet>({
-    {mojom::ElementWiseUnary::Kind::kAbs, DataTypeConstraint::kSignedNumber},
-    {mojom::ElementWiseUnary::Kind::kCeil, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kCos, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kExp, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kFloor, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kLog, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kNeg, DataTypeConstraint::kSignedNumber},
-    {mojom::ElementWiseUnary::Kind::kSin, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kTan, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kLogicalNot, {Operand::DataType::kUint8}},
-    {mojom::ElementWiseUnary::Kind::kIdentity, DataTypeConstraintSet::All()},
-    {mojom::ElementWiseUnary::Kind::kSqrt, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kErf, DataTypeConstraint::kFloat},
-    {mojom::ElementWiseUnary::Kind::kReciprocal, DataTypeConstraint::kFloat},
-});
+static constexpr auto kUnaryOperatorConstraints =
+    base::MakeFixedFlatMap<mojom::ElementWiseUnary::Kind,
+                           webnn::DataTypeConstraintSet>({
+        {mojom::ElementWiseUnary::Kind::kAbs,
+         DataTypeConstraint::kFloat16To32Int8To32},
+        {mojom::ElementWiseUnary::Kind::kCeil, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kCos, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kExp, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kFloor, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kLog, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kNeg,
+         DataTypeConstraint::kFloat16To32Int8To32},
+        {mojom::ElementWiseUnary::Kind::kSin, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kTan, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kLogicalNot,
+         {Operand::DataType::kUint8}},
+        {mojom::ElementWiseUnary::Kind::kIdentity,
+         DataTypeConstraintSet::All()},
+        {mojom::ElementWiseUnary::Kind::kSqrt, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kErf, DataTypeConstraint::kFloat},
+        {mojom::ElementWiseUnary::Kind::kReciprocal,
+         DataTypeConstraint::kFloat},
+    });
 
 bool ValidateElementWiseUnary(const IdToOperandMap& id_to_operand_map,
                               const mojom::ElementWiseUnaryPtr& operation,
@@ -1597,6 +1595,14 @@ bool ValidatePool2d(const IdToOperandMap& id_to_operand_map,
     return false;
   }
 
+  if (pool2d->kind == mojom::Pool2d::Kind::kAveragePool2d ||
+      pool2d->kind == mojom::Pool2d::Kind::kL2Pool2d) {
+    if (!(input->data_type == mojom::Operand::DataType::kFloat32 ||
+          input->data_type == mojom::Operand::DataType::kFloat16)) {
+      return false;
+    }
+  }
+
   if (output->dimensions.size() != 4) {
     // The element of output dimensions should be 4.
     return false;
@@ -1771,20 +1777,6 @@ bool ValidateSoftmax(const IdToOperandMap& id_to_operand_map,
     return false;
   }
   if (validated_output != ConvertToComponentOperand(output)) {
-    return false;
-  }
-
-  return true;
-}
-
-bool ValidateSoftplus(const IdToOperandMap& id_to_operand_map,
-                      const mojom::SoftplusPtr& softplus,
-                      base::flat_set<uint64_t>& processed_operands) {
-  if (!ValidateUnaryOperation(id_to_operand_map, softplus,
-                              DataTypeConstraint::kFloat, processed_operands)) {
-    return false;
-  }
-  if (!ValidateSoftplusAttributes(softplus)) {
     return false;
   }
 
@@ -2020,6 +2012,10 @@ bool ValidateOperation(const IdToOperandMap& id_to_operand_map,
     case mojom::Operation::Tag::kGather:
       return ValidateGather(id_to_operand_map, operation->get_gather(),
                             processed_operands);
+    case mojom::Operation::Tag::kGelu:
+      return ValidateUnaryOperation(id_to_operand_map, operation->get_gelu(),
+                                    DataTypeConstraint::kFloat,
+                                    processed_operands);
     case mojom::Operation::Tag::kGemm:
       return ValidateGemm(id_to_operand_map, operation->get_gemm(),
                           processed_operands);
@@ -2079,7 +2075,7 @@ bool ValidateOperation(const IdToOperandMap& id_to_operand_map,
                              processed_operands);
     case mojom::Operation::Tag::kRelu:
       return ValidateUnaryOperation(id_to_operand_map, operation->get_relu(),
-                                    DataTypeConstraintSet::All(),
+                                    DataTypeConstraint::kFloat16To32Int8To32,
                                     processed_operands);
     case mojom::Operation::Tag::kSlice:
       return ValidateSlice(id_to_operand_map, operation->get_slice(),
@@ -2092,8 +2088,9 @@ bool ValidateOperation(const IdToOperandMap& id_to_operand_map,
       return ValidateSoftmax(id_to_operand_map, operation->get_softmax(),
                              processed_operands);
     case mojom::Operation::Tag::kSoftplus:
-      return ValidateSoftplus(id_to_operand_map, operation->get_softplus(),
-                              processed_operands);
+      return ValidateUnaryOperation(
+          id_to_operand_map, operation->get_softplus(),
+          DataTypeConstraint::kFloat, processed_operands);
     case mojom::Operation::Tag::kSoftsign:
       return ValidateUnaryOperation(
           id_to_operand_map, operation->get_softsign(),
@@ -2133,6 +2130,45 @@ bool ValidateInputsForComputation(
       });
 }
 
+// Return false if the named buffers for dispatch don't match the built
+// graph's expectation.
+bool ValidateWebNNBuffers(
+    const base::flat_map<std::string_view, WebNNBufferImpl*>& named_buffers,
+    const base::flat_map<std::string, size_t>& name_to_byte_length_map) {
+  return base::ranges::equal(
+      named_buffers, name_to_byte_length_map,
+      [](const auto& named_buffer, const auto& buffer_spec) {
+        const auto& [buffer_name, buffer_impl] = named_buffer;
+        const auto& [buffer_spec_name, buffer_spec_byte_length] = buffer_spec;
+        return buffer_name == buffer_spec_name &&
+               buffer_impl->size() == buffer_spec_byte_length;
+      });
+}
+
+// Return false if the same buffer was specified in inputs and outputs.
+bool ValidateWebNNBuffersUsage(
+    const base::flat_map<std::string, base::UnguessableToken>& named_inputs,
+    const base::flat_map<std::string, base::UnguessableToken>& named_outputs) {
+  // Validate that output buffers are unique.
+  std::set<base::UnguessableToken> output_buffers;
+  for (const auto& named_output : named_outputs) {
+    output_buffers.insert(named_output.second);
+  }
+
+  if (output_buffers.size() != named_outputs.size()) {
+    return false;
+  }
+
+  // Validate buffers used for input and output are unique.
+  for (const auto& named_input : named_inputs) {
+    if (output_buffers.contains(named_input.second)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 }  // namespace
 
 WebNNGraphImpl::ComputeResourceInfo::ComputeResourceInfo(
@@ -2152,6 +2188,13 @@ WebNNGraphImpl::ComputeResourceInfo::~ComputeResourceInfo() = default;
 
 WebNNGraphImpl::WebNNGraphImpl(ComputeResourceInfo compute_resource_info)
     : compute_resource_info_(std::move(compute_resource_info)) {}
+
+WebNNGraphImpl::WebNNGraphImpl(WebNNContextImpl* context,
+                               ComputeResourceInfo compute_resource_info)
+    : compute_resource_info_(std::move(compute_resource_info)),
+      context_(context) {
+  CHECK(context_);
+}
 
 WebNNGraphImpl::~WebNNGraphImpl() = default;
 
@@ -2291,6 +2334,63 @@ void WebNNGraphImpl::Compute(
 
   // Call ComputeImpl() implemented by an `mojom::WebNNGraph` backend.
   ComputeImpl(std::move(named_inputs), std::move(callback));
+}
+
+void WebNNGraphImpl::Dispatch(
+    const base::flat_map<std::string, base::UnguessableToken>& named_inputs,
+    const base::flat_map<std::string, base::UnguessableToken>& named_outputs) {
+  if (!ValidateWebNNBuffersUsage(named_inputs, named_outputs)) {
+    mojo::ReportBadMessage(kBadMessageInvalidBuffer);
+    return;
+  }
+
+  // Resolve the token of a input MLBuffer to the corresponding `WebNNBuffer`
+  // instance.
+  std::vector<std::pair<std::string_view, WebNNBufferImpl*>>
+      name_to_input_buffers;
+  name_to_input_buffers.reserve(named_inputs.size());
+  for (const auto& [name, buffer_handle] : named_inputs) {
+    base::optional_ref<WebNNBufferImpl> input_buffer =
+        context_->GetWebNNBufferImpl(buffer_handle);
+    if (!input_buffer.has_value()) {
+      return;
+    }
+    name_to_input_buffers.emplace_back(name, input_buffer.as_ptr());
+  }
+  base::flat_map<std::string_view, WebNNBufferImpl*> name_to_input_buffer_map(
+      std::move(name_to_input_buffers));
+  if (!ValidateWebNNBuffers(
+          name_to_input_buffer_map,
+          compute_resource_info_.input_name_to_byte_length_map)) {
+    mojo::ReportBadMessage(kBadMessageInvalidBuffer);
+    return;
+  }
+
+  // Resolve the token of a output MLBuffer to the corresponding `WebNNBuffer`
+  // instance.
+  std::vector<std::pair<std::string_view, WebNNBufferImpl*>>
+      name_to_output_buffers;
+  name_to_output_buffers.reserve(named_outputs.size());
+  for (const auto& [name, buffer_handle] : named_outputs) {
+    base::optional_ref<WebNNBufferImpl> output_buffer =
+        context_->GetWebNNBufferImpl(buffer_handle);
+    if (!output_buffer.has_value()) {
+      return;
+    }
+    name_to_output_buffers.emplace_back(name, output_buffer.as_ptr());
+  }
+
+  base::flat_map<std::string_view, WebNNBufferImpl*> name_to_output_buffer_map(
+      std::move(name_to_output_buffers));
+  if (!ValidateWebNNBuffers(
+          name_to_output_buffer_map,
+          compute_resource_info_.output_name_to_byte_length_map)) {
+    mojo::ReportBadMessage(kBadMessageInvalidBuffer);
+    return;
+  }
+
+  // Call DispatchImpl() implemented by an `mojom::WebNNGraph` backend.
+  DispatchImpl(name_to_input_buffer_map, name_to_output_buffer_map);
 }
 
 }  // namespace webnn

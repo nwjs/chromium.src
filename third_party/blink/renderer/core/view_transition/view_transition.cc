@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "third_party/blink/renderer/core/view_transition/view_transition.h"
+
 #include <vector>
 
 #include "base/ranges/algorithm.h"
@@ -38,16 +39,9 @@
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
+#include "v8-microtask-queue.h"
 
 namespace blink {
-namespace {
-
-uint32_t NextDocumentTag() {
-  static uint32_t next_document_tag = 1u;
-  return next_document_tag++;
-}
-
-}  // namespace
 
 ViewTransition::ScopedPauseRendering::ScopedPauseRendering(
     const Document& document) {
@@ -136,11 +130,9 @@ ViewTransition::ViewTransition(PassKey,
       creation_type_(CreationType::kScript),
       document_(document),
       delegate_(delegate),
-      transition_id_(viz::TransitionId::Create()),
-      document_tag_(NextDocumentTag()),
       style_tracker_(
           MakeGarbageCollected<ViewTransitionStyleTracker>(*document_,
-                                                           transition_id_)),
+                                                           transition_token_)),
       script_delegate_(MakeGarbageCollected<DOMViewTransition>(
           *document->GetExecutionContext(),
           *this,
@@ -161,7 +153,6 @@ ViewTransition::ViewTransition(PassKey,
     : ExecutionContextLifecycleObserver(document->GetExecutionContext()),
       creation_type_(CreationType::kScript),
       document_(document),
-      document_tag_(NextDocumentTag()),
       script_delegate_(MakeGarbageCollected<DOMViewTransition>(
           *document->GetExecutionContext(),
           *this,
@@ -172,17 +163,18 @@ ViewTransition::ViewTransition(PassKey,
 // static
 ViewTransition* ViewTransition::CreateForSnapshotForNavigation(
     Document* document,
-    const viz::NavigationId& navigation_id,
+    const ViewTransitionToken& transition_token,
     ViewTransitionStateCallback callback,
     const Vector<String>& types,
     Delegate* delegate) {
   return MakeGarbageCollected<ViewTransition>(
-      PassKey(), document, navigation_id, std::move(callback), types, delegate);
+      PassKey(), document, transition_token, std::move(callback), types,
+      delegate);
 }
 
 ViewTransition::ViewTransition(PassKey,
                                Document* document,
-                               const viz::NavigationId& navigation_id,
+                               const ViewTransitionToken& transition_token,
                                ViewTransitionStateCallback callback,
                                const Vector<String>& types,
                                Delegate* delegate)
@@ -190,11 +182,10 @@ ViewTransition::ViewTransition(PassKey,
       creation_type_(CreationType::kForSnapshot),
       document_(document),
       delegate_(delegate),
-      transition_id_(navigation_id),
-      document_tag_(NextDocumentTag()),
+      transition_token_(transition_token),
       style_tracker_(
           MakeGarbageCollected<ViewTransitionStyleTracker>(*document_,
-                                                           transition_id_)),
+                                                           transition_token_)),
       transition_state_callback_(std::move(callback)),
       script_delegate_(MakeGarbageCollected<DOMViewTransition>(
           *document_->GetExecutionContext(),
@@ -222,8 +213,7 @@ ViewTransition::ViewTransition(PassKey,
       creation_type_(CreationType::kFromSnapshot),
       document_(document),
       delegate_(delegate),
-      transition_id_(transition_state.transition_id),
-      document_tag_(NextDocumentTag()),
+      transition_token_(transition_state.transition_token),
       style_tracker_(MakeGarbageCollected<ViewTransitionStyleTracker>(
           *document_,
           std::move(transition_state))),
@@ -261,7 +251,7 @@ void ViewTransition::SkipTransition(PromiseResponse response) {
           static_cast<int>(State::kCaptureTagDiscovery) &&
       creation_type_ != CreationType::kForSnapshot) {
     delegate_->AddPendingRequest(ViewTransitionRequest::CreateRelease(
-        document_tag_, CrossDocumentNavigationId()));
+        transition_token_, IsCrossDocument()));
   }
 
   // We always need to call the transition state callback (mojo seems to require
@@ -269,7 +259,7 @@ void ViewTransition::SkipTransition(PromiseResponse response) {
   if (transition_state_callback_) {
     CHECK_EQ(creation_type_, CreationType::kForSnapshot);
     ViewTransitionState view_transition_state;
-    view_transition_state.transition_id = transition_id_;
+    view_transition_state.transition_token = transition_token_;
     std::move(transition_state_callback_).Run(std::move(view_transition_state));
   }
 
@@ -457,8 +447,7 @@ void ViewTransition::ProcessCurrentState() {
         }
 
         delegate_->AddPendingRequest(ViewTransitionRequest::CreateCapture(
-            document_tag_, style_tracker_->CapturedTagCount(),
-            CrossDocumentNavigationId(),
+            transition_token_, IsCrossDocument(),
             style_tracker_->TakeCaptureResourceIds(),
             ConvertToBaseOnceCallback(
                 CrossThreadBindOnce(&ViewTransition::NotifyCaptureFinished,
@@ -490,7 +479,7 @@ void ViewTransition::ProcessCurrentState() {
           DCHECK(transition_state_callback_);
           ViewTransitionState view_transition_state =
               style_tracker_->GetViewTransitionState();
-          CHECK_EQ(view_transition_state.transition_id, transition_id_);
+          CHECK_EQ(view_transition_state.transition_token, transition_token_);
 
           process_next_state =
               AdvanceTo(State::kTransitionStateCallbackDispatched);
@@ -579,8 +568,8 @@ void ViewTransition::ProcessCurrentState() {
         }
 
         delegate_->AddPendingRequest(
-            ViewTransitionRequest::CreateAnimateRenderer(
-                document_tag_, CrossDocumentNavigationId()));
+            ViewTransitionRequest::CreateAnimateRenderer(transition_token_,
+                                                         IsCrossDocument()));
         process_next_state = AdvanceTo(State::kAnimating);
         DCHECK(!process_next_state);
 
@@ -610,7 +599,7 @@ void ViewTransition::ProcessCurrentState() {
         script_delegate_->DidFinishAnimating();
 
         delegate_->AddPendingRequest(ViewTransitionRequest::CreateRelease(
-            document_tag_, CrossDocumentNavigationId()));
+            transition_token_, IsCrossDocument()));
         delegate_->OnTransitionFinished(this);
 
         style_tracker_ = nullptr;
@@ -718,17 +707,6 @@ void ViewTransition::NotifyDOMCallbackFinished(bool success) {
   CHECK(!rendering_paused_scope_);
 }
 
-viz::NavigationId ViewTransition::CrossDocumentNavigationId() const {
-  if (!IsForNavigationOnNewDocument() && !IsForNavigationSnapshot()) {
-    return viz::NavigationId();
-  }
-
-  // Since the transition_id is unique across transitions and preserved between
-  // new and old for a cross-document transition, we can use it as the
-  // navigation ID on cross document requests.
-  return transition_id_;
-}
-
 bool ViewTransition::NeedsViewTransitionEffectNode(
     const LayoutObject& object) const {
   // Layout view always needs an effect node, even if root itself is not
@@ -780,44 +758,18 @@ bool ViewTransition::IsTransitionElementExcludingRoot(
   return !node.IsDocumentElement() && style_tracker_->IsTransitionElement(node);
 }
 
-PaintPropertyChangeType ViewTransition::UpdateEffect(
-    const LayoutObject& object,
-    const EffectPaintPropertyNodeOrAlias& current_effect,
-    const ClipPaintPropertyNodeOrAlias* current_clip,
-    const TransformPaintPropertyNodeOrAlias* current_transform) {
+viz::ViewTransitionElementResourceId ViewTransition::GetSnapshotId(
+    const LayoutObject& object) const {
   DCHECK(NeedsViewTransitionEffectNode(object));
-  DCHECK(current_transform);
-  DCHECK(current_clip);
 
-  EffectPaintPropertyNode::State state;
-  state.direct_compositing_reasons = CompositingReason::kViewTransitionElement;
-  state.local_transform_space = current_transform;
-  state.output_clip = current_clip;
-  state.view_transition_element_id = ViewTransitionElementId(document_tag_);
-  state.compositor_element_id = CompositorElementIdFromUniqueObjectId(
-      object.UniqueId(), CompositorElementIdNamespace::kViewTransitionElement);
   auto* element = DynamicTo<Element>(object.GetNode());
   if (!element) {
     // The only non-element participant is the layout view.
     DCHECK(object.IsLayoutView());
-
-    // We always generate an effect node for the root element but element and
-    // resource IDs are only setup if the root element is participating in the
-    // transition, requiring a snapshot.
-    if (IsRootTransitioning()) {
-      style_tracker_->UpdateElementIndicesAndSnapshotId(
-          document_->documentElement(), state.view_transition_element_id,
-          state.view_transition_element_resource_id);
-    }
-    return style_tracker_->UpdateRootEffect(std::move(state), current_effect);
+    element = document_->documentElement();
   }
 
-  state.self_or_ancestor_participates_in_view_transition = true;
-  style_tracker_->UpdateElementIndicesAndSnapshotId(
-      element, state.view_transition_element_id,
-      state.view_transition_element_resource_id);
-  return style_tracker_->UpdateEffect(*element, std::move(state),
-                                      current_effect);
+  return style_tracker_->GetSnapshotId(*element);
 }
 
 PaintPropertyChangeType ViewTransition::UpdateCaptureClip(
@@ -831,16 +783,6 @@ PaintPropertyChangeType ViewTransition::UpdateCaptureClip(
   DCHECK(element);
   return style_tracker_->UpdateCaptureClip(*element, current_clip,
                                            current_transform);
-}
-
-const EffectPaintPropertyNode* ViewTransition::GetEffect(
-    const LayoutObject& object) const {
-  DCHECK(NeedsViewTransitionEffectNode(object));
-
-  auto* element = DynamicTo<Element>(object.GetNode());
-  if (!element)
-    return style_tracker_->GetRootEffect();
-  return style_tracker_->GetEffect(*element);
 }
 
 const ClipPaintPropertyNode* ViewTransition::GetCaptureClip(
@@ -933,6 +875,10 @@ void ViewTransition::PauseRendering() {
   rendering_paused_scope_.emplace(*document_);
   document_->GetPage()->GetChromeClient().UnregisterFromCommitObservation(this);
 
+  if (rendering_paused_scope_->ShouldThrottleRendering() && document_->View()) {
+    document_->View()->SetThrottledForViewTransition(true);
+  }
+
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("blink", "ViewTransition::PauseRendering",
                                     this);
   const base::TimeDelta kTimeout = [this]() {
@@ -965,6 +911,9 @@ void ViewTransition::ResumeRendering() {
 
   TRACE_EVENT_NESTABLE_ASYNC_END0("blink", "ViewTransition::PauseRendering",
                                   this);
+  if (rendering_paused_scope_->ShouldThrottleRendering() && document_->View()) {
+    document_->View()->SetThrottledForViewTransition(false);
+  }
   rendering_paused_scope_.reset();
 }
 
@@ -974,6 +923,17 @@ void ViewTransition::ActivateFromSnapshot() {
   if (state_ != State::kWaitForRenderBlock)
     return;
 
+  LocalDOMWindow* window = document_->domWindow();
+  CHECK(window);
+
+  // This ensures the ViewTransition promises are resolved before the next
+  // rendering steps (rAF, style/layout etc) as in the cross-document case
+  // activating the view-transition is not called from inside a script. See
+  // https://github.com/whatwg/html/pull/10284
+  v8::MicrotasksScope microtasks_scope(
+      window->GetIsolate(), ToMicrotaskQueue(window),
+      v8::MicrotasksScope::Type::kRunMicrotasks);
+
   // This function implies that rendering has started. If we were waiting
   // for render-blocking resources to be loaded, they must have been fetched (or
   // timed out) before rendering is started.
@@ -981,11 +941,6 @@ void ViewTransition::ActivateFromSnapshot() {
   bool process_next_state = AdvanceTo(State::kAnimateTagDiscovery);
   DCHECK(process_next_state);
   ProcessCurrentState();
-}
-
-bool ViewTransition::ShouldThrottleRendering() const {
-  return rendering_paused_scope_ &&
-         rendering_paused_scope_->ShouldThrottleRendering();
 }
 
 }  // namespace blink

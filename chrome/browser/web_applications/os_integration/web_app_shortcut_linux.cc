@@ -400,7 +400,7 @@ bool DeleteShortcutInAutoStart(base::Environment* env,
 bool DeleteShortcutInApplicationsMenu(
     const base::FilePath& shortcut_filename,
     const base::FilePath& directory_filename) {
-  // TODO(crbug.com/1276141): Support shortcut testing in Applications Menu.
+  // TODO(crbug.com/40808705): Support shortcut testing in Applications Menu.
   DCHECK(!OsIntegrationTestOverride::Get() ||
          GetInstalledLaunchXdgUtilityForTesting());  // IN-TEST
   std::vector<std::string> argv;
@@ -467,9 +467,11 @@ bool CreateDesktopShortcut(base::Environment* env,
     if (applications_menu_location != APP_MENU_LOCATION_NONE) {
       DeleteShortcutInApplicationsMenu(shortcut_filename, base::FilePath());
     }
-  } else {
-    shortcut_filename =
-        shell_integration_linux::GetWebShortcutFilename(shortcut_info.url);
+  } else if (std::optional<base::SafeBaseName> opt_shortcut_filename =
+                 shell_integration_linux::GetUniqueWebShortcutFilename(
+                     shortcut_info.url.spec());
+             opt_shortcut_filename.has_value()) {
+    shortcut_filename = opt_shortcut_filename->path();
   }
   if (shortcut_filename.empty()) {
     RecordCreateShortcut(CreateShortcutResult::kFailToGetShortcutFilename);

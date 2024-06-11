@@ -136,17 +136,21 @@ ContentSubresourceFilterWebContentsHelper::GetThrottleManager(
     return throttle_manager;
   }
 
-  // For navigations that are not page activations (this method cannot be
-  // called for page activations) nor same-document, a throttle manager will be
-  // created iff they occur in a non-fenced-frame main frame. Since we didn't
-  // create a throttle manager here, for the non-same-document case use the
-  // frame's parent/outer-document RFH since subframe navigations are not
-  // associated with a RFH until commit.
+  // For a cross-document navigation, excluding page activation (this method
+  // cannot be called for page activations), a throttle manager is created iff
+  // it occurs in a non-fenced main frame. Since a throttle manager wasn't
+  // created here, in the cross-document case, we must use the frame's
+  // parent/outer-document RFH since subframe navigations are not associated
+  // with a RFH until commit. We also use the parent here for same-document
+  // non-root navigations to avoid rare issues with navigations that are aborted
+  // due to a parent's navigation (where the navigation's handle's RFH may be
+  // null); this does not affect the result as both frames have the same
+  // throttle manager.
   DCHECK(handle.IsSameDocument() || !IsInSubresourceFilterRoot(&handle));
-  content::RenderFrameHost* rfh = handle.IsSameDocument()
+  content::RenderFrameHost* rfh = IsInSubresourceFilterRoot(&handle)
                                       ? handle.GetRenderFrameHost()
                                       : handle.GetParentFrameOrOuterDocument();
-  DCHECK(rfh);
+  CHECK(rfh);
   return GetThrottleManager(GetSubresourceFilterRootPage(rfh));
 }
 
@@ -246,7 +250,7 @@ void ContentSubresourceFilterWebContentsHelper::DidFinishNavigation(
     ContentSubresourceFilterThrottleManager* throttle_manager =
         GetThrottleManager(navigation_handle->GetRenderFrameHost()->GetPage());
 
-    // TODO(https://crbug.com/1234233): This shouldn't be possible but, from
+    // TODO(crbug.com/40781366): This shouldn't be possible but, from
     // the investigation in https://crbug.com/1264667, this is likely a symptom
     // of navigating a detached WebContents so (very rarely) was causing
     // crashes.
@@ -273,7 +277,7 @@ void ContentSubresourceFilterWebContentsHelper::DidFinishNavigation(
         ThrottleManagerInUserDataContainer::GetForNavigationHandle(
             *navigation_handle);
 
-    // TODO(https://crbug.com/1234233): It is theoretically possible to start a
+    // TODO(crbug.com/40781366): It is theoretically possible to start a
     // navigation in an unattached WebContents (so the WebContents doesn't yet
     // have any WebContentsHelpers such as this class) but attach it before a
     // navigation completes. If that happened we won't have a throttle manager
@@ -296,7 +300,7 @@ void ContentSubresourceFilterWebContentsHelper::DidFinishNavigation(
     } else if (is_initial_navigation) {
       if (auto* rfh = content::RenderFrameHost::FromID(
               navigation_handle->GetPreviousRenderFrameHostId())) {
-        // TODO(https://crbug.com/1234233): Ideally this should only happen on
+        // TODO(crbug.com/40781366): Ideally this should only happen on
         // the first navigation in a frame, however, in some cases we actually
         // attach this TabHelper after a navigation has occurred (possibly
         // before it has finished). See

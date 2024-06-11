@@ -50,11 +50,11 @@ TestAsNormalAndGuestUser/SpokenFeedbackTest.*
 -SwitchAccessItemScanManagerTest.*
 -SwitchAccessPointScanManagerTest.PointScanLeftClick
 -SwitchAccessTest.NavigateButtonsInTextFieldMenu
-# TODO(https://crbug.com/1378291) Ash and Lacros browser window sizes differ.
+# TODO(crbug.com/40243866) Ash and Lacros browser window sizes differ.
 -ChromeVoxEditingTest.SelectAcrossSoftLineWraps
 # TODO(b/277821091) Flaky
 -ChromeVoxEditingTest.GiantTextAreaPerformance
-# TODO(crbug.com/1478586): Flaky.
+# TODO(crbug.com/40280590): Flaky.
 -AutoclickWithAccessibilityServiceTest.ScrollableBoundsPlumbing
 # TODO(b/277256412): Test is flaky
 -DictationUIE2ETest.HintsTimeoutWithChromeVox
@@ -90,8 +90,3 @@ TestAsNormalAndGuestUser/SpokenFeedbackTest.*
 -TestAsNormalAndGuestUser/SpokenFeedbackTest.TouchExploreSecondaryDisplay*
 -TouchExplorationTest
 -SelectToSpeakMouseSelectionTest.VoiceSwitching
-# TODO(crbug.com/330377625): Permanently failing, no culprit identified.
--ChromeVoxSettingsPagesTest.TtsRateCommandOnSettingsPage
-# TODO(crbug.com/330450836): Permanently failing, no culprit identified.
--AccessibilityHighlightsBrowserTest.CaretHighlightWebContents
--AccessibilityHighlightsBrowserTest.FocusHighlight

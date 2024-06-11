@@ -848,7 +848,7 @@ interface CSSNumericValue : CSSStyleValue
     method to
     method toSum
     method type
-interface CSSPageRule : CSSRule
+interface CSSPageRule : CSSGroupingRule
     attribute @@toStringTag
     getter selectorText
     getter style
@@ -1204,6 +1204,11 @@ interface CSSVariableReferenceValue
     getter variable
     method constructor
     setter variable
+interface CSSViewTransitionRule : CSSRule
+    attribute @@toStringTag
+    getter navigation
+    getter types
+    method constructor
 interface Cache
     attribute @@toStringTag
     method add
@@ -3450,11 +3455,13 @@ interface GeolocationCoordinates
     getter longitude
     getter speed
     method constructor
+    method toJSON
 interface GeolocationPosition
     attribute @@toStringTag
     getter coords
     getter timestamp
     method constructor
+    method toJSON
 interface GeolocationPositionError
     attribute @@toStringTag
     attribute PERMISSION_DENIED
@@ -4105,14 +4112,12 @@ interface HTMLFencedFrameElement : HTMLElement
     getter allow
     getter config
     getter height
-    getter onfencedtreeclick
     getter sandbox
     getter width
     method constructor
     setter allow
     setter config
     setter height
-    setter onfencedtreeclick
     setter sandbox
     setter width
 interface HTMLFieldSetElement : HTMLElement
@@ -5713,6 +5718,10 @@ interface KeyframeEffect : AnimationEffect
     setter composite
     setter pseudoElement
     setter target
+interface LanguageTranslator
+    attribute @@toStringTag
+    method constructor
+    method translate
 interface LargestContentfulPaint : PerformanceEntry
     attribute @@toStringTag
     getter element
@@ -5842,6 +5851,7 @@ interface MLContext
     method compute
     method constructor
     method createBuffer
+    method dispatch
     method readBuffer
     method writeBuffer
 interface MLGraph
@@ -5873,6 +5883,7 @@ interface MLGraphBuilder
     method expand
     method floor
     method gather
+    method gelu
     method gemm
     method greater
     method greaterOrEqual
@@ -6190,7 +6201,6 @@ interface MediaDevices : EventTarget
     getter ondevicechange
     method constructor
     method enumerateDevices
-    method getAllScreensMedia
     method getDisplayMedia
     method getSupportedConstraints
     method getUserMedia
@@ -6451,12 +6461,6 @@ interface MediaStreamTrackVideoStats
     getter totalFrames
     method constructor
     method toJSON
-interface MerchantValidationEvent : Event
-    attribute @@toStringTag
-    getter methodName
-    getter validationURL
-    method complete
-    method constructor
 interface Mesh2DIndexBuffer
     attribute @@toStringTag
     method constructor
@@ -7002,12 +7006,16 @@ interface Observable
     attribute @@toStringTag
     method constructor
     method drop
+    method every
     method filter
+    method find
     method first
     method flatMap
     method forEach
+    method inspect
     method last
     method map
+    method some
     method subscribe
     method switchMap
     method take
@@ -7190,10 +7198,12 @@ interface OverscrollEvent : Event
     method constructor
 interface PageRevealEvent : Event
     attribute @@toStringTag
+    getter viewTransition
     method constructor
 interface PageSwapEvent : Event
     attribute @@toStringTag
     getter activation
+    getter viewTransition
     method constructor
 interface PageTransitionEvent : Event
     attribute @@toStringTag
@@ -8199,8 +8209,12 @@ interface RestrictionTarget
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter href
+    getter interestAction
+    getter interestTargetElement
     getter target
     method constructor
+    setter interestAction
+    setter interestTargetElement
 interface SVGAngle
     attribute @@toStringTag
     attribute SVG_ANGLETYPE_DEG
@@ -9608,7 +9622,6 @@ interface ShadowRoot : DocumentFragment
     setter fullscreenElement
     setter innerHTML
     setter onslotchange
-    setter serializable
 interface SharedStorage
     attribute @@toStringTag
     getter worklet
@@ -10104,6 +10117,11 @@ interface TransitionEvent : Event
     getter propertyName
     getter pseudoElement
     method constructor
+interface Translation
+    attribute @@toStringTag
+    method canTranslate
+    method constructor
+    method createTranslator
 interface TreeWalker
     attribute @@toStringTag
     getter currentNode
@@ -10170,6 +10188,7 @@ interface UIEvent : Event
 interface URL
     static method canParse
     static method createObjectURL
+    static method parse
     static method revokeObjectURL
     attribute @@toStringTag
     getter hash
@@ -11373,23 +11392,26 @@ interface WebGLActiveInfo
     getter size
     getter type
     method constructor
-interface WebGLBuffer
+interface WebGLBuffer : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLContextEvent : Event
     attribute @@toStringTag
     getter statusMessage
     method constructor
-interface WebGLFramebuffer
+interface WebGLFramebuffer : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLProgram
+interface WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLQuery
+interface WebGLProgram : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLRenderbuffer
+interface WebGLQuery : WebGLObject
+    attribute @@toStringTag
+    method constructor
+interface WebGLRenderbuffer : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLRenderingContext
@@ -11840,10 +11862,10 @@ interface WebGLRenderingContext
     method viewport
     setter drawingBufferColorSpace
     setter unpackColorSpace
-interface WebGLSampler
+interface WebGLSampler : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLShader
+interface WebGLShader : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLShaderPrecisionFormat
@@ -11852,19 +11874,19 @@ interface WebGLShaderPrecisionFormat
     getter rangeMax
     getter rangeMin
     method constructor
-interface WebGLSync
+interface WebGLSync : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLTexture
+interface WebGLTexture : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLTransformFeedback
+interface WebGLTransformFeedback : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLUniformLocation
     attribute @@toStringTag
     method constructor
-interface WebGLVertexArrayObject
+interface WebGLVertexArrayObject : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebKitCSSMatrix : DOMMatrixReadOnly
@@ -12663,6 +12685,7 @@ interface webkitSpeechRecognitionEvent : Event
 interface webkitURL
     static method canParse
     static method createObjectURL
+    static method parse
     static method revokeObjectURL
     attribute @@toStringTag
     getter hash
@@ -13027,6 +13050,7 @@ namespace console
     getter styleMedia
     getter toolbar
     getter top
+    getter translation
     getter trustedTypes
     getter visualViewport
     getter window
@@ -13099,6 +13123,7 @@ namespace console
     setter location
     setter locationbar
     setter menubar
+    setter model
     setter name
     setter navigation
     setter offscreenBuffering
@@ -13253,6 +13278,7 @@ namespace console
     setter status
     setter statusbar
     setter toolbar
+    setter translation
     setter visualViewport
 PASS successfullyParsed is true
 

@@ -7,6 +7,7 @@ import("//build/config/chromeos/ui_mode.gni")
 sync_integration_tests_sources = [
   "//chrome/browser/sync/test/integration/single_client_autofill_profile_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_bookmarks_sync_test.cc",
+  "//chrome/browser/sync/test/integration/single_client_collaboration_group_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_contact_info_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_custom_passphrase_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_device_info_sync_test.cc",
@@ -14,6 +15,7 @@ sync_integration_tests_sources = [
   "//chrome/browser/sync/test/integration/single_client_history_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_offer_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_plus_address_sync_test.cc",
+  "//chrome/browser/sync/test/integration/single_client_preferences_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_reading_list_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_standalone_transport_sync_test.cc",
   "//chrome/browser/sync/test/integration/single_client_sync_invalidations_test.cc",
@@ -39,7 +41,6 @@ if (!is_android) {
     "//chrome/browser/sync/test/integration/single_client_password_sharing_policy_test.cc",
     "//chrome/browser/sync/test/integration/single_client_passwords_sync_test.cc",
     "//chrome/browser/sync/test/integration/single_client_polling_sync_test.cc",
-    "//chrome/browser/sync/test/integration/single_client_preferences_sync_test.cc",
     "//chrome/browser/sync/test/integration/single_client_product_specifications_sync_test.cc",
     "//chrome/browser/sync/test/integration/single_client_saved_tab_groups_sync_test.cc",
     "//chrome/browser/sync/test/integration/single_client_search_engines_sync_test.cc",
@@ -61,6 +62,7 @@ if (!is_android) {
     "//chrome/browser/sync/test/integration/web_apps_sync_test_base.h",
 
     # Tests with two clients can't run on Android.
+    "//chrome/browser/sync/test/integration/two_client_app_settings_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_autocomplete_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_autofill_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_bookmarks_sync_test.cc",
@@ -68,7 +70,7 @@ if (!is_android) {
     "//chrome/browser/sync/test/integration/two_client_custom_passphrase_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_dictionary_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_extension_apps_sync_test.cc",
-    "//chrome/browser/sync/test/integration/two_client_extension_settings_and_app_settings_sync_test.cc",
+    "//chrome/browser/sync/test/integration/two_client_extension_settings_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_extensions_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_history_sync_test.cc",
     "//chrome/browser/sync/test/integration/two_client_passwords_sync_test.cc",
@@ -136,6 +138,7 @@ if (is_android) {
     "//chrome/test:test_support_ui_android",
     "//components/bookmarks/browser",
     "//components/browser_sync:switches",
+    "//components/data_sharing/public",
     "//components/password_manager/core/browser/sharing",
     "//components/plus_addresses",
     "//components/plus_addresses:test_support",
@@ -147,6 +150,7 @@ if (is_android) {
     "//components/sync_device_info:test_support",
     "//components/sync_preferences:common_syncable_prefs_database",
     "//components/undo",
+    "//components/version_info",
     "//content/test:android_test_message_pump_support",
     "//testing/android/native_test:native_test_support",
   ]

@@ -258,15 +258,16 @@ SharedImageFactory::SharedImageFactory(
                              use_passthrough, gles2::DisallowedFeatures());
   }
 
-  {
+  // Skia specific factories can't be used without a Skia context.
+  if (gr_context_type_ != GrContextType::kNone) {
     auto wrapped_sk_image_factory =
         std::make_unique<WrappedSkImageBackingFactory>(context_state_);
     factories_.push_back(std::move(wrapped_sk_image_factory));
-  }
 
-  if (features::IsUsingRawDraw()) {
-    auto factory = std::make_unique<RawDrawImageBackingFactory>();
-    factories_.push_back(std::move(factory));
+    if (features::IsUsingRawDraw()) {
+      auto factory = std::make_unique<RawDrawImageBackingFactory>();
+      factories_.push_back(std::move(factory));
+    }
   }
 
   bool use_gl =
@@ -503,6 +504,11 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
     if (gpu::GpuMemoryBufferImplSharedMemory::IsUsageSupported(buffer_usage) &&
         gpu::GpuMemoryBufferImplSharedMemory::IsSizeValidForFormat(
             size, buffer_format)) {
+      // Clear the external sampler prefs for shared memory case if it is set.
+      // https://issues.chromium.org/339546249.
+      if (format.PrefersExternalSampler()) {
+        format.ClearPrefersExternalSampler();
+      }
       auto* factory =
           GetFactoryByUsage(usage, format, size,
                             /*pixel_data=*/{}, gfx::SHARED_MEMORY_BUFFER);
@@ -839,10 +845,23 @@ void SharedImageFactory::RegisterSysmemBufferCollection(
 bool SharedImageFactory::CopyToGpuMemoryBuffer(const Mailbox& mailbox) {
   auto it = shared_images_.find(mailbox);
   if (it == shared_images_.end()) {
-    DLOG(ERROR) << "UpdateSharedImage: Could not find shared image mailbox";
+    DLOG(ERROR) << "CopyToGpuMemoryBuffer: Could not find shared image mailbox";
     return false;
   }
   return (*it)->CopyToGpuMemoryBuffer();
+}
+
+bool SharedImageFactory::CopyToGpuMemoryBufferAsync(
+    const Mailbox& mailbox,
+    base::OnceCallback<void(bool)> callback) {
+  auto it = shared_images_.find(mailbox);
+  if (it == shared_images_.end()) {
+    DLOG(ERROR)
+        << "CopyToGpuMemoryBufferAsync: Could not find shared image mailbox";
+    return false;
+  }
+  (*it)->CopyToGpuMemoryBufferAsync(std::move(callback));
+  return true;
 }
 #endif
 

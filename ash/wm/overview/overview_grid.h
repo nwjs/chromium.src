@@ -221,7 +221,7 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
 
   // Called when any OverviewItem on any OverviewGrid has started/ended being
   // dragged.
-  void OnOverviewItemDragStarted(OverviewItemBase* item);
+  void OnOverviewItemDragStarted();
   void OnOverviewItemDragEnded(bool snap);
 
   // Called when a window (either it's browser window or an app window)
@@ -245,7 +245,7 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
 
   // Called by |OverviewSession::OnDisplayMetricsChanged|, only for the display
   // with this grid.
-  void OnDisplayMetricsChanged();
+  void OnDisplayMetricsChanged(uint32_t changed_metrics);
 
   // Called by |OverviewSession::OnUserWorkAreaInsetsChanged|.
   void OnUserWorkAreaInsetsChanged(aura::Window* root_window);
@@ -578,8 +578,8 @@ class ASH_EXPORT OverviewGrid : public SplitViewObserver,
   // Maybe modify `out_window_rects` to center the overview items excluding the
   // the rect(s) corresponding to item(s) in `ignored_items`.
   void MaybeCenterOverviewItems(
-      std::vector<gfx::RectF>& out_window_rects,
-      const base::flat_set<OverviewItemBase*>& ignored_items);
+      const base::flat_set<OverviewItemBase*>& ignored_items,
+      std::vector<gfx::RectF>& out_window_rects);
 
   // Returns the index of `item` in `item_list_`.
   size_t GetOverviewItemIndex(OverviewItemBase* item) const;

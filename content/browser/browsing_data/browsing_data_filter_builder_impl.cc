@@ -92,7 +92,7 @@ bool MatchesURL(const std::set<url::Origin>& origins,
                 BrowsingDataFilterBuilder::OriginMatchingMode origin_mode,
                 bool partitioned_cookies_only,
                 const GURL& url) {
-  // TODO(https://crbug.com/1420402): Re-enable this check when it is actually
+  // TODO(crbug.com/40258758): Re-enable this check when it is actually
   // a valid precondition.
   // DCHECK(!partitioned_cookies_only);
   return MatchesStorageKey(
@@ -219,9 +219,13 @@ bool BrowsingDataFilterBuilderImpl::MatchesWithSavedStorageKey(
 }
 
 bool BrowsingDataFilterBuilderImpl::MatchesAllOriginsAndDomains() {
-  return mode_ == Mode::kPreserve && origins_.empty() && domains_.empty() &&
-         !partitioned_cookies_only_ &&
-         cookie_partition_key_collection_.ContainsAllKeys() && !HasStorageKey();
+  return MatchesMostOriginsAndDomains() && origins_.empty() &&
+         domains_.empty() && cookie_partition_key_collection_.ContainsAllKeys();
+}
+
+bool BrowsingDataFilterBuilderImpl::MatchesMostOriginsAndDomains() {
+  return mode_ == Mode::kPreserve && !partitioned_cookies_only_ &&
+         !HasStorageKey();
 }
 
 bool BrowsingDataFilterBuilderImpl::MatchesNothing() {

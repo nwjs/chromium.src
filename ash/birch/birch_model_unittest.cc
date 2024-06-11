@@ -11,7 +11,6 @@
 #include "ash/birch/birch_item_remover.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
-#include "ash/constants/ash_switches.h"
 #include "ash/constants/geolocation_access_level.h"
 #include "ash/public/cpp/ambient/ambient_backend_controller.h"
 #include "ash/public/cpp/ambient/fake_ambient_backend_controller_impl.h"
@@ -164,7 +163,6 @@ class BirchModelTest : public AshTestBase {
   }
 
   void SetUp() override {
-    switches::SetIgnoreForestSecretKeyForTest(true);
     AshTestBase::SetUp();
     // Inject no-op, stub weather provider to prevent real implementation from
     // returning empty weather info.
@@ -186,7 +184,6 @@ class BirchModelTest : public AshTestBase {
   void TearDown() override {
     Shell::Get()->birch_model()->SetClientAndInit(nullptr);
     AshTestBase::TearDown();
-    switches::SetIgnoreForestSecretKeyForTest(false);
   }
 
   void RecordProviderHiddenHistograms() {
@@ -207,7 +204,6 @@ class BirchModelWithoutWeatherTest : public AshTestBase {
                                    {features::kBirchWeather});
   }
   void SetUp() override {
-    switches::SetIgnoreForestSecretKeyForTest(true);
     AshTestBase::SetUp();
     Shell::Get()->birch_model()->SetClientAndInit(&stub_birch_client_);
     base::RunLoop run_loop;
@@ -221,7 +217,6 @@ class BirchModelWithoutWeatherTest : public AshTestBase {
   void TearDown() override {
     Shell::Get()->birch_model()->SetClientAndInit(nullptr);
     AshTestBase::TearDown();
-    switches::SetIgnoreForestSecretKeyForTest(false);
   }
 
  protected:
@@ -545,6 +540,64 @@ TEST_F(BirchModelTest, FetchWithOnePrefDisabledMarksDataFresh) {
 
   // Data is fresh.
   EXPECT_TRUE(model->IsDataFresh());
+}
+
+TEST_F(BirchModelTest, EnablePrefsDuringFetchCausesDataFetchRequest) {
+  BirchModel* model = Shell::Get()->birch_model();
+
+  // Disable all the prefs except weather, so that a data fetch request creates
+  // a pending request.
+  PrefService* prefs =
+      Shell::Get()->session_controller()->GetPrimaryUserPrefService();
+  ASSERT_TRUE(prefs);
+  prefs->SetBoolean(prefs::kBirchUseCalendar, false);
+  prefs->SetBoolean(prefs::kBirchUseFileSuggest, false);
+  prefs->SetBoolean(prefs::kBirchUseRecentTabs, false);
+  prefs->SetBoolean(prefs::kBirchUseReleaseNotes, false);
+
+  // Request a fetch, creating a pending fetch request.
+  model->RequestBirchDataFetch(/*is_post_login=*/false, base::DoNothing());
+
+  auto& client = stub_birch_client_;
+  EXPECT_FALSE(client.calendar_provider_.did_request_birch_data_fetch_);
+  EXPECT_FALSE(client.file_suggest_provider_.did_request_birch_data_fetch_);
+  EXPECT_FALSE(client.recent_tabs_provider_.did_request_birch_data_fetch_);
+  EXPECT_FALSE(client.release_notes_provider_.did_request_birch_data_fetch_);
+
+  // Enable prefs and then expect that data fetch requests are called for each
+  // enabled data type.
+  prefs->SetBoolean(prefs::kBirchUseCalendar, true);
+  prefs->SetBoolean(prefs::kBirchUseFileSuggest, true);
+  prefs->SetBoolean(prefs::kBirchUseRecentTabs, true);
+  prefs->SetBoolean(prefs::kBirchUseReleaseNotes, true);
+  EXPECT_TRUE(client.calendar_provider_.did_request_birch_data_fetch_);
+  EXPECT_TRUE(client.file_suggest_provider_.did_request_birch_data_fetch_);
+  EXPECT_TRUE(client.recent_tabs_provider_.did_request_birch_data_fetch_);
+  EXPECT_TRUE(client.release_notes_provider_.did_request_birch_data_fetch_);
+}
+
+TEST_F(BirchModelTest, EnableWeatherPrefDuringFetchCausesDataFetchRequest) {
+  BirchModel* model = Shell::Get()->birch_model();
+
+  // Install a stub weather provider.
+  auto weather_provider = std::make_unique<StubBirchDataProvider>();
+  auto* weather_provider_ptr = weather_provider.get();
+  model->OverrideWeatherProviderForTest(std::move(weather_provider));
+
+  // Disable the weather pref.
+  PrefService* prefs =
+      Shell::Get()->session_controller()->GetPrimaryUserPrefService();
+  ASSERT_TRUE(prefs);
+  prefs->SetBoolean(prefs::kBirchUseWeather, false);
+
+  // Request a fetch, creating a pending fetch request.
+  model->RequestBirchDataFetch(/*is_post_login=*/false, base::DoNothing());
+
+  EXPECT_FALSE(weather_provider_ptr->did_request_birch_data_fetch_);
+
+  // Enable the weather pref and expect a weather data fetch.
+  prefs->SetBoolean(prefs::kBirchUseWeather, true);
+  EXPECT_TRUE(weather_provider_ptr->did_request_birch_data_fetch_);
 }
 
 // Regression test for missing attachment type check in IsDataFresh().

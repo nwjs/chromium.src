@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -31,7 +32,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/simple_test_tick_clock.h"
@@ -673,10 +673,10 @@ uint64_t MockGetMSTime() {
 
 // Alternative functions that eliminate randomness and dependency on the local
 // host name so that the generated NTLM messages are reproducible.
-void MockGenerateRandom(uint8_t* output, size_t n) {
+void MockGenerateRandom(base::span<uint8_t> output) {
   // This is set to 0xaa because the client challenge for testing in
   // [MS-NLMP] Section 4.2.1 is 8 bytes of 0xaa.
-  memset(output, 0xaa, n);
+  std::ranges::fill(output, 0xaa);
 }
 
 std::string MockGetHostName() {
@@ -3700,7 +3700,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp10) {
       NetLogEventType::HTTP_TRANSACTION_READ_TUNNEL_RESPONSE_HEADERS,
       NetLogEventPhase::NONE);
 
-  // TODO(crbug.com/986744): Fix handling of OnConnected() when proxy
+  // TODO(crbug.com/40637204): Fix handling of OnConnected() when proxy
   // authentication is required. We should notify the callback that a connection
   // was established, even though the stream might not be ready for us to send
   // data through it.
@@ -3859,7 +3859,7 @@ TEST_P(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp11) {
   EXPECT_EQ(PacResultElementToProxyChain("PROXY myproxy:70"),
             response->proxy_chain);
 
-  // TODO(crbug.com/986744): Fix handling of OnConnected() when proxy
+  // TODO(crbug.com/40637204): Fix handling of OnConnected() when proxy
   // authentication is required. We should notify the callback that a connection
   // was established, even though the stream might not be ready for us to send
   // data through it.
@@ -6889,7 +6889,7 @@ TEST_P(HttpNetworkTransactionTest, HttpsNestedProxySpdyGet) {
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy2_connect_resp, 1),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -7045,7 +7045,7 @@ TEST_P(HttpNetworkTransactionTest, HttpsNestedProxySameProxyTwiceSpdyGet) {
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy_connect_resp, 1),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -7168,7 +7168,7 @@ TEST_P(HttpNetworkTransactionTest, NestedProxyHttpOverSpdyProtocolError) {
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy2_connect_resp, 1),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -7214,7 +7214,7 @@ TEST_P(HttpNetworkTransactionTest, NestedProxyHttpOverSpdyProtocolError) {
 }
 
 // Test that a proxy server requesting a client auth cert doesn't cause a crash.
-// TODO(https://crbug.com/1491092): This test can be deleted once we no longer
+// TODO(crbug.com/40284947): This test can be deleted once we no longer
 // need the multi-proxy chain version below, since this functionality should
 // be sufficiently tested elsewhere. For now this test just shows that
 // single-proxy and multi-proxy behavior is consistent (when a read returns
@@ -7280,7 +7280,7 @@ TEST_P(HttpNetworkTransactionTest, HttpsClientAuthCertNeededNoCrash) {
 
 // Test that the first proxy server in a multi-proxy chain requesting a client
 // auth cert doesn't cause a crash.
-// TODO(https://crbug.com/1491092): Support client auth certificates for
+// TODO(crbug.com/40284947): Support client auth certificates for
 // multi-proxy chains and then replace this test with a more robust one (for
 // instance, a version of the AuthEverywhere test that uses a multi-proxy
 // chain).
@@ -7355,7 +7355,7 @@ TEST_P(HttpNetworkTransactionTest,
 
 // Same as above but using a different method to request the client auth
 // certificate.
-// TODO(https://crbug.com/1491092): Support client auth certificates for
+// TODO(crbug.com/40284947): Support client auth certificates for
 // multi-proxy chains and then replace this test with a more robust one (for
 // instance, a version of the AuthEverywhere test that uses a multi-proxy
 // chain).
@@ -7416,7 +7416,7 @@ TEST_P(HttpNetworkTransactionTest,
 
 // Test that a read returning ERR_SSL_CLIENT_AUTH_CERT_NEEDED after the first
 // CONNECT doesn't result in a crash when a multi-proxy chain is in use.
-// TODO(https://crbug.com/1491092): Support client auth certificates for
+// TODO(crbug.com/40284947): Support client auth certificates for
 // multi-proxy chains and then replace this test with a more robust one (for
 // instance, a version of the AuthEverywhere test that uses a multi-proxy
 // chain).
@@ -7470,7 +7470,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy2_connect_resp, 1),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -7516,7 +7516,7 @@ TEST_P(HttpNetworkTransactionTest,
 
 // Test that the second proxy server in a multi-proxy chain requesting a client
 // auth cert doesn't cause a crash.
-// TODO(https://crbug.com/1491092): Support client auth certificates for
+// TODO(crbug.com/40284947): Support client auth certificates for
 // multi-proxy chains and then replace this test with a more robust one (for
 // instance, a version of the AuthEverywhere test that uses a multi-proxy
 // chain).
@@ -7602,7 +7602,7 @@ TEST_P(HttpNetworkTransactionTest,
 
 // Test that the endpoint requesting a client auth cert over a multi-proxy chain
 // tunnel doesn't cause a crash.
-// TODO(https://crbug.com/1491092): Support client auth certificates for
+// TODO(crbug.com/40284947): Support client auth certificates for
 // multi-proxy chains and then replace this test with a more robust one (for
 // instance, a version of the AuthEverywhere test that uses a multi-proxy
 // chain).
@@ -7665,7 +7665,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy2_connect_resp, 1, ASYNC),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -8072,7 +8072,7 @@ TEST_P(HttpNetworkTransactionTest, HttpsNestedProxySpdyConnectHttps) {
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy2_connect_resp, 1, ASYNC),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -8655,7 +8655,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy2_connect_resp, 1, ASYNC),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -9026,7 +9026,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   MockRead spdy_reads1[] = {
       CreateMockRead(proxy2_connect_resp, 1, ASYNC),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -9310,7 +9310,7 @@ TEST_P(HttpNetworkTransactionTest,
 
   MockRead spdy_reads1[] = {
       CreateMockRead(proxy2_connect_resp, 1, ASYNC),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -9318,7 +9318,7 @@ TEST_P(HttpNetworkTransactionTest,
       CreateMockRead(wrapped_endpoint_connect_resp, 4, ASYNC),
       CreateMockRead(wrapped_wrapped_get_resp, 6, ASYNC),
       CreateMockRead(wrapped_wrapped_body, 7, ASYNC),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -9499,7 +9499,7 @@ TEST_P(HttpNetworkTransactionTest, HttpsNestedProxySpdySocketReuseAfterError) {
 
   MockRead spdy_reads[] = {
       CreateMockRead(proxy2_connect_resp, 1, ASYNC),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -14098,7 +14098,6 @@ TEST_P(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaHttpsProxy) {
 // Test that an HTTPS Proxy cannot redirect a CONNECT request for subresources.
 TEST_P(HttpNetworkTransactionTest,
        RedirectOfHttpsConnectSubresourceViaHttpsProxy) {
-  base::HistogramTester histograms;
   session_deps_.proxy_resolution_service =
       ConfiguredProxyResolutionService::CreateFixedFromPacResultForTest(
           "HTTPS proxy:70", TRAFFIC_ANNOTATION_FOR_TESTS);
@@ -14145,7 +14144,6 @@ TEST_P(HttpNetworkTransactionTest,
 // request for main frames.
 TEST_P(HttpNetworkTransactionTest,
        RedirectOfHttpsConnectViaAutoDetectedHttpsProxy) {
-  base::HistogramTester histograms;
   session_deps_.proxy_resolution_service = ConfiguredProxyResolutionService::
       CreateFixedFromAutoDetectedPacResultForTest("HTTPS proxy:70",
                                                   TRAFFIC_ANNOTATION_FOR_TESTS);
@@ -14192,7 +14190,6 @@ TEST_P(HttpNetworkTransactionTest,
 // Tests that an HTTPS (SPDY) Proxy's cannot redirect a CONNECT request for main
 // frames.
 TEST_P(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaSpdyProxy) {
-  base::HistogramTester histograms;
   session_deps_.proxy_resolution_service =
       ConfiguredProxyResolutionService::CreateFixedForTest(
           "https://proxy:70", TRAFFIC_ANNOTATION_FOR_TESTS);
@@ -20131,7 +20128,7 @@ TEST_P(HttpNetworkTransactionTest, NoIPConnectionPoolingForProxyAndHostSpdy) {
 
   MockRead spdy_reads[] = {
       CreateMockRead(conn_resp1, 1),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -20414,7 +20411,7 @@ TEST_P(HttpNetworkTransactionTest, NoIPConnectionPoolingForTwoProxiesSpdy) {
 
   MockRead spdy_reads[] = {
       CreateMockRead(conn_resp1, 1),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -20495,7 +20492,7 @@ TEST_P(HttpNetworkTransactionTest, NoIPConnectionPoolingForTwoProxiesSpdy) {
 
   MockRead spdy_reads2[] = {
       CreateMockRead(conn_resp2, 1),
-      // TODO(https://crbug.com/497228): We have to manually delay this read so
+      // TODO(crbug.com/41180906): We have to manually delay this read so
       // that the higher-level SPDY stream doesn't get notified of an available
       // read before the write it initiated (the second CONNECT) finishes,
       // triggering a DCHECK.
@@ -25195,7 +25192,7 @@ TEST_P(HttpNetworkTransactionTest, ZeroRTTReject) {
 
       // The retry succeeds.
       //
-      // TODO(https://crbug.com/950705): If |reject_error| is
+      // TODO(crbug.com/41451775): If |reject_error| is
       // ERR_EARLY_DATA_REJECTED, the retry should happen over the same socket.
       MockWrite data2_writes[] = {
           request.method == "POST"
@@ -27413,14 +27410,14 @@ TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_Empty) {
   HttpResponseInfo response_info;
   HttpNetworkTransaction::SetProxyInfoInResponse(empty_proxy_info,
                                                  &response_info);
-  EXPECT_EQ(response_info.was_fetched_via_proxy, true);
+  EXPECT_EQ(response_info.was_fetched_via_proxy, false);
   EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), false);
   EXPECT_FALSE(response_info.proxy_chain.IsValid());
 }
 
 // Test behavior of SetProxyInfoInResponse with a proxied connection for IP
 // protection.
-TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_IpProtection) {
+TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_IpProtectionProxied) {
   ProxyInfo proxy_info;
   ProxyChain ip_protection_proxy_chain =
       ProxyChain::ForIpProtection({ProxyServer::FromSchemeHostAndPort(
@@ -27431,6 +27428,19 @@ TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_IpProtection) {
   EXPECT_EQ(response_info.was_fetched_via_proxy, true);
   EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), true);
   EXPECT_EQ(response_info.proxy_chain, ip_protection_proxy_chain);
+}
+
+// Test behavior of SetProxyInfoInResponse with a direct connection for IP
+// protection.
+TEST_P(HttpNetworkTransactionTest, SetProxyInfoInResponse_IpProtectionDirect) {
+  ProxyInfo proxy_info;
+  const ProxyChain kIpProtectionDirectChain = ProxyChain::ForIpProtection({});
+  proxy_info.UseProxyChain(kIpProtectionDirectChain);
+  HttpResponseInfo response_info;
+  HttpNetworkTransaction::SetProxyInfoInResponse(proxy_info, &response_info);
+  EXPECT_EQ(response_info.was_fetched_via_proxy, false);
+  EXPECT_EQ(response_info.proxy_chain.is_for_ip_protection(), true);
+  EXPECT_EQ(response_info.proxy_chain, kIpProtectionDirectChain);
 }
 
 class IpProtectionProxyDelegate : public TestProxyDelegate {
@@ -27577,7 +27587,7 @@ TEST_P(HttpNetworkTransactionTest,
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
-  auto kIpProtectionDirectChain =
+  const auto kIpProtectionDirectChain =
       ProxyChain::ForIpProtection(std::vector<ProxyServer>());
 
   session_deps_.proxy_resolution_service =

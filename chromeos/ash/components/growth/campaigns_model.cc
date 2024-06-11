@@ -51,6 +51,7 @@ inline constexpr char kMinMilestone[] = "milestone.min";
 inline constexpr char kMaxMilestone[] = "milestone.max";
 inline constexpr char kFeatureAware[] = "isFeatureAwareDevice";
 inline constexpr char kRegisteredTime[] = "registeredTime";
+inline constexpr char kDeviceAgeInHours[] = "deviceAgeInHours";
 
 // Session Targeting paths.
 inline constexpr char kSessionTargeting[] = "session";
@@ -60,6 +61,7 @@ inline constexpr char kExperimentTargetings[] = "experimentTags";
 
 // User Targeting paths.
 inline constexpr char kMinorUser[] = "isMinorUser";
+inline constexpr char kOwner[] = "isOwner";
 
 // Events Targeting paths.
 inline constexpr char kEventsTargetings[] = "events";
@@ -72,10 +74,17 @@ inline constexpr int kDismissalCapDefaultValue = 1;
 // Runtime Targeting paths.
 inline constexpr char kRuntimeTargeting[] = "runtime";
 
+// Trigger Targeting paths.
+inline constexpr char kTriggerTargetings[] = "triggers";
+
 // Scheduling Targeting paths.
 inline constexpr char kSchedulingTargetings[] = "schedulings";
-inline constexpr char kSchedulingStart[] = "start";
-inline constexpr char kSchedulingEnd[] = "end";
+inline constexpr char kTimeWindowStart[] = "start";
+inline constexpr char kTimeWindowEnd[] = "end";
+
+// Number Range Targeting paths.
+inline constexpr char kNumberRangeStart[] = "start";
+inline constexpr char kNumberRangeEnd[] = "end";
 
 // Opened App Targeting paths.
 inline constexpr char kAppsOpenedTargetings[] = "appsOpened";
@@ -105,6 +114,24 @@ inline constexpr int kIconSize = 60;
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 inline constexpr gfx::Size kBubbleIconSizeDip = gfx::Size(kIconSize, kIconSize);
+
+std::optional<int> GetBuiltInImageResourceId(
+    const std::optional<BuiltInIcon>& icon) {
+  if (!icon) {
+    return std::nullopt;
+  }
+
+  if (icon == BuiltInIcon::kContainerApp) {
+    return IDR_GROWTH_FRAMEWORK_CONTAINER_APP_PNG;
+  }
+
+  if (icon == BuiltInIcon::kG1) {
+    return IDR_GROWTH_FRAMEWORK_G1_PNG;
+  }
+
+  return std::nullopt;
+}
+
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 std::optional<BuiltInIcon> GetBuiltInIconType(
@@ -118,6 +145,15 @@ std::optional<BuiltInIcon> GetBuiltInIconType(
 }
 
 }  // namespace
+
+Campaigns* GetMutableCampaignsBySlot(CampaignsPerSlot* campaigns_per_slot,
+                                     Slot slot) {
+  if (!campaigns_per_slot) {
+    return nullptr;
+  }
+  return campaigns_per_slot->FindList(
+      base::NumberToString(static_cast<int>(slot)));
+}
 
 const Campaigns* GetCampaignsBySlot(const CampaignsPerSlot* campaigns_per_slot,
                                     Slot slot) {
@@ -268,6 +304,16 @@ std::unique_ptr<TimeWindowTargeting> DeviceTargeting::GetRegisteredTime()
   return std::make_unique<TimeWindowTargeting>(registered_time_dict);
 }
 
+const std::unique_ptr<NumberRangeTargeting> DeviceTargeting::GetDeviceAge()
+    const {
+  auto* number_rage_dict = GetDictCriteria(kDeviceAgeInHours);
+  if (!number_rage_dict) {
+    return nullptr;
+  }
+
+  return std::make_unique<NumberRangeTargeting>(number_rage_dict);
+}
+
 // Apps Targeting.
 AppTargeting::AppTargeting(const base::Value::Dict* app_dict)
     : app_dict_(app_dict) {}
@@ -298,7 +344,7 @@ const base::Value::List* EventsTargeting::GetEventsConditions() const {
   return config_dict_->FindList(kEventsConditions);
 }
 
-// Scheduling Targeting.
+// Time window Targeting.
 TimeWindowTargeting::TimeWindowTargeting(
     const base::Value::Dict* time_window_dict)
     : time_window_dict_(time_window_dict) {}
@@ -306,7 +352,7 @@ TimeWindowTargeting::TimeWindowTargeting(
 TimeWindowTargeting::~TimeWindowTargeting() = default;
 
 const base::Time TimeWindowTargeting::GetStartTime() const {
-  auto start = time_window_dict_->FindDouble(kSchedulingStart);
+  auto start = time_window_dict_->FindDouble(kTimeWindowStart);
   if (start.has_value()) {
     return base::Time::FromSecondsSinceUnixEpoch(start.value());
   }
@@ -315,12 +361,27 @@ const base::Time TimeWindowTargeting::GetStartTime() const {
 }
 
 const base::Time TimeWindowTargeting::GetEndTime() const {
-  auto end = time_window_dict_->FindDouble(kSchedulingEnd);
+  auto end = time_window_dict_->FindDouble(kTimeWindowEnd);
   if (end.has_value()) {
     return base::Time::FromSecondsSinceUnixEpoch(end.value());
   }
 
   return base::Time::Max();
+}
+
+// Number Range Targeting.
+NumberRangeTargeting::NumberRangeTargeting(
+    const base::Value::Dict* number_range_dict)
+    : number_range_dict_(number_range_dict) {}
+
+NumberRangeTargeting::~NumberRangeTargeting() = default;
+
+const std::optional<int> NumberRangeTargeting::GetStart() const {
+  return number_range_dict_->FindInt(kNumberRangeStart);
+}
+
+const std::optional<int> NumberRangeTargeting::GetEnd() const {
+  return number_range_dict_->FindInt(kNumberRangeEnd);
 }
 
 // Session Targeting.
@@ -335,6 +396,10 @@ const base::Value::List* SessionTargeting::GetExperimentTags() const {
 
 std::optional<bool> SessionTargeting::GetMinorUser() const {
   return GetBoolCriteria(kMinorUser);
+}
+
+std::optional<bool> SessionTargeting::GetIsOwner() const {
+  return GetBoolCriteria(kOwner);
 }
 
 // Runtime Targeting.
@@ -361,6 +426,27 @@ RuntimeTargeting::GetSchedulings() const {
         std::make_unique<TimeWindowTargeting>(&scheduling_dict.GetDict()));
   }
   return schedulings;
+}
+
+const std::vector<TriggeringType> RuntimeTargeting::GetTriggers() const {
+  std::vector<TriggeringType> triggers;
+  auto* triggers_list = GetListCriteria(kTriggerTargetings);
+  if (!triggers_list) {
+    return triggers;
+  }
+
+  for (auto& trigger : *triggers_list) {
+    if (!trigger.is_int()) {
+      // Ignore invalid trigger.
+      RecordCampaignsManagerError(CampaignsManagerError::kInvalidTrigger);
+      continue;
+    }
+
+    // TODO: b/330931877 - Add bounds check for casting to enum from value in
+    // campaign payload.
+    triggers.push_back(static_cast<TriggeringType>(trigger.GetInt()));
+  }
+  return triggers;
 }
 
 const std::vector<std::unique_ptr<AppTargeting>>
@@ -497,10 +583,11 @@ const std::optional<ui::ImageModel> Image::GetBuiltInIcon() const {
 
   const auto icon = GetBuiltInIconType(image_dict_);
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  if (icon == BuiltInIcon::kContainerApp) {
+  const auto resource_id = GetBuiltInImageResourceId(icon);
+  if (resource_id) {
     gfx::ImageSkia* image =
         ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-            IDR_GROWTH_FRAMEWORK_CONTAINER_APP_PNG);
+            resource_id.value());
     gfx::ImageSkia resized_image = gfx::ImageSkiaOperations::CreateResizedImage(
         *image, skia::ImageOperations::RESIZE_BEST, kBubbleIconSizeDip);
     resized_image.EnsureRepsForSupportedScales();

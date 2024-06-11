@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_SERVICES_APP_SERVICE_PUBLIC_CPP_APP_TYPES_H_
 #define COMPONENTS_SERVICES_APP_SERVICE_PUBLIC_CPP_APP_TYPES_H_
 
+#include <optional>
+
 #include "base/component_export.h"
 #include "components/services/app_service/public/cpp/macros.h"
 #include "components/services/app_service/public/protos/app_types.pb.h"
@@ -62,7 +64,9 @@ ENUM(Readiness,
      // removing it.
      kRemoved,
      // This is used for all non-user initiated uninstallation.
-     kUninstalledByNonUser)
+     kUninstalledByNonUser,
+     kDisabledByLocalSettings  // Disabled by local settings.
+)
 
 // How the app was installed.
 // This should be kept in sync with histograms.xml, InstallReason in

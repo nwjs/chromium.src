@@ -37,7 +37,7 @@
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_utils.h"
 #include "components/no_state_prefetch/common/no_state_prefetch_final_status.h"
-#include "components/no_state_prefetch/common/prerender_origin.h"
+#include "components/no_state_prefetch/common/no_state_prefetch_origin.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/page_load_metrics/browser/observers/core/largest_contentful_paint_handler.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
@@ -548,7 +548,7 @@ void UkmPageLoadMetricsObserver::RecordNavigationTimingMetrics() {
       timing.navigation_commit_sent_time.is_null()) {
     return;
   }
-  // TODO(https://crbug.com/1076710): Change these early-returns to DCHECKs
+  // TODO(crbug.com/40688345): Change these early-returns to DCHECKs
   // after the issue 1076710 is fixed.
   if (navigation_start_time > timing.first_request_start_time ||
       timing.first_request_start_time > timing.first_response_start_time ||
@@ -1294,7 +1294,7 @@ void UkmPageLoadMetricsObserver::ReportLayoutStability() {
   }
   builder.Record(ukm::UkmRecorder::Get());
 
-  // TODO(crbug.com/1064483): We should move UMA recording to components/
+  // TODO(crbug.com/40681312): We should move UMA recording to components/
 
   const float layout_shift_score =
       GetDelegate().GetPageRenderData().layout_shift_score;

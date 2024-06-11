@@ -6,9 +6,11 @@
 
 #include <ctime>
 #include <memory>
+#include <string_view>
 
 #include "base/containers/fixed_flat_set.h"
 #include "base/functional/bind.h"
+#include "base/json/values_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/gtest_util.h"
@@ -74,6 +76,7 @@ constexpr ContentSettingsType kUnusedRegularPermission =
     ContentSettingsType::GEOLOCATION;
 constexpr ContentSettingsType kUnusedChooserPermission =
     ContentSettingsType::FILE_SYSTEM_ACCESS_CHOOSER_DATA;
+const base::TimeDelta kLifetime = base::Days(30);
 
 class SafetyHubHandlerTest : public testing::Test {
  public:
@@ -155,10 +158,13 @@ class SafetyHubHandlerTest : public testing::Test {
                          static_cast<int32_t>(kUnusedChooserPermission)),
                      base::Value::Dict().Set("foo", "bar")));
 
+    content_settings::ContentSettingConstraints constraint(clock()->Now());
+    constraint.set_lifetime(kLifetime);
+
     hcsm()->SetWebsiteSettingDefaultScope(
         GURL(kUnusedTestSite), GURL(kUnusedTestSite),
         ContentSettingsType::REVOKED_UNUSED_SITE_PERMISSIONS,
-        base::Value(dict.Clone()));
+        base::Value(dict.Clone()), constraint);
   }
 
   void CreateLeakedCredential() {
@@ -271,23 +277,31 @@ class SafetyHubHandlerTest : public testing::Test {
               *data.arg3()->GetDict().FindInt("state"));
   }
 
-  void ValidateHandleGetSafetyHubHasRecommendations(bool hasRecommendations) {
+  void ValidateEntryPointHasRecommendationsAndHeader(bool hasRecommendations) {
     base::Value::List args;
-    args.Append("getSafetyHubHasRecommendations");
+    args.Append("getSafetyHubEntryPointData");
 
-    handler()->HandleGetSafetyHubHasRecommendations(args);
+    handler()->HandleGetSafetyHubEntryPointData(args);
 
     const content::TestWebUI::CallData& data = *web_ui()->call_data().back();
 
     EXPECT_EQ("cr.webUIResponse", data.function_name());
     ASSERT_TRUE(data.arg1()->is_string());
-    EXPECT_EQ("getSafetyHubHasRecommendations", data.arg1()->GetString());
+    EXPECT_EQ("getSafetyHubEntryPointData", data.arg1()->GetString());
     // arg2 is a boolean that is true if the callback is successful.
     ASSERT_TRUE(data.arg2()->is_bool());
     ASSERT_TRUE(data.arg2());
 
-    ASSERT_TRUE(data.arg3()->is_bool());
-    EXPECT_EQ(hasRecommendations, data.arg3()->GetBool());
+    // Validate the hasRecommendations value.
+    ASSERT_TRUE(data.arg3()->is_dict());
+    EXPECT_EQ(hasRecommendations,
+              data.arg3()->GetDict().FindBool("hasRecommendations"));
+    // Validate the header value.
+    std::string header = hasRecommendations
+                             ? l10n_util::GetStringUTF8(
+                                   IDS_SETTINGS_SAFETY_HUB_ENTRY_POINT_HEADER)
+                             : "";
+    EXPECT_EQ(header, *data.arg3()->GetDict().FindString("header"));
   }
 
   // For a given Safety Hub module, configure the test environment so that tests
@@ -357,21 +371,21 @@ class SafetyHubHandlerTest : public testing::Test {
 
     // Send a message to handler to get the current state of the subheader.
     base::Value::List args;
-    args.Append("getSafetyHubEntryPointSubheader");
-    handler()->HandleGetSafetyHubEntryPointSubheader(args);
+    args.Append("getSafetyHubEntryPointData");
+    handler()->HandleGetSafetyHubEntryPointData(args);
     const content::TestWebUI::CallData& data = *web_ui()->call_data().back();
 
     // Check that response from the handler follows the right format.
     EXPECT_EQ("cr.webUIResponse", data.function_name());
     ASSERT_TRUE(data.arg1()->is_string());
-    EXPECT_EQ("getSafetyHubEntryPointSubheader", data.arg1()->GetString());
+    EXPECT_EQ("getSafetyHubEntryPointData", data.arg1()->GetString());
     // arg2 is a boolean that is true if the callback is successful.
     ASSERT_TRUE(data.arg2()->is_bool());
     ASSERT_TRUE(data.arg2());
 
     // Validate that the subheader we get is equal to the one we expect.
-    ASSERT_TRUE(data.arg3()->is_string());
-    EXPECT_EQ(subheader, data.arg3()->GetString());
+    ASSERT_TRUE(data.arg3()->is_dict());
+    EXPECT_EQ(subheader, *data.arg3()->GetDict().FindString("subheader"));
 
     // If in the beginning of the method the test environment is set for a
     // module to have a recommendation, reset that back.
@@ -388,10 +402,11 @@ class SafetyHubHandlerTest : public testing::Test {
     return origins;
   }
 
-  // TODO(crbug.com/1443466): Consider moving common test util functions between
-  // this file and password_status_check_service_unittest.cc to a util class.
-  password_manager::PasswordForm MakeForm(base::StringPiece16 username,
-                                          base::StringPiece16 password,
+  // TODO(crbug.com/40267370): Consider moving common test util functions
+  // between this file and password_status_check_service_unittest.cc to a util
+  // class.
+  password_manager::PasswordForm MakeForm(std::u16string_view username,
+                                          std::u16string_view password,
                                           std::string origin = kUsedTestSite,
                                           bool is_leaked = false) {
     password_manager::PasswordForm form;
@@ -453,9 +468,23 @@ TEST_F(SafetyHubHandlerTest, PopulateUnusedSitePermissionsData) {
   const auto& revoked_permissions =
       handler()->PopulateUnusedSitePermissionsData();
   EXPECT_EQ(revoked_permissions.size(), 1UL);
+  const auto& revoked_permission_dict = revoked_permissions[0].GetDict();
+
   EXPECT_EQ(GURL(kUnusedTestSite),
-            GURL(*revoked_permissions[0].GetDict().FindString(
-                site_settings::kOrigin)));
+            GURL(*revoked_permission_dict.FindString(site_settings::kOrigin)));
+
+  const auto expiration = base::ValueToTime(
+      *revoked_permission_dict.Find(safety_hub::kExpirationKey));
+  EXPECT_EQ(expiration, clock()->Now() + kLifetime);
+
+  const auto lifetime = base::ValueToTimeDelta(
+      *revoked_permission_dict.Find(safety_hub::kLifetimeKey));
+  EXPECT_EQ(lifetime, kLifetime);
+
+  const auto* chooser_permissions_data = revoked_permission_dict.FindDict(
+      safety_hub::kSafetyHubChooserPermissionsData);
+  EXPECT_TRUE(chooser_permissions_data->contains(
+      base::NumberToString(static_cast<int32_t>(kUnusedChooserPermission))));
 }
 
 TEST_F(SafetyHubHandlerTest, HandleAllowPermissionsAgainForUnusedSite) {
@@ -715,7 +744,7 @@ TEST_F(SafetyHubHandlerTest, HandleGetSafeBrowsingCardData_DisabledByUser) {
 
 // Test that revocation is happen correctly for all content setting types.
 TEST_F(SafetyHubHandlerTest, RevokeAllContentSettingTypes) {
-  // TODO(crbug.com/1459305): Remove this after adding names for those
+  // TODO(crbug.com/40066645): Remove this after adding names for those
   // types.
   static constexpr auto kNoNameTypes =
       base::MakeFixedFlatSet<ContentSettingsType>({
@@ -812,7 +841,8 @@ TEST_F(SafetyHubHandlerTest, VersionCardOutOfDate) {
             *data.arg3()->GetDict().FindInt("state"));
 }
 
-TEST_F(SafetyHubHandlerTest, HandleGetSafetyHubHasRecommendations) {
+TEST_F(SafetyHubHandlerTest,
+       HandleGetSafetyHubEntryPointData_HasRecommendationsAndHeader) {
   std::vector<SafetyHubHandler::SafetyHubModule> modules;
   modules.push_back(SafetyHubHandler::SafetyHubModule::kPasswords);
   modules.push_back(SafetyHubHandler::SafetyHubModule::kVersion);
@@ -844,12 +874,12 @@ TEST_F(SafetyHubHandlerTest, HandleGetSafetyHubHasRecommendations) {
       }
     }
 
-    ValidateHandleGetSafetyHubHasRecommendations(!recommendedModules.empty());
+    ValidateEntryPointHasRecommendationsAndHeader(!recommendedModules.empty());
   }
 }
 
 TEST_F(SafetyHubHandlerTest,
-       HandleGetSafetyHubEntryPointSubheader_NothingToDo) {
+       HandleGetSafetyHubEntryPointData_Subheader_NothingToDo) {
   // Reset unused site permissions data that is set in the test suite setup.
   SetupTestToShowOrHideRecommendationForModule(
       SafetyHubHandler::SafetyHubModule::kUnusedSitePermissions, false);
@@ -857,7 +887,8 @@ TEST_F(SafetyHubHandlerTest,
       IDS_SETTINGS_SAFETY_HUB_ENTRY_POINT_NOTHING_TO_DO));
 }
 
-TEST_F(SafetyHubHandlerTest, HandleGetSafetyHubEntryPointSubheader_OneModule) {
+TEST_F(SafetyHubHandlerTest,
+       HandleGetSafetyHubEntryPointData_Subheader_OneModule) {
   SetupTestToShowOrHideRecommendationForModule(
       SafetyHubHandler::SafetyHubModule::kUnusedSitePermissions, false);
 
@@ -892,7 +923,7 @@ TEST_F(SafetyHubHandlerTest, HandleGetSafetyHubEntryPointSubheader_OneModule) {
 }
 
 TEST_F(SafetyHubHandlerTest,
-       HandleGetSafetyHubEntryPointSubheader_TwoModulesWithPassword) {
+       HandleGetSafetyHubEntryPointData_Subheader_TwoModulesWithPassword) {
   SetupTestToShowOrHideRecommendationForModule(
       SafetyHubHandler::SafetyHubModule::kUnusedSitePermissions, false);
   // Passwords module will always be in a subheader string.
@@ -952,7 +983,8 @@ TEST_F(SafetyHubHandlerTest,
       SafetyHubHandler::SafetyHubModule::kUnusedSitePermissions);
 }
 
-TEST_F(SafetyHubHandlerTest, HandleGetSafetyHubEntryPointSubheader_AllModules) {
+TEST_F(SafetyHubHandlerTest,
+       HandleGetSafetyHubEntryPointData_Subheader_AllModules) {
   SetupTestToShowOrHideRecommendationForModule(
       SafetyHubHandler::SafetyHubModule::kPasswords, true);
   SetupTestToShowOrHideRecommendationForModule(

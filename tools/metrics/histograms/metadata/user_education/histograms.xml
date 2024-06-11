@@ -27,6 +27,8 @@ chromium-metrics-reviews@google.com.
       summary="For Compose feature; shown in web context menu."/>
   <variant name="ComposeNudge"
       summary="For Compose feature; shown on autofill popup."/>
+  <variant name="LensOverlay"
+      summary="Lens Overlay entry points in app and web context menus."/>
   <variant name="NewBadgeTestFeature"
       summary="Used for testing purposes only."/>
 </variants>
@@ -42,6 +44,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".SidePanelReadingList"
       summary="the tutorial for the side panel reading list"/>
   <variant name=".TabGroup" summary="the tutorial for tab groups"/>
+  <variant name=".Test" summary="the tutorial used for testing only"/>
 </variants>
 
 <histogram name="Tutorial.TabGroup.EditedTitle" enum="BooleanSuccess"
@@ -113,8 +116,20 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="UserEducation.MessageShown.Subtype" enum="PromoSubtype"
+<histogram name="UserEducation.MessageShown.RotatingPromoIndex" units="Index"
     expires_after="2024-09-01">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    Record the index of a rotating promo when it is shown to the user. This can
+    be used to determine how deep in the rotation of rotating promos users are
+    going, and also what proportion of users have seen a particular promo from a
+    rotating promo set.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.MessageShown.Subtype" enum="PromoSubtype"
+    expires_after="2024-11-03">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -126,7 +141,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.MessageShown.Type" enum="PromoType"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>mickeyburks@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -208,6 +223,76 @@ chromium-metrics-reviews@google.com.
     The timer starts when a session ends. The timer is stopped and recorded when
     a new session is started. Resolution is in minutes and the maximum time
     recorded in this metric is 24 hours.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.Session.LongTermCount" units="count"
+    expires_after="2024-09-21">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    When a new User Education session starts, records the number of recent
+    sessions in the &quot;long-term&quot; window, which is 28 days. This helps
+    us understand how frequently new sessions are triggered.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.Session.MonthlyActiveDays" units="count"
+    expires_after="2024-09-21">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    When a new User Education session starts, records the number of days with at
+    least one session in the past month. This helps us understand how frequently
+    our product is being used in alignment with standard Google user
+    segmentation metrics.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.Session.RecentActiveDays" units="count"
+    expires_after="2024-09-21">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    When a new User Education session starts, records the number of days with at
+    least one session in the past week. This helps us understand how frequently
+    our product is being used in alignment with standard Google user
+    segmentation metrics.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.Session.RecentActiveWeeks" units="count"
+    expires_after="2024-09-21">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    When a new User Education session starts, records the number of weeks with
+    at least one session in the past month. This helps us understand how
+    frequently our product is being used in alignment with standard Google user
+    segmentation metrics.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.Session.RecentSuperActiveWeeks" units="count"
+    expires_after="2024-09-21">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    When a new User Education session starts, records the number of weeks with
+    at least four active days in the past month. This helps us understand how
+    frequently our product is being used in alignment with standard Google user
+    segmentation metrics.
+  </summary>
+</histogram>
+
+<histogram name="UserEducation.Session.ShortTermCount" units="count"
+    expires_after="2024-09-21">
+  <owner>dfried@chromium.org</owner>
+  <owner>frizzle-team@google.com</owner>
+  <summary>
+    When a new User Education session starts, records the number of recent
+    sessions in the &quot;short-term&quot; window, which is 7 days. This helps
+    us understand how frequently new sessions are triggered.
   </summary>
 </histogram>
 

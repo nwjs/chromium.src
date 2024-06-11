@@ -7,32 +7,16 @@
 #include "chromeos/ash/services/ime/ime_shared_library_wrapper.h"
 #include "chromeos/ash/services/ime/public/cpp/shared_lib/interfaces.h"
 #include "chromeos/ash/services/ime/public/cpp/shared_lib/proto/fetch_japanese_legacy_config.pb.h"
+#include "chromeos/ash/services/ime/public/cpp/shared_lib/proto/japanese_dictionary.pb.h"
 #include "chromeos/ash/services/ime/public/cpp/shared_lib/proto/user_data_service.pb.h"
 #include "chromeos/ash/services/ime/public/mojom/input_method_user_data.mojom.h"
-#include "chromeos/ash/services/ime/public/mojom/user_data/japanese_legacy_config.mojom.h"
+#include "chromeos/ash/services/ime/public/mojom/user_data_japanese_legacy_config.mojom.h"
+#include "chromeos/ash/services/ime/user_data/japanese_dictionary.h"
+#include "chromeos/ash/services/ime/user_data/japanese_legacy_config.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 
 namespace ash {
 namespace ime {
-namespace {
-mojom::JapaneseLegacyConfigPtr MakeMojomJapaneseLegacyConfig(
-    chromeos_input::FetchJapaneseLegacyConfigResponse proto_response) {
-  mojom::JapaneseLegacyConfigPtr response = mojom::JapaneseLegacyConfig::New();
-
-  if (proto_response.has_preedit_method()) {
-    if (proto_response.preedit_method() == chromeos_input::PREEDIT_ROMANJI) {
-      response->preedit_method =
-          mojom::JapaneseLegacyConfig::PreeditMethod::kRomaji;
-    }
-    if (proto_response.preedit_method() == chromeos_input::PREEDIT_KANA) {
-      response->preedit_method =
-          mojom::JapaneseLegacyConfig::PreeditMethod::kKana;
-    }
-  }
-  return response;
-}
-
-}  // namespace
 
 InputMethodUserDataServiceImpl::~InputMethodUserDataServiceImpl() = default;
 
@@ -70,6 +54,27 @@ void InputMethodUserDataServiceImpl::FetchJapaneseLegacyConfig(
             user_data_response.status().reason());
     std::move(callback).Run(std::move(response));
   }
+}
+
+void InputMethodUserDataServiceImpl::FetchJapaneseDictionary(
+    FetchJapaneseDictionaryCallback callback) {
+  chromeos_input::UserDataRequest request;
+  chromeos_input::FetchJapaneseDictionaryRequest fetch_request;
+  *request.mutable_fetch_japanese_dictionary() = fetch_request;
+
+  chromeos_input::UserDataResponse user_data_response =
+      ProcessUserDataRequest(request);
+
+  mojom::JapaneseDictionaryResponsePtr response =
+      mojom::JapaneseDictionaryResponse::NewDictionaries({});
+  std::vector<mojom::JapaneseDictionaryPtr> dictionaries;
+  for (const auto& dict :
+       user_data_response.fetch_japanese_dictionary().dictionaries()) {
+    mojom::JapaneseDictionaryPtr data = MakeMojomJapaneseDictionary(dict);
+    response->get_dictionaries().push_back(std::move(data));
+  }
+
+  std::move(callback).Run(std::move(response));
 }
 
 void InputMethodUserDataServiceImpl::AddReceiver(

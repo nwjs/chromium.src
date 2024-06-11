@@ -418,7 +418,7 @@ void PreloadingDecider::UpdateSpeculationCandidates(
 
     processed_candidates_[key].push_back(candidate.Clone());
 
-    // TODO(crbug.com/1341019): Pass the action requested by speculation rules
+    // TODO(crbug.com/40230530): Pass the action requested by speculation rules
     // to PreloadingPrediction.
     // A new web contents will be created for the case of prerendering into a
     // new tab, so recording PreloadingPrediction is delayed until
@@ -656,7 +656,7 @@ void PreloadingDecider::OnPreloadDiscarded(SpeculationCandidateKey key) {
     if (candidate->eagerness != blink::mojom::SpeculationEagerness::kEager) {
       AddStandbyCandidate(candidate);
     }
-    // TODO(crbug.com/1445086): Add support for the case where |candidate|'s
+    // TODO(crbug.com/40064525): Add support for the case where |candidate|'s
     // eagerness is kEager. In a scenario where the prefetch evicted is a
     // non-eager prefetch, we could theoretically reprefetch using the eager
     // candidate (and have it use the eager prefetch quota). In that scenario,
@@ -667,7 +667,7 @@ void PreloadingDecider::OnPreloadDiscarded(SpeculationCandidateKey key) {
     // possible-rentrancy into PrefetchService::Prefetch(), it could cause us to
     // exceed the limit.
 
-    // TODO(crbug.com/1464021): Add implementation for the kEager case for
+    // TODO(crbug.com/40275452): Add implementation for the kEager case for
     // prerender.
   }
 }

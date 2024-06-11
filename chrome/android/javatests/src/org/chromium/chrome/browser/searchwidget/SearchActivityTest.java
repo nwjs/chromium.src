@@ -43,7 +43,6 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.CriteriaNotSatisfiedException;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.JniMocker;
@@ -257,7 +256,7 @@ public class SearchActivityTest {
         TestThreadUtils.runOnUiThreadBlocking(
                 () ->
                         mOnSuggestionsReceivedListener.onSuggestionsReceived(
-                                buildDummyAutocompleteResult(), "inline text", true));
+                                buildDummyAutocompleteResult(), true));
         mOmnibox.checkSuggestionsShown();
     }
 
@@ -313,11 +312,7 @@ public class SearchActivityTest {
                 searchActivity.getLocationBarCoordinatorForTesting();
         locationBarCoordinator.setVoiceRecognitionHandlerForTesting(mHandler);
         locationBar.beginQuery(
-                IntentOrigin.SEARCH_WIDGET,
-                SearchType.VOICE,
-                /* optionalText= */ null,
-                mHandler,
-                null);
+                IntentOrigin.SEARCH_WIDGET, SearchType.VOICE, /* optionalText= */ null, null);
         verify(mHandler, times(0))
                 .startVoiceRecognition(
                         VoiceRecognitionHandler.VoiceInteractionSource.SEARCH_WIDGET);
@@ -328,7 +323,7 @@ public class SearchActivityTest {
 
         // Start loading native, then let the activity finish initialization.
         TestThreadUtils.runOnUiThreadBlocking(
-                () -> searchActivity.startDelayedNativeInitialization());
+                () -> searchActivity.startDelayedNativeInitializationForTests());
 
         Assert.assertEquals(
                 1, mTestDelegate.shouldDelayNativeInitializationCallback.getCallCount());
@@ -357,7 +352,7 @@ public class SearchActivityTest {
 
         // Start loading native, then let the activity finish initialization.
         TestThreadUtils.runOnUiThreadBlocking(
-                () -> searchActivity.startDelayedNativeInitialization());
+                () -> searchActivity.startDelayedNativeInitializationForTests());
 
         verifyNoMoreInteractions(mAutocompleteController);
 
@@ -401,7 +396,7 @@ public class SearchActivityTest {
                     // browser.
                     TestThreadUtils.runOnUiThreadBlocking(
                             () -> {
-                                searchActivity.startDelayedNativeInitialization();
+                                searchActivity.startDelayedNativeInitializationForTests();
                             });
 
                     Assert.assertEquals(
@@ -514,22 +509,6 @@ public class SearchActivityTest {
     }
 
     @Test
-    @DisabledTest(message = "crbug.com/1166647")
-    @SmallTest
-    public void testNewIntentDiscardsQuery() {
-        final SearchActivity searchActivity = startSearchActivity();
-        // Note: we should not need to request focus here.
-        mOmnibox.requestFocus();
-        mOmnibox.typeText("first query", false);
-
-        // Start the Activity again by firing another copy of the same Intent.
-        SearchActivity restartedActivity = startSearchActivity(1, /* isVoiceSearch= */ false);
-        Assert.assertEquals(searchActivity, restartedActivity);
-
-        mOmnibox.checkText(Matchers.isEmptyString(), null);
-    }
-
-    @Test
     @MediumTest
     public void testSetUrl_urlBarTextEmpty() throws Exception {
         final SearchActivity searchActivity = startSearchActivity();
@@ -558,7 +537,7 @@ public class SearchActivityTest {
     @SmallTest
     public void testupdateAnchorViewLayout() {
         SearchActivity searchActivity = startSearchActivity();
-        View anchorView = searchActivity.getAnchorViewForTesting();
+        View anchorView = searchActivity.findViewById(R.id.toolbar);
         var layoutParams = anchorView.getLayoutParams();
 
         int focusedHeight =

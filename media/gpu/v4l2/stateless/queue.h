@@ -36,7 +36,7 @@ class MEDIA_GPU_EXPORT BaseQueue {
   void DeallocateBuffers();
   bool StartStreaming();
   bool StopStreaming();
-  uint32_t FreeBufferCount() const { return free_buffer_indices_.size(); }
+  bool BuffersAvailable() const { return free_buffer_indices_.size() > 0; }
   virtual const std::optional<Buffer> DequeueBuffer() = 0;
 
  protected:
@@ -109,7 +109,10 @@ class MEDIA_GPU_EXPORT OutputQueue : public BaseQueue {
 
   // After a buffer has been used it needs to be returned to the pool of
   // available buffers. The client tracks using buffers using |frame_id|.
-  bool QueueBufferByFrameID(uint64_t frame_id);
+  void ReturnBuffer(uint64_t frame_id);
+
+  // Enqueue the buffer into the driver.
+  bool QueueBuffer();
 
   // Return the decoded frame format chosen by |NegotiateFormat|
   Fourcc GetQueueFormat() const { return buffer_format_.fourcc; }

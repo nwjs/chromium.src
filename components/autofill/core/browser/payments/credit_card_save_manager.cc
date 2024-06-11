@@ -26,6 +26,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "client_behavior_constants.h"
+#include "components/autofill/core/browser/address_data_manager.h"
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_type.h"
@@ -42,6 +43,7 @@
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
+#include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/strike_databases/strike_database.h"
 #include "components/autofill/core/browser/validation.h"
@@ -149,12 +151,14 @@ bool CreditCardSaveManager::ShouldOfferCvcSave(
   if (credit_card_import_type ==
       FormDataImporter::CreditCardImportType::kLocalCard) {
     existing_credit_card =
-        personal_data_manager_->GetCreditCardByGUID(card.guid());
+        personal_data_manager_->payments_data_manager().GetCreditCardByGUID(
+            card.guid());
   } else if (credit_card_import_type ==
                  FormDataImporter::CreditCardImportType::kServerCard &&
              is_credit_card_upstream_enabled) {
-    existing_credit_card = personal_data_manager_->GetCreditCardByInstrumentId(
-        card.instrument_id());
+    existing_credit_card =
+        personal_data_manager_->payments_data_manager()
+            .GetCreditCardByInstrumentId(card.instrument_id());
   }
   return existing_credit_card && existing_credit_card->cvc() != card.cvc();
 }
@@ -189,7 +193,8 @@ bool CreditCardSaveManager::ProceedWithSavingIfApplicable(
     CreditCard* existing_credit_card = nullptr;
     if (card.record_type() == CreditCard::RecordType::kLocalCard) {
       existing_credit_card =
-          personal_data_manager_->GetCreditCardByGUID(card.guid());
+          personal_data_manager_->payments_data_manager().GetCreditCardByGUID(
+              card.guid());
       if (existing_credit_card && existing_credit_card->cvc() != card.cvc()) {
         AttemptToOfferCvcLocalSave(card);
         return true;
@@ -198,8 +203,8 @@ bool CreditCardSaveManager::ProceedWithSavingIfApplicable(
                    CreditCard::RecordType::kMaskedServerCard &&
                is_credit_card_upstream_enabled) {
       existing_credit_card =
-          personal_data_manager_->GetCreditCardByInstrumentId(
-              card.instrument_id());
+          personal_data_manager_->payments_data_manager()
+              .GetCreditCardByInstrumentId(card.instrument_id());
       if (existing_credit_card && existing_credit_card->cvc() != card.cvc()) {
         AttemptToOfferCvcUploadSave(card);
         return true;
@@ -356,11 +361,8 @@ void CreditCardSaveManager::AttemptToOfferCardUploadSave(
       base::UTF16ToUTF8(upload_request_.card.LastFourDigits()));
 
 #if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnablePaymentsAndroidBottomSheetAccountEmail)) {
-    upload_request_.client_behavior_signals.push_back(
-        ClientBehaviorConstants::kShowAccountEmailInLegalMessage);
-  }
+  upload_request_.client_behavior_signals.push_back(
+      ClientBehaviorConstants::kShowAccountEmailInLegalMessage);
 #endif
 
   // Check if the CVC is being uploaded and CVC storage is enabled on the
@@ -542,9 +544,11 @@ void CreditCardSaveManager::InitVirtualCardEnroll(
   // Hide save card confirmation dialog if still showing.
   client_->GetPaymentsAutofillClient()->HideSaveCardPromptPrompt();
 
-  client_->GetVirtualCardEnrollmentManager()->InitVirtualCardEnroll(
-      credit_card, VirtualCardEnrollmentSource::kUpstream,
-      std::move(get_details_for_enrollment_response_details));
+  client_->GetPaymentsAutofillClient()
+      ->GetVirtualCardEnrollmentManager()
+      ->InitVirtualCardEnroll(
+          credit_card, VirtualCardEnrollmentSource::kUpstream,
+          std::move(get_details_for_enrollment_response_details));
 }
 
 CreditCardSaveStrikeDatabase*
@@ -746,7 +750,8 @@ void CreditCardSaveManager::OfferCardUploadSave() {
     if (observer_for_testing_) {
       observer_for_testing_->OnOfferUploadSave();
     }
-    auto server_cards = personal_data_manager_->GetServerCreditCards();
+    auto server_cards =
+        personal_data_manager_->payments_data_manager().GetServerCreditCards();
     // At this point of the flow, we know there are no masked server cards with
     // the same last four digits and expiration date as the card we are
     // attempting to save, since if there were any we would have matched it and
@@ -897,7 +902,8 @@ void CreditCardSaveManager::SetProfilesForCreditCardUpload(
 
   // Second, collect all of the already stored addresses used or modified
   // recently.
-  for (AutofillProfile* profile : personal_data_manager_->GetProfiles()) {
+  for (AutofillProfile* profile :
+       personal_data_manager_->address_data_manager().GetProfiles()) {
     has_profile = true;
     if ((now - profile->use_date()) < fifteen_minutes ||
         (now - profile->modification_date()) < fifteen_minutes) {
@@ -1148,8 +1154,9 @@ void CreditCardSaveManager::OnUserDidDecideOnCvcUploadSave(
       }
       CHECK(card_save_candidate_.instrument_id());
       if (CreditCard* old_credit_card =
-              personal_data_manager_->GetCreditCardByInstrumentId(
-                  card_save_candidate_.instrument_id())) {
+              personal_data_manager_->payments_data_manager()
+                  .GetCreditCardByInstrumentId(
+                      card_save_candidate_.instrument_id())) {
         CHECK(old_credit_card->cvc() != card_save_candidate_.cvc());
         // If existing card doesn't have CVC, we insert CVC into
         // `kServerStoredCvcTable` table. If the existing card does have CVC, we
@@ -1245,7 +1252,8 @@ void CreditCardSaveManager::OnUserDidAcceptUploadHelper(
   }
 
   if (VirtualCardFeatureEnabled()) {
-    client_->GetVirtualCardEnrollmentManager()
+    client_->GetPaymentsAutofillClient()
+        ->GetVirtualCardEnrollmentManager()
         ->SetSaveCardBubbleAcceptedTimestamp(AutofillClock::Now());
   }
 

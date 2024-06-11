@@ -32,6 +32,7 @@ namespace blink {
 
 class CascadeInterpolations;
 class CascadeResolver;
+class CSSAppearanceAutoBaseSelectValuePair;
 class CSSMathFunctionValue;
 class CSSParserContext;
 class CSSParserTokenStream;
@@ -364,10 +365,17 @@ class CORE_EXPORT StyleCascade {
                                      CascadePriority,
                                      CascadeOrigin&,
                                      CascadeResolver&);
-  const CSSValue* ResolveFlipRevert(const CSSFlipRevertValue&,
+  const CSSValue* ResolveFlipRevert(const CSSProperty&,
+                                    const CSSFlipRevertValue&,
                                     CascadePriority,
                                     CascadeOrigin&,
                                     CascadeResolver&);
+  const CSSValue* ResolveAppearanceAutoBaseSelect(
+      const CSSProperty&,
+      const CSSAppearanceAutoBaseSelectValuePair&,
+      CascadePriority,
+      CascadeOrigin&,
+      CascadeResolver&);
   const CSSValue* ResolveMathFunction(const CSSProperty&,
                                       const CSSMathFunctionValue&,
                                       CascadePriority);

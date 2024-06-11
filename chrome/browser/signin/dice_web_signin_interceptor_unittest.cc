@@ -23,7 +23,6 @@
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
-#include "chrome/browser/signin/signin_features.h"
 #include "chrome/browser/signin/web_signin_interceptor.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_constants.h"
@@ -1749,7 +1748,8 @@ TEST_F(DiceWebSigninInterceptorTest, StateResetTest) {
 class DiceWebSigninInterceptorTestWithUnoEnabled
     : public DiceWebSigninInterceptorTest {
  private:
-  base::test::ScopedFeatureList feature_list_{switches::kUnoDesktop};
+  base::test::ScopedFeatureList feature_list_{
+      switches::kExplicitBrowserSigninUIOnDesktop};
 };
 
 TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
@@ -1781,10 +1781,11 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
       web_contents(), account_info.account_id,
       signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
-  EXPECT_EQ(interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
-                                               /*is_sync_signin=*/false,
-                                               account_info.email),
-            expected_outcome);
+  EXPECT_EQ(
+      interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
+                                         /*is_sync_signin=*/false,
+                                         account_info.email, account_info.gaia),
+      expected_outcome);
   testing::Mock::VerifyAndClearExpectations(mock_delegate());
   histogram_tester.ExpectUniqueSample("Signin.Intercept.HeuristicOutcome",
                                       expected_outcome, 1);
@@ -1828,10 +1829,11 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
       web_contents(), account_info.account_id,
       signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
       /*is_new_account=*/false, /*is_sync_signin=*/false);
-  EXPECT_EQ(interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
-                                               /*is_sync_signin=*/false,
-                                               account_info.email),
-            expected_outcome);
+  EXPECT_EQ(
+      interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
+                                         /*is_sync_signin=*/false,
+                                         account_info.email, account_info.gaia),
+      expected_outcome);
   testing::Mock::VerifyAndClearExpectations(mock_delegate());
   histogram_tester.ExpectUniqueSample("Signin.Intercept.HeuristicOutcome",
                                       expected_outcome, 1);
@@ -1918,10 +1920,11 @@ TEST_F(DiceWebSigninInterceptorTestWithUnoEnabled,
       web_contents(), account_info.account_id,
       signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN,
       /*is_new_account=*/true, /*is_sync_signin=*/false);
-  EXPECT_EQ(interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
-                                               /*is_sync_signin=*/false,
-                                               account_info.email),
-            expected_outcome);
+  EXPECT_EQ(
+      interceptor()->GetHeuristicOutcome(/*is_new_account=*/true,
+                                         /*is_sync_signin=*/false,
+                                         account_info.email, account_info.gaia),
+      expected_outcome);
   testing::Mock::VerifyAndClearExpectations(mock_delegate());
   histogram_tester.ExpectUniqueSample("Signin.Intercept.HeuristicOutcome",
                                       expected_outcome, 1);
@@ -2030,7 +2033,8 @@ class DiceWebSigninInterceptorTestWithUnoDisabled
     : public DiceWebSigninInterceptorTest {
  public:
   DiceWebSigninInterceptorTestWithUnoDisabled() {
-    feature_list_.InitAndDisableFeature(switches::kUnoDesktop);
+    feature_list_.InitAndDisableFeature(
+        switches::kExplicitBrowserSigninUIOnDesktop);
   }
 
  private:

@@ -31,7 +31,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engine_choice/search_engine_choice_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_features.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
@@ -101,6 +100,7 @@
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_utils.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/features.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
@@ -460,6 +460,9 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "safetyCheckUnusedSitePermissionsSecondaryLabel",
       IDS_SETTINGS_SAFETY_CHECK_UNUSED_SITE_PERMISSIONS_SECONDARY_LABEL);
   plural_string_handler->AddLocalizedString(
+      "safetyHubRevokedPermissionsSecondaryLabel",
+      IDS_SETTINGS_SAFETY_HUB_REVOKED_PERMISSIONS_SECONDARY_LABEL);
+  plural_string_handler->AddLocalizedString(
       "safetyCheckUnusedSitePermissionsToastBulkLabel",
       IDS_SETTINGS_SAFETY_CHECK_UNUSED_SITE_PERMISSIONS_TOAST_BULK_LABEL);
   plural_string_handler->AddLocalizedString(
@@ -482,7 +485,6 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::make_span(kSettingsSharedResources, kSettingsSharedResourcesSize));
 #endif
 
-  webui::SetupChromeRefresh2023(html_source);
   AddLocalizedStrings(html_source, profile, web_ui->GetWebContents());
 
   ManagedUIHandler::Initialize(web_ui, html_source);
@@ -513,6 +515,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "safetyCheckUnusedSitePermissionsEnabled",
       base::FeatureList::IsEnabled(
           content_settings::features::kSafetyCheckUnusedSitePermissions));
+
+  html_source->AddBoolean(
+      "safetyHubAbusiveNotificationRevocationEnabled",
+      base::FeatureList::IsEnabled(
+          safe_browsing::kSafetyHubAbusiveNotificationRevocation));
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   html_source->AddBoolean(
@@ -553,12 +560,25 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(
           privacy_sandbox::kPrivacySandboxProactiveTopicsBlocking));
 
+  html_source->AddBoolean(
+      "proactiveTopicsBlockingIncludesModeB",
+      privacy_sandbox::kPrivacySandboxProactiveTopicsBlockingIncludeModeB
+          .Get());
+
+  html_source->AddBoolean("isInCookieDeprecationFacilitatedTesting",
+                          base::FeatureList::IsEnabled(
+                              features::kCookieDeprecationFacilitatedTesting));
+
   // Performance
   AddSettingsPageUIHandler(std::make_unique<PerformanceHandler>());
   html_source->AddBoolean(
-      "isMemorySaverMultistateModeEnabled",
+      "isDiscardRingImprovementsEnabled",
       base::FeatureList::IsEnabled(
-          performance_manager::features::kMemorySaverMultistateMode));
+          performance_manager::features::kDiscardRingImprovements));
+  html_source->AddBoolean(
+      "isMemorySaverModeAggressivenessEnabled",
+      base::FeatureList::IsEnabled(
+          performance_manager::features::kMemorySaverModeAggressiveness));
   html_source->AddBoolean(
       "isBatterySaverModeManagedByOS",
       performance_manager::user_tuning::IsBatterySaverModeManagedByOS());
@@ -751,6 +771,7 @@ void SettingsUI::CreateHelpBubbleHandler(
       std::vector<ui::ElementIdentifier>{
           kEnhancedProtectionSettingElementId,
           kAnonymizedUrlCollectionPersonalizationSettingId,
+          kInactiveTabSettingElementId,
       });
 }
 
@@ -773,8 +794,9 @@ void SettingsUI::CreateCertificateManagerPageHandler(
     mojo::PendingReceiver<
         certificate_manager_v2::mojom::CertificateManagerPageHandler> handler) {
   certificate_manager_page_handler_ =
-      std::make_unique<CertificateManagerPageHandler>(std::move(client),
-                                                      std::move(handler));
+      std::make_unique<CertificateManagerPageHandler>(
+          std::move(client), std::move(handler), Profile::FromWebUI(web_ui()),
+          web_ui()->GetWebContents());
 }
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
 

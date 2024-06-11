@@ -19,6 +19,8 @@ if (!is_android) {
   _protocol_generated = [
     "protocol/autofill.cc",
     "protocol/autofill.h",
+    "protocol/extensions.cc",
+    "protocol/extensions.h",
     "protocol/browser.cc",
     "protocol/browser.h",
     "protocol/cast.cc",
@@ -115,6 +117,7 @@ static_library("devtools") {
     "//chrome/browser/autofill:autofill",
     "//components/autofill/content/browser:browser",
     "//components/autofill/core/browser:browser",
+    "//components/enterprise/buildflags",
     "//components/paint_preview/buildflags:buildflags",
     "//components/variations/service:service",
     "//components/webapps/common:common",
@@ -134,6 +137,7 @@ static_library("devtools") {
       "//chrome:strings",
       "//chrome/app/theme:theme_resources",
       "//chrome/browser:browser_process",
+      "//chrome/browser/apps/app_service:constants",
       "//chrome/browser/media/router:media_router_feature",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/web_applications",
@@ -271,6 +275,7 @@ static_library("devtools") {
       "//components/security_state/content",
       "//components/subresource_filter/content/browser:browser",
       "//components/webapps/browser",
+      "//third_party/blink/public/common:headers",
       "//third_party/inspector_protocol:crdtp",
     ]
     sources += [
@@ -282,6 +287,8 @@ static_library("devtools") {
       "protocol/cast_handler.h",
       "protocol/emulation_handler.cc",
       "protocol/emulation_handler.h",
+      "protocol/extensions_handler.cc",
+      "protocol/extensions_handler.h",
       "protocol/page_handler.cc",
       "protocol/page_handler.h",
       "protocol/pwa_handler.cc",

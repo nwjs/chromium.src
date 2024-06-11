@@ -139,20 +139,18 @@ class IncognitoTabModelImpl implements IncognitoTabModel {
     }
 
     @Override
-    public boolean closeTab(Tab tab, boolean animate, boolean uponExit, boolean canUndo) {
+    public boolean closeTab(Tab tab, boolean uponExit, boolean canUndo) {
         mCountOfAddingOrClosingTabs++;
-        boolean retVal = mDelegateModel.closeTab(tab, animate, uponExit, canUndo);
+        boolean retVal = mDelegateModel.closeTab(tab, uponExit, canUndo);
         mCountOfAddingOrClosingTabs--;
         destroyIncognitoIfNecessary();
         return retVal;
     }
 
     @Override
-    public boolean closeTab(
-            Tab tab, Tab recommendedNextTab, boolean animate, boolean uponExit, boolean canUndo) {
+    public boolean closeTab(Tab tab, Tab recommendedNextTab, boolean uponExit, boolean canUndo) {
         mCountOfAddingOrClosingTabs++;
-        boolean retVal =
-                mDelegateModel.closeTab(tab, recommendedNextTab, animate, uponExit, canUndo);
+        boolean retVal = mDelegateModel.closeTab(tab, recommendedNextTab, uponExit, canUndo);
         mCountOfAddingOrClosingTabs--;
         destroyIncognitoIfNecessary();
         return retVal;
@@ -167,6 +165,14 @@ class IncognitoTabModelImpl implements IncognitoTabModel {
     public void closeMultipleTabs(List<Tab> tabs, boolean canUndo) {
         mCountOfAddingOrClosingTabs++;
         mDelegateModel.closeMultipleTabs(tabs, canUndo);
+        mCountOfAddingOrClosingTabs--;
+        destroyIncognitoIfNecessary();
+    }
+
+    @Override
+    public void closeMultipleTabs(List<Tab> tabs, boolean canUndo, boolean canRestore) {
+        mCountOfAddingOrClosingTabs++;
+        mDelegateModel.closeMultipleTabs(tabs, canUndo, canRestore);
         mCountOfAddingOrClosingTabs--;
         destroyIncognitoIfNecessary();
     }
@@ -311,6 +317,17 @@ class IncognitoTabModelImpl implements IncognitoTabModel {
         if (active) ensureTabModelImpl();
         mDelegateModel.setActive(active);
         if (!active) destroyIncognitoIfNecessary();
+    }
+
+    @Override
+    public int getTabCountNavigatedInTimeWindow(long beginTimeMs, long endTimeMs) {
+        assert false : "Not reached.";
+        return 0;
+    }
+
+    @Override
+    public void closeTabsNavigatedInTimeWindow(long beginTimeMs, long endTimeMs) {
+        assert false : "Not reached.";
     }
 
     @Override

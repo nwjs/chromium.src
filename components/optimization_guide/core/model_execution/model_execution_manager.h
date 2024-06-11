@@ -35,6 +35,8 @@ class IdentityManager;
 namespace optimization_guide {
 
 class ModelExecutionFetcher;
+class OnDeviceModelComponentStateManager;
+class OnDeviceModelAdaptationLoader;
 class OnDeviceModelServiceController;
 class OptimizationGuideModelProvider;
 
@@ -47,6 +49,8 @@ class ModelExecutionManager : public OptimizationTargetModelObserver {
       scoped_refptr<OnDeviceModelServiceController>
           on_device_model_service_controller,
       OptimizationGuideModelProvider* model_provider,
+      base::WeakPtr<OnDeviceModelComponentStateManager>
+          on_device_component_state_manager,
       OptimizationGuideLogger* optimization_guide_logger,
       base::WeakPtr<ModelQualityLogsUploaderService>
           model_quality_uploader_service);
@@ -66,6 +70,13 @@ class ModelExecutionManager : public OptimizationTargetModelObserver {
       const google::protobuf::MessageLite& request_metadata,
       std::unique_ptr<proto::LogAiDataRequest> log_ai_data_request,
       OptimizationGuideModelExecutionResultCallback callback);
+
+  // Returns whether an on-device session can be created for `feature`.  An
+  // optional `debug_reason` parameter can be provided for more detailed reasons
+  // for why an on-device session could not be created.
+  bool CanCreateOnDeviceSession(
+      ModelBasedCapabilityKey feature,
+      raw_ptr<OnDeviceModelEligibilityReason> debug_reason);
 
   // Starts a new session for `feature`.
   std::unique_ptr<OptimizationGuideModelExecutor::Session> StartSession(
@@ -110,12 +121,20 @@ class ModelExecutionManager : public OptimizationTargetModelObserver {
   // incognito profiles.
   const raw_ptr<signin::IdentityManager> identity_manager_;
 
+  // Map from feature to its model adaptation loader. Present only for features
+  // that require model adaptation.
+  const std::map<ModelBasedCapabilityKey, OnDeviceModelAdaptationLoader>
+      model_adaptation_loaders_;
+
   // The model provider to observe for updates to auxiliary models.
   raw_ptr<OptimizationGuideModelProvider> model_provider_;
 
   // Controller for the on-device service.
   scoped_refptr<OnDeviceModelServiceController>
       on_device_model_service_controller_;
+
+  // Whether the user registered for supplementary on-device models.
+  bool did_register_for_supplementary_on_device_models_ = false;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

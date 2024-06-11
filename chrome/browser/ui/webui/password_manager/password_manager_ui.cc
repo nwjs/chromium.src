@@ -171,6 +171,14 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
        IDS_PASSWORD_MANAGER_UI_DELETE_DIALOG_TITLE},
       {"done", IDS_DONE},
       {"disable", IDS_DISABLE},
+      {"disconnectCloudAuthenticatorButton",
+       IDS_PASSKEYS_MANAGER_UI_UNENROLL_BUTTON},
+      {"disconnectCloudAuthenticatorToastMessage",
+       IDS_PASSKEYS_MANAGER_UI_UNENROLL_TOAST_MESSAGE},
+      {"disconnectCloudAuthenticatorTitle",
+       IDS_PASSKEYS_MANAGER_UI_UNENROLL_TITLE},
+      {"disconnectCloudAuthenticatorDescription",
+       IDS_PASSKEYS_MANAGER_UI_UNENROLL_DESCRIPTION},
       {"displayNameCopiedToClipboard",
        IDS_PASSWORD_MANAGER_UI_DISPLAY_NAME_COPIED_TO_CLIPBOARD},
       {"displayNameLabel", IDS_PASSWORD_MANAGER_UI_DISPLAY_NAME_LABEL},
@@ -326,6 +334,7 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       {"passwordManager",
        IDS_PASSWORD_BUBBLES_PASSWORD_MANAGER_LINK_TEXT_SYNCED_TO_ACCOUNT},
       // Header for the page, always "Password Manager".
+      {"passwordManagerPinChanged", IDS_PASSWORD_MANAGER_PIN_CHANGED},
       {"passwordManagerString", IDS_PASSWORD_MANAGER_UI_TITLE},
       // Page title, branded. "Google Password Manager" or "Password Manager"
       // depending on the build.
@@ -470,11 +479,6 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
                          ShouldBiometricAuthenticationForFillingToggleBeVisible(
                              g_browser_process->local_state()));
 #endif
-#if BUILDFLAG(IS_MAC)
-  source->AddBoolean(
-      "createPasskeysInICloudKeychainToggleVisible",
-      base::FeatureList::IsEnabled(device::kWebAuthnICloudKeychain));
-#endif
 
   source->AddBoolean(
       "enableSendPasswords",
@@ -572,7 +576,6 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
 
-  webui::SetupChromeRefresh2023(source);
   return source;
 }
 

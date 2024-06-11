@@ -242,17 +242,6 @@ class NET_EXPORT_PRIVATE QuicSessionRequest {
 
   const NetLogWithSource& net_log() const { return net_log_; }
 
-  bool CanUseExistingSession(
-      const GURL& url,
-      const ProxyChain& proxy_chain,
-      PrivacyMode privacy_mode,
-      SessionUsage session_usage,
-      const SocketTag& socket_tag,
-      const NetworkAnonymizationKey& network_anonymization_key,
-      SecureDnsPolicy secure_dns_policy,
-      bool require_dns_https_alpn,
-      const url::SchemeHostPort& destination) const;
-
  private:
   raw_ptr<QuicSessionPool> pool_;
   QuicSessionKey session_key_;
@@ -468,6 +457,11 @@ class NET_EXPORT_PRIVATE QuicSessionPool
     return params_.disable_gquic_zero_rtt;
   }
 
+  // Returns true if QuicSessionPool is configured to report incoming ECN marks.
+  bool report_ecn() const {
+    return report_ecn_;
+  }
+
   void set_is_quic_known_to_work_on_current_network(
       bool is_quic_known_to_work_on_current_network);
 
@@ -522,6 +516,10 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   // during connection.
   static void LogConnectionIpPooling(bool pooled);
 
+  QuicChromiumClientSession* FindExistingSession(
+      const QuicSessionKey& session_key,
+      const url::SchemeHostPort& destination) const;
+
   bool HasMatchingIpSession(const QuicSessionAliasKey& key,
                             const std::vector<IPEndPoint>& ip_endpoints,
                             const std::set<std::string>& aliases,
@@ -573,7 +571,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
                            ConnectionEndpointMetadata metadata,
                            base::TimeTicks dns_resolution_start_time,
                            base::TimeTicks dns_resolution_end_time,
-                           quic::QuicPacketLength max_packet_length,
+                           quic::QuicPacketLength session_max_packet_length,
                            const NetLogWithSource& net_log,
                            raw_ptr<QuicChromiumClientSession>* session,
                            handles::NetworkHandle* network,
@@ -587,7 +585,7 @@ class NET_EXPORT_PRIVATE QuicSessionPool
                            ConnectionEndpointMetadata metadata,
                            base::TimeTicks dns_resolution_start_time,
                            base::TimeTicks dns_resolution_end_time,
-                           quic::QuicPacketLength max_packet_length,
+                           quic::QuicPacketLength session_max_packet_length,
                            const NetLogWithSource& net_log,
                            raw_ptr<QuicChromiumClientSession>* session,
                            handles::NetworkHandle* network,
@@ -801,6 +799,10 @@ class NET_EXPORT_PRIVATE QuicSessionPool
   // respecting NAKs, as that data is fed into the crypto config map using the
   // corresponding NAK.
   const bool use_network_anonymization_key_for_crypto_configs_;
+
+  // If true, sessions created by this pool will read ECN marks from QUIC
+  // sockets and send them to the peer.
+  const bool report_ecn_;
 
   quic::DeterministicConnectionIdGenerator connection_id_generator_{
       quic::kQuicDefaultConnectionIdLength};

@@ -13,6 +13,9 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.url.GURL;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Java side of the JNI bridge between TabGroupSyncServiceImpl in Java and C++. All method calls are
  * delegated to the native C++ class.
@@ -48,47 +51,67 @@ public class TabGroupSyncServiceImpl implements TabGroupSyncService {
     }
 
     @Override
-    public String createGroup(int groupId) {
+    public String createGroup(LocalTabGroupId groupId) {
         if (mNativePtr == 0) return null;
+        assert groupId != null;
         return TabGroupSyncServiceImplJni.get().createGroup(mNativePtr, this, groupId);
     }
 
     @Override
-    public void removeGroup(int groupId) {
+    public void removeGroup(LocalTabGroupId localTabGroupId) {
         if (mNativePtr == 0) return;
-        TabGroupSyncServiceImplJni.get().removeGroup(mNativePtr, this, groupId);
+        assert localTabGroupId != null;
+        TabGroupSyncServiceImplJni.get().removeGroupByLocalId(mNativePtr, this, localTabGroupId);
     }
 
     @Override
-    public void updateVisualData(int tabGroupId, String title, int color) {
+    public void removeGroup(String syncTabGroupId) {
         if (mNativePtr == 0) return;
-        TabGroupSyncServiceImplJni.get()
-                .updateVisualData(mNativePtr, this, tabGroupId, title, color);
+        assert syncTabGroupId != null;
+        TabGroupSyncServiceImplJni.get().removeGroupBySyncId(mNativePtr, this, syncTabGroupId);
     }
 
     @Override
-    public void addTab(int groupId, int tabId, String title, GURL url, int position) {
+    public void updateVisualData(LocalTabGroupId groupId, String title, int color) {
         if (mNativePtr == 0) return;
+        assert groupId != null;
+        TabGroupSyncServiceImplJni.get().updateVisualData(mNativePtr, this, groupId, title, color);
+    }
+
+    @Override
+    public void addTab(LocalTabGroupId groupId, int tabId, String title, GURL url, int position) {
+        if (mNativePtr == 0) return;
+        assert groupId != null;
         TabGroupSyncServiceImplJni.get()
                 .addTab(mNativePtr, this, groupId, tabId, title, url, position);
     }
 
     @Override
-    public void updateTab(int groupId, int tabId, String title, GURL url, int position) {
+    public void updateTab(
+            LocalTabGroupId groupId, int tabId, String title, GURL url, int position) {
         if (mNativePtr == 0) return;
+        assert groupId != null;
         TabGroupSyncServiceImplJni.get()
                 .updateTab(mNativePtr, this, groupId, tabId, title, url, position);
     }
 
     @Override
-    public void removeTab(int groupId, int tabId) {
+    public void removeTab(LocalTabGroupId groupId, int tabId) {
         if (mNativePtr == 0) return;
+        assert groupId != null;
         TabGroupSyncServiceImplJni.get().removeTab(mNativePtr, this, groupId, tabId);
     }
 
     @Override
+    public void moveTab(LocalTabGroupId groupId, int tabId, int newIndexInGroup) {
+        if (mNativePtr == 0) return;
+        assert groupId != null;
+        TabGroupSyncServiceImplJni.get().moveTab(mNativePtr, this, groupId, tabId, newIndexInGroup);
+    }
+
+    @Override
     public String[] getAllGroupIds() {
-        if (mNativePtr == 0) return null;
+        if (mNativePtr == 0) return new String[0];
         return TabGroupSyncServiceImplJni.get().getAllGroupIds(mNativePtr, this);
     }
 
@@ -100,21 +123,43 @@ public class TabGroupSyncServiceImpl implements TabGroupSyncService {
     }
 
     @Override
-    public SavedTabGroup getGroup(int localGroupId) {
-        if (mNativePtr == 0) return null;
+    public SavedTabGroup getGroup(LocalTabGroupId localGroupId) {
+        assert localGroupId != null;
         return TabGroupSyncServiceImplJni.get()
                 .getGroupByLocalGroupId(mNativePtr, this, localGroupId);
     }
 
     @Override
-    public void updateLocalTabGroupId(String syncId, int localId) {
+    public void updateLocalTabGroupMapping(String syncId, LocalTabGroupId localId) {
         if (mNativePtr == 0) return;
-        TabGroupSyncServiceImplJni.get().updateLocalTabGroupId(mNativePtr, this, syncId, localId);
+        assert localId != null;
+        TabGroupSyncServiceImplJni.get()
+                .updateLocalTabGroupMapping(mNativePtr, this, syncId, localId);
     }
 
     @Override
-    public void updateLocalTabId(int localGroupId, String syncTabId, int localTabId) {
+    public void removeLocalTabGroupMapping(LocalTabGroupId localId) {
         if (mNativePtr == 0) return;
+        assert localId != null;
+        TabGroupSyncServiceImplJni.get().removeLocalTabGroupMapping(mNativePtr, this, localId);
+    }
+
+    @Override
+    public List<LocalTabGroupId> getDeletedGroupIds() {
+        if (mNativePtr == 0) return new ArrayList<>();
+        List<LocalTabGroupId> deletedIds = new ArrayList<>();
+        Object[] objects = TabGroupSyncServiceImplJni.get().getDeletedGroupIds(mNativePtr, this);
+        for (Object obj : objects) {
+            assert obj instanceof LocalTabGroupId;
+            deletedIds.add((LocalTabGroupId) obj);
+        }
+        return deletedIds;
+    }
+
+    @Override
+    public void updateLocalTabId(LocalTabGroupId localGroupId, String syncTabId, int localTabId) {
+        if (mNativePtr == 0) return;
+        assert localGroupId != null;
         TabGroupSyncServiceImplJni.get()
                 .updateLocalTabId(mNativePtr, this, localGroupId, syncTabId, localTabId);
     }
@@ -133,52 +178,62 @@ public class TabGroupSyncServiceImpl implements TabGroupSyncService {
     }
 
     @CalledByNative
-    private void onTabGroupAdded(SavedTabGroup group) {
+    private void onTabGroupAdded(SavedTabGroup group, @TriggerSource int triggerSource) {
         for (Observer observer : mObservers) {
-            observer.onTabGroupAdded(group);
+            observer.onTabGroupAdded(group, triggerSource);
         }
     }
 
     @CalledByNative
-    private void onTabGroupUpdated(SavedTabGroup group) {
+    private void onTabGroupUpdated(SavedTabGroup group, @TriggerSource int triggerSource) {
         for (Observer observer : mObservers) {
-            observer.onTabGroupUpdated(group);
+            observer.onTabGroupUpdated(group, triggerSource);
         }
     }
 
     @CalledByNative
-    private void onTabGroupRemovedWithLocalId(int localId) {
+    private void onTabGroupRemovedWithLocalId(
+            LocalTabGroupId localId, @TriggerSource int triggerSource) {
         for (Observer observer : mObservers) {
-            observer.onTabGroupRemoved(localId);
+            observer.onTabGroupRemoved(localId, triggerSource);
         }
     }
 
     @CalledByNative
-    private void onTabGroupRemovedWithSyncId(String syncId) {
+    private void onTabGroupRemovedWithSyncId(String syncId, @TriggerSource int triggerSource) {
         for (Observer observer : mObservers) {
-            observer.onTabGroupRemoved(syncId);
+            observer.onTabGroupRemoved(syncId, triggerSource);
         }
     }
 
     @NativeMethods
     interface Natives {
         String createGroup(
-                long nativeTabGroupSyncServiceAndroid, TabGroupSyncServiceImpl caller, int groupId);
+                long nativeTabGroupSyncServiceAndroid,
+                TabGroupSyncServiceImpl caller,
+                LocalTabGroupId groupId);
 
-        void removeGroup(
-                long nativeTabGroupSyncServiceAndroid, TabGroupSyncServiceImpl caller, int groupId);
+        void removeGroupByLocalId(
+                long nativeTabGroupSyncServiceAndroid,
+                TabGroupSyncServiceImpl caller,
+                LocalTabGroupId localTabGroupId);
+
+        void removeGroupBySyncId(
+                long nativeTabGroupSyncServiceAndroid,
+                TabGroupSyncServiceImpl caller,
+                String syncTabGroupId);
 
         void updateVisualData(
                 long nativeTabGroupSyncServiceAndroid,
                 TabGroupSyncServiceImpl caller,
-                int tabGroupId,
+                LocalTabGroupId tabGroupId,
                 String title,
                 int color);
 
         void addTab(
                 long nativeTabGroupSyncServiceAndroid,
                 TabGroupSyncServiceImpl caller,
-                int groupId,
+                LocalTabGroupId groupId,
                 int tabId,
                 String title,
                 GURL url,
@@ -187,7 +242,7 @@ public class TabGroupSyncServiceImpl implements TabGroupSyncService {
         void updateTab(
                 long nativeTabGroupSyncServiceAndroid,
                 TabGroupSyncServiceImpl caller,
-                int groupId,
+                LocalTabGroupId groupId,
                 int tabId,
                 String title,
                 GURL url,
@@ -196,8 +251,15 @@ public class TabGroupSyncServiceImpl implements TabGroupSyncService {
         void removeTab(
                 long nativeTabGroupSyncServiceAndroid,
                 TabGroupSyncServiceImpl caller,
-                int groupId,
+                LocalTabGroupId groupId,
                 int tabId);
+
+        void moveTab(
+                long nativeTabGroupSyncServiceAndroid,
+                TabGroupSyncServiceImpl caller,
+                LocalTabGroupId groupId,
+                int tabId,
+                int newIndexInGroup);
 
         String[] getAllGroupIds(
                 long nativeTabGroupSyncServiceAndroid, TabGroupSyncServiceImpl caller);
@@ -210,18 +272,26 @@ public class TabGroupSyncServiceImpl implements TabGroupSyncService {
         SavedTabGroup getGroupByLocalGroupId(
                 long nativeTabGroupSyncServiceAndroid,
                 TabGroupSyncServiceImpl caller,
-                int localGroupId);
+                LocalTabGroupId localGroupId);
 
-        void updateLocalTabGroupId(
+        Object[] getDeletedGroupIds(
+                long nativeTabGroupSyncServiceAndroid, TabGroupSyncServiceImpl caller);
+
+        void updateLocalTabGroupMapping(
                 long nativeTabGroupSyncServiceAndroid,
                 TabGroupSyncServiceImpl caller,
                 String syncId,
-                int localId);
+                LocalTabGroupId localId);
+
+        void removeLocalTabGroupMapping(
+                long nativeTabGroupSyncServiceAndroid,
+                TabGroupSyncServiceImpl caller,
+                LocalTabGroupId localId);
 
         void updateLocalTabId(
                 long nativeTabGroupSyncServiceAndroid,
                 TabGroupSyncServiceImpl caller,
-                int localGroupId,
+                LocalTabGroupId localGroupId,
                 String syncTabId,
                 int localTabId);
     }

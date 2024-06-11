@@ -35,6 +35,34 @@ struct ReadAnythingTheme {
   read_anything.mojom.LetterSpacing letter_spacing;
 };
 
+[Extensible]
+enum InstallationState {
+  [Default] kUnknown = 0,
+  kNotInstalled = 1,
+  kInstalling = 2,
+  kInstalled = 3
+};
+
+[Extensible]
+enum ErrorCode {
+  [Default] kNone = 0,
+  kOther = 1,
+  kWrongId = 2,
+  kNeedReboot = 3,
+  kAllocation = 4,
+  kUnsupportedPlatform = 5
+};
+
+union VoicePackInstallationState {
+  InstallationState installation_state;
+  ErrorCode error_code;
+};
+
+struct VoicePackInfo {
+  VoicePackInstallationState pack_state;
+  string language;
+};
+
 // Used by the untrusted WebUI page to bootstrap bidirectional communication.
 interface UntrustedPageHandlerFactory {
   // The WebUI calls this method when the page is first initialized.
@@ -85,6 +113,12 @@ enum HighlightGranularity {
 
 // Browser-side handler for requests from untrusted WebUI page.
 interface UntrustedPageHandler {
+  // Called by the renderer to see if a voice is installed, or being installed.
+  GetVoicePackInfo(string language) => (VoicePackInfo voice_pack_info);
+
+  // Called by the renderer to install a natural-voice pack.
+  InstallVoicePack(string language) => (VoicePackInfo voice_pack_info);
+
   // Informs the browser controller that a user tried to copy text from the
   // WebUI. If the main page allows copy commands, then the current selection
   // on the main page will be copied to the user's clipboard. Note that even
@@ -128,6 +162,9 @@ interface UntrustedPageHandler {
   // speech via the webui toolbar. lang is the language code that voice is for.
   OnVoiceChange(string voice, string lang);
 
+  // Informs the browser controller that the user enabled/disabled a language.
+  OnLanguagePrefChange(string lang, bool enabled);
+
   // Informs the browser controller that the user updated the granularity of
   // the highlight that follows along with speech via the webui toolbar.
   OnHighlightGranularityChanged(read_anything.mojom.HighlightGranularity granularity);
@@ -159,6 +196,9 @@ interface UntrustedPageHandler {
 
   // Informs the browser to collapse the selection made in the WebUI.
   OnCollapseSelection();
+
+  // Requests the browser to take a snapshot of the active web contents.
+  OnSnapshotRequested();
 };
 
 // Untrusted WebUI-side handler for requests from the browser.
@@ -193,6 +233,14 @@ interface UntrustedPage {
   // language or the browser language depending on what's available.
   SetLanguageCode(string code);
 
+  // Notifies that the device has been locked. Only called by ChromeOS.
+  [EnableIf=is_chromeos_ash]
+  OnDeviceLocked();
+
+  // Sets the default language code to be available in the WebUI in the event
+  // the language set by SetLanguageCode is invalid.
+  SetDefaultLanguageCode(string code);
+
   // Send the settings values stored in prefs to the WebUI. voices maps
   // language to voice name
   OnSettingsRestoredFromPrefs(read_anything.mojom.LineSpacing line_spacing,
@@ -203,6 +251,7 @@ interface UntrustedPage {
                            read_anything.mojom.Colors color,
                            double speech_rate,
                            mojo_base.mojom.DictionaryValue voices,
+                           mojo_base.mojom.ListValue languages_enabled_in_pref,
                            read_anything.mojom.HighlightGranularity granularity);
 
   // Notifies the WebUI that the ScreenAI service is ready on this device.

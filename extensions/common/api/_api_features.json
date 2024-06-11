@@ -369,6 +369,7 @@
     "matches": [
       "chrome-untrusted://compose/*",
       "chrome-untrusted://help-app/*",
+      "chrome-untrusted://lens/*",
       "chrome-untrusted://media-app/*",
       "chrome-untrusted://mako/*",
       "chrome-untrusted://projector/*",
@@ -779,8 +780,19 @@
   "userScripts": {
     "dependencies": [ "permission:userScripts" ],
     "contexts": [ "privileged_extension" ],
+    "developer_mode_only": true
+  },
+  "userScripts.getWorldConfigurations": {
+    "dependencies": [ "permission:userScripts" ],
+    "contexts": [ "privileged_extension" ],
     "developer_mode_only": true,
-    "feature_flag": "ApiUserScripts"
+    "feature_flag": "ApiUserScriptsMultipleWorlds"
+  },
+  "userScripts.resetWorldConfiguration": {
+    "dependencies": [ "permission:userScripts" ],
+    "contexts": [ "privileged_extension" ],
+    "developer_mode_only": true,
+    "feature_flag": "ApiUserScriptsMultipleWorlds"
   },
   "virtualKeyboard": {
     "dependencies": ["permission:virtualKeyboard"],

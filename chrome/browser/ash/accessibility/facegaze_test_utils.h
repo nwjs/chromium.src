@@ -5,10 +5,14 @@
 #ifndef CHROME_BROWSER_ASH_ACCESSIBILITY_FACEGAZE_TEST_UTILS_H_
 #define CHROME_BROWSER_ASH_ACCESSIBILITY_FACEGAZE_TEST_UTILS_H_
 
+#include <memory>
+#include <optional>
 #include <string>
 
 #include "base/containers/flat_map.h"
 #include "base/values.h"
+#include "ui/events/test/event_generator.h"
+#include "ui/gfx/geometry/point_f.h"
 
 namespace gfx {
 class Point;
@@ -126,6 +130,61 @@ class FaceGazeTestUtils {
     int right;
   };
 
+  // A class that helps initialize FaceGaze with a configuration.
+  class Config {
+   public:
+    Config();
+    ~Config();
+    Config(const Config&) = delete;
+    Config& operator=(const Config&) = delete;
+
+    // Returns a Config that sets required properties to default values.
+    Config& Default();
+    Config& WithForeheadLocation(const gfx::PointF& location);
+    Config& WithCursorLocation(const gfx::Point& location);
+    Config& WithBufferSize(int size);
+    Config& WithCursorAcceleration(bool acceleration);
+    Config& WithGesturesToMacros(
+        const base::flat_map<FaceGazeGesture, MacroName>& gestures_to_macros);
+    Config& WithGestureConfidences(
+        const base::flat_map<FaceGazeGesture, int>& gesture_confidences);
+    Config& WithCursorSpeeds(const CursorSpeeds& speeds);
+    Config& WithGestureRepeatDelayMs(int delay);
+
+    const gfx::PointF& forehead_location() const { return forehead_location_; }
+    const gfx::Point& cursor_location() const { return cursor_location_; }
+    int buffer_size() const { return buffer_size_; }
+    bool use_cursor_acceleration() const { return use_cursor_acceleration_; }
+    const std::optional<base::flat_map<FaceGazeGesture, MacroName>>&
+    gestures_to_macros() const {
+      return gestures_to_macros_;
+    }
+    const std::optional<base::flat_map<FaceGazeGesture, int>>&
+    gesture_confidences() const {
+      return gesture_confidences_;
+    }
+    const std::optional<CursorSpeeds>& cursor_speeds() const {
+      return cursor_speeds_;
+    }
+    std::optional<int> gesture_repeat_delay_ms() const {
+      return gesture_repeat_delay_ms_;
+    }
+
+   private:
+    // Required properties.
+    gfx::PointF forehead_location_;
+    gfx::Point cursor_location_;
+    int buffer_size_;
+    bool use_cursor_acceleration_;
+
+    // Optional properties.
+    std::optional<base::flat_map<FaceGazeGesture, MacroName>>
+        gestures_to_macros_;
+    std::optional<base::flat_map<FaceGazeGesture, int>> gesture_confidences_;
+    std::optional<CursorSpeeds> cursor_speeds_;
+    std::optional<int> gesture_repeat_delay_ms_;
+  };
+
   // A class that represents a fake FaceLandmarkerResult.
   class MockFaceLandmarkerResult {
    public:
@@ -137,12 +196,12 @@ class FaceGazeTestUtils {
 
     MockFaceLandmarkerResult& WithNormalizedForeheadLocation(double x,
                                                              double y);
+    MockFaceLandmarkerResult& WithGesture(const MediapipeGesture& gesture,
+                                          int confidence);
+
     const base::Value::Dict& forehead_location() const {
       return forehead_location_;
     }
-
-    MockFaceLandmarkerResult& WithGesture(const MediapipeGesture& gesture,
-                                          int confidence);
     const base::Value::List& recognized_gestures() const {
       return recognized_gestures_;
     }
@@ -157,26 +216,10 @@ class FaceGazeTestUtils {
   FaceGazeTestUtils(const FaceGazeTestUtils&) = delete;
   FaceGazeTestUtils& operator=(const FaceGazeTestUtils&) = delete;
 
-  // Enables and sets up FaceGaze.
-  void EnableFaceGaze();
-  // Creates and initializes the FaceLandmarker API within the extension.
-  void CreateFaceLandmarker();
+  // Enables, sets up, and configures FaceGaze with the given configuration.
+  void EnableFaceGaze(const Config& config);
   // Waits for the cursor location to propagate to the FaceGaze MouseController.
   void WaitForCursorPosition(const gfx::Point& location);
-  // Sets cursor speed prefs.
-  void SetCursorSpeeds(const CursorSpeeds& speeds);
-  // Sets the buffer size pref.
-  void SetBufferSize(int size);
-  // Sets the cursor acceleration pref.
-  void SetCursorAcceleration(bool use_acceleration);
-  // Sets the gesture to macro mapping pref.
-  void SetGesturesToMacros(
-      const base::flat_map<FaceGazeGesture, MacroName>& gestures_to_macros);
-  // Sets the gesture confidences mapping pref.
-  void SetGestureConfidences(
-      const base::flat_map<FaceGazeGesture, int>& gesture_confidences);
-  // Sets the gesture repeat delay threshold.
-  void SetGestureRepeatDelayMs(int delay);
   // Forces FaceGaze to process `result`, since tests don't have access to real
   // camera data.
   void ProcessFaceLandmarkerResult(const MockFaceLandmarkerResult& result);
@@ -184,6 +227,9 @@ class FaceGazeTestUtils {
   // increase test stability, the interval is canceled in tests, and must be
   // triggered manually using this method.
   void TriggerMouseControllerInterval();
+
+  void MoveMouseTo(const gfx::Point& location);
+  void AssertCursorAt(const gfx::Point& location);
 
  private:
   void ExecuteAccessibilityCommonScript(const std::string& script);
@@ -193,6 +239,23 @@ class FaceGazeTestUtils {
   void WaitForJSReady();
   void SetUpJSTestSupport();
   void CancelMouseControllerInterval();
+  // Creates and initializes the FaceLandmarker API within the extension.
+  void CreateFaceLandmarker();
+  void ConfigureFaceGaze(const Config& config);
+
+  // Preference-related methods.
+  void SetCursorSpeeds(const CursorSpeeds& speeds);
+  void SetBufferSize(int size);
+  void SetCursorAcceleration(bool use_acceleration);
+  void SetGesturesToMacros(
+      const base::flat_map<FaceGazeGesture, MacroName>& gestures_to_macros);
+  void SetGestureConfidences(
+      const base::flat_map<FaceGazeGesture, int>& gesture_confidences);
+
+  // Sets the gesture repeat delay threshold.
+  void SetGestureRepeatDelayMs(int delay);
+
+  std::unique_ptr<ui::test::EventGenerator> event_generator_;
 };
 
 }  // namespace ash

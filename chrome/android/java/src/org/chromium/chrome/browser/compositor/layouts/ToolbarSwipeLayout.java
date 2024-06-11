@@ -200,7 +200,7 @@ public class ToolbarSwipeLayout extends Layout {
             switchToTab(mToTabId, mFromTabId);
 
             // Close the previous tab if the previous tab is a NTP.
-            // TODO(crbug.com/1348624): Move this piece logic to use a LayoutStateObserver instead
+            // TODO(crbug.com/40233431): Move this piece logic to use a LayoutStateObserver instead
             // - let the caller of the LayoutManager#switchToTab observe the LayoutState and close
             // the ntp tab in the #doneShowing event.
             Tab lastTab = mTabModelSelector.getTabById(mFromTabId);
@@ -209,7 +209,7 @@ public class ToolbarSwipeLayout extends Layout {
                     && !lastTab.canGoForward()) {
                 mTabModelSelector
                         .getModel(lastTab.isIncognito())
-                        .closeTab(lastTab, tab, false, false, false);
+                        .closeTab(lastTab, tab, false, false);
             }
 
             mIsSwitchToStaticTab = false;

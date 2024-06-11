@@ -26,7 +26,7 @@
 #import "ios/chrome/browser/commerce/model/shopping_persisted_data_tab_helper.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
-#import "ios/chrome/browser/main/model/browser_util.h"
+#import "ios/chrome/browser/iph_for_new_chrome_user/model/tab_based_iph_browser_agent.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -36,6 +36,7 @@
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/url/url_util.h"
+#import "ios/chrome/browser/shared/model/web_state_list/browser_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -65,6 +66,7 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/selected_grid_items.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/tab_groups_commands.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_context_menu/tab_item.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_idle_status_handler.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_metrics.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/toolbars/tab_grid_toolbars_configuration.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/toolbars/tab_grid_toolbars_main_tab_grid_delegate.h"
@@ -113,23 +115,6 @@ Browser* GetBrowserForTabWithId(BrowserList* browser_list,
                                      .pinned_state = PinnedState::kNonPinned,
                                  });
     if (index != WebStateList::kInvalidIndex) {
-      return browser;
-    }
-  }
-  return nullptr;
-}
-
-// Returns the Browser with `group` in its WebStateList. Returns `nullptr`
-// if not found.
-Browser* GetBrowserForGroup(BrowserList* browser_list,
-                            const TabGroup* group,
-                            bool is_otr_tab) {
-  std::set<Browser*> browsers = is_otr_tab
-                                    ? browser_list->AllIncognitoBrowsers()
-                                    : browser_list->AllRegularBrowsers();
-  for (Browser* browser : browsers) {
-    WebStateList* web_state_list = browser->GetWebStateList();
-    if (web_state_list->ContainsGroup(group)) {
       return browser;
     }
   }
@@ -418,7 +403,10 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
 - (void)updateConsumerItemForWebState:(web::WebState*)webState {
   WebStateList* webStateList = self.webStateList;
   int index = webStateList->GetIndexOfWebState(webState);
-  const TabGroup* group = webStateList->GetGroupOfWebStateAt(index);
+  const TabGroup* group = nullptr;
+  if (webStateList->ContainsIndex(index)) {
+    group = webStateList->GetGroupOfWebStateAt(index);
+  }
   GridItemIdentifier* item;
   if (group) {
     item = [GridItemIdentifier groupIdentifier:group
@@ -439,9 +427,7 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
     return;
   }
 
-  if (detachChange.group()) {
-    [self updateCellGroup:detachChange.group()];
-  } else {
+  if (!detachChange.group()) {
     // Get the identifier to remove.
     web::WebState* detachedWebState = detachChange.detached_web_state();
     GridItemIdentifier* identifierToRemove =
@@ -530,10 +516,16 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
       // The activation is handled after this switch statement.
       break;
     }
-    case WebStateListChange::Type::kDetach:
-      // Do nothing when a WebState is detached, as this is already handled in
+    case WebStateListChange::Type::kDetach: {
+      const WebStateListChangeDetach& detachChange =
+          change.As<WebStateListChangeDetach>();
+      if (detachChange.group()) {
+        [self updateCellGroup:detachChange.group()];
+      }
+      // Do not manage other case scenarios as this is already handled in
       // `-willChangeWebStateList:change:status:` function.
       break;
+    }
     case WebStateListChange::Type::kMove: {
       const WebStateListChangeMove& moveChange =
           change.As<WebStateListChangeMove>();
@@ -627,7 +619,7 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
       GridItemIdentifier* groupItemIdentifier =
           [GridItemIdentifier groupIdentifier:currentGroup
                              withWebStateList:webStateList];
-
+      CHECK(groupItemIdentifier.tabGroupItem.tabGroup);
       [self insertItem:groupItemIdentifier
           beforeWebStateIndex:groupItemIdentifier.tabGroupItem.tabGroup->range()
                                   .range_end() +
@@ -661,6 +653,7 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
       GridItemIdentifier* groupItemIdentifier =
           [GridItemIdentifier groupIdentifier:groupDeleteChange.deleted_group()
                              withWebStateList:_webStateList];
+      [_selectedEditingItems removeItem:groupItemIdentifier];
       [self.consumer removeItemWithIdentifier:groupItemIdentifier
                        selectedItemIdentifier:[self activeIdentifier]];
       break;
@@ -679,6 +672,9 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
 
 - (void)webStateListBatchOperationEnded:(WebStateList*)webStateList {
   DCHECK_EQ(_webStateList, webStateList);
+
+  // Clear selections.
+  [_selectedEditingItems removeAllItems];
 
   [self addWebStateObservations];
   [self populateConsumerItems];
@@ -703,12 +699,13 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
 
 - (void)didUpdateSnapshotStorageWithSnapshotID:(SnapshotIDWrapper*)snapshotID {
   web::WebState* webState = nullptr;
-  for (int i = self.webStateList->pinned_tabs_count();
-       i < self.webStateList->count(); i++) {
+  WebStateList* webStateList = self.webStateList;
+  for (int i = webStateList->pinned_tabs_count(); i < webStateList->count();
+       i++) {
     SnapshotTabHelper* snapshotTabHelper =
-        SnapshotTabHelper::FromWebState(self.webStateList->GetWebStateAt(i));
+        SnapshotTabHelper::FromWebState(webStateList->GetWebStateAt(i));
     if (snapshotID.snapshot_id == snapshotTabHelper->GetSnapshotID()) {
-      webState = self.webStateList->GetWebStateAt(i);
+      webState = webStateList->GetWebStateAt(i);
       break;
     }
   }
@@ -716,8 +713,7 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
     // It is possible to observe an updated snapshot for a WebState before
     // observing that the WebState has been added to the WebStateList. It is the
     // consumer's responsibility to ignore any updates before inserts.
-    GridItemIdentifier* item = [GridItemIdentifier tabIdentifier:webState];
-    [self.consumer replaceItem:item withReplacementItem:item];
+    [self updateConsumerItemForWebState:webState];
   }
 }
 
@@ -741,7 +737,9 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
   return YES;
 }
 
-- (void)selectItemWithID:(web::WebStateID)itemID pinned:(BOOL)pinned {
+- (void)selectItemWithID:(web::WebStateID)itemID
+                    pinned:(BOOL)pinned
+    isFirstActionOnTabGrid:(BOOL)isFirstActionOnTabGrid {
   WebStateSearchCriteria searchCriteria{
       .identifier = itemID,
       .pinned_state = pinned ? PinnedState::kPinned : PinnedState::kNonPinned,
@@ -821,6 +819,18 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
   } else {
     base::RecordAction(
         base::UserMetricsAction("MobileTabGridMoveToExistingTab"));
+    if (isFirstActionOnTabGrid) {
+      int activeWebStateIndex = itemWebStateList->active_index();
+      BOOL adjacentTabSelected =
+          std::abs(index - activeWebStateIndex) == 1 &&
+          index != WebStateList::kInvalidIndex &&
+          activeWebStateIndex != WebStateList::kInvalidIndex;
+      if (adjacentTabSelected && self.browser) {
+        TabBasedIPHBrowserAgent* tabBasedIPHBrowserAgent =
+            TabBasedIPHBrowserAgent::FromBrowser(self.browser);
+        tabBasedIPHBrowserAgent->NotifySwitchToAdjacentTabFromTabGrid();
+      }
+    }
   }
 
   // Avoid a reentrant activation. This is a fix for crbug.com/1134663, although
@@ -901,7 +911,8 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
 }
 
 - (void)closeItemWithID:(web::WebStateID)itemID {
-  [self.gridConsumer setPageIdleStatus:NO];
+  [self.tabGridIdleStatusHandler
+      tabGridDidPerformAction:TabGridActionType::kInPageAction];
   int index = GetWebStateIndex(self.webStateList,
                                WebStateSearchCriteria{
                                    .identifier = itemID,
@@ -985,36 +996,6 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
 
 - (void)ungroupTabGroup:(const TabGroup*)group {
   [self deleteGroup:group];
-}
-
-- (BOOL)addTabToGroup:(const TabGroup*)group {
-  if (!self.browser || !group) {
-    return NO;
-  }
-  ChromeBrowserState* browserState = self.browser->GetBrowserState();
-  if (!browserState ||
-      !IsAddNewTabAllowedByPolicy(browserState->GetPrefs(),
-                                  browserState->IsOffTheRecord())) {
-    return NO;
-  }
-
-  WebStateList* webStateList = self.webStateList;
-  if (!webStateList->ContainsGroup(group)) {
-    return NO;
-  }
-
-  web::WebState::CreateParams params(browserState);
-  std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
-
-  web::NavigationManager::WebLoadParams loadParams((GURL(kChromeUINewTabURL)));
-  loadParams.transition_type = ui::PAGE_TRANSITION_TYPED;
-  webState->GetNavigationManager()->LoadURLWithParams(loadParams);
-
-  webStateList->InsertWebState(
-      std::move(webState),
-      WebStateList::InsertionParams::Automatic().InGroup(group).Activate());
-
-  return YES;
 }
 
 - (void)closeAllItems {
@@ -1139,8 +1120,12 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
   return [self dragItemForItemWithID:item.identifier];
 }
 
-- (void)dragWillBeginForItem:(TabSwitcherItem*)item {
+- (void)dragWillBeginForTabSwitcherItem:(TabSwitcherItem*)item {
   _dragItemID = item.identifier;
+}
+
+- (void)dragWillBeginForTabGroupItem:(TabSwitcherItem*)item {
+  NOTREACHED();
 }
 
 - (void)dragSessionDidEnd {
@@ -1151,7 +1136,8 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
   [self configureToolbarsButtons];
 }
 
-- (UIDropOperation)dropOperationForDropSession:(id<UIDropSession>)session {
+- (UIDropOperation)dropOperationForDropSession:(id<UIDropSession>)session
+                                       toIndex:(NSUInteger)destinationIndex {
   UIDragItem* dragItem = session.localDragSession.items.firstObject;
 
   // Tab move operations only originate from Chrome so a local object is used.
@@ -1182,6 +1168,10 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
         static_cast<TabGroupInfo*>(dragItem.localObject);
     // TODO(crbug.com/333502177) : Fix this when implementing multi profiles.
     if (self.browserState->IsOffTheRecord() == tabGroupInfo.incognito) {
+      if (self.currentMode == TabGridModeGroup) {
+        // Can't drop a group in a group.
+        return UIDropOperationForbidden;
+      }
       return UIDropOperationMove;
     }
     // Tabs of different profiles (regular/incognito) cannot be dropped.
@@ -1261,6 +1251,7 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
     if (fromSameCollection) {
       base::UmaHistogramEnumeration(kUmaGridViewGroupDragOrigin,
                                     DragItemOrigin::kSameCollection);
+      CHECK(tabGroupInfo.tabGroup);
       int sourceIndex = tabGroupInfo.tabGroup->range().range_begin();
       int nextWebStateIndex = WebStateIndexAfterGridDropItemIndex(
           self.webStateList, destinationIndex, sourceIndex);
@@ -1502,7 +1493,8 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
 // Closes all the tabs (webStates) in a given `group` and deletes the `group`
 // from the `webStateList`.
 - (void)closeTabsAndDeleteGroup:(const TabGroup*)group {
-  [self.gridConsumer setPageIdleStatus:NO];
+  [self.tabGridIdleStatusHandler
+      tabGridDidPerformAction:TabGridActionType::kInPageAction];
   if (_webStateList->ContainsGroup(group)) {
     // Using `CloseAllWebStatesInGroup` will result in calling the web state
     // list observers which will take care of updating the consumer.
@@ -1651,6 +1643,7 @@ Browser* GetBrowserForGroup(BrowserList* browser_list,
         selectedIDs.insert(identifier.tabSwitcherItem.identifier);
         break;
       case GridItemType::Group: {
+        CHECK(identifier.tabGroupItem.tabGroup);
         const TabGroupRange groupRange =
             identifier.tabGroupItem.tabGroup->range();
         for (int index : groupRange) {

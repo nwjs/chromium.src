@@ -40,7 +40,7 @@ OhttpKeyServiceFactory::OhttpKeyServiceFactory()
 std::unique_ptr<KeyedService>
 OhttpKeyServiceFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
-  // TODO(crbug.com/1441654) [Also TODO(thefrog)]: For now we simply return
+  // TODO(crbug.com/40910088) [Also TODO(thefrog)]: For now we simply return
   // nullptr for Android. If it becomes settled that Android should not use this
   // service, this will be refactored to avoid including this and associated
   // files in the binary in the first place.
@@ -50,11 +50,6 @@ OhttpKeyServiceFactory::BuildServiceInstanceForBrowserContext(
   if (!g_browser_process->safe_browsing_service()) {
     return nullptr;
   }
-  if (!hash_realtime_utils::IsHashRealTimeLookupEligibleInSessionAndLocation(
-          safe_browsing::hash_realtime_utils::GetCountryCode(
-              g_browser_process->variations_service()))) {
-    return nullptr;
-  }
   Profile* profile = Profile::FromBrowserContext(context);
   auto url_loader_factory =
       std::make_unique<network::CrossThreadPendingSharedURLLoaderFactory>(
@@ -62,7 +57,8 @@ OhttpKeyServiceFactory::BuildServiceInstanceForBrowserContext(
               profile));
   return std::make_unique<OhttpKeyService>(
       network::SharedURLLoaderFactory::Create(std::move(url_loader_factory)),
-      profile->GetPrefs());
+      profile->GetPrefs(), g_browser_process->local_state(),
+      base::BindRepeating(&OhttpKeyServiceFactory::GetCountry));
 #endif
 }
 
@@ -80,6 +76,12 @@ OhttpKeyServiceAllowerForTesting::OhttpKeyServiceAllowerForTesting() {
 }
 OhttpKeyServiceAllowerForTesting::~OhttpKeyServiceAllowerForTesting() {
   kAllowInTests = false;
+}
+
+// static
+std::optional<std::string> OhttpKeyServiceFactory::GetCountry() {
+  return safe_browsing::hash_realtime_utils::GetCountryCode(
+      g_browser_process->variations_service());
 }
 
 }  // namespace safe_browsing

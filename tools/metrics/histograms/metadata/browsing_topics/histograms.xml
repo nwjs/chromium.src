@@ -43,20 +43,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="BrowsingTopics.EpochTopicsCalculation.CalculatorResultStatus2"
-    enum="BrowsingTopicsCalculatorResultStatus" expires_after="2024-09-29">
-  <owner>yaoxia@chromium.org</owner>
-  <owner>jkarlin@chromium.org</owner>
-  <summary>
-    Records the browsing topics calculation result status (i.e. success, or the
-    failure reason). Topics calculations can typically occur weekly, but can
-    also be manually triggered from the topics-internals page, or can be retries
-    of a previously failed calculation (due to hanging or data race). Recorded
-    when a topics calculation completes, or when it's detected to be hanging, or
-    when it's canceled due to data races or browser shutdown.
-  </summary>
-</histogram>
-
 <histogram
     name="BrowsingTopics.EpochTopicsCalculation.EligibleDistinctHistoryHostsCount"
     units="hosts" expires_after="2024-09-29">
@@ -71,31 +57,33 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
-    name="BrowsingTopics.EpochTopicsCalculation.Hanging.DaysSinceSessionStart"
-    units="days" expires_after="2024-10-03">
+    name="BrowsingTopics.EpochTopicsCalculation.FirstTry.CalculatorResultStatus"
+    enum="BrowsingTopicsCalculatorResultStatus" expires_after="2024-10-15">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
-    Records the duration in days between the profile session start and the topic
-    calculation start. Recorded when a topic calculation is detected to be
-    hanging (i.e. not finished within 30 seconds after started).
+    Records the browsing topics calculation result status (i.e. success, or the
+    failure reason). Topics calculations can typically occur weekly, but can
+    also be manually triggered from the topics-internals page, or can be retries
+    of a previously failed calculation (due to hanging or data race). Recorded
+    for the first try of a calculation (i.e. separated from the timeout retry)
+    after the calculation completes, or when it's detected to be hanging, or
+    when it's canceled due to data races or browser shutdown.
   </summary>
 </histogram>
 
-<histogram
-    name="BrowsingTopics.EpochTopicsCalculation.Hanging.SecondsSinceSessionStart"
-    units="seconds" expires_after="2024-10-03">
+<histogram name="BrowsingTopics.EpochTopicsCalculation.Hanging.RetryNumber"
+    units="retry number" expires_after="2024-10-22">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
-    Records the duration in seconds between the profile session start and the
-    topic calculation start. Recorded when a topic calculation is detected to be
-    hanging (i.e. not finished within 30 seconds after started).
+    Records the number of consecutive retries for a topic calculation (initial
+    attempt = 0). Recorded when a topic calculation times out.
   </summary>
 </histogram>
 
 <histogram name="BrowsingTopics.EpochTopicsCalculation.HistoryTopicsCount"
-    units="topics" expires_after="2024-09-01">
+    units="topics" expires_after="2024-11-03">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
@@ -122,19 +110,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram
-    name="BrowsingTopics.EpochTopicsCalculation.Started.DaysSinceSessionStart"
-    units="days" expires_after="2024-10-03">
+<histogram name="BrowsingTopics.EpochTopicsCalculation.Started.RetryNumber"
+    units="retry number" expires_after="2024-10-22">
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
   <summary>
-    Records the duration in days between the profile session start and the topic
-    calculation start. Recorded when a topic calculation starts.
+    Records the number of consecutive retries for a topic calculation (initial
+    attempt = 0). Recorded when a topic calculation starts.
   </summary>
 </histogram>
 
 <histogram name="BrowsingTopics.EpochTopicsCalculation.TimeBetweenCalculations"
-    units="ms" expires_after="2024-09-01">
+    units="ms" expires_after="2024-11-03">
   <owner>abigailkatcoff@chromium.org</owner>
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
@@ -211,7 +198,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowsingTopics.OverrideList.FileLoadResult"
-    enum="BrowsingTopicsOverrideListFileLoadResult" expires_after="2024-08-25">
+    enum="BrowsingTopicsOverrideListFileLoadResult" expires_after="2024-10-28">
   <owner>robertogden@chromium.org</owner>
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
@@ -225,7 +212,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="BrowsingTopics.OverrideList.UsedOverride" enum="Boolean"
-    expires_after="2024-08-25">
+    expires_after="2024-10-27">
   <owner>robertogden@chromium.org</owner>
   <owner>yaoxia@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>

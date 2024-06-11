@@ -21,8 +21,11 @@
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/platform/inspect/ax_api_type.h"
 
+namespace ui {
+struct AXUpdatesAndEvents;
+}
+
 namespace content {
-struct AXEventNotificationDetails;
 class ScopedAccessibilityMode;
 class WebContents;
 }  // namespace content
@@ -57,7 +60,7 @@ class AccessibilityUIObserver : public content::WebContentsObserver {
   ~AccessibilityUIObserver() override;
 
   void AccessibilityEventReceived(
-      const content::AXEventNotificationDetails& details) override;
+      const ui::AXUpdatesAndEvents& details) override;
 
  private:
   raw_ptr<std::vector<std::string>> event_logs_;

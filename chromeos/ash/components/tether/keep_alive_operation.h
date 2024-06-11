@@ -29,7 +29,7 @@ class KeepAliveOperation : public MessageTransferOperation {
   class Factory {
    public:
     static std::unique_ptr<KeepAliveOperation> Create(
-        multidevice::RemoteDeviceRef device_to_connect,
+        const TetherHost& tether_host,
         device_sync::DeviceSyncClient* device_sync_client,
         secure_channel::SecureChannelClient* secure_channel_client);
 
@@ -38,7 +38,7 @@ class KeepAliveOperation : public MessageTransferOperation {
    protected:
     virtual ~Factory();
     virtual std::unique_ptr<KeepAliveOperation> CreateInstance(
-        multidevice::RemoteDeviceRef device_to_connect,
+        const TetherHost& tether_host,
         device_sync::DeviceSyncClient* device_sync_client,
         secure_channel::SecureChannelClient* secure_channel_client) = 0;
 
@@ -51,7 +51,6 @@ class KeepAliveOperation : public MessageTransferOperation {
     // |device_status| points to a valid DeviceStatus if the operation completed
     // successfully and is null if the operation was not successful.
     virtual void OnOperationFinished(
-        multidevice::RemoteDeviceRef remote_device,
         std::unique_ptr<DeviceStatus> device_status) = 0;
   };
 
@@ -65,7 +64,7 @@ class KeepAliveOperation : public MessageTransferOperation {
 
  protected:
   KeepAliveOperation(
-      multidevice::RemoteDeviceRef device_to_connect,
+      const TetherHost& tether_host,
       device_sync::DeviceSyncClient* device_sync_client,
       secure_channel::SecureChannelClient* secure_channel_client);
 

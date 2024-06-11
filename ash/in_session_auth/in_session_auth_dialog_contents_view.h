@@ -5,13 +5,18 @@
 #ifndef ASH_IN_SESSION_AUTH_IN_SESSION_AUTH_DIALOG_CONTENTS_VIEW_H_
 #define ASH_IN_SESSION_AUTH_IN_SESSION_AUTH_DIALOG_CONTENTS_VIEW_H_
 
+#include <optional>
+#include <string>
+
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "chromeos/ash/components/auth_panel/public/shared_types.h"
+#include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/views/view.h"
 
 namespace views {
 
 class Label;
+class ImageButton;
 
 }  // namespace views
 
@@ -20,6 +25,7 @@ namespace ash {
 class AnimatedRoundedImageView;
 class AuthHubConnector;
 class AuthPanel;
+class NonAccessibleView;
 
 // The parent view for in-session auth dialogs. This gets created,
 // injected into a widget and shown as part of
@@ -44,6 +50,7 @@ class InSessionAuthDialogContentsView : public views::View {
 
  private:
   void AddVerticalSpacing(int height);
+  void AddCloseButton();
   void AddUserAvatar();
   void AddTitle();
   void AddPrompt(const std::string& prompt);
@@ -58,6 +65,10 @@ class InSessionAuthDialogContentsView : public views::View {
   raw_ptr<AuthPanel> auth_panel_;
 
   raw_ptr<views::Label> prompt_view_;
+
+  raw_ptr<NonAccessibleView> close_button_container_;
+
+  raw_ptr<views::ImageButton> close_button_;
 };
 
 }  // namespace ash

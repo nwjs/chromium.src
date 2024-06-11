@@ -88,6 +88,7 @@
 #include "components/account_id/account_id.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/policy/core/common/cloud/affiliation.h"
+#include "components/policy/core/common/device_local_account_type.h"
 #include "components/policy/core/common/policy_details.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -97,7 +98,6 @@
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/multi_user/multi_user_sign_in_policy.h"
-#include "components/user_manager/multi_user/multi_user_sign_in_policy_controller.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_image/user_image.h"
 #include "components/user_manager/user_manager.h"
@@ -107,37 +107,20 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_switches.h"
 #include "google_apis/gaia/gaia_auth_util.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/wm/core/wm_core_switches.h"
 
 namespace ash {
 
 // TODO(b/278643115) Remove the using when moved.
 namespace prefs {
-using user_manager::prefs::kMultiProfileNeverShowIntro;
-using user_manager::prefs::kMultiProfileUserBehaviorPref;
-using user_manager::prefs::kMultiProfileWarningShowDismissed;
+using user_manager::prefs::kDeviceLocalAccountPendingDataRemoval;
+using user_manager::prefs::kDeviceLocalAccountsWithSavedData;
 using user_manager::prefs::kRegularUsersPref;
 }  // namespace prefs
-using user_manager::MultiUserSignInPolicy;
-using user_manager::MultiUserSignInPolicyController;
-using user_manager::ParseMultiUserSignInPolicyPref;
 
 namespace {
 
 using ::content::BrowserThread;
-
-// A string pref that gets set when a device local account is removed but a
-// user is currently logged into that account, requiring the account's data to
-// be removed after logout.
-const char kDeviceLocalAccountPendingDataRemoval[] =
-    "PublicAccountPendingDataRemoval";
-
-// A vector pref of the device local accounts defined on this device. Note that
-// this is separate from kAccountsPrefDeviceLocalAccounts because it reflects
-// the accounts that existed on the last run of Chrome and therefore have saved
-// data.
-const char kDeviceLocalAccountsWithSavedData[] = "PublicAccounts";
 
 // Callback that is called after user removal is complete.
 void OnRemoveUserComplete(const AccountId& account_id,
@@ -146,27 +129,6 @@ void OnRemoveUserComplete(const AccountId& account_id,
     LOG(ERROR) << "Removal of cryptohome for " << account_id.Serialize()
                << " failed, return code: " << error->get_cryptohome_error();
   }
-}
-
-// Runs on SequencedWorkerPool thread. Passes resolved locale to UI thread.
-void ResolveLocale(const std::string& raw_locale,
-                   std::string* resolved_locale) {
-  std::ignore = l10n_util::CheckAndResolveLocale(raw_locale, resolved_locale);
-}
-
-bool GetUserLockAttributes(const user_manager::User* user,
-                           MultiUserSignInPolicy* policy) {
-  Profile* const profile = ProfileHelper::Get()->GetProfileByUser(user);
-  if (!profile) {
-    return false;
-  }
-  PrefService* const prefs = profile->GetPrefs();
-  if (policy) {
-    *policy = ParseMultiUserSignInPolicyPref(
-                  prefs->GetString(prefs::kMultiProfileUserBehaviorPref))
-                  .value_or(MultiUserSignInPolicy::kUnrestricted);
-  }
-  return true;
 }
 
 policy::MinimumVersionPolicyHandler* GetMinimumVersionPolicyHandler() {
@@ -253,33 +215,6 @@ user_manager::UserManager::EphemeralModeConfig CreateEphemeralModeConfig(
 }  // namespace
 
 // static
-void ChromeUserManagerImpl::RegisterPrefs(PrefRegistrySimple* registry) {
-  UserManagerBase::RegisterPrefs(registry);
-
-  registry->RegisterListPref(kDeviceLocalAccountsWithSavedData);
-  registry->RegisterStringPref(kDeviceLocalAccountPendingDataRemoval,
-                               std::string());
-  MultiUserSignInPolicyController::RegisterPrefs(registry);
-}
-
-// static
-void ChromeUserManagerImpl::RegisterProfilePrefs(
-    user_prefs::PrefRegistrySyncable* registry) {
-  // TODO(b/278643115): Move to components/user_manager. Currently,
-  // using user_prefs::PrefRegistrySyncable in components/user_manager
-  // will cause circular dependency.
-  registry->RegisterStringPref(prefs::kMultiProfileUserBehaviorPref,
-                               std::string(MultiUserSignInPolicyToPrefValue(
-                                   MultiUserSignInPolicy::kUnrestricted)));
-  registry->RegisterBooleanPref(
-      prefs::kMultiProfileNeverShowIntro, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
-  registry->RegisterBooleanPref(
-      prefs::kMultiProfileWarningShowDismissed, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
-}
-
-// static
 std::unique_ptr<ChromeUserManagerImpl>
 ChromeUserManagerImpl::CreateChromeUserManager() {
   return base::WrapUnique(new ChromeUserManagerImpl());
@@ -294,7 +229,6 @@ ChromeUserManagerImpl::ChromeUserManagerImpl()
           g_browser_process ? g_browser_process->local_state() : nullptr,
           CrosSettings::Get()),
       device_local_account_policy_service_(nullptr),
-      multi_user_sign_in_policy_controller_(GetLocalState(), this),
       mount_performer_(std::make_unique<MountPerformer>()) {
   // UserManager instance should be used only on UI thread.
   // (or in unit tests)
@@ -408,83 +342,7 @@ void ChromeUserManagerImpl::Shutdown() {
     device_local_account_policy_service_->RemoveObserver(this);
   }
 
-  multi_user_sign_in_policy_controller_.Shutdown();
   cloud_external_data_policy_handlers_.clear();
-}
-
-MultiUserSignInPolicyController*
-ChromeUserManagerImpl::GetMultiUserSignInPolicyController() {
-  return &multi_user_sign_in_policy_controller_;
-}
-
-user_manager::UserList ChromeUserManagerImpl::GetUsersAllowedForMultiProfile()
-    const {
-  // Supervised users are not allowed to use multi-profiles.
-  if (GetLoggedInUsers().size() == 1 &&
-      GetPrimaryUser()->GetType() != user_manager::UserType::kRegular) {
-    return user_manager::UserList();
-  }
-
-  // No user is allowed if the primary user policy forbids it.
-  if (multi_user_sign_in_policy_controller_.GetPrimaryUserPolicy() ==
-      MultiUserSignInPolicy::kNotAllowed) {
-    return {};
-  }
-
-  user_manager::UserList result;
-  for (user_manager::User* user : GetUsers()) {
-    if (user->GetType() == user_manager::UserType::kRegular &&
-        !user->is_logged_in()) {
-      // Users with a policy that prevents them being added to a session will be
-      // shown in login UI but will be grayed out.
-      // Same applies to owner account (see http://crbug.com/385034).
-      result.push_back(user);
-    }
-  }
-
-  // Extract out users that are allowed on login screen.
-  return chrome_user_manager_util::FindLoginAllowedUsers(result);
-}
-
-user_manager::UserList ChromeUserManagerImpl::GetUnlockUsers() const {
-  const user_manager::UserList& logged_in_users = GetLoggedInUsers();
-  if (logged_in_users.empty()) {
-    return user_manager::UserList();
-  }
-
-  MultiUserSignInPolicy primary_policy;
-  auto* primary_user = GetPrimaryUser();
-  if (!GetUserLockAttributes(primary_user, &primary_policy)) {
-    // Locking is not allowed until the primary user profile is created.
-    return user_manager::UserList();
-  }
-
-  user_manager::UserList unlock_users;
-
-  // Specific case: only one logged in user or
-  // primary user has primary-only multi-user policy.
-  if (logged_in_users.size() == 1 ||
-      primary_policy == MultiUserSignInPolicy::kPrimaryOnly) {
-    if (primary_user->CanLock()) {
-      unlock_users.push_back(primary_user_.get());
-    }
-  } else {
-    // Fill list of potential unlock users based on multi-user policy state.
-    for (user_manager::User* user : logged_in_users) {
-      MultiUserSignInPolicy policy;
-      if (!GetUserLockAttributes(user, &policy)) {
-        continue;
-      }
-      if (policy == MultiUserSignInPolicy::kUnrestricted && user->CanLock()) {
-        unlock_users.push_back(user);
-      } else if (policy == MultiUserSignInPolicy::kPrimaryOnly) {
-        NOTREACHED()
-            << "Spotted primary-only multi-user policy for non-primary user";
-      }
-    }
-  }
-
-  return unlock_users;
 }
 
 void ChromeUserManagerImpl::RemoveUserInternal(
@@ -566,25 +424,22 @@ void ChromeUserManagerImpl::OnDeviceLocalAccountsChanged() {
   // handled via the kAccountsPrefDeviceLocalAccounts device setting observer.
 }
 
-bool ChromeUserManagerImpl::IsEnterpriseManaged() const {
-  return ash::InstallAttributes::Get()->IsEnterpriseManaged();
-}
-
 void ChromeUserManagerImpl::LoadDeviceLocalAccounts(
     std::set<AccountId>* device_local_accounts_set) {
   const base::Value::List& prefs_device_local_accounts =
-      GetLocalState()->GetList(kDeviceLocalAccountsWithSavedData);
+      GetLocalState()->GetList(prefs::kDeviceLocalAccountsWithSavedData);
   std::vector<AccountId> device_local_accounts;
   ParseUserList(prefs_device_local_accounts, std::set<AccountId>(),
                 &device_local_accounts, device_local_accounts_set);
   for (const AccountId& account_id : device_local_accounts) {
-    policy::DeviceLocalAccount::Type type;
-    if (!policy::IsDeviceLocalAccountUser(account_id.GetUserEmail(), &type)) {
+    auto type = policy::GetDeviceLocalAccountType(account_id.GetUserEmail());
+    if (!type.has_value()) {
       NOTREACHED();
       continue;
     }
 
-    user_storage_.push_back(CreateUserFromDeviceLocalAccount(account_id, type));
+    user_storage_.push_back(
+        CreateUserFromDeviceLocalAccount(account_id, *type));
     users_.push_back(user_storage_.back().get());
   }
 }
@@ -592,7 +447,7 @@ void ChromeUserManagerImpl::LoadDeviceLocalAccounts(
 bool ChromeUserManagerImpl::IsDeviceLocalAccountMarkedForRemoval(
     const AccountId& account_id) const {
   return account_id == AccountId::FromUserEmail(GetLocalState()->GetString(
-                           kDeviceLocalAccountPendingDataRemoval));
+                           prefs::kDeviceLocalAccountPendingDataRemoval));
 }
 
 void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
@@ -702,9 +557,6 @@ void ChromeUserManagerImpl::RemoveNonCryptohomeDataPostExternalDataRemoval(
                                                 : account_id.GetUserEmail());
   }
 
-  multi_user_sign_in_policy_controller_.RemoveCachedValues(
-      account_id.GetUserEmail());
-
   UserManagerBase::RemoveNonCryptohomeData(account_id);
 }
 
@@ -712,7 +564,7 @@ void ChromeUserManagerImpl::
     CleanUpDeviceLocalAccountNonCryptohomeDataPendingRemoval() {
   PrefService* local_state = GetLocalState();
   const std::string device_local_account_pending_data_removal =
-      local_state->GetString(kDeviceLocalAccountPendingDataRemoval);
+      local_state->GetString(prefs::kDeviceLocalAccountPendingDataRemoval);
   if (device_local_account_pending_data_removal.empty() ||
       (IsUserLoggedIn() &&
        device_local_account_pending_data_removal ==
@@ -722,7 +574,7 @@ void ChromeUserManagerImpl::
 
   RemoveNonCryptohomeData(
       AccountId::FromUserEmail(device_local_account_pending_data_removal));
-  local_state->ClearPref(kDeviceLocalAccountPendingDataRemoval);
+  local_state->ClearPref(prefs::kDeviceLocalAccountPendingDataRemoval);
 }
 
 void ChromeUserManagerImpl::CleanUpDeviceLocalAccountNonCryptohomeData(
@@ -741,7 +593,7 @@ void ChromeUserManagerImpl::CleanUpDeviceLocalAccountNonCryptohomeData(
     const std::string active_user_id =
         active_user->GetAccountId().GetUserEmail();
     if (users.find(active_user_id) == users.end()) {
-      GetLocalState()->SetString(kDeviceLocalAccountPendingDataRemoval,
+      GetLocalState()->SetString(prefs::kDeviceLocalAccountPendingDataRemoval,
                                  active_user_id);
       users.insert(active_user_id);
     }
@@ -790,7 +642,7 @@ bool ChromeUserManagerImpl::UpdateAndCleanUpDeviceLocalAccounts(
   // of whether they still exist in kAccountsPrefDeviceLocalAccounts, allowing
   // us to clean up associated data if they disappear from policy.
   ScopedListPrefUpdate prefs_device_local_accounts_update(
-      GetLocalState(), kDeviceLocalAccountsWithSavedData);
+      GetLocalState(), prefs::kDeviceLocalAccountsWithSavedData);
   prefs_device_local_accounts_update->clear();
   for (const auto& account : device_local_accounts) {
     prefs_device_local_accounts_update->Append(account.user_id);
@@ -824,8 +676,8 @@ bool ChromeUserManagerImpl::UpdateAndCleanUpDeviceLocalAccounts(
           AccountId::FromUserEmail(account.user_id), account.type));
       users_.insert(users_.begin(), user_storage_.back().get());
     }
-    if (account.type == policy::DeviceLocalAccount::TYPE_PUBLIC_SESSION ||
-        account.type == policy::DeviceLocalAccount::TYPE_SAML_PUBLIC_SESSION) {
+    if (account.type == policy::DeviceLocalAccountType::kPublicSession ||
+        account.type == policy::DeviceLocalAccountType::kSamlPublicSession) {
       UpdatePublicAccountDisplayName(account.user_id);
     }
   }
@@ -890,7 +742,7 @@ void ChromeUserManagerImpl::OnProfileCreationStarted(Profile* profile) {
         [](const user_manager::User* user) { return user->username_hash(); });
     if (it == logged_in_users.end()) {
       // User may not be found for now on testing.
-      // TODO(crbug.com/1325210): fix tests to annotate AccountId properly.
+      // TODO(crbug.com/40225390): fix tests to annotate AccountId properly.
       CHECK_IS_TEST();
     } else {
       const user_manager::User* user = *it;
@@ -907,7 +759,7 @@ void ChromeUserManagerImpl::OnProfileCreationStarted(Profile* profile) {
 }
 
 void ChromeUserManagerImpl::OnProfileAdded(Profile* profile) {
-  // TODO(crbug.com/1325210): Use ash::AnnotatedAccountId::Get(), when
+  // TODO(crbug.com/40225390): Use ash::AnnotatedAccountId::Get(), when
   // it gets fully ready for tests.
   user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
   if (user && OnUserProfileCreated(user->GetAccountId(), profile->GetPrefs())) {
@@ -919,24 +771,14 @@ void ChromeUserManagerImpl::OnProfileAdded(Profile* profile) {
     profile_observations_.push_back(std::move(observation));
   }
 
-  // TODO(b/278643115): Merge into UserManager::OnUserProfileCreated().
-  if (user && IsUserLoggedIn() && !IsLoggedInAsGuest() &&
-      !IsLoggedInAsAnyKioskApp() && !profile->IsOffTheRecord()) {
-    multi_user_sign_in_policy_controller_.StartObserving(user);
-  }
-
-  // If there is pending user switch, do it now.
-  if (GetPendingUserSwitchID().is_valid()) {
-    SwitchActiveUser(GetPendingUserSwitchID());
-    SetPendingUserSwitchId(EmptyAccountId());
-  }
+  ProcessPendingUserSwitchId();
 }
 
 void ChromeUserManagerImpl::OnProfileWillBeDestroyed(Profile* profile) {
   CHECK(std::erase_if(profile_observations_, [profile](auto& observation) {
     return observation->IsObservingSource(profile);
   }));
-  // TODO(crbug.com/1325210): User ash::AnnotatedAccountId::Get(), when it gets
+  // TODO(crbug.com/40225390): User ash::AnnotatedAccountId::Get(), when it gets
   // fully ready for tests.
   user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
   if (user) {
@@ -959,37 +801,6 @@ bool ChromeUserManagerImpl::IsUserAllowed(
       user.HasGaiaAccount() && IsGaiaUserAllowed(user));
 }
 
-void ChromeUserManagerImpl::NotifyUserAddedToSession(
-    const user_manager::User* added_user,
-    bool user_switch_pending) {
-  // Special case for user session restoration after browser crash.
-  // We don't switch to each user session that has been restored as once all
-  // session will be restored we'll switch to the session that has been used
-  // before the crash.
-  if (user_switch_pending &&
-      !UserSessionManager::GetInstance()->UserSessionsRestoreInProgress()) {
-    SetPendingUserSwitchId(added_user->GetAccountId());
-  }
-
-  UserManagerBase::NotifyUserAddedToSession(added_user, user_switch_pending);
-}
-
-void ChromeUserManagerImpl::SetUserAffiliation(
-    const AccountId& account_id,
-    const base::flat_set<std::string>& user_affiliation_ids) {
-  user_manager::User* user = FindUserAndModify(account_id);
-
-  if (user) {
-    policy::BrowserPolicyConnectorAsh const* const connector =
-        g_browser_process->platform_part()->browser_policy_connector_ash();
-    const bool is_affiliated = policy::IsUserAffiliated(
-        user_affiliation_ids, connector->device_affiliation_ids(),
-        account_id.GetUserEmail());
-    user->SetAffiliation(is_affiliated);
-    NotifyUserAffiliationUpdated(*user);
-  }
-}
-
 void ChromeUserManagerImpl::AsyncRemoveCryptohome(
     const AccountId& account_id) const {
   cryptohome::AccountIdentifier identifier =
@@ -1004,17 +815,6 @@ bool ChromeUserManagerImpl::IsDeprecatedSupervisedAccountId(
          user_manager::kSupervisedUserDomain;
 }
 
-void ChromeUserManagerImpl::ScheduleResolveLocale(
-    const std::string& locale,
-    base::OnceClosure on_resolved_callback,
-    std::string* out_resolved_locale) const {
-  base::ThreadPool::PostTaskAndReply(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(ResolveLocale, locale,
-                     base::Unretained(out_resolved_locale)),
-      std::move(on_resolved_callback));
-}
-
 bool ChromeUserManagerImpl::IsValidDefaultUserImageId(int image_index) const {
   return default_user_image::IsValidIndex(image_index);
 }
@@ -1022,27 +822,24 @@ bool ChromeUserManagerImpl::IsValidDefaultUserImageId(int image_index) const {
 std::unique_ptr<user_manager::User>
 ChromeUserManagerImpl::CreateUserFromDeviceLocalAccount(
     const AccountId& account_id,
-    const policy::DeviceLocalAccount::Type type) const {
+    const policy::DeviceLocalAccountType type) const {
   std::unique_ptr<user_manager::User> user;
   switch (type) {
-    case policy::DeviceLocalAccount::TYPE_PUBLIC_SESSION:
+    case policy::DeviceLocalAccountType::kPublicSession:
       user.reset(user_manager::User::CreatePublicAccountUser(account_id));
       break;
-    case policy::DeviceLocalAccount::TYPE_SAML_PUBLIC_SESSION:
+    case policy::DeviceLocalAccountType::kSamlPublicSession:
       user.reset(user_manager::User::CreatePublicAccountUser(
           account_id, /*is_using_saml=*/true));
       break;
-    case policy::DeviceLocalAccount::TYPE_KIOSK_APP:
+    case policy::DeviceLocalAccountType::kKioskApp:
       user.reset(user_manager::User::CreateKioskAppUser(account_id));
       break;
-    case policy::DeviceLocalAccount::TYPE_ARC_KIOSK_APP:
+    case policy::DeviceLocalAccountType::kArcKioskApp:
       user.reset(user_manager::User::CreateArcKioskAppUser(account_id));
       break;
-    case policy::DeviceLocalAccount::TYPE_WEB_KIOSK_APP:
+    case policy::DeviceLocalAccountType::kWebKioskApp:
       user.reset(user_manager::User::CreateWebKioskAppUser(account_id));
-      break;
-    default:
-      NOTREACHED();
       break;
   }
 

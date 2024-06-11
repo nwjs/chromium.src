@@ -72,6 +72,10 @@ class HistoryListTest : public HistoryUIBrowserTest {
   }
 };
 
+IN_PROC_BROWSER_TEST_F(HistoryListTest, IsEmpty) {
+  RunTestCase("IsEmpty");
+}
+
 IN_PROC_BROWSER_TEST_F(HistoryListTest, DeletingSingleItem) {
   RunTestCase("DeletingSingleItem");
 }
@@ -151,6 +155,10 @@ IN_PROC_BROWSER_TEST_F(HistoryListTest,
 
 IN_PROC_BROWSER_TEST_F(HistoryListTest, SetsScrollTarget) {
   RunTestCase("SetsScrollTarget");
+}
+
+IN_PROC_BROWSER_TEST_F(HistoryListTest, SetsScrollOffset) {
+  RunTestCase("SetsScrollOffset");
 }
 
 class HistoryWithHistoryEmbeddingsTest : public WebUIMochaBrowserTest {

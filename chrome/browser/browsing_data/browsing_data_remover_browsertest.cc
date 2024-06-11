@@ -137,7 +137,7 @@ class BrowsingDataRemoverBrowserTest
     std::vector<base::test::FeatureRef> enabled_features = {};
     // TODO(b/314968275): Add tests for when UNO Desktop is enabled.
     std::vector<base::test::FeatureRef> disabled_features = {
-        switches::kUnoDesktop, switches::kExplicitBrowserSigninUIOnDesktop};
+        switches::kExplicitBrowserSigninUIOnDesktop};
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
     enabled_features.push_back(media::kExternalClearKeyForTesting);
     enabled_features.push_back(features::kCdmStorageDatabase);
@@ -145,8 +145,9 @@ class BrowsingDataRemoverBrowserTest
     // disabled.
     disabled_features.push_back(features::kCdmStorageDatabaseMigration);
 #endif
-    // WebSQL is disabled by default as of M119 (crbug/695592). Enable feature
-    // in tests during deprecation trial and enterprise policy support.
+    // TODO(crbug.com/333756088): WebSQL is disabled everywhere by default as of
+    // M119 (crbug/695592) except on Android WebView. This is enabled for
+    // Android only to indirectly cover WebSQL deletions on WebView.
     enabled_features.push_back(blink::features::kWebSQLAccess);
     InitFeatureLists(std::move(enabled_features), std::move(disabled_features));
   }
@@ -226,7 +227,7 @@ class BrowsingDataRemoverBrowserTest
 
     SetDataForType(type);
     EXPECT_EQ(1, GetSiteDataCount());
-    // TODO(crbug.com/1307796): Use a different approach to determine presence
+    // TODO(crbug.com/40218898): Use a different approach to determine presence
     // of data that does not depend on UI code and has a better resolution when
     // 3PSP is fully enabled. ExpectTotalModelCount(1) is not always true
     // here.
@@ -251,7 +252,7 @@ class BrowsingDataRemoverBrowserTest
     // Opening a store of this type creates a site data entry.
     EXPECT_FALSE(HasDataForType(type));
     EXPECT_EQ(1, GetSiteDataCount());
-    // TODO(crbug.com/1307796): Use a different approach to determine presence
+    // TODO(crbug.com/40218898): Use a different approach to determine presence
     // of data that does not depend on UI code and has a better resolution when
     // 3PSP is fully enabled. ExpectTotalModelCount(1) is not always true
     // here.
@@ -661,8 +662,9 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, WebrtcVideoPerfHistory) {
   }
 }
 
-// TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
-#if BUILDFLAG(IS_FUCHSIA)
+// TODO(crbug.com/333756088): WebSQL is disabled everywhere except Android
+// WebView.
+#if !BUILDFLAG(IS_ANDROID)
 #define MAYBE_Database DISABLED_Database
 #else
 #define MAYBE_Database Database
@@ -690,7 +692,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, MAYBE_Database) {
 // with ConditionalCacheDeletionHelper. Whether ConditionalCacheDeletionHelper
 // actually deletes the correct entries is tested
 // in ConditionalCacheDeletionHelperBrowsertest.
-// TODO(crbug.com/817417): check the cache size instead of stopping the server
+// TODO(crbug.com/41373874): check the cache size instead of stopping the server
 // and loading the request again.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, Cache) {
   // Load several resources.
@@ -742,8 +744,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, Cache) {
 // Note that there is a race between crashing the network service and clearing
 // the cache, so the test might flakily fail if the tested behavior does not
 // work.
-// TODO(crbug.com/813882): test retry behavior by validating the cache is empty
-// after the crash.
+// TODO(crbug.com/40563720): test retry behavior by validating the cache is
+// empty after the crash.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                        ClearCacheAndNetworkServiceCrashes) {
   if (!content::IsOutOfProcessNetworkService())
@@ -1129,8 +1131,8 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
   TestSiteData("LocalStorage", GetParam());
 }
 
-// TODO(crbug.com/772337): DISABLED until session storage is working correctly.
-// Add Incognito variant when this is re-enabled.
+// TODO(crbug.com/41348517): DISABLED until session storage is working
+// correctly. Add Incognito variant when this is re-enabled.
 IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
                        DISABLED_SessionStorageDeletion) {
   TestSiteData("SessionStorage", GetParam());
@@ -1207,8 +1209,9 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
   TestEmptySiteData("FileSystem", GetParam());
 }
 
-// TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
-#if BUILDFLAG(IS_FUCHSIA)
+// TODO(crbug.com/333756088): WebSQL is disabled everywhere except Android
+// WebView.
+#if !BUILDFLAG(IS_ANDROID)
 #define MAYBE_WebSqlDeletion DISABLED_WebSqlDeletion
 #else
 #define MAYBE_WebSqlDeletion WebSqlDeletion
@@ -1217,8 +1220,9 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP, MAYBE_WebSqlDeletion) {
   TestSiteData("WebSql", GetParam());
 }
 
-// TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
-#if BUILDFLAG(IS_FUCHSIA)
+// TODO(crbug.com/333756088): WebSQL is disabled everywhere except Android
+// WebView.
+#if !BUILDFLAG(IS_ANDROID)
 #define MAYBE_WebSqlIncognitoDeletion DISABLED_WebSqlIncognitoDeletion
 #else
 #define MAYBE_WebSqlIncognitoDeletion WebSqlIncognitoDeletion
@@ -1229,8 +1233,9 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP,
   TestSiteData("WebSql", GetParam());
 }
 
-// TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
-#if BUILDFLAG(IS_FUCHSIA)
+// TODO(crbug.com/333756088): WebSQL is disabled everywhere except Android
+// WebView.
+#if !BUILDFLAG(IS_ANDROID)
 #define MAYBE_EmptyWebSqlDeletion DISABLED_EmptyWebSqlDeletion
 #else
 #define MAYBE_EmptyWebSqlDeletion EmptyWebSqlDeletion
@@ -1421,8 +1426,14 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
 const std::vector<std::string> kStorageTypes{
-    "Cookie", "LocalStorage",  "FileSystem",   "SessionStorage", "IndexedDb",
-    "WebSql", "ServiceWorker", "CacheStorage", "MediaLicense"};
+    "Cookie",    "LocalStorage",  "FileSystem",   "SessionStorage",
+    "IndexedDb", "ServiceWorker", "CacheStorage", "MediaLicense",
+// TODO(crbug.com/333756088): WebSQL is disabled everywhere except Android
+// WebView.
+#if BUILDFLAG(IS_ANDROID)
+    "WebSql",
+#endif
+};
 
 // Test that storage doesn't leave any traces on disk.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
@@ -1450,8 +1461,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
     SetDataForType(type);
     EXPECT_TRUE(HasDataForType(type));
   }
-  // TODO(crbug.com/846297): Add more datatypes for testing. E.g. notifications,
-  // payment handler, content settings, autofill, ...?
+  // TODO(crbug.com/40577815): Add more datatypes for testing. E.g.
+  // notifications, payment handler, content settings, autofill, ...?
 }
 
 // Restart after creating the data to ensure that everything was written to
@@ -1472,25 +1483,19 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   ExpectTotalModelCount(0);
 }
 
-// TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
-#if BUILDFLAG(IS_FUCHSIA)
-#define MAYBE_StorageRemovedFromDisk DISABLED_StorageRemovedFromDisk
-#else
-#define MAYBE_StorageRemovedFromDisk StorageRemovedFromDisk
-#endif
 // Check if any data remains after a deletion and a Chrome restart to force
 // all writes to be finished.
-IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
-                       MAYBE_StorageRemovedFromDisk) {
+IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, StorageRemovedFromDisk) {
   // Deletions should remove all traces of browsing data from disk
   // but there are a few bugs that need to be fixed.
-  // Any addition to this list must have an associated TODO().
+  // Any addition to this list must have an associated TODO.
   static const std::vector<std::string> ignore_file_patterns = {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-    // TODO(crbug.com/846297): Many leveldb files remain on ChromeOS. I couldn't
-    // reproduce this in manual testing, so it might be a timing issue when
-    // Chrome is closed after the second test?
-    "[0-9]{6}",
+      // TODO(crbug.com/40577815): Many leveldb files remain on ChromeOS. I
+      // couldn't
+      // reproduce this in manual testing, so it might be a timing issue when
+      // Chrome is closed after the second test?
+      "[0-9]{6}",
 #endif
   };
   int found = CheckUserDirectoryForString(kLocalHost, ignore_file_patterns,
@@ -1499,8 +1504,13 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 }
 
 const std::vector<std::string> kSessionOnlyStorageTestTypes{
-    "Cookie", "LocalStorage",  "FileSystem",   "SessionStorage", "IndexedDb",
-    "WebSql", "ServiceWorker", "CacheStorage", "MediaLicense",
+    "Cookie",    "LocalStorage",  "FileSystem",   "SessionStorage",
+    "IndexedDb", "ServiceWorker", "CacheStorage", "MediaLicense",
+// TODO(crbug.com/333756088): WebSQL is disabled everywhere except Android
+// WebView.
+#if BUILDFLAG(IS_ANDROID)
+    "WebSql",
+#endif
 };
 
 // Test that storage gets deleted if marked as SessionOnly.
@@ -1521,9 +1531,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                                  CONTENT_SETTING_SESSION_ONLY);
 }
 
-// TODO(crbug.com/1317431): WebSQL does not work on Fuchsia.
-// TODO(crbug.com/1469354): Test is flaky on Mac.
-#if BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_MAC)
+// TODO(crbug.com/40925336): Test is flaky on Mac.
+#if BUILDFLAG(IS_MAC)
 #define MAYBE_SessionOnlyStorageRemoved DISABLED_SessionOnlyStorageRemoved
 #else
 #define MAYBE_SessionOnlyStorageRemoved SessionOnlyStorageRemoved

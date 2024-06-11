@@ -259,7 +259,7 @@ void ShowLoginWizardFinish(
   } else if (ShouldShowSigninScreen(first_screen)) {
     display_host = new LoginDisplayHostMojo(DisplayedScreen::SIGN_IN_SCREEN);
   } else if (first_screen == LacrosDataMigrationScreenView::kScreenId) {
-    // TODO(crbug.com/1178702): Once lacros is officially released,
+    // TODO(crbug.com/40169227): Once lacros is officially released,
     // `ShowLoginWizard()` will no longer be called with lacros screen id.
     // Instead simply call `SigninUI::StartBrowserDataMigration()` as part of
     // the login flow.
@@ -816,20 +816,12 @@ void LoginDisplayHostWebUI::OnWidgetBoundsChanged(views::Widget* widget,
 void LoginDisplayHostWebUI::OnCurrentScreenChanged(OobeScreenId current_screen,
                                                    OobeScreenId new_screen) {
   if (current_screen == ash::OOBE_SCREEN_UNKNOWN) {
-    // TODO(crbug.com/1305245) - Remove once the issue is fixed.
-    LOG(WARNING) << "LoginDisplayHostWebUI::OnCurrentScreenChanged() "
-                    "NotifyLoginOrLockScreenVisible";
-
     // Notify that the OOBE page is ready and the first screen is shown. It
     // might happen that front-end part isn't fully initialized yet (when
     // `OobeLazyLoading` is enabled), so wait for it to happen before notifying.
     GetOobeUI()->IsJSReady(base::BindOnce(
         &session_manager::SessionManager::NotifyLoginOrLockScreenVisible,
         base::Unretained(session_manager::SessionManager::Get())));
-  } else {
-    // TODO(crbug.com/1305245) - Remove once the issue is fixed.
-    LOG(WARNING) << "LoginDisplayHostWebUI::OnCurrentScreenChanged() Not "
-                    "notifying LoginOrLockScreenVisible.";
   }
 }
 
@@ -1196,6 +1188,8 @@ void ShowLoginWizard(OobeScreenId first_screen) {
   CHECK(first_screen != AppLaunchSplashScreenView::kScreenId);
 
   // Check whether we need to execute OOBE flow.
+  // TODO(b/338302062): Determine whether we should wait on OOBE config
+  // retrieval before calling GetPrescribedEnrollmentConfig here.
   const policy::EnrollmentConfig enrollment_config =
       policy::EnrollmentConfig::GetPrescribedEnrollmentConfig();
   if (enrollment_config.should_enroll() &&

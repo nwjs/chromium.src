@@ -44,6 +44,10 @@ class SupervisedUserExtensionsManager : public ExtensionRegistryObserver,
   // Updates the set of approved extensions to add approval for `extension`.
   void AddExtensionApproval(const Extension& extension);
 
+  // Checks if the extension escalated permissions during an upgrade
+  // and records the corresponding metrics.
+  void MaybeRecordPermissionsIncreaseMetrics(const extensions::Extension& extension);
+
   // Updates the set of approved extensions to remove approval for `extension`.
   void RemoveExtensionApproval(const Extension& extension);
 
@@ -117,10 +121,10 @@ class SupervisedUserExtensionsManager : public ExtensionRegistryObserver,
   // If `type` is kAdd, then add approval.
   // If `type` is kRemove, then remove approval.
   // Triggers a call to RefreshApprovedExtensionsFromPrefs() via a listener.
-  // TODO(crbug/1072857): We don't need the extension version information. It's
-  // only included for backwards compatibility with previous versions of Chrome.
-  // Remove the version information once a sufficient number of users have
-  // migrated away from M83.
+  // TODO(crbug.com/40685974): We don't need the extension version information.
+  // It's only included for backwards compatibility with previous versions of
+  // Chrome. Remove the version information once a sufficient number of users
+  // have migrated away from M83.
   void UpdateApprovedExtension(const std::string& extension_id,
                                const std::string& version,
                                ApprovedExtensionChange type);

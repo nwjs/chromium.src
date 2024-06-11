@@ -61,13 +61,14 @@ class PageInfoSubpageView : public views::View {
     content_ = AddChildView(std::move(content));
   }
 
-  // TODO(crbug.com/40232718): Use the CalculatePreferredSize(SizeBounds) method
-  // to avoid double calculations.
-  gfx::Size CalculatePreferredSize() const override {
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
     // Only the with of |content_| is taken into account, because the header
     // view contains site origin in the subtitle which can be very long.
-    const int width = content_->GetPreferredSize().width();
-    return gfx::Size(width, GetHeightForWidth(width));
+    const int width = content_->GetPreferredSize(available_size).width();
+    // TODO(crbug.com/40232718): Remove this line.
+    return gfx::Size(
+        width, GetLayoutManager()->GetPreferredHeightForWidth(this, width));
   }
 
   void ChildPreferredSizeChanged(views::View* child) override {
@@ -267,6 +268,9 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
           ? setting == CONTENT_SETTING_BLOCK || setting == CONTENT_SETTING_ASK
           : setting == CONTENT_SETTING_BLOCK;
 
+  // TODO(crbug.com/335848275): Migrate the icons in 2 steps.
+  // 1 - Copy contents of refresh icons into current non-refresh icons.
+  // 2 - In a separate change, remove the refresh icons.
   if (features::IsChromeRefresh2023()) {
     // Cr2023 does not add an additional blocked badge for block states,
     // instead it uses a completely different icon. This icon usually has the
@@ -398,21 +402,19 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
         break;
       case ContentSettingsType::IDLE_DETECTION:
         icon = show_blocked_badge ? &vector_icons::kDevicesOffChromeRefreshIcon
-                                  : &vector_icons::kDevicesChromeRefreshIcon;
+                                  : &vector_icons::kDevicesIcon;
         break;
       case ContentSettingsType::STORAGE_ACCESS:
         icon = show_blocked_badge ? &vector_icons::kStorageAccessOffIcon
                                   : &vector_icons::kStorageAccessIcon;
         break;
       case ContentSettingsType::KEYBOARD_LOCK:
-        // TODO: crbug.com/324147495 - Replace with the actual icons.
-        icon = show_blocked_badge ? &vector_icons::kUsbOffChromeRefreshIcon
-                                  : &vector_icons::kUsbChromeRefreshIcon;
+        icon = show_blocked_badge ? &vector_icons::kKeyboardLockOffIcon
+                                  : &vector_icons::kKeyboardLockIcon;
         break;
       case ContentSettingsType::POINTER_LOCK:
-        // TODO: crbug.com/324147495 - Replace with the actual icons.
-        icon = show_blocked_badge ? &vector_icons::kUsbOffChromeRefreshIcon
-                                  : &vector_icons::kUsbChromeRefreshIcon;
+        icon = show_blocked_badge ? &vector_icons::kPointerLockOffIcon
+                                  : &vector_icons::kPointerLockIcon;
         break;
       case ContentSettingsType::CAPTURED_SURFACE_CONTROL:
         icon = show_blocked_badge ? &vector_icons::kTouchpadMouseOffIcon
@@ -540,12 +542,10 @@ const ui::ImageModel PageInfoViewFactory::GetPermissionIcon(
       icon = &vector_icons::kTouchpadMouseIcon;
       break;
     case ContentSettingsType::KEYBOARD_LOCK:
-      // TODO: crbug.com/324147495 - Replace with the actual icon.
-      icon = &vector_icons::kUsbIcon;
+      icon = &vector_icons::kKeyboardLockIcon;
       break;
     case ContentSettingsType::POINTER_LOCK:
-      // TODO: crbug.com/324147495 - Replace with the actual icon.
-      icon = &vector_icons::kUsbIcon;
+      icon = &vector_icons::kPointerLockIcon;
       break;
     default:
       // All other |ContentSettingsType|s do not have icons on desktop or are
@@ -703,7 +703,7 @@ const ui::ImageModel PageInfoViewFactory::GetAdPersonalizationIcon() {
 const ui::ImageModel PageInfoViewFactory::GetManagedPermissionIcon(
     const PageInfo::PermissionInfo& info) {
   const gfx::VectorIcon& managed_vector_icon =
-      info.source == content_settings::SETTING_SOURCE_EXTENSION
+      info.source == content_settings::SettingSource::kExtension
           ? vector_icons::kExtensionIcon
           : vector_icons::kBusinessIcon;
   return GetImageModel(managed_vector_icon);

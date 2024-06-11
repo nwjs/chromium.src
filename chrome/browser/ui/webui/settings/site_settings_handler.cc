@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/settings/site_settings_handler.h"
 
 #include <set>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -974,7 +975,7 @@ void SiteSettingsHandler::HandleClearUnpartitionedUsage(
     return;
   AllowJavascript();
 
-  // TODO(crbug.com/1368048) - Permission info loading before storage info
+  // TODO(crbug.com/40240175) - Permission info loading before storage info
   // can result in an interleaving of actions that means this pointer is
   // null (as it hasn't loaded yet, but the user can delete an entry which has
   // been created by permission info).
@@ -1085,8 +1086,6 @@ void SiteSettingsHandler::HandleGetDefaultValueForContentType(
 void SiteSettingsHandler::HandleGetAllSites(const base::Value::List& args) {
   AllowJavascript();
 
-  request_started_time_ = base::TimeTicks::Now();
-
   CHECK_EQ(1U, args.size());
   std::string callback_id = args[0].GetString();
 
@@ -1134,7 +1133,7 @@ void SiteSettingsHandler::HandleGetAllSites(const base::Value::List& args) {
 
   // Get device chooser permission exceptions.
   for (auto content_type : kChooserDataContentSettingsTypes) {
-    base::StringPiece group_name =
+    std::string_view group_name =
         site_settings::ContentSettingsTypeToGroupName(content_type);
     DCHECK(!group_name.empty());
     const site_settings::ChooserTypeNameEntry* chooser_type =
@@ -1295,12 +1294,6 @@ base::Value::List SiteSettingsHandler::PopulateCookiesAndUsageData(
 
 void SiteSettingsHandler::OnStorageFetched() {
   AllowJavascript();
-
-  // Record how long does it take to fetch the storage and return complete
-  // information to the UI.
-  DCHECK(!request_started_time_.is_null());
-  base::UmaHistogramTimes("WebsiteSettings.GetAllSitesLoadTime",
-                          base::TimeTicks::Now() - request_started_time_);
   FireWebUIListener("onStorageListFetched",
                     PopulateCookiesAndUsageData(profile_));
 }
@@ -1417,9 +1410,9 @@ void SiteSettingsHandler::HandleGetOriginPermissions(
     HostContentSettingsMap* map =
         HostContentSettingsMapFactory::GetForProfile(profile_);
 
-    std::string source_string;
+    site_settings::SiteSettingSource source;
     ContentSetting content_setting = site_settings::GetContentSettingForOrigin(
-        profile_, map, origin_url, content_type, &source_string);
+        profile_, map, origin_url, content_type, &source);
     std::string content_setting_string =
         content_settings::ContentSettingToString(content_setting);
 
@@ -1429,7 +1422,8 @@ void SiteSettingsHandler::HandleGetOriginPermissions(
                            profile_->IsOffTheRecord());
     raw_site_exception.Set(site_settings::kOrigin, origin);
     raw_site_exception.Set(site_settings::kSetting, content_setting_string);
-    raw_site_exception.Set(site_settings::kSource, source_string);
+    raw_site_exception.Set(site_settings::kSource,
+                           site_settings::SiteSettingSourceToString(source));
 
     UrlIdentity identity = site_settings::GetUrlIdentityForGURL(
         profile_, origin_url, /*hostname_only=*/false);
@@ -1525,7 +1519,7 @@ void SiteSettingsHandler::HandleSetOriginPermissions(
     // Clear device chooser data permission exceptions.
     if (setting == CONTENT_SETTING_DEFAULT) {
       for (auto content_type : kChooserDataContentSettingsTypes) {
-        base::StringPiece group_name =
+        std::string_view group_name =
             site_settings::ContentSettingsTypeToGroupName(content_type);
         DCHECK(!group_name.empty());
         const site_settings::ChooserTypeNameEntry* chooser_type =
@@ -1534,7 +1528,7 @@ void SiteSettingsHandler::HandleSetOriginPermissions(
 
         // The BluetoothChooserContext is only available when the
         // WebBluetoothNewPermissionsBackend flag is enabled.
-        // TODO(crbug.com/589228): Remove the nullptr check when it is enabled
+        // TODO(crbug.com/40458188): Remove the nullptr check when it is enabled
         // by default.
         permissions::ObjectPermissionContextBase* chooser_context =
             chooser_type->get_context(profile_);
@@ -1997,7 +1991,7 @@ void SiteSettingsHandler::RebuildModel() {
   }
 
   // Reset any existing models.
-  // TODO(crbug.com/1368048) The implicit semantics of the handler require the
+  // TODO(crbug.com/40240175) The implicit semantics of the handler require the
   // models to be reset every time, but this is not required for all operations.
   // A stronger call ordering enforcement, or stronger guarantees around when
   // the models exist, could remove the requirement for this.
@@ -2304,7 +2298,6 @@ void SiteSettingsHandler::RemoveNonModelData(
 
 void SiteSettingsHandler::SetModelForTesting(
     std::unique_ptr<BrowsingDataModel> browsing_data_model) {
-  request_started_time_ = base::TimeTicks::Now();
   browsing_data_model_ = std::move(browsing_data_model);
   model_set_for_testing_ = true;
 }

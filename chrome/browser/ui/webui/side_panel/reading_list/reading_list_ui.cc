@@ -17,7 +17,6 @@
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_page_handler.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/pref_names.h"
-#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/side_panel_reading_list_resources.h"
 #include "chrome/grit/side_panel_reading_list_resources_map.h"
@@ -69,8 +68,6 @@ ReadingListUI::ReadingListUI(content::WebUI* web_ui)
   source->AddBoolean(
       "hasUnseenReadingListEntries",
       reading_list_model->loaded() ? reading_list_model->unseen_size() : false);
-
-  webui::SetupChromeRefresh2023(source);
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(

@@ -36,7 +36,7 @@ class TrustedSignals;
 // Manages trusted signals requests and responses. Currently only batches
 // requests.
 //
-// TODO(https://crbug.com/1276639): Cache responses as well.
+// TODO(crbug.com/40207533): Cache responses as well.
 class CONTENT_EXPORT TrustedSignalsRequestManager {
  public:
   // Delay between construction of a Request and automatically starting a
@@ -88,7 +88,7 @@ class CONTENT_EXPORT TrustedSignalsRequestManager {
   // "&`trusted_bidding_signals_slot_size_param`" is appended to the end of the
   // query string. It's expected to already be escaped if necessary.
   //
-  // TODO(https://crbug.com/1279643): Investigate improving the
+  // TODO(crbug.com/40810962): Investigate improving the
   // `automatically_send_requests` logic.
   TrustedSignalsRequestManager(
       Type type,

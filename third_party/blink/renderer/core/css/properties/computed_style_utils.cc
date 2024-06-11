@@ -3,9 +3,8 @@
 // found in the LICENSE file.
 
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
-#include "base/memory/values_equivalent.h"
-#include "third_party/blink/renderer/core/css/css_font_variation_value.h"
 
+#include "base/memory/values_equivalent.h"
 #include "third_party/blink/renderer/core/css/basic_shape_functions.h"
 #include "third_party/blink/renderer/core/css/css_alternate_value.h"
 #include "third_party/blink/renderer/core/css/css_border_image.h"
@@ -18,6 +17,7 @@
 #include "third_party/blink/renderer/core/css/css_font_family_value.h"
 #include "third_party/blink/renderer/core/css/css_font_feature_value.h"
 #include "third_party/blink/renderer/core/css/css_font_style_range_value.h"
+#include "third_party/blink/renderer/core/css/css_font_variation_value.h"
 #include "third_party/blink/renderer/core/css/css_function_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_auto_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_integer_repeat_value.h"
@@ -61,10 +61,12 @@
 #include "third_party/blink/renderer/core/style/style_intrinsic_length.h"
 #include "third_party/blink/renderer/core/style/style_svg_resource.h"
 #include "third_party/blink/renderer/core/style_property_shorthand.h"
+#include "third_party/blink/renderer/core/svg/svg_rect_element.h"
 #include "third_party/blink/renderer/core/svg_element_type_helpers.h"
 #include "third_party/blink/renderer/platform/animation/timing_function.h"
 #include "third_party/blink/renderer/platform/fonts/font_optical_sizing.h"
 #include "third_party/blink/renderer/platform/fonts/font_palette.h"
+#include "third_party/blink/renderer/platform/fonts/font_variant_emoji.h"
 #include "third_party/blink/renderer/platform/fonts/opentype/font_settings.h"
 #include "third_party/blink/renderer/platform/transforms/matrix_3d_transform_operation.h"
 #include "third_party/blink/renderer/platform/transforms/matrix_transform_operation.h"
@@ -1534,13 +1536,16 @@ CSSValue* ComputedStyleUtils::ValueForFont(const ComputedStyle& style) {
   FontDescription::Kerning kerning = style.GetFontDescription().GetKerning();
   FontDescription::FontVariantPosition variant_position =
       style.GetFontDescription().VariantPosition();
+  FontVariantEmoji variant_emoji = style.GetFontDescription().VariantEmoji();
   OpticalSizing optical_sizing = style.GetFontDescription().FontOpticalSizing();
 
   if (kerning != FontDescription::kAutoKerning ||
       optical_sizing != kAutoOpticalSizing ||
       (RuntimeEnabledFeatures::CSSFontSizeAdjustEnabled() &&
        style.GetFontDescription().HasSizeAdjust()) ||
-      variant_position != FontDescription::kNormalVariantPosition) {
+      variant_position != FontDescription::kNormalVariantPosition ||
+      (RuntimeEnabledFeatures::FontVariantEmojiEnabled() &&
+       variant_emoji != kNormalVariantEmoji)) {
     return nullptr;
   }
 
@@ -2358,8 +2363,8 @@ CSSValue* ComputedStyleUtils::ValueForWillChange(
 
 namespace {
 
-template <typename T, typename Func, typename... Args>
-CSSValue* CreateAnimationValueList(const Vector<T>& values,
+template <typename T, wtf_size_t C, typename Func, typename... Args>
+CSSValue* CreateAnimationValueList(const Vector<T, C>& values,
                                    Func item_func,
                                    Args&&... args) {
   CSSValueList* list = CSSValueList::CreateCommaSeparated();
@@ -2371,31 +2376,19 @@ CSSValue* CreateAnimationValueList(const Vector<T>& values,
 
 }  // namespace
 
-CSSValue* ComputedStyleUtils::ValueForAnimationDelayStart(
+CSSValue* ComputedStyleUtils::ValueForAnimationDelay(
     const Timing::Delay& delay) {
   return CSSNumericLiteralValue::Create(delay.AsTimeValue().InSecondsF(),
                                         CSSPrimitiveValue::UnitType::kSeconds);
 }
 
-CSSValue* ComputedStyleUtils::ValueForAnimationDelayStartList(
+CSSValue* ComputedStyleUtils::ValueForAnimationDelayList(
     const CSSTimingData* timing_data) {
   return CreateAnimationValueList(
-      timing_data ? timing_data->DelayStartList()
-                  : Vector<Timing::Delay>{CSSTimingData::InitialDelayStart()},
-      &ValueForAnimationDelayStart);
-}
-
-CSSValue* ComputedStyleUtils::ValueForAnimationDelayEnd(
-    const Timing::Delay& delay) {
-  return ValueForAnimationDelayStart(delay);
-}
-
-CSSValue* ComputedStyleUtils::ValueForAnimationDelayEndList(
-    const CSSTimingData* timing_data) {
-  return CreateAnimationValueList(
-      timing_data ? timing_data->DelayEndList()
-                  : Vector<Timing::Delay>{CSSTimingData::InitialDelayEnd()},
-      &ValueForAnimationDelayEnd);
+      timing_data
+          ? timing_data->DelayStartList()
+          : Vector<Timing::Delay, 1>{CSSTimingData::InitialDelayStart()},
+      &ValueForAnimationDelay);
 }
 
 CSSValue* ComputedStyleUtils::ValueForAnimationDirection(
@@ -2449,18 +2442,18 @@ CSSValue* ComputedStyleUtils::ValueForAnimationDurationList(
       (phase == CSSValuePhase::kResolvedValue) &&
       (!animation_data || animation_data->HasSingleInitialTimeline());
   return CreateAnimationValueList(
-      animation_data
-          ? animation_data->DurationList()
-          : Vector<std::optional<double>>{CSSAnimationData::InitialDuration()},
+      animation_data ? animation_data->DurationList()
+                     : Vector<std::optional<double>,
+                              1>{CSSAnimationData::InitialDuration()},
       ValueForAnimationDuration, resolve_auto_to_zero);
 }
 
 CSSValue* ComputedStyleUtils::ValueForAnimationDurationList(
     const CSSTransitionData* transition_data) {
   return CreateAnimationValueList(
-      transition_data
-          ? transition_data->DurationList()
-          : Vector<std::optional<double>>{CSSTransitionData::InitialDuration()},
+      transition_data ? transition_data->DurationList()
+                      : Vector<std::optional<double>,
+                               1>{CSSTransitionData::InitialDuration()},
       ValueForAnimationDuration,
       /* resolve_auto_to_zero */ false);
 }
@@ -2642,10 +2635,9 @@ CSSValue* ComputedStyleUtils::ValueForAnimationTimingFunction(
 CSSValue* ComputedStyleUtils::ValueForAnimationTimingFunctionList(
     const CSSTimingData* timing_data) {
   return CreateAnimationValueList(
-      timing_data
-          ? timing_data->TimingFunctionList()
-          : Vector<scoped_refptr<TimingFunction>>{CSSAnimationData::
-                                                      InitialTimingFunction()},
+      timing_data ? timing_data->TimingFunctionList()
+                  : Vector<scoped_refptr<TimingFunction>,
+                           1>{CSSAnimationData::InitialTimingFunction()},
       &ValueForAnimationTimingFunction);
 }
 
@@ -3173,7 +3165,8 @@ CSSValue* ComputedStyleUtils::ValueForContentData(const ComputedStyle& style,
       list->Append(*CSSIdentifierValue::Create(ValueForQuoteType(quote_type)));
     } else if (content_data->IsAltText()) {
       alt_text = MakeGarbageCollected<CSSStringValue>(
-          To<AltTextContentData>(content_data)->GetText());
+          To<AltTextContentData>(content_data)->ConcatenateAltText());
+      break;
     } else {
       NOTREACHED();
     }
@@ -3189,7 +3182,7 @@ CSSValue* ComputedStyleUtils::ValueForContentData(const ComputedStyle& style,
 
 CSSValue* ComputedStyleUtils::ValueForCounterDirectives(
     const ComputedStyle& style,
-    CounterNode::Type type) {
+    CountersAttachmentContext::Type type) {
   const CounterDirectiveMap* map = style.GetCounterDirectives();
   if (!map) {
     return CSSIdentifierValue::Create(CSSValueID::kNone);
@@ -3199,13 +3192,13 @@ CSSValue* ComputedStyleUtils::ValueForCounterDirectives(
   for (const auto& item : *map) {
     bool is_valid_counter_value = false;
     switch (type) {
-      case CounterNode::kIncrementType:
+      case CountersAttachmentContext::Type::kIncrementType:
         is_valid_counter_value = item.value.IsIncrement();
         break;
-      case CounterNode::kResetType:
+      case CountersAttachmentContext::Type::kResetType:
         is_valid_counter_value = item.value.IsReset();
         break;
-      case CounterNode::kSetType:
+      case CountersAttachmentContext::Type::kSetType:
         is_valid_counter_value = item.value.IsSet();
         break;
     }
@@ -3216,13 +3209,13 @@ CSSValue* ComputedStyleUtils::ValueForCounterDirectives(
 
     int32_t number = 0;
     switch (type) {
-      case CounterNode::kIncrementType:
+      case CountersAttachmentContext::Type::kIncrementType:
         number = item.value.IncrementValue();
         break;
-      case CounterNode::kResetType:
+      case CountersAttachmentContext::Type::kResetType:
         number = item.value.ResetValue();
         break;
-      case CounterNode::kSetType:
+      case CountersAttachmentContext::Type::kSetType:
         number = item.value.SetValue();
         break;
     }

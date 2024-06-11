@@ -337,7 +337,7 @@ base::FilePath VideoDecodeAcceleratorTestSuite::GetTestOutputFilePath() const {
   return video_test_env_->GetTestOutputFilePath();
 }
 
-bool VideoDecodeAcceleratorTestSuite::ValidVideoTestEnvironment() const {
+bool VideoDecodeAcceleratorTestSuite::ValidVideoTestEnv() const {
   return !!video_test_env_;
 }
 

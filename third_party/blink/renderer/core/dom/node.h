@@ -32,6 +32,7 @@
 #include "base/notreached.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/css/counters_attachment_context.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/core/dom/events/simulated_click_options.h"
 #include "third_party/blink/renderer/core/dom/mutation_observer_options.h"
@@ -748,8 +749,10 @@ class CORE_EXPORT Node : public EventTarget {
     bool use_previous_in_flow = false;
     // True if the next_sibling member is up-to-date, even if it is nullptr.
     bool next_sibling_valid = false;
+    // Context for keeping track of counters values in the document.
+    CountersAttachmentContext counters_context;
 
-    AttachContext() {}
+    AttachContext() = default;
   };
 
   // Attaches this node to the layout tree. This calculates the style to be
@@ -928,7 +931,14 @@ class CORE_EXPORT Node : public EventTarget {
     CheckSlotChange(SlotChangeType::kSignalSlotChangeEvent);
   }
 
-  void FlatTreeParentChanged();
+  // Called from slot re-assignment for host children which change which slot
+  // they are assigned to.
+  void ParentSlotChanged();
+
+  // Called from slot re-assignment for:
+  // 1. Host children that are no longer assigned to a slot.
+  // 2. Light tree children of slots which are no longer rendered as fallback
+  //    content.
   void RemovedFromFlatTree();
 
   void SetHasDuplicateAttributes() { SetFlag(kHasDuplicateAttributes); }
@@ -1180,6 +1190,13 @@ class CORE_EXPORT Node : public EventTarget {
 
   ShadowRoot* GetSlotAssignmentRoot() const;
 
+  // Called when a node changes its flat tree parent, either because slot
+  // assignments changed, or the node got reparented by a moveBefore().
+  void FlatTreeParentChanged();
+
+  // EventTarget ends with a single 32-bit member, so put one 32-bit member
+  // first to avoid padding on 64-bit.
+  uint32_t node_flags_;
   // Both parent and tree_scope are hot accessed members. Keep them uncompressed
   // for performance reasons.
   subtle::UncompressedMember<Node> parent_or_shadow_host_node_;
@@ -1190,7 +1207,6 @@ class CORE_EXPORT Node : public EventTarget {
   Member<Node> next_;
   Member<LayoutObject> layout_object_;
   Member<NodeRareData> data_;
-  uint32_t node_flags_;
 };
 
 inline void Node::SetParentOrShadowHostNode(ContainerNode* parent) {

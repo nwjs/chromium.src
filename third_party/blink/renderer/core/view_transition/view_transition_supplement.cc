@@ -176,7 +176,8 @@ DOMViewTransition* ViewTransitionSupplement::StartTransition(
 
   // If there is a transition in a parent frame, give that precedence over a
   // transition in a child frame.
-  if (HasActiveTransitionInAncestorFrame(document.GetFrame())) {
+  if (!RuntimeEnabledFeatures::ConcurrentViewTransitionsSPAEnabled() &&
+      HasActiveTransitionInAncestorFrame(document.GetFrame())) {
     auto skipped_transition = transition_;
     skipped_transition->SkipTransition();
 
@@ -186,7 +187,9 @@ DOMViewTransition* ViewTransitionSupplement::StartTransition(
 
   // Skip transitions in all frames associated with this widget. We can only
   // have one transition per widget/CC.
-  SkipTransitionInAllLocalFrames(document.GetFrame());
+  if (!RuntimeEnabledFeatures::ConcurrentViewTransitionsSPAEnabled()) {
+    SkipTransitionInAllLocalFrames(document.GetFrame());
+  }
   DCHECK(transition_);
 
   return transition_->GetScriptDelegate();
@@ -226,7 +229,7 @@ void ViewTransitionSupplement::SetCrossDocumentOptIn(
 // static
 void ViewTransitionSupplement::SnapshotDocumentForNavigation(
     Document& document,
-    const viz::NavigationId& navigation_id,
+    const blink::ViewTransitionToken& navigation_id,
     mojom::blink::PageSwapEventParamsPtr params,
     ViewTransition::ViewTransitionStateCallback callback) {
   DCHECK(RuntimeEnabledFeatures::ViewTransitionOnNavigationEnabled());
@@ -237,14 +240,19 @@ void ViewTransitionSupplement::SnapshotDocumentForNavigation(
 
 void ViewTransitionSupplement::StartTransition(
     Document& document,
-    const viz::NavigationId& navigation_id,
+    const blink::ViewTransitionToken& navigation_id,
     mojom::blink::PageSwapEventParamsPtr params,
     ViewTransition::ViewTransitionStateCallback callback) {
+  // TODO(khushalsagar): Per spec, we should be checking the opt-in at this
+  // point. See step 2 in
+  // https://drafts.csswg.org/css-view-transitions-2/#setup-outbound-transition.
+
   if (transition_) {
     // We should skip a transition if one exists, regardless of how it was
     // created, since navigation transition takes precedence.
     transition_->SkipTransition();
   }
+
   DCHECK(!transition_)
       << "SkipTransition() should finish existing |transition_|";
   transition_ = ViewTransition::CreateForSnapshotForNavigation(
@@ -388,9 +396,8 @@ ViewTransitionSupplement::ResolveCrossDocumentViewTransition() {
 
 viz::ViewTransitionElementResourceId
 ViewTransitionSupplement::GenerateResourceId(
-    const viz::TransitionId& transition_id) {
-  CHECK(!transition_id.is_empty());
-  return viz::ViewTransitionElementResourceId(transition_id,
+    const blink::ViewTransitionToken& transition_token) {
+  return viz::ViewTransitionElementResourceId(transition_token,
                                               ++resource_local_id_sequence_);
 }
 

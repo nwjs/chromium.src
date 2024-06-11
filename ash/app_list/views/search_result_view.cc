@@ -1301,7 +1301,8 @@ void SearchResultView::OnSelectedResultChanged() {
   }
 }
 
-gfx::Size SearchResultView::CalculatePreferredSize() const {
+gfx::Size SearchResultView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   return gfx::Size(kPreferredWidth, PreferredHeight());
 }
 
@@ -1329,7 +1330,7 @@ gfx::Rect SearchResultView::GetIconBadgeViewBounds(
 }
 
 void SearchResultView::Layout(PassKey) {
-  // TODO(crbug/1311101) add test coverage for search result view layout.
+  // TODO(crbug.com/40220083) add test coverage for search result view layout.
   gfx::Rect rect(GetContentsBounds());
   if (rect.IsEmpty()) {
     return;

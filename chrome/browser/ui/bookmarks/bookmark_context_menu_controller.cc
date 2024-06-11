@@ -317,7 +317,8 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
 
       bookmarks::ScopedGroupBookmarkActions group_remove(model_);
       for (const bookmarks::BookmarkNode* node : selection_) {
-        model_->Remove(node, bookmarks::metrics::BookmarkEditSource::kUser);
+        model_->Remove(node, bookmarks::metrics::BookmarkEditSource::kUser,
+                       FROM_HERE);
       }
       selection_.clear();
       break;
@@ -372,6 +373,8 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
     }
 
     case IDC_BOOKMARK_BAR_TOGGLE_SHOW_TAB_GROUPS: {
+      base::RecordAction(base::UserMetricsAction(
+          "BookmarkBar_ContextMenu_ToggleShowSavedTabGroups"));
       PrefService* prefs = profile_->GetPrefs();
       prefs->SetBoolean(
           bookmarks::prefs::kShowTabGroupsInBookmarkBar,

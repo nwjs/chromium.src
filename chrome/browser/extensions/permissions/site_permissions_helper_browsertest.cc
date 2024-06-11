@@ -4,11 +4,12 @@
 
 #include "chrome/browser/extensions/permissions/site_permissions_helper.h"
 
+#include <string_view>
+
 #include "base/run_loop.h"
-#include "base/strings/string_piece.h"
 #include "chrome/browser/extensions/browsertest_util.h"
-#include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
+#include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/permissions/scripting_permissions_modifier.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
@@ -134,7 +135,7 @@ bool SitePermissionsHelperBrowserTest::WaitForReloadToFinish() {
   return content::WaitForLoadStop(active_web_contents());
 }
 
-// TODO(crbug.com/1400812): Paramertize these test scenarios (and the setup as
+// TODO(crbug.com/40883928): Paramertize these test scenarios (and the setup as
 // well). This would allow us to concisely describe the multiple state changes
 // and expected end states without having an individual test case for each or
 // (as below) have two large tests that rely on previous tests steps creating
@@ -324,7 +325,7 @@ class SitePermissionsHelperExecuteSciptBrowserTest
 
   // Navigates to `host_name` with `relative_url`. `host_name` must be added as
   // a rule in SetUpOnMainThread().
-  void NavigateTo(base::StringPiece host_name, base::StringPiece relative_url) {
+  void NavigateTo(std::string_view host_name, std::string_view relative_url) {
     GURL url = embedded_test_server()->GetURL(host_name, relative_url);
     ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   }

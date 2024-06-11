@@ -176,6 +176,15 @@ inline constexpr char kEduCoexistenceToSVersion[] =
 inline constexpr char kEduCoexistenceToSAcceptedVersion[] =
     "family_link_user.edu_coexistence_tos_accepted_version";
 
+// A boolean pref indicating if a PIN has been set up for on-device apps
+// parental controls.
+inline constexpr char kOnDeviceAppControlsSetupCompleted[] =
+    "on_device_app_controls.setup_completed";
+
+// A list pref containing details of the apps blocked by on device controls.
+inline constexpr char kOnDeviceAppControlsBlockedApps[] =
+    "on_device_app_controls.blocked_apps";
+
 // A boolean pref indicating whether welcome page should be skipped in
 // in-session 'Add account' flow.
 inline constexpr char kShouldSkipInlineLoginWelcomePage[] =
@@ -196,6 +205,10 @@ inline constexpr char kHasHotspotUsedBefore[] = "ash.hotspot.has_used_before";
 // A boolean pref that controls whether input noise cancellation is enabled.
 inline constexpr char kInputNoiseCancellationEnabled[] =
     "ash.input_noise_cancellation_enabled";
+
+// A boolean pref that controls whether input style transfer is enabled.
+inline constexpr char kInputStyleTransferEnabled[] =
+    "ash.input_style_transfer_enabled";
 
 // The name of an integer pref that counts the number of times we have shown
 // the multitask menu education nudge.
@@ -312,6 +325,11 @@ inline constexpr char kLauncherResultEverLaunched[] =
 // show in launcher.
 inline constexpr char kLauncherSearchCategoryControlStatus[] =
     "launcher.search_category_control_status";
+
+// A time pref indicating the last time a local file scan is logged in launcher
+// search.
+inline constexpr char kLauncherSearchLastFileScanLogTime[] =
+    "launcher.search_last_file_scan_log_time";
 
 // Dictionary pref to store data on the distribution of provider relevance
 // scores for the launcher normalizer.
@@ -490,10 +508,6 @@ inline constexpr char kAccessibilityMonoAudioEnabled[] =
 // A boolean pref which determines if mouse keys are enabled.
 inline constexpr char kAccessibilityMouseKeysEnabled[] =
     "settings.a11y.mouse_keys.enabled";
-// A boolean pref which determines if you can pause mouse keys with a
-// keyboard shortcut.
-inline constexpr char kAccessibilityMouseKeysShortcutToPauseEnabled[] =
-    "settings.a11y.mouse_keys.ctrl_to_pause_enabled";
 // A boolean pref which determines if mouse keys is automatically disabled in
 // text fields.
 inline constexpr char kAccessibilityMouseKeysDisableInTextFields[] =
@@ -873,6 +887,25 @@ const char kDisplayPopularityRevNumber[] = "display_popularity.revision_number";
 const char kInternalDisplayScreenBrightnessPercent[] =
     "settings.display.internal_screen_brightness_percent";
 
+// A boolean pref which stores whether the ambient light sensor is enabled for
+// the internal display.
+inline constexpr char kDisplayAmbientLightSensorEnabled[] =
+    "settings.display.ambient_light_sensor_enabled";
+
+// A boolean pref which stores whether the ambient light sensor is enabled for
+// the internal display. This is a synced profile pref that stores the most
+// recent value for a given user.
+inline constexpr char kDisplayAmbientLightSensorLastEnabled[] =
+    "settings.display.ambient_light_sensor_last_enabled";
+
+// An integer pref which stores the reason that the ambient light sensor was
+// disabled. This pref can be used if we need to systematically re-enable the
+// ambient light sensor for a subset of users (e.g. those who didn't manually
+// disable the sensor from the Settings app).
+// Values are from `power_manager::AmbientLightSensorChange_Cause`.
+inline constexpr char kAmbientLightSensorDisabledReason[] =
+    "settings.display.ambient_light_sensor_disabled_reason";
+
 // A boolean pref that enable fullscreen alert bubble.
 // TODO(zxdan): Change to an allowlist in M89.
 inline constexpr char kFullscreenAlertEnabled[] =
@@ -1145,6 +1178,11 @@ inline constexpr char kPowerQuickDimEnabled[] = "power.quick_dim_enabled";
 // Quick lock delay is used inside powerd to control the delay time for a screen
 // lock to happen if the user is detected to be absent.
 inline constexpr char kPowerQuickLockDelay[] = "power.quick_lock_delay.ms";
+
+// A `TimeDelta` pref for the duration when the critical notification is
+// displayed to when no outcome has occurred yet. Updates every 15 seconds.
+inline constexpr char kCriticalStateDuration[] =
+    "ash.power_notification.critical_state_duration";
 
 // A boolean pref that reflects the value of the policy
 // DeviceEphemeralNetworkPoliciesEnabled.
@@ -1680,6 +1718,9 @@ inline constexpr char kLoginScreenWebUILazyLoading[] =
 inline constexpr char kFloatingWorkspaceV2Enabled[] =
     "ash.floating_workspace_v2_enabled";
 
+// Boolean value for the ClassHub policy
+inline constexpr char kClassHub[] = "ash.class_hub_enabled";
+
 // Boolean value indicating that post reboot notification should be shown to the
 // user.
 inline constexpr char kShowPostRebootNotification[] =
@@ -1914,10 +1955,6 @@ inline constexpr char kAshLoginSessionStartedIsFirstSession[] =
 inline constexpr char kInputForceRespectUiGainsEnabled[] =
     "ash.input_force_respect_ui_gains_enabled";
 
-// A boolean pref indicating whether the glanceables feature is allowed to be
-// used for managed device.
-inline constexpr char kGlanceablesEnabled[] = "ash.glanceables_enabled";
-
 // An integer pref that tracks how many times (3) we'll show the user a
 // notification when an incoming event would have been remapped to a right
 // click but either the user's setting is inconsistent with the matched
@@ -2051,6 +2088,14 @@ inline constexpr char kKeyboardDefaultChromeOSSettings[] =
 inline constexpr char kKeyboardDefaultNonChromeOSSettings[] =
     "ash.settings.keyboard.non_chromeos_defaults";
 
+// A dictionary pref containing the set of default split modifier keyboard
+// settings for the user. This is always configured to the settings for the
+// split modifier keyboard the user last used. These are applied to new
+// split modifier keyboards that are connected to the system. This is synced for
+// all user devices.
+inline constexpr char kKeyboardDefaultSplitModifierSettings[] =
+    "ash.settings.keyboard.split_modifier_defaults";
+
 // A dictionary pref containing the set of default touchpad settings for the
 // user. These are applied to new touchpads that are connected to the system.
 // This is synced for all user devices.
@@ -2154,8 +2199,10 @@ inline constexpr char kBirchUseWeather[] = "ash.birch.use_weather";
 // A boolean pref indicating whether Birch should use release notes data.
 inline constexpr char kBirchUseReleaseNotes[] = "ash.birch.use_release_notes";
 
-// A preference to keep track of the device registered time.
-inline constexpr char kDeviceRegisteredTime[] = "DeviceRegisteredTime";
+// A boolean pref that holds whether the user dismissed the extended updates
+// notification.
+inline constexpr char kExtendedUpdatesNotificationDismissed[] =
+    "ash.extended_updates.notification_dismissed";
 
 //-----------------------------------------------------------------------------
 // Language related Prefs

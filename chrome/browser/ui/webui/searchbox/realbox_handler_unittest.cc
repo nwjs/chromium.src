@@ -95,13 +95,18 @@ class MockLensSearchboxClient : public LensSearchboxClient {
               GetPageClassification,
               (),
               (override, const));
-  MOCK_METHOD(const std::string&, GetThumbnail, (), (override, const));
-  MOCK_METHOD(const lens::LensOverlayInteractionResponse&,
+  MOCK_METHOD(std::string&, GetThumbnail, (), (override));
+  MOCK_METHOD(const lens::proto::LensOverlayInteractionResponse&,
               GetLensResponse,
               (),
               (override, const));
-  MOCK_METHOD(void, OnThumbnailRemoved, (), (override, const));
-  MOCK_METHOD(void, OnSuggestionAccepted, (const GURL&), (override));
+  MOCK_METHOD(void, OnTextModified, (), (override));
+  MOCK_METHOD(void, OnThumbnailRemoved, (), (override));
+  MOCK_METHOD(void,
+              OnSuggestionAccepted,
+              (const GURL&, AutocompleteMatchType::Type, bool),
+              (override));
+  MOCK_METHOD(void, OnPageBound, (), (override));
 };
 
 class TestObserver : public OmniboxWebUIPopupChangeObserver {
@@ -354,8 +359,8 @@ TEST_F(RealboxHandlerTest, Lens_AutocompleteController_Start) {
         .Times(1)
         .WillOnce(ReturnRef(page_url));
 
-    lens::LensOverlayInteractionResponse lens_response;
-    lens_response.set_encoded_response("xyz");
+    lens::proto::LensOverlayInteractionResponse lens_response;
+    lens_response.set_suggest_signals("xyz");
     EXPECT_CALL(*lens_searchbox_client_, GetLensResponse())
         .WillRepeatedly(ReturnRef(lens_response));
 
@@ -367,8 +372,8 @@ TEST_F(RealboxHandlerTest, Lens_AutocompleteController_Start) {
     EXPECT_EQ(input.current_url(), page_url);
     EXPECT_EQ(input.current_page_classification(),
               metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
-    EXPECT_EQ(input.lens_overlay_interaction_response()->encoded_response(),
-              lens_response.encoded_response());
+    EXPECT_EQ(input.lens_overlay_interaction_response()->suggest_signals(),
+              lens_response.suggest_signals());
 
     testing::Mock::VerifyAndClearExpectations(omnibox_edit_model_);
     testing::Mock::VerifyAndClearExpectations(autocomplete_controller_);
@@ -396,7 +401,7 @@ TEST_F(RealboxHandlerTest, Lens_AutocompleteController_Start) {
         .Times(1)
         .WillOnce(ReturnRef(page_url));
 
-    lens::LensOverlayInteractionResponse lens_response;
+    lens::proto::LensOverlayInteractionResponse lens_response;
     EXPECT_CALL(*lens_searchbox_client_, GetLensResponse())
         .Times(1)
         .WillOnce(ReturnRef(lens_response));

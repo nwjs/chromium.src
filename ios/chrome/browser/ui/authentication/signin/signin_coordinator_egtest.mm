@@ -254,7 +254,7 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 }
 
 // Tests that signing out from the Settings works correctly.
-// TODO(crbug.com/1477295): Evaluate if the test is relevant with
+// TODO(crbug.com/40070966): Evaluate if the test is relevant with
 - (void)testSignInDisconnectFromChrome {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity];
@@ -349,6 +349,14 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 // Sign-in opened from: tab switcher.
 // Interrupted at: user consent.
 - (void)testDismissSigninFromTabSwitcher {
+  // When Tab Groups is the third panel (i.e. when Tab Group Sync is enabled),
+  // Recent Tabs is not reachable from the Tab Grid. So the sign-in flow is not
+  // supported with Tab Group Sync enabled.
+  if ([ChromeEarlGrey isTabGroupSyncEnabled]) {
+    EARL_GREY_TEST_SKIPPED(@"Recent Tabs is not available in Tab Grid when "
+                           @"Tab Group Sync is enabled.");
+  }
+
   [self assertOpenURLWhenSigninFromView:OpenSigninMethodFromTabSwitcher];
 }
 
@@ -356,6 +364,14 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 // Sign-in opened from: tab switcher.
 // Interrupted at: identity picker.
 - (void)testDismissSigninFromTabSwitcherFromIdentityPicker {
+  // When Tab Groups is the third panel (i.e. when Tab Group Sync is enabled),
+  // Recent Tabs is not reachable from the Tab Grid. So the sign-in flow is not
+  // supported with Tab Group Sync enabled.
+  if ([ChromeEarlGrey isTabGroupSyncEnabled]) {
+    EARL_GREY_TEST_SKIPPED(@"Recent Tabs is not available in Tab Grid when "
+                           @"Tab Group Sync is enabled.");
+  }
+
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
   [self openSigninFromView:OpenSigninMethodFromTabSwitcher];
@@ -978,6 +994,14 @@ void SetSigninEnterprisePolicyValue(BrowserSigninMode signinMode) {
 // when sync is enabled again.
 // Related to crbug.com/1287465.
 - (void)testTurnOffSyncDisablePolicy {
+  // When Tab Groups is the third panel (i.e. when Tab Group Sync is enabled),
+  // Recent Tabs is not reachable from the Tab Grid. So the sign-in flow is not
+  // supported with Tab Group Sync enabled.
+  if ([ChromeEarlGrey isTabGroupSyncEnabled]) {
+    EARL_GREY_TEST_SKIPPED(@"Recent Tabs is not available in Tab Grid when "
+                           @"Tab Group Sync is enabled.");
+  }
+
   // Disable sync by policy.
   policy_test_utils::SetPolicy(true, policy::key::kSyncDisabled);
   [[EarlGrey

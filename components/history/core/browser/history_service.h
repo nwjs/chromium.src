@@ -378,7 +378,7 @@ class HistoryService : public KeyedService,
   using GetVisibleVisitCountToHostCallback =
       base::OnceCallback<void(VisibleVisitCountToHostResult)>;
 
-  // TODO(crbug.com/1229440): Rename this function to use origin instead of
+  // TODO(crbug.com/40778368): Rename this function to use origin instead of
   // host.
   base::CancelableTaskTracker::TaskId GetVisibleVisitCountToHost(
       const GURL& url,
@@ -482,11 +482,11 @@ class HistoryService : public KeyedService,
   using GetDailyVisitsToHostCallback =
       base::OnceCallback<void(DailyVisitsResult)>;
 
-  // TODO(crbug/1152592): Use this function.
+  // TODO(crbug.com/40158714): Use this function.
   // Gets counts for total visits and days visited for pages matching `host`'s
   // scheme, port, and host. Counts only user-visible visits (i.e. no redirects
   // or subframes) within the time range [`begin_time`, `end_time`).
-  // TODO(crbug.com/1229440): Rename this function to use origin instead of
+  // TODO(crbug.com/40778368): Rename this function to use origin instead of
   // host.
   base::CancelableTaskTracker::TaskId GetDailyVisitsToHost(
       const GURL& host,
@@ -879,6 +879,7 @@ class HistoryService : public KeyedService,
   friend std::unique_ptr<HistoryService> CreateHistoryService(
       const base::FilePath& history_dir,
       bool create_db);
+  FRIEND_TEST_ALL_PREFIXES(OrderingHistoryServiceTest, EnsureCorrectOrder);
 
   // Called on shutdown, this will tell the history backend to complete and
   // will release pointers to it. No other functions should be called once
@@ -922,6 +923,16 @@ class HistoryService : public KeyedService,
   // Notify all HistoryServiceObservers registered that URLs have been deleted.
   // `deletion_info` describes the urls that have been removed from history.
   void NotifyDeletions(const DeletionInfo& deletion_info);
+
+  // A helper function which alerts `visit_delegate_` of partitioned visited
+  // links that should be added to the PartitionedVisitedLink hashtable. Links
+  // will not be added if they do not contain valid values for the
+  // triple-partition key: <link url, top-level site, frame origin>.
+  void AddPartitionedVisitedLinks(const HistoryAddPageArgs& args);
+
+  // Notify the `visit_delegate_` of partitioned visited links that have been
+  // deleted from the VisitedLinkDatabase.
+  void NotifyVisitedLinksDeleted(const std::vector<DeletedVisitedLink>& links);
 
   // Notify all HistoryServiceObservers registered that the
   // HistoryService has finished loading.

@@ -333,26 +333,6 @@ public class ToolbarPhoneTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(ChromeFeatureList.OMNIBOX_MODERNIZE_VISUAL_UPDATE)
-    public void testLocationBarCornerShouldNeverUpdatedWithoutExperiment() {
-        LocationBarCoordinator locationBarCoordinator =
-                (LocationBarCoordinator) mToolbar.getLocationBar();
-        mToolbar.setLocationBarBackgroundDrawableForTesting(mLocationbarBackgroundDrawable);
-
-        // Focus on the Omnibox
-        mOmnibox.requestFocus();
-        verify(mLocationbarBackgroundDrawable, never()).setCornerRadius(anyInt());
-
-        // Clear focus on the Omnibox
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    locationBarCoordinator.getPhoneCoordinator().getViewForDrawing().clearFocus();
-                });
-        verify(mLocationbarBackgroundDrawable, never()).setCornerRadius(anyInt());
-    }
-
-    @Test
-    @MediumTest
     @EnableFeatures({ChromeFeatureList.TAB_TO_GTS_ANIMATION})
     @DisableFeatures({ChromeFeatureList.ANDROID_HUB})
     public void testEnterTabSwitcher_toolbarVisibleUntilTransitionEnds_startSurfaceEnabled() {
@@ -616,11 +596,7 @@ public class ToolbarPhoneTest {
     @Test
     @MediumTest
     @EnableFeatures(ChromeFeatureList.TAB_TO_GTS_ANIMATION)
-    @DisableFeatures({
-        ChromeFeatureList.START_SURFACE_ANDROID,
-        ChromeFeatureList.ANDROID_HUB,
-        ChromeFeatureList.DEFER_TAB_SWITCHER_LAYOUT_CREATION
-    })
+    @DisableFeatures({ChromeFeatureList.START_SURFACE_ANDROID, ChromeFeatureList.ANDROID_HUB})
     @DisableAnimationsTestRule.EnsureAnimationsOn
     public void testToolbarTabSwitcherButtonNotClickableDuringTransition_startSurfaceDisabled() {
         ChromeTabbedActivity cta = mActivityTestRule.getActivity();

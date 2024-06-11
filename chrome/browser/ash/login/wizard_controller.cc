@@ -53,6 +53,8 @@
 #include "chrome/browser/ash/login/oobe_screen.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/ash/login/quickstart_controller.h"
+// Make sure to include new screen to all relevant metric enums.
+// LINT.IfChange(UsageMetrics)
 #include "chrome/browser/ash/login/screens/add_child_screen.h"
 #include "chrome/browser/ash/login/screens/ai_intro_screen.h"
 #include "chrome/browser/ash/login/screens/app_downloading_screen.h"
@@ -125,6 +127,7 @@
 #include "chrome/browser/ash/login/screens/user_creation_screen.h"
 #include "chrome/browser/ash/login/screens/welcome_screen.h"
 #include "chrome/browser/ash/login/screens/wrong_hwid_screen.h"
+// LINT.ThenChange(//tools/metrics/histograms/metadata/oobe/histograms.xml)
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/login/startup_utils.h"
 #include "chrome/browser/ash/login/ui/login_display_host.h"
@@ -1048,6 +1051,7 @@ void WizardController::ShowLoginScreen() {
   GetLoginDisplayHost()->StartSignInScreen();
 }
 
+// TODO(b/315829727): remove now unused codepath.
 void WizardController::ShowGaiaPasswordChangedScreen(
     std::unique_ptr<UserContext> user_context) {
   wizard_context_->user_context = std::move(user_context);
@@ -1769,9 +1773,6 @@ void WizardController::OnCryptohomeRecoveryScreenExit(
   OnScreenExit(CryptohomeRecoveryScreenView::kScreenId,
                CryptohomeRecoveryScreen::GetResultString(result));
   switch (result) {
-    case CryptohomeRecoveryScreen::Result::kObsoleteSucceeded:
-      LoginAuthenticatedWithContext(std::move(wizard_context_->user_context));
-      break;
     case CryptohomeRecoveryScreen::Result::kAuthenticated: {
       switch (wizard_context_->knowledge_factor_setup.auth_setup_flow) {
         case WizardContext::AuthChangeFlow::kInitialSetup:
@@ -1787,16 +1788,11 @@ void WizardController::OnCryptohomeRecoveryScreenExit(
       }
     }
     case CryptohomeRecoveryScreen::Result::kGaiaLogin:
-    case CryptohomeRecoveryScreen::Result::kObsoleteRetry:
       // TODO(b/257073746): We probably want to differentiate between retry with
       // or without login.
       wizard_context_->gaia_config.prefilled_account =
           wizard_context_->user_context->GetAccountId();
       AdvanceToScreen(GaiaView::kScreenId);
-      break;
-    case CryptohomeRecoveryScreen::Result::kObsoleteManualRecovery:
-    case CryptohomeRecoveryScreen::Result::kObsoleteNoRecoveryFactor:
-      ShowGaiaPasswordChangedScreen(std::move(wizard_context_->user_context));
       break;
     case CryptohomeRecoveryScreen::Result::kFallbackOnline:
       ShowEnterOldPasswordScreen();
@@ -1819,9 +1815,6 @@ void WizardController::OnCryptohomeRecoveryScreenExit(
           return;
       }
     }
-    case CryptohomeRecoveryScreen::Result::kObsoleteTimeout:
-      ShowLoginScreen();
-      break;
     case CryptohomeRecoveryScreen::Result::kError:
       ShowOSAuthErrorScreen();
       break;
@@ -2032,6 +2025,7 @@ void WizardController::OnQuickStartScreenExit(QuickStartScreen::Result result) {
     // after the 'RecoveryEligibility' screen and continues OOBE into
     // the TermsOfServiceScreen
     case QuickStartScreen::Result::SETUP_COMPLETE_NEXT_BUTTON:
+      quickstart_controller_->RecordFlowFinished();
       AdvanceToScreen(TermsOfServiceScreenView::kScreenId);
   }
 }
@@ -2783,6 +2777,10 @@ void WizardController::OnOobeFlowFinished() {
       active_user_prefs->GetTime(prefs::kOobeOnboardingTime));
 
   GetLocalState()->ClearPref(prefs::kOobeStartTime);
+
+  GetLocalState()->ClearPref(prefs::kOobeMetricsClientIdAtOobeStart);
+  GetLocalState()->ClearPref(prefs::kOobeMetricsReportedAsEnabled);
+  GetLocalState()->ClearPref(prefs::kOobeStatsReportingControllerReportedReset);
 
   // Launch browser and delete login host controller.
   content::GetUIThreadTaskRunner({})->PostTask(

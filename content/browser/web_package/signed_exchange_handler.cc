@@ -429,7 +429,7 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
   }
 
   const GURL cert_url = envelope_->signature().cert_url;
-  // TODO(https://crbug.com/819467): When we will support ed25519Key, |cert_url|
+  // TODO(crbug.com/40565993): When we will support ed25519Key, |cert_url|
   // may be empty.
   DCHECK(cert_url.is_valid());
 
@@ -756,7 +756,7 @@ void SignedExchangeHandler::OnGetCookies(
 
 void SignedExchangeHandler::CreateResponse(
     network::mojom::URLResponseHeadPtr response_head) {
-  // TODO(https://crbug.com/803774): Resource timing for signed exchange
+  // TODO(crbug.com/40558902): Resource timing for signed exchange
   // loading is not speced yet. https://github.com/WICG/webpackage/issues/156
   response_head->load_timing.request_start_time = base::Time::Now();
   base::TimeTicks now(base::TimeTicks::Now());
@@ -808,7 +808,8 @@ SignedExchangeHandler::CreateResponseBodyStream() {
   }
 
   // For now, we allow only mi-sha256-03 content encoding.
-  // TODO(crbug.com/934629): Handle other content codings, such as gzip and br.
+  // TODO(crbug.com/41442806): Handle other content codings, such as gzip and
+  // br.
   auto content_encoding_iter = headers.find("content-encoding");
   if (content_encoding_iter == headers.end()) {
     signed_exchange_utils::ReportErrorAndTraceEvent(

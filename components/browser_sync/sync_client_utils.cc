@@ -36,7 +36,7 @@ const syncer::ModelTypeSet kSupportedTypes = {
     syncer::PASSWORDS, syncer::BOOKMARKS, syncer::READING_LIST};
 
 std::string GetDomainFromUrl(const GURL& url) {
-  // TODO(crbug.com/1451508): Return UTF16 strings to avoid converting back for
+  // TODO(crbug.com/40065374): Return UTF16 strings to avoid converting back for
   // display in the UI.
   return base::UTF16ToUTF8(
       url_formatter::FormatUrlForDisplayOmitSchemePathAndTrivialSubdomains(
@@ -403,7 +403,8 @@ class LocalDataMigrationHelper::LocalDataMigrationRequest
         ++moved_passwords_counter;
       }
       // Remove `profile_password` from the local store.
-      helper_->profile_password_store_->RemoveLogin(*profile_password);
+      helper_->profile_password_store_->RemoveLogin(FROM_HERE,
+                                                    *profile_password);
     }
 
     // Log number of passwords moved to account.

@@ -50,8 +50,6 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
     private Dialog mConfirmationDialog;
     private boolean mDeleteDisabled;
     private boolean mDataUsed;
-    private int mAllowedSites;
-    private int mBlockedSites;
     private CharSequence mHostName;
     private FPSCookieInfo mFPSInfo;
     private boolean mBlockAll3PC;
@@ -117,7 +115,7 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
                         getString(R.string.page_info_cookies_description),
                         new SpanApplier.SpanInfo("<link>", "</link>", linkSpan)));
 
-        // TODO(crbug.com/1077766): Set a ManagedPreferenceDelegate?
+        // TODO(crbug.com/40129299): Set a ManagedPreferenceDelegate?
         mCookieSwitch.setVisible(params.thirdPartyCookieBlockingEnabled);
         mCookieSwitch.setOnPreferenceChangeListener(
                 (preference, newValue) -> {
@@ -261,15 +259,6 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
         updateCookieSwitch();
     }
 
-    public void setSitesCount(int allowedSites, int blockedSites) {
-        mAllowedSites = allowedSites;
-        mBlockedSites = blockedSites;
-
-        mDataUsed |= allowedSites != 0;
-        updateCookieDeleteButton();
-        updateCookieSwitch();
-    }
-
     public void setStorageUsage(long storageUsage) {
         mCookieInUse.setTitle(
                 String.format(
@@ -352,13 +341,13 @@ public class PageInfoCookiesSettings extends BaseSiteSettingsFragment {
     }
 
     private void updateCookieSwitch() {
-        // TODO(crbug.com/1446230): Update the strings for when FPS are on.
+        // TODO(crbug.com/40064612): Update the strings for when FPS are on.
         if (!mCookieSwitch.isChecked()) {
             mCookieSwitch.setSummary(
-                    getQuantityString(R.plurals.page_info_sites_blocked, mBlockedSites));
+                    getString(R.string.page_info_tracking_protection_toggle_blocked));
         } else {
             mCookieSwitch.setSummary(
-                    getQuantityString(R.plurals.page_info_sites_allowed, mAllowedSites));
+                    getString(R.string.page_info_tracking_protection_toggle_allowed));
         }
     }
 

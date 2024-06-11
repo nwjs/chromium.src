@@ -6,9 +6,9 @@
 
 #include <memory>
 #include <set>
+#include <string_view>
 #include <tuple>
 #include <utility>
-#include <string_view>
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
@@ -52,6 +52,7 @@
 #include "net/quic/crypto/proof_verifier_chromium.h"
 #include "net/quic/properties_based_quic_server_info.h"
 #include "net/quic/quic_chromium_alarm_factory.h"
+#include "net/quic/quic_chromium_client_session.h"
 #include "net/quic/quic_chromium_connection_helper.h"
 #include "net/quic/quic_chromium_packet_reader.h"
 #include "net/quic/quic_chromium_packet_writer.h"
@@ -178,13 +179,11 @@ std::set<std::string> HostsFromOrigins(std::set<HostPortPair> origins) {
 
 void LogUsingExistingSession(const NetLogWithSource& request_net_log,
                              QuicChromiumClientSession* session,
-                             const url::SchemeHostPort& destination,
-                             std::string_view reason) {
+                             const url::SchemeHostPort& destination) {
   request_net_log.AddEvent(
       NetLogEventType::QUIC_SESSION_POOL_USE_EXISTING_SESSION, [&] {
         base::Value::Dict dict;
         dict.Set("destination", destination.Serialize());
-        dict.Set("reason", reason);
         session->net_log().source().AddToEventParameters(dict);
         return dict;
       });
@@ -337,23 +336,6 @@ void QuicSessionRequest::SetSession(
   session_ = std::move(session);
 }
 
-bool QuicSessionRequest::CanUseExistingSession(
-    const GURL& url,
-    const ProxyChain& proxy_chain,
-    PrivacyMode privacy_mode,
-    SessionUsage session_usage,
-    const SocketTag& socket_tag,
-    const NetworkAnonymizationKey& network_anonymization_key,
-    SecureDnsPolicy secure_dns_policy,
-    bool require_dns_https_alpn,
-    const url::SchemeHostPort& destination) const {
-  return pool_->CanUseExistingSession(
-      QuicSessionKey(HostPortPair::FromURL(url), privacy_mode, proxy_chain,
-                     session_usage, socket_tag, network_anonymization_key,
-                     secure_dns_policy, require_dns_https_alpn),
-      destination);
-}
-
 QuicSessionPool::QuicSessionAliasKey::QuicSessionAliasKey(
     url::SchemeHostPort destination,
     QuicSessionKey session_key)
@@ -485,7 +467,8 @@ QuicSessionPool::QuicSessionPool(
       connectivity_monitor_(default_network_),
       ssl_config_service_(ssl_config_service),
       use_network_anonymization_key_for_crypto_configs_(
-          NetworkAnonymizationKey::IsPartitioningEnabled()) {
+          NetworkAnonymizationKey::IsPartitioningEnabled()),
+      report_ecn_(quic_context->params()->report_ecn) {
   DCHECK(transport_security_state_);
   DCHECK(http_server_properties_);
   if (params_.disable_tls_zero_rtt) {
@@ -526,21 +509,7 @@ QuicSessionPool::~QuicSessionPool() {
 bool QuicSessionPool::CanUseExistingSession(
     const QuicSessionKey& session_key,
     const url::SchemeHostPort& destination) const {
-  if (base::Contains(active_sessions_, session_key)) {
-    return true;
-  }
-
-  for (const auto& key_value : active_sessions_) {
-    QuicChromiumClientSession* session = key_value.second;
-    const auto& it = all_sessions_.find(session);
-    if ((it != all_sessions_.end()) &&
-        (destination == it->second.destination()) &&
-        session->CanPool(session_key.host(), session_key)) {
-      return true;
-    }
-  }
-
-  return false;
+  return FindExistingSession(session_key, destination) != nullptr;
 }
 
 int QuicSessionPool::RequestSession(
@@ -563,13 +532,13 @@ int QuicSessionPool::RequestSession(
                       session_key.server_id().port())
              .Equals(HostPortPair::FromURL(url)));
 
-  // Use active session for |session_key| if such exists.
-  auto active_session = active_sessions_.find(session_key);
-  if (active_session != active_sessions_.end()) {
-    LogUsingExistingSession(net_log, active_session->second, destination,
-                            "session key match");
-    QuicChromiumClientSession* session = active_session->second;
-    request->SetSession(session->CreateHandle(std::move(destination)));
+  // Use active session for `session_key` if such exists, or pool to active
+  // session to `destination` if possible.
+  QuicChromiumClientSession* existing_session =
+      FindExistingSession(session_key, destination);
+  if (existing_session) {
+    LogUsingExistingSession(net_log, existing_session, destination);
+    request->SetSession(existing_session->CreateHandle(std::move(destination)));
     return OK;
   }
 
@@ -579,21 +548,6 @@ int QuicSessionPool::RequestSession(
     active_job->second->AssociateWithNetLogSource(net_log);
     active_job->second->AddRequest(request);
     return ERR_IO_PENDING;
-  }
-
-  // Pool to active session to |destination| if possible.
-  if (!active_sessions_.empty()) {
-    for (const auto& key_value : active_sessions_) {
-      QuicChromiumClientSession* session = key_value.second;
-      if (destination == all_sessions_[session].destination() &&
-          session->CanPool(session_key.server_id().host(), session_key)) {
-        LogUsingExistingSession(
-            net_log, session, destination,
-            "session key doesn't match but an existing session can pool");
-        request->SetSession(session->CreateHandle(std::move(destination)));
-        return OK;
-      }
-    }
   }
 
   // TODO(rtenneti): |task_runner_| is used by the Job. Initialize task_runner_
@@ -819,7 +773,7 @@ void QuicSessionPool::FinishConnectAndConfigureSocket(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(net::features::kReceiveEcn)) {
+  if (report_ecn_) {
     rv = socket->SetRecvTos();
     if (rv != OK) {
       OnFinishConnectAndConfigureSocketError(
@@ -912,7 +866,7 @@ int QuicSessionPool::ConfigureSocket(DatagramClientSocket* socket,
     return rv;
   }
 
-  if (base::FeatureList::IsEnabled(net::features::kReceiveEcn)) {
+  if (report_ecn_) {
     rv = socket->SetRecvTos();
     if (rv != OK) {
       HistogramCreateSessionFailure(CREATION_ERROR_SETTING_RECEIVE_ECN);
@@ -1204,6 +1158,27 @@ void QuicSessionPool::LogConnectionIpPooling(bool pooled) {
   base::UmaHistogramBoolean("Net.QuicSession.ConnectionIpPooled", pooled);
 }
 
+QuicChromiumClientSession* QuicSessionPool::FindExistingSession(
+    const QuicSessionKey& session_key,
+    const url::SchemeHostPort& destination) const {
+  auto active_session_it = active_sessions_.find(session_key);
+  if (active_session_it != active_sessions_.end()) {
+    return active_session_it->second;
+  }
+
+  for (const auto& key_value : active_sessions_) {
+    QuicChromiumClientSession* session = key_value.second;
+    const auto& it = all_sessions_.find(session);
+    CHECK(it != all_sessions_.end());
+    if (destination == it->second.destination() &&
+        session->CanPool(session_key.host(), session_key)) {
+      return session;
+    }
+  }
+
+  return nullptr;
+}
+
 bool QuicSessionPool::HasMatchingIpSession(
     const QuicSessionAliasKey& key,
     const std::vector<IPEndPoint>& ip_endpoints,
@@ -1286,7 +1261,7 @@ int QuicSessionPool::CreateSessionSync(
     const NetLogWithSource& net_log,
     raw_ptr<QuicChromiumClientSession>* session,
     handles::NetworkHandle* network) {
-  // TODO(https://crbug.com/1416409): This logic only knows how to try one IP
+  // TODO(crbug.com/40256842): This logic only knows how to try one IP
   // endpoint.
   std::unique_ptr<DatagramClientSocket> socket(
       CreateSocket(net_log.net_log(), net_log.source()));
@@ -1301,8 +1276,8 @@ int QuicSessionPool::CreateSessionSync(
   bool closed_during_initialize = CreateSessionHelper(
       key, quic_version, cert_verify_flags, require_confirmation,
       std::move(peer_address), std::move(metadata), dns_resolution_start_time,
-      dns_resolution_end_time, /*max_packet_length=*/0, net_log, session,
-      network, std::move(socket));
+      dns_resolution_end_time, /*session_max_packet_length=*/0, net_log,
+      session, network, std::move(socket));
   if (closed_during_initialize) {
     DLOG(DFATAL) << "Session closed during initialize";
     *session = nullptr;
@@ -1326,7 +1301,7 @@ int QuicSessionPool::CreateSessionAsync(
     const NetLogWithSource& net_log,
     raw_ptr<QuicChromiumClientSession>* session,
     handles::NetworkHandle* network) {
-  // TODO(https://crbug.com/1416409): This logic only knows how to try one IP
+  // TODO(crbug.com/40256842): This logic only knows how to try one IP
   // endpoint.
   std::unique_ptr<DatagramClientSocket> socket(
       CreateSocket(net_log.net_log(), net_log.source()));
@@ -1336,7 +1311,8 @@ int QuicSessionPool::CreateSessionAsync(
       std::move(callback), key, quic_version, cert_verify_flags,
       require_confirmation, peer_address, std::move(metadata),
       dns_resolution_start_time, dns_resolution_end_time,
-      /*max_packet_length=*/0, net_log, session, network, std::move(socket));
+      /*session_max_packet_length=*/0, net_log, session, network,
+      std::move(socket));
 
   // If migrate_sessions_on_network_change_v2 is on, passing in
   // handles::kInvalidNetworkHandle will bind the socket to the default network.
@@ -1395,7 +1371,7 @@ int QuicSessionPool::CreateSessionOnProxyStream(
       proxy_stream->GetGuaranteedLargestMessagePayload();
   quic::QuicPacketLength overhead =
       quarter_stream_id_length + context_id_length;
-  quic::QuicPacketLength max_packet_length =
+  quic::QuicPacketLength session_max_packet_length =
       guaranteed_largest_message_payload > overhead
           ? guaranteed_largest_message_payload - overhead
           : 0;
@@ -1404,8 +1380,8 @@ int QuicSessionPool::CreateSessionOnProxyStream(
       &QuicSessionPool::FinishCreateSession, weak_factory_.GetWeakPtr(),
       std::move(callback), key, quic_version, cert_verify_flags,
       require_confirmation, proxy_peer_address, std::move(metadata),
-      dns_resolution_time, dns_resolution_time, max_packet_length, net_log,
-      session, &network, std::move(socket));
+      dns_resolution_time, dns_resolution_time, session_max_packet_length,
+      net_log, session, &network, std::move(socket));
 
   return socket_ptr->ConnectViaStream(
       std::move(local_address), std::move(proxy_peer_address),
@@ -1422,7 +1398,7 @@ void QuicSessionPool::FinishCreateSession(
     ConnectionEndpointMetadata metadata,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
-    quic::QuicPacketLength max_packet_length,
+    quic::QuicPacketLength session_max_packet_length,
     const NetLogWithSource& net_log,
     raw_ptr<QuicChromiumClientSession>* session,
     handles::NetworkHandle* network,
@@ -1435,8 +1411,8 @@ void QuicSessionPool::FinishCreateSession(
   bool closed_during_initialize = CreateSessionHelper(
       key, quic_version, cert_verify_flags, require_confirmation,
       std::move(peer_address), std::move(metadata), dns_resolution_start_time,
-      dns_resolution_end_time, max_packet_length, net_log, session, network,
-      std::move(socket));
+      dns_resolution_end_time, session_max_packet_length, net_log, session,
+      network, std::move(socket));
   if (closed_during_initialize) {
     DLOG(DFATAL) << "Session closed during initialize";
     *session = nullptr;
@@ -1457,7 +1433,7 @@ bool QuicSessionPool::CreateSessionHelper(
     ConnectionEndpointMetadata metadata,
     base::TimeTicks dns_resolution_start_time,
     base::TimeTicks dns_resolution_end_time,
-    quic::QuicPacketLength max_packet_length,
+    quic::QuicPacketLength session_max_packet_length,
     const NetLogWithSource& net_log,
     raw_ptr<QuicChromiumClientSession>* session,
     handles::NetworkHandle* network,
@@ -1510,12 +1486,21 @@ bool QuicSessionPool::CreateSessionHelper(
       writer, true /* owns_writer */, quic::Perspective::IS_CLIENT,
       {quic_version}, connection_id_generator_);
   connection->set_keep_alive_ping_timeout(ping_timeout_);
-  if (max_packet_length > 0) {
-    connection->SetMaxPacketLength(std::min(
-        static_cast<size_t>(max_packet_length), params_.max_packet_length));
-  } else {
-    connection->SetMaxPacketLength(params_.max_packet_length);
+
+  // Calculate the max packet length for this connection. If the session is
+  // carrying proxy traffic, add the `additional_proxy_packet_length`.
+  size_t max_packet_length = params_.max_packet_length;
+  if (key.session_key().session_usage() == SessionUsage::kProxy) {
+    max_packet_length += params_.additional_proxy_packet_length;
   }
+  // Restrict that length by the session maximum, if given.
+  if (session_max_packet_length > 0) {
+    max_packet_length = std::min(static_cast<size_t>(session_max_packet_length),
+                                 max_packet_length);
+  }
+  DVLOG(1) << "Session to " << key.destination().Serialize()
+           << " has max packet length " << max_packet_length;
+  connection->SetMaxPacketLength(max_packet_length);
 
   quic::QuicConfig config = config_;
   ConfigureInitialRttEstimate(
@@ -1553,7 +1538,8 @@ bool QuicSessionPool::CreateSessionHelper(
       std::move(crypto_config_handle),
       network_connection_.connection_description(), dns_resolution_start_time,
       dns_resolution_end_time, tick_clock_, task_runner_.get(),
-      std::move(socket_performance_watcher), metadata, net_log);
+      std::move(socket_performance_watcher), metadata, params_.report_ecn,
+      net_log);
 
   all_sessions_[*session] = key;  // owning pointer
   writer->set_delegate(*session);

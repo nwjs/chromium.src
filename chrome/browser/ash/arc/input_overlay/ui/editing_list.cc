@@ -146,6 +146,11 @@ class EditingList::AddContainerButton : public views::Button {
         ui::ImageModel::FromVectorIcon(kGameControlsAddIcon,
                                        cros_tokens::kCrosSysOnPrimary,
                                        /*icon_size=*/20));
+    add_button_->SetImageModel(
+        views::Button::STATE_DISABLED,
+        ui::ImageModel::FromVectorIcon(kGameControlsAddIcon,
+                                       cros_tokens::kCrosSysInverseOnSurface,
+                                       /*icon_size=*/20));
     add_button_->SetImageCentered(true);
 
     // Set up focus ring.
@@ -167,10 +172,13 @@ class EditingList::AddContainerButton : public views::Button {
       return;
     }
 
-    SetBackground(add_background ? views::CreateThemedRoundedRectBackground(
-                                       cros_tokens::kCrosSysSystemOnBase,
-                                       kAddContainerCornerRadius)
-                                 : nullptr);
+    SetBackground(add_background
+                      ? views::CreateThemedRoundedRectBackground(
+                            GetState() != ButtonState::STATE_DISABLED
+                                ? cros_tokens::kCrosSysSystemOnBase
+                                : cros_tokens::kCrosSysInverseOnSurface,
+                            kAddContainerCornerRadius)
+                      : nullptr);
   }
 
   void UpdateTitle(bool is_zero_state) {
@@ -191,7 +199,6 @@ class EditingList::AddContainerButton : public views::Button {
 
     add_button_->SetState(state);
     SetState(state);
-    // TODO(b/333583970): Update the colors.
   }
 
   views::LabelButton* add_button() { return add_button_; }
@@ -200,6 +207,20 @@ class EditingList::AddContainerButton : public views::Button {
   void OnTitleChanged() {
     CHECK(add_button_);
     add_button_->SetTooltipText(title_->GetText());
+  }
+
+  // views::Button:
+  void StateChanged(ButtonState old_state) override {
+    bool enabled = GetState() != ButtonState::STATE_DISABLED;
+    title_->SetEnabledColorId(enabled ? cros_tokens::kCrosSysOnSurface
+                                      : cros_tokens::kCrosSysDisabled);
+    if (auto* scroll_view = views::AsViewClass<views::ScrollView>(parent())) {
+      UpdateBackground(/*add_background=*/scroll_view->GetVisibleRect().y() ==
+                       0);
+    }
+    add_button_->SetBackground(views::CreateThemedRoundedRectBackground(
+        enabled ? cros_tokens::kCrosSysPrimary : cros_tokens::kCrosSysDisabled,
+        kAddButtonCornerRadius));
   }
 
   // Owned by views hierarchy.
@@ -422,12 +443,14 @@ void EditingList::OnAddButtonPressed() {
     ash::Shell::Get()->anchored_nudge_manager()->Cancel(kKeyEditNudgeID);
   }
   controller_->EnterButtonPlaceMode(ActionType::TAP);
-  RecordEditingListFunctionTriggered(EditingListFunction::kAdd);
+  RecordEditingListFunctionTriggered(controller_->GetPackageName(),
+                                     EditingListFunction::kAdd);
 }
 
 void EditingList::OnDoneButtonPressed() {
   DCHECK(controller_);
-  RecordEditingListFunctionTriggered(EditingListFunction::kDone);
+  RecordEditingListFunctionTriggered(controller_->GetPackageName(),
+                                     EditingListFunction::kDone);
   controller_->OnCustomizeSave();
 }
 
@@ -564,8 +587,11 @@ void EditingList::ClipScrollViewHeight(bool is_outside) {
   scroll_view_->ClipHeightTo(/*min_height=*/0, /*max_height=*/max_height);
 }
 
-gfx::Size EditingList::CalculatePreferredSize() const {
-  return gfx::Size(kMainContainerWidth, GetHeightForWidth(kMainContainerWidth));
+gfx::Size EditingList::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  return gfx::Size(kMainContainerWidth,
+                   GetLayoutManager()->GetPreferredHeightForWidth(
+                       this, kMainContainerWidth));
 }
 
 bool EditingList::OnMousePressed(const ui::MouseEvent& event) {

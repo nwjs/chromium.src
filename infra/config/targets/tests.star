@@ -373,7 +373,7 @@ targets.tests.junit_test(
     label = "//chromecast/base:cast_base_junit_tests",
 )
 
-# TODO(issues.chromium.org/1516671): Eliminate cast_* suites that are no longer
+# TODO(crbug.com/41489655): Eliminate cast_* suites that are no longer
 # needed.
 
 targets.tests.gtest_test(
@@ -568,11 +568,11 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
-    name = "chrome_wpt_tests_old_headless",
+    name = "headless_shell_wpt_tests",
     mixins = [
         "has_native_resultdb_integration",
     ],
-    binary = "chrome_wpt_tests",
+    binary = "headless_shell_wpt",
 )
 
 targets.tests.gtest_test(
@@ -1141,7 +1141,7 @@ targets.tests.isolated_script_test(
         "--skipped=always",
         # Since there are random timeouts, we have to increase the timeout
         # threshold for now.
-        # TODO(https://crbug.com/1517847): Remove this once we resolve the timeouts.
+        # TODO(crbug.com/41490824): Remove this once we resolve the timeouts.
         "--timeout-ms=20000",
         # layout test failures are retried 3 times when '--test-list' is not
         # passed, but 0 times when '--test-list' is passed. We want to always
@@ -1164,7 +1164,7 @@ targets.tests.isolated_script_test(
         "--skipped=always",
         # Since there are random timeouts, we have to increase the timeout
         # threshold for now.
-        # TODO(https://crbug.com/1517847): Remove this once we resolve the timeouts.
+        # TODO(crbug.com/41490824): Remove this once we resolve the timeouts.
         "--timeout-ms=20000",
         # layout test failures are retried 3 times when '--test-list' is not
         # passed, but 0 times when '--test-list' is passed. We want to always
@@ -1471,6 +1471,10 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "model_validation_tests_light",
+)
+
+targets.tests.isolated_script_test(
     name = "module_installer_junit_tests",
 )
 
@@ -1590,6 +1594,10 @@ targets.tests.isolated_script_test(
 
 targets.tests.isolated_script_test(
     name = "ondevice_stability_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "ondevice_stability_tests_light",
 )
 
 targets.tests.gtest_test(
@@ -2326,7 +2334,6 @@ targets.tests.gpu_telemetry_test(
     ],
     args = [
         "--extra-browser-args=--use-cmd-decoder=passthrough --use-gl=angle --use-angle=gl --disable-features=SkiaGraphite",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
     ],
 )
 
@@ -2338,7 +2345,6 @@ targets.tests.gpu_telemetry_test(
     ],
     args = [
         "--extra-browser-args=--use-cmd-decoder=passthrough --use-gl=angle --use-angle=metal --disable-features=SkiaGraphite",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
     ],
 )
 
@@ -2350,7 +2356,6 @@ targets.tests.gpu_telemetry_test(
     ],
     args = [
         "--extra-browser-args=--use-cmd-decoder=passthrough --use-gl=angle --use-angle=metal --enable-features=SkiaGraphite",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
     ],
 )
 
@@ -2392,7 +2397,6 @@ targets.tests.gpu_telemetry_test(
         "$$MAGIC_SUBSTITUTION_GPUWebGLRuntimeFile",
         # On dual-GPU devices we want the high-performance GPU to be active
         "--extra-browser-args=--use-gl=angle --use-angle=gl --use-cmd-decoder=passthrough --force_high_performance_gpu --disable-features=SkiaGraphite",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
     ],
 )
 
@@ -2407,7 +2411,6 @@ targets.tests.gpu_telemetry_test(
         "$$MAGIC_SUBSTITUTION_GPUWebGLRuntimeFile",
         # On dual-GPU devices we want the high-performance GPU to be active
         "--extra-browser-args=--use-gl=angle --use-angle=gl --use-cmd-decoder=passthrough --force_high_performance_gpu",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
     ],
 )
 
@@ -2438,7 +2441,6 @@ targets.tests.gpu_telemetry_test(
         "$$MAGIC_SUBSTITUTION_GPUWebGLRuntimeFile",
         # On dual-GPU devices we want the high-performance GPU to be active
         "--extra-browser-args=--use-gl=angle --use-angle=metal --use-cmd-decoder=passthrough --enable-features=EGLDualGPURendering,ForceHighPerformanceGPUForWebGL,SkiaGraphite",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
         "--enable-metal-debug-layers",
     ],
 )
@@ -2477,7 +2479,6 @@ targets.tests.gpu_telemetry_test(
         # On dual-GPU devices we want the high-performance GPU to be active
         "--extra-browser-args=--use-gl=angle --use-angle=gl --use-cmd-decoder=passthrough --force_high_performance_gpu --disable-features=SkiaGraphite",
         "$$MAGIC_SUBSTITUTION_GPUWebGLRuntimeFile",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
     ],
 )
 
@@ -2498,6 +2499,14 @@ targets.tests.gpu_telemetry_test(
 )
 
 targets.tests.gpu_telemetry_test(
+    name = "webgl_conformance_gles_passthrough_graphite_tests",
+    telemetry_test_name = "webgl1_conformance",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+)
+
+targets.tests.gpu_telemetry_test(
     name = "webgl_conformance_metal_passthrough_ganesh_tests",
     telemetry_test_name = "webgl1_conformance",
     mixins = [
@@ -2507,7 +2516,6 @@ targets.tests.gpu_telemetry_test(
         # On dual-GPU devices we want the high-performance GPU to be active
         "--extra-browser-args=--use-gl=angle --use-angle=metal --use-cmd-decoder=passthrough --enable-features=EGLDualGPURendering,ForceHighPerformanceGPUForWebGL --disable-features=SkiaGraphite",
         "$$MAGIC_SUBSTITUTION_GPUWebGLRuntimeFile",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
         "--enable-metal-debug-layers",
     ],
 )
@@ -2522,7 +2530,6 @@ targets.tests.gpu_telemetry_test(
         # On dual-GPU devices we want the high-performance GPU to be active
         "--extra-browser-args=--use-gl=angle --use-angle=metal --use-cmd-decoder=passthrough --enable-features=EGLDualGPURendering,ForceHighPerformanceGPUForWebGL,SkiaGraphite",
         "$$MAGIC_SUBSTITUTION_GPUWebGLRuntimeFile",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
         "--enable-metal-debug-layers",
     ],
 )
@@ -2794,30 +2801,6 @@ targets.tests.gtest_test(
 targets.tests.isolated_script_test(
     name = "wpt_tests_ios",
     binary = "chrome_ios_wpt",
-)
-
-targets.tests.isolated_script_test(
-    name = "wpt_tests_suite",
-    binary = "content_shell_wpt",
-)
-
-targets.tests.isolated_script_test(
-    name = "wpt_tests_suite_highdpi",
-    args = [
-        "--flag-specific",
-        "highdpi",
-    ],
-    binary = "content_shell_wpt",
-)
-
-targets.tests.isolated_script_test(
-    name = "wpt_tests_suite_not_site_per_process",
-    args = [
-        "--child-processes=8",
-        "--flag-specific",
-        "disable-site-isolation-trials",
-    ],
-    binary = "content_shell_wpt",
 )
 
 targets.tests.gtest_test(

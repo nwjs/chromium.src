@@ -317,6 +317,8 @@ TEST_F(
       ActivationError::kFlagDisabled, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
 
   base::test::ScopedFeatureList enable_local_upm(
@@ -332,6 +334,8 @@ TEST_F(
       ActivationError::kNone, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        true, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOn, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
 
   pref_service()->SetBoolean(
@@ -348,6 +352,8 @@ TEST_F(
       ActivationError::kNone, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        true, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOn, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -383,6 +389,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kNone, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOffAndMigrationPending, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -414,6 +422,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kNone, 1);
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated", true,
                                       1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOn, 1);
 }
 
 TEST_F(
@@ -441,6 +451,11 @@ TEST_F(
 
 TEST_F(PasswordManagerAndroidUtilTest,
        SetUsesSplitStoresAndUPMForLocal_SignedOutWithPasswords) {
+  // The warning is not shown on automotive, so there is a separate test
+  // for auto.
+  if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+    GTEST_SKIP();
+  }
   auto histogram_tester = std::make_unique<base::HistogramTester>();
   base::test::ScopedFeatureList enable_local_upm_without_migration;
   enable_local_upm_without_migration.InitWithFeatures(
@@ -463,6 +478,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kMigrationWarningUnacknowledged, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
   pref_service()->SetBoolean(
       password_manager::prefs::kUserAcknowledgedLocalPasswordsMigrationWarning,
@@ -478,6 +495,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kFlagDisabled, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
 
   base::test::ScopedFeatureList enable_local_upm_with_migration;
@@ -498,8 +517,75 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kNone, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOffAndMigrationPending, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
 
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // The first migration didn't finish/succeed, so a new migration is scheduled.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOffAndMigrationPending));
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationError.NonSyncingWithMigration",
+      ActivationError::kNone, 1);
+  histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
+                                       false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOffAndMigrationPending, 1);
+  histogram_tester = std::make_unique<base::HistogramTester>();
+
+  pref_service()->SetInteger(kPasswordsUseUPMLocalAndSeparateStores,
+                             static_cast<int>(kOn));
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // The migration finished successfully, the user is activated, so next calls
+  // are no-ops.
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOn));
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationError.NonSyncingWithMigration",
+      ActivationError::kNone, 1);
+  histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
+                                       true, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOn, 1);
+}
+
+TEST_F(PasswordManagerAndroidUtilTest,
+       SetUsesSplitStoresAndUPMForLocal_SignedOutWithPasswordsAuto) {
+  if (!base::android::BuildInfo::GetInstance()->is_automotive()) {
+    GTEST_SKIP();
+  }
+  auto histogram_tester = std::make_unique<base::HistogramTester>();
+  base::test::ScopedFeatureList enable_local_upm_with_migration;
+  enable_local_upm_with_migration.InitWithFeatures(
+      {password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidNoMigration,
+       password_manager::features::
+           kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration},
+      {});
+  pref_service()->SetBoolean(
+      password_manager::prefs::kEmptyProfileStoreLoginDatabase, false);
+  ASSERT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOff));
+
+  SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
+
+  // Despite the migration warning not being acknowledged, the migration
+  // attempt should proceed.
+  ASSERT_FALSE(pref_service()->GetBoolean(
+      password_manager::prefs::
+          kUserAcknowledgedLocalPasswordsMigrationWarning));
+  EXPECT_EQ(pref_service()->GetInteger(kPasswordsUseUPMLocalAndSeparateStores),
+            static_cast<int>(kOffAndMigrationPending));
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationError.NonSyncingWithMigration",
+      ActivationError::kNone, 1);
+  histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
+                                       false, 1);
+
+  histogram_tester = std::make_unique<base::HistogramTester>();
   SetUsesSplitStoresAndUPMForLocal(pref_service(), login_db_directory());
 
   // The first migration didn't finish/succeed, so a new migration is scheduled.
@@ -583,6 +669,8 @@ TEST_F(
       ActivationError::kFlagDisabled, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
 
   base::test::ScopedFeatureList enable_local_upm_with_migration;
@@ -603,6 +691,8 @@ TEST_F(
       ActivationError::kNone, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOffAndMigrationPending, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -632,6 +722,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kFlagDisabled, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
 
   base::test::ScopedFeatureList enable_local_upm_with_migration;
@@ -652,6 +744,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kNone, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOffAndMigrationPending, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -694,7 +788,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       password_manager::kLoginDataForAccountFileName)));
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                       false, 1);
-
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOffAndMigrationPending, 1);
   // Advanced case: roll back too.
   base::test::ScopedFeatureList disable_local_upm;
   disable_local_upm.InitWithFeatures(
@@ -721,6 +816,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       password_manager::kLoginDataForAccountFileName)));
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                       false, 2);
+  histogram_tester.ExpectBucketCount("PasswordManager.LocalUpmActivationStatus",
+                                     kOff, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -758,6 +855,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kFlagDisabled, 1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        false, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
   histogram_tester = std::make_unique<base::HistogramTester>();
 
   base::test::ScopedFeatureList enable_local_upm(
@@ -778,6 +877,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       1);
   histogram_tester->ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                        true, 1);
+  histogram_tester->ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOn, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -864,6 +965,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kUnenrolled, 1);
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                       false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -898,6 +1001,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kInitialUpmMigrationMissing, 1);
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                       false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -928,6 +1033,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       1);
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated", true,
                                       1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOn, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -1019,6 +1126,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kOutdatedGmsCore, 1);
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                       false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
 }
 
 TEST_F(PasswordManagerAndroidUtilTest,
@@ -1046,6 +1155,8 @@ TEST_F(PasswordManagerAndroidUtilTest,
       ActivationError::kOutdatedGmsCore, 1);
   histogram_tester.ExpectUniqueSample("PasswordManager.LocalUpmActivated",
                                       false, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.LocalUpmActivationStatus", kOff, 1);
 }
 
 TEST_F(
@@ -1174,16 +1285,21 @@ class UsesSplitStoresAndUPMForLocalTest : public ::testing::Test {
     // This block of tests is designed to test the behavior of login database
     // (namely that the profile database file is renamed to be the account
     // database file when using the split stores feature).
-    auto is_profile_db_empty_cb =
-        base::BindPostTaskToCurrentDefault(base::BindRepeating(
-            &PrefService::SetBoolean, base::Unretained(profile->GetPrefs()),
-            password_manager::prefs::kEmptyProfileStoreLoginDatabase));
+    std::unique_ptr<password_manager::LoginDatabase> login_db(
+        password_manager::CreateLoginDatabaseForProfileStorage(
+            profile->GetPath()));
+    password_manager::LoginDatabase* login_db_ptr = login_db.get();
     std::unique_ptr<password_manager::PasswordStoreBackend> profile_backend =
         std::make_unique<password_manager::PasswordStoreBuiltInBackend>(
-            password_manager::CreateLoginDatabaseForProfileStorage(
-                profile->GetPath(), std::move(is_profile_db_empty_cb)),
+            std::move(login_db),
             syncer::WipeModelUponSyncDisabledBehavior::kNever,
             profile->GetPrefs());
+    auto is_db_empty_cb =
+        base::BindPostTaskToCurrentDefault(base::BindRepeating(
+            &password_manager::SetEmptyStorePref, profile->GetPrefs(),
+            profile_backend->AsWeakPtr(),
+            password_manager::prefs::kEmptyProfileStoreLoginDatabase));
+    login_db_ptr->SetIsEmptyCb(std::move(is_db_empty_cb));
     ProfilePasswordStoreFactory::GetInstance()->SetTestingFactory(
         profile,
         base::BindRepeating(

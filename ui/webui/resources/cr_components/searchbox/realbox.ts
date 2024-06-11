@@ -23,10 +23,6 @@ import type {AutocompleteMatch, AutocompleteResult, PageCallbackRouter, PageHand
 import {SideType} from './searchbox.mojom-webui.js';
 import {decodeString16, mojoString16} from './utils.js';
 
-// 900px ~= 561px (max value for --ntp-search-box-width) * 1.5 + some margin.
-const canShowSecondarySideMediaQueryList =
-    window.matchMedia('(min-width: 900px)');
-
 interface Input {
   text: string;
   inline: string;
@@ -71,7 +67,6 @@ export class RealboxElement extends RealboxElementBase {
        */
       canShowSecondarySide: {
         type: Boolean,
-        value: () => canShowSecondarySideMediaQueryList.matches,
         reflectToAttribute: true,
       },
 
@@ -93,6 +88,7 @@ export class RealboxElement extends RealboxElementBase {
       hadSecondarySide: {
         type: Boolean,
         reflectToAttribute: true,
+        notify: true,
       },
 
       /*
@@ -139,6 +135,12 @@ export class RealboxElement extends RealboxElementBase {
       // Private properties
       //========================================================================
 
+      inSidePanel_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('searchboxInSidePanel'),
+        reflectToAttribute: true,
+      },
+
       /**
        * Whether user is deleting text in the input. Used to prevent the default
        * match from offering inline autocompletion.
@@ -183,7 +185,7 @@ export class RealboxElement extends RealboxElementBase {
 
       placeholderText_: {
         type: String,
-        computed: `computePlaceholderText_(showThumbnail_)`,
+        computed: `computePlaceholderText_(showThumbnail)`,
       },
 
       /** Realbox default icon (i.e., Google G icon or the search loupe). */
@@ -225,7 +227,7 @@ export class RealboxElement extends RealboxElementBase {
         value: -1,
       },
 
-      showThumbnail_: {
+      showThumbnail: {
         type: Boolean,
         computed: `computeShowThumbnail_(thumbnailUrl_)`,
         reflectToAttribute: true,
@@ -241,22 +243,9 @@ export class RealboxElement extends RealboxElementBase {
         type: String,
         computed: `computeInputAriaLive_(selectedMatch_)`,
       },
-
-      widthBehavior_: {
-        type: String,
-        value: () => loadTimeData.getString('realboxWidthBehavior'),
-        reflectToAttribute: true,
-      },
-
-      isTall_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('realboxIsTall'),
-        reflectToAttribute: true,
-      },
     };
   }
 
-  canShowSecondarySide: boolean;
   colorSourceIsBaseline: boolean;
   dropdownIsVisible: boolean;
   hadSecondarySide: boolean;
@@ -266,6 +255,7 @@ export class RealboxElement extends RealboxElementBase {
   realboxLensSearchEnabled: boolean;
   realboxChromeRefreshTheming: boolean;
   realboxSteadyStateShadow: boolean;
+  showThumbnail: boolean;
   private inputAriaLive_: string;
   private isDeletingInput_: boolean;
   private lastIgnoredEnterEvent_: KeyboardEvent|null;
@@ -279,7 +269,6 @@ export class RealboxElement extends RealboxElementBase {
   private result_: AutocompleteResult|null;
   private selectedMatch_: AutocompleteMatch|null;
   private selectedMatchIndex_: number;
-  private showThumbnail_: boolean;
   private thumbnailUrl_: string;
 
   private pageHandler_: PageHandlerInterface;
@@ -310,8 +299,6 @@ export class RealboxElement extends RealboxElementBase {
     this.thumbnailChangedListenerId_ =
         this.callbackRouter_.setThumbnail.addListener(
             this.onSetThumbnail_.bind(this));
-    canShowSecondarySideMediaQueryList.addEventListener(
-        'change', this.onCanShowSecondarySideChanged_.bind(this));
   }
 
   override disconnectedCallback() {
@@ -323,8 +310,6 @@ export class RealboxElement extends RealboxElementBase {
     this.callbackRouter_.removeListener(this.inputTextChangedListenerId_);
     assert(this.thumbnailChangedListenerId_);
     this.callbackRouter_.removeListener(this.thumbnailChangedListenerId_);
-    canShowSecondarySideMediaQueryList.removeEventListener(
-        'change', this.onCanShowSecondarySideChanged_.bind(this));
   }
 
   override ready() {
@@ -389,7 +374,7 @@ export class RealboxElement extends RealboxElementBase {
   }
 
   private onSetInputText_(inputText: string) {
-    this.$.input.setAttribute('value', inputText);
+    this.updateInput_({text: inputText, inline: ''});
   }
 
   private onSetThumbnail_(thumbnailUrl: string) {
@@ -399,10 +384,6 @@ export class RealboxElement extends RealboxElementBase {
   //============================================================================
   // Event handlers
   //============================================================================
-
-  private onCanShowSecondarySideChanged_(e: MediaQueryListEvent) {
-    this.canShowSecondarySide = e.matches;
-  }
 
   private onHeaderFocusin_() {
     // The header got focus. Unselect the selected match and clear the input.
@@ -460,7 +441,7 @@ export class RealboxElement extends RealboxElementBase {
     }
 
     if (inputValue.trim()) {
-      // TODO(crbug.com/1149769): Rather than disabling inline autocompletion
+      // TODO(crbug.com/40732045): Rather than disabling inline autocompletion
       // when the input event is fired within a composition session, change the
       // mechanism via which inline autocompletion is shown in the realbox.
       this.queryAutocomplete_(inputValue, e.isComposing);
@@ -583,7 +564,7 @@ export class RealboxElement extends RealboxElementBase {
       return;
     }
 
-    if (this.showThumbnail_) {
+    if (this.showThumbnail) {
       const thumbnail =
           this.shadowRoot!.querySelector<HTMLElement>('cr-realbox-thumbnail');
       if (thumbnail === this.shadowRoot!.activeElement) {
@@ -591,7 +572,14 @@ export class RealboxElement extends RealboxElementBase {
           // Remove thumbnail, focus input, and notify browser.
           this.thumbnailUrl_ = '';
           this.$.input.focus();
+          this.clearAutocompleteMatches_();
           this.pageHandler_.onThumbnailRemoved();
+          const inputValue = this.$.input.value;
+          // Clearing the autocomplete matches above doesn't allow for
+          // navigation directly after removing the thumbnail. Must manually
+          // query autocomplete after removing the thumbnail since the
+          // thumbnail isn't part of the text input.
+          this.queryAutocomplete_(inputValue);
           e.preventDefault();
         } else if (e.key === 'Tab') {
           this.$.input.focus();
@@ -755,7 +743,14 @@ export class RealboxElement extends RealboxElementBase {
     /* Remove thumbnail, focus input, and notify browser. */
     this.thumbnailUrl_ = '';
     this.$.input.focus();
+    this.clearAutocompleteMatches_();
     this.pageHandler_.onThumbnailRemoved();
+    // Clearing the autocomplete matches above doesn't allow for
+    // navigation directly after removing the thumbnail. Must manually
+    // query autocomplete after removing the thumbnail since the
+    // thumbnail isn't part of the text input.
+    const inputValue = this.$.input.value;
+    this.queryAutocomplete_(inputValue);
   }
 
   //============================================================================
@@ -774,7 +769,7 @@ export class RealboxElement extends RealboxElementBase {
   }
 
   private computePlaceholderText_(): string {
-    return this.showThumbnail_ ? '' : this.i18n('searchBoxHint');
+    return this.showThumbnail ? '' : this.i18n('searchBoxHint');
   }
 
   /**

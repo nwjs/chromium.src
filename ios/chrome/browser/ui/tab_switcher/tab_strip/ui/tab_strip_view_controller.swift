@@ -35,12 +35,12 @@ class TabStripViewController: UIViewController,
   // Static decoration views that border the collection view. They are
   // visible when the selected cell reaches an edge of the collection view and
   // if the collection view can be scrolled.
-  private let leftStaticSeparator: TabStripDecorationView = TabStripDecorationView()
-  private let rightStaticSeparator: TabStripDecorationView = TabStripDecorationView()
+  private let leadingStaticSeparator = TabStripDecorationView()
+  private let trailingStaticSeparator = TabStripDecorationView()
 
   // Latest dragged item. This property is set when the item
   // is long pressed which does not always result in a drag action.
-  private var draggedItem: TabSwitcherItem?
+  private var draggedItemIdentifier: TabStripItemIdentifier?
 
   // The item currently selected in the tab strip.
   // The collection view appears to sometimes forget what item is selected,
@@ -70,10 +70,10 @@ class TabStripViewController: UIViewController,
 
   /// Handles model updates.
   public weak var mutator: TabStripMutator?
-  /// Tab strip delegate.
-  public weak var delegate: TabStripViewControllerDelegate?
   /// Handles drag and drop interactions.
   public weak var dragDropHandler: TabCollectionDragDropHandler?
+  /// Provides context menu for tab strip items.
+  public weak var contextMenuProvider: TabStripContextMenuProvider?
 
   /// The LayoutGuideCenter.
   @objc public var layoutGuideCenter: LayoutGuideCenter? {
@@ -88,8 +88,8 @@ class TabStripViewController: UIViewController,
     super.init(nibName: nil, bundle: nil)
 
     layout.dataSource = dataSource
-    layout.leftStaticSeparator = leftStaticSeparator
-    layout.rightStaticSeparator = rightStaticSeparator
+    layout.leadingStaticSeparator = leadingStaticSeparator
+    layout.trailingStaticSeparator = trailingStaticSeparator
     layout.newTabButton = newTabButton
 
     collectionView.delegate = self
@@ -121,9 +121,9 @@ class TabStripViewController: UIViewController,
     view.insertSubview(trailingPlaceholder, aboveSubview: collectionView)
 
     // Mirror the layer.
-    rightStaticSeparator.transform = CGAffineTransformMakeScale(-1, 1)
-    view.addSubview(leftStaticSeparator)
-    view.addSubview(rightStaticSeparator)
+    trailingStaticSeparator.transform = CGAffineTransformMakeScale(-1, 1)
+    view.addSubview(leadingStaticSeparator)
+    view.addSubview(trailingStaticSeparator)
 
     newTabButton.delegate = self
     newTabButton.isIncognito = isIncognito
@@ -168,14 +168,14 @@ class TabStripViewController: UIViewController,
         newTabButton.topAnchor.constraint(equalTo: view.topAnchor),
         newTabButton.widthAnchor.constraint(equalToConstant: TabStripConstants.NewTabButton.width),
 
-        /// `leftStaticSeparator` constraints.
-        leftStaticSeparator.leftAnchor.constraint(equalTo: collectionView.leftAnchor),
-        leftStaticSeparator.bottomAnchor.constraint(
+        /// `leadingStaticSeparator` constraints.
+        leadingStaticSeparator.leadingAnchor.constraint(equalTo: collectionView.leadingAnchor),
+        leadingStaticSeparator.bottomAnchor.constraint(
           equalTo: collectionView.bottomAnchor,
           constant: -TabStripConstants.StaticSeparator.bottomInset),
-        /// `rightStaticSeparator` constraints.
-        rightStaticSeparator.rightAnchor.constraint(equalTo: collectionView.rightAnchor),
-        rightStaticSeparator.bottomAnchor.constraint(
+        /// `trailingStaticSeparator` constraints.
+        trailingStaticSeparator.trailingAnchor.constraint(equalTo: collectionView.trailingAnchor),
+        trailingStaticSeparator.bottomAnchor.constraint(
           equalTo: collectionView.bottomAnchor,
           constant: -TabStripConstants.StaticSeparator.bottomInset),
       ])
@@ -397,17 +397,21 @@ class TabStripViewController: UIViewController,
   func collapseGroup(_ group: TabGroupItem) {
     var snapshot = dataSource.snapshot(for: .tabs)
     snapshot.collapse([TabStripItemIdentifier(group)])
+    layout.prepareForItemsCollapsing()
     applySnapshot(
       dataSource: dataSource, snapshot: snapshot, animatingDifferences: true,
       numberOfVisibleItemsChanged: true)
+    layout.finalizeItemsCollapsing()
   }
 
   func expandGroup(_ group: TabGroupItem) {
     var snapshot = dataSource.snapshot(for: .tabs)
     snapshot.expand([TabStripItemIdentifier(group)])
+    layout.prepareForItemsExpanding()
     applySnapshot(
       dataSource: dataSource, snapshot: snapshot, animatingDifferences: true,
       numberOfVisibleItemsChanged: true)
+    layout.finalizeItemsExpanding()
   }
 
   // MARK: - Public
@@ -573,103 +577,6 @@ class TabStripViewController: UIViewController,
     }
   }
 
-  /// Returns a UIMenu for the context menu to be displayed at `indexPath`.
-  private func contextMenuForIndexPath(_ indexPath: IndexPath) -> UIMenu {
-    let selectedItem = dataSource.itemIdentifier(for: indexPath)
-    switch selectedItem?.item {
-    case .tab(let tabSwitcherItem):
-      return contextMenuForTabSwitcherItem(tabSwitcherItem, at: indexPath)
-    case .group(let tabGroupItem):
-      return contextMenuForTabGroupItem(tabGroupItem, at: indexPath)
-    case nil:
-      return UIMenu()
-    }
-
-  }
-
-  /// Returns a UIMenu for the context menu to be displayed at `indexPath` for a tab item.
-  private func contextMenuForTabSwitcherItem(
-    _ tabSwitcherItem: TabSwitcherItem, at indexPath: IndexPath
-  )
-    -> UIMenu
-  {
-    let selectedItem = tabSwitcherItem
-    let actionFactory = ActionFactory(scenario: kMenuScenarioHistogramTabStripEntry)
-    var menuElements: [UIMenuElement?] = []
-    weak var weakSelf = self
-
-    /// Action to add tab to new group.
-    if TabStripFeaturesUtils.isModernTabStripWithTabGroups() {
-      let addToNewGroup = actionFactory?.actionToAddTabsToNewGroup(
-        withTabsNumber: 1, inSubmenu: false
-      ) {
-        weakSelf?.mutator?.createNewGroup(with: tabSwitcherItem)
-      }
-      menuElements.append(addToNewGroup)
-    }
-
-    /// Action to share tab.
-    let share = actionFactory?.actionToShare {
-      let cell = weakSelf?.collectionView.cellForItem(at: indexPath)
-      weakSelf?.delegate?.tabStrip(weakSelf, shareItem: selectedItem, originView: cell)
-    }
-    menuElements.append(share)
-
-    /// Actions to close this tab or other tabs.
-    var closeMenuElements: [UIMenuElement?] = []
-    let close = actionFactory?.actionToCloseRegularTab {
-      weakSelf?.mutator?.close(selectedItem)
-    }
-    closeMenuElements.append(close)
-    let closeOthers = actionFactory?.actionToCloseAllOtherTabs {
-      weakSelf?.mutator?.closeAllItemsExcept(selectedItem)
-    }
-    closeMenuElements.append(closeOthers)
-    let closeMenu = UIMenu(options: .displayInline, children: closeMenuElements.compactMap { $0 })
-    menuElements.append(closeMenu)
-
-    return UIMenu(children: menuElements.compactMap { $0 })
-  }
-
-  /// Returns a UIMenu for the context menu to be displayed at `indexPath` for a group item.
-  private func contextMenuForTabGroupItem(_ tabGroupItem: TabGroupItem, at indexPath: IndexPath)
-    -> UIMenu
-  {
-    let actionFactory = ActionFactory(scenario: kMenuScenarioHistogramTabStripEntry)
-    weak var weakSelf = self
-    var menuElements: [UIMenuElement?] = []
-
-    /// Add edit group menu.
-    var editGroupMenuElements: [UIMenuElement?] = []
-    let renameGroup = actionFactory?.actionToRenameTabGroup {
-      weakSelf?.mutator?.renameGroup(tabGroupItem)
-    }
-    editGroupMenuElements.append(renameGroup)
-    let addNewTabToGroup = actionFactory?.actionToAddNewTabInGroup {
-      weakSelf?.mutator?.addNewTabInGroup(tabGroupItem)
-    }
-    editGroupMenuElements.append(addNewTabToGroup)
-    let ungroupGroup = actionFactory?.actionToUngroupTabGroup {
-      weakSelf?.mutator?.ungroupGroup(tabGroupItem)
-    }
-    editGroupMenuElements.append(ungroupGroup)
-    let editGroupMenu = UIMenu(
-      options: .displayInline, children: editGroupMenuElements.compactMap { $0 })
-    menuElements.append(editGroupMenu)
-
-    /// Close group menu.
-    var closeGroupMenuElements: [UIMenuElement?] = []
-    let closeGroup = actionFactory?.actionToDeleteTabGroup {
-      weakSelf?.mutator?.deleteGroup(tabGroupItem)
-    }
-    closeGroupMenuElements.append(closeGroup)
-    let closeGroupMenu = UIMenu(
-      options: .displayInline, children: closeGroupMenuElements.compactMap { $0 })
-    menuElements.append(closeGroupMenu)
-
-    return UIMenu(children: menuElements.compactMap { $0 })
-  }
-
   // Update visible cells identifier, following a reorg of cells.
   func updateVisibleCellIdentifiers() {
     for indexPath in collectionView.indexPathsForVisibleItems {
@@ -745,10 +652,6 @@ class TabStripViewController: UIViewController,
       numberOfVisibleItemsChanged: true)
 
     if insertedLast {
-      // Don't scroll to the end of the collection view in RTL.
-      let isRTL: Bool = collectionView.effectiveUserInterfaceLayoutDirection == .rightToLeft
-      if isRTL { return }
-
       let offset = collectionView.contentSize.width - collectionView.frame.width
       if offset > 0 {
         if #available(iOS 17.0, *) {
@@ -776,6 +679,7 @@ class TabStripViewController: UIViewController,
   @objc func newTabButtonTapped() {
     UserMetricsUtils.recordAction("MobileTabSwitched")
     UserMetricsUtils.recordAction("MobileTabStripNewTab")
+    UserMetricsUtils.recordAction("MobileTabNewTab")
 
     mutator?.addNewItem()
   }
@@ -846,14 +750,20 @@ extension TabStripViewController: UICollectionViewDelegateFlowLayout {
     _ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath],
     point: CGPoint
   ) -> UIContextMenuConfiguration? {
-    if indexPaths.count != 1 {
+    guard let indexPath = indexPaths.first,
+      let itemIdentifier = dataSource.itemIdentifier(for: indexPath),
+      let cell = collectionView.cellForItem(at: indexPath)
+    else {
       return nil
     }
-
-    weak var weakSelf = self
-    return UIContextMenuConfiguration(actionProvider: { suggestedActions in
-      return weakSelf?.contextMenuForIndexPath(indexPaths[0])
-    })
+    switch itemIdentifier.item {
+    case .tab(let tabSwitcherItem):
+      return contextMenuProvider?.contextMenuConfiguration(
+        for: tabSwitcherItem, originView: cell, menuScenario: kMenuScenarioHistogramTabStripEntry)
+    case .group(let tabGroupItem):
+      return contextMenuProvider?.contextMenuConfiguration(
+        for: tabGroupItem, originView: cell, menuScenario: kMenuScenarioHistogramTabStripEntry)
+    }
   }
 
   func collectionView(
@@ -890,11 +800,20 @@ extension TabStripViewController: UICollectionViewDragDelegate, UICollectionView
     _ collectionView: UICollectionView,
     dragSessionWillBegin session: UIDragSession
   ) {
+    guard let draggedItemIdentifier = draggedItemIdentifier else { return }
     dragEndAtNewIndex = false
-    HistogramUtils.recordHistogram(
-      kUmaTabStripViewDragDropTabsEvent, withSample: DragDropTabs.dragBegin.rawValue,
-      maxValue: DragDropTabs.maxValue.rawValue)
-    dragDropHandler?.dragWillBegin(for: draggedItem)
+    switch draggedItemIdentifier.item {
+    case .tab(let tabSwitcherItem):
+      dragDropHandler?.dragWillBegin(for: tabSwitcherItem)
+      HistogramUtils.recordHistogram(
+        kUmaTabStripViewDragDropTabsEvent, withSample: DragDropTabs.dragBegin.rawValue,
+        maxValue: DragDropTabs.maxValue.rawValue)
+    case .group(let tabGroupItem):
+      dragDropHandler?.dragWillBegin(for: tabGroupItem)
+      HistogramUtils.recordHistogram(
+        kUmaTabStripViewDragDropGroupsEvent, withSample: DragDropTabs.dragBegin.rawValue,
+        maxValue: DragDropTabs.maxValue.rawValue)
+    }
   }
 
   func collectionView(
@@ -912,21 +831,41 @@ extension TabStripViewController: UICollectionViewDragDelegate, UICollectionView
       dragEvent = DragDropTabs.dragEndInOtherCollection
     }
 
-    HistogramUtils.recordHistogram(
-      kUmaTabStripViewDragDropTabsEvent, withSample: dragEvent.rawValue,
-      maxValue: DragDropTabs.maxValue.rawValue)
-
     dragDropHandler?.dragSessionDidEnd()
+
+    switch draggedItemIdentifier?.item {
+    case .tab(_):
+      HistogramUtils.recordHistogram(
+        kUmaTabStripViewDragDropTabsEvent, withSample: dragEvent.rawValue,
+        maxValue: DragDropTabs.maxValue.rawValue)
+    case .group(let tabGroupItem):
+      HistogramUtils.recordHistogram(
+        kUmaTabStripViewDragDropGroupsEvent, withSample: dragEvent.rawValue,
+        maxValue: DragDropTabs.maxValue.rawValue)
+      if !tabGroupItem.collapsed, let draggedItemIdentifier = draggedItemIdentifier {
+        // If the dragged item is a group and the group was expanded before it started being dragged, then expand it back.
+        var snapshot = dataSource.snapshot(for: .tabs)
+        snapshot.expand([draggedItemIdentifier])
+        applySnapshot(
+          dataSource: dataSource, snapshot: snapshot, animatingDifferences: true,
+          numberOfVisibleItemsChanged: false)
+      }
+    default:
+      break
+    }
+
+    // Reset the current dragged item.
+    draggedItemIdentifier = nil
   }
 
   func collectionView(
     _ collectionView: UICollectionView,
     dragPreviewParametersForItemAt indexPath: IndexPath
   ) -> UIDragPreviewParameters? {
-    guard let cell = collectionView.cellForItem(at: indexPath) as? TabStripTabCell else {
+    guard let tabStripCell = collectionView.cellForItem(at: indexPath) as? TabStripCell else {
       return nil
     }
-    return cell.dragPreviewParameters
+    return tabStripCell.dragPreviewParameters
   }
 
   func collectionView(
@@ -934,13 +873,20 @@ extension TabStripViewController: UICollectionViewDragDelegate, UICollectionView
     itemsForBeginning session: UIDragSession,
     at indexPath: IndexPath
   ) -> [UIDragItem] {
-    guard let itemIdentifier = dataSource.itemIdentifier(for: indexPath),
-      let item = itemIdentifier.tabSwitcherItem,
-      let dragItem = dragDropHandler?.dragItem(for: item)
-    else {
+    guard let itemIdentifier = dataSource.itemIdentifier(for: indexPath) else {
       return []
     }
-    draggedItem = item
+    let dragItem: UIDragItem?
+    switch itemIdentifier.item {
+    case .tab(let tabSwitcherItem):
+      dragItem = dragDropHandler?.dragItem(for: tabSwitcherItem)
+    case .group(let tabGroupItem):
+      dragItem = dragDropHandler?.dragItem(for: tabGroupItem)
+    }
+    guard let dragItem = dragItem else {
+      return []
+    }
+    draggedItemIdentifier = itemIdentifier
     return [dragItem]
   }
 
@@ -961,14 +907,26 @@ extension TabStripViewController: UICollectionViewDragDelegate, UICollectionView
     dropSessionDidUpdate session: UIDropSession,
     withDestinationIndexPath destinationIndexPath: IndexPath?
   ) -> UICollectionViewDropProposal {
-    guard let dropOperation: UIDropOperation = dragDropHandler?.dropOperation(for: session) else {
+    // Calculating location in view
+    let location = session.location(in: collectionView)
+    var destinationIndexPath: IndexPath?
+    collectionView.performUsingPresentationValues {
+      destinationIndexPath = collectionView.indexPathForItem(at: location)
+    }
+    guard let destinationIndexPath = destinationIndexPath else {
+      return UICollectionViewDropProposal(operation: .cancel, intent: .unspecified)
+    }
+    guard
+      let dropOperation: UIDropOperation = dragDropHandler?.dropOperation(
+        for: session, to: UInt(destinationIndexPath.item))
+    else {
       return UICollectionViewDropProposal(operation: .cancel)
     }
     /// Use `insertIntoDestinationIndexPath` if the dragged item is not from the same
     /// collection view. This prevents having unwanted empty space in the collection view.
     return UICollectionViewDropProposal(
       operation: dropOperation,
-      intent: dropOperation == .move
+      intent: draggedItemIdentifier != nil
         ? .insertAtDestinationIndexPath : .insertIntoDestinationIndexPath)
   }
 

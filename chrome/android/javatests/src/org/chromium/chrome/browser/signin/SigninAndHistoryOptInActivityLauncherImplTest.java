@@ -184,9 +184,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
         when(IdentityServicesProvider.get().getIdentityManager(any()))
                 .thenReturn(mIdentityManagerMock);
         when(mIdentityManagerMock.hasPrimaryAccount(eq(ConsentLevel.SIGNIN))).thenReturn(true);
-        when(mHistorySyncHelperMock.didAlreadyOptIn()).thenReturn(true);
-        when(mSigninManagerMock.isSigninAllowed()).thenReturn(false);
-        when(mSigninManagerMock.isSigninDisabledByPolicy()).thenReturn(false);
+        when(mHistorySyncHelperMock.shouldSuppressHistorySync()).thenReturn(true);
 
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -260,7 +258,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
 
     @Test
     @MediumTest
-    // TODO(https://crbug.com/1520783): Update this test when the error UI will be implemented.
+    // TODO(crbug.com/41493758): Update this test when the error UI will be implemented.
     public void testLaunchActivityIfAllowedWhenSigninIsDisabledByPolicy() {
         when(IdentityServicesProvider.get().getIdentityManager(any()))
                 .thenReturn(mIdentityManagerMock);
@@ -295,7 +293,7 @@ public class SigninAndHistoryOptInActivityLauncherImplTest {
 
     @Test
     @MediumTest
-    // TODO(https://crbug.com/1520783): Update this test when the error UI will be implemented.
+    // TODO(crbug.com/41493758): Update this test when the error UI will be implemented.
     public void testLaunchActivityForHistorySyncDedicatedFlowWhenSigninIsDisabledByPolicy() {
         when(IdentityServicesProvider.get().getIdentityManager(any()))
                 .thenReturn(mIdentityManagerMock);

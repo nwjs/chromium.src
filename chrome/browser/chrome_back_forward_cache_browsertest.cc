@@ -416,7 +416,7 @@ class MetricsChromeBackForwardCacheBrowserTest
 
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
-    // TODO(crbug.com/1224780): This test used an experiment param (which no
+    // TODO(crbug.com/40188113): This test used an experiment param (which no
     // longer exists) to suppress the metrics send timer. If and when the test
     // is re-enabled, it should be updated to use a different mechanism.
     ChromeBackForwardCacheBrowserTest::SetUpCommandLine(command_line);
@@ -478,7 +478,7 @@ IN_PROC_BROWSER_TEST_P(MetricsChromeBackForwardCacheBrowserTest,
     // Note that in some cases the metrics might flakily get updated in time,
     // before the browser changed the current RFH. So, we can neither expect it
     // to be 0 all the time or 1 all the time.
-    // TODO(crbug.com/1150242): Support updating metrics consistently on
+    // TODO(crbug.com/40157795): Support updating metrics consistently on
     // cross-RFH cross-process navigations.
   }
 }
@@ -779,7 +779,7 @@ INSTANTIATE_TEST_SUITE_P(
     ChromeBackForwardCacheBrowserWithEmbedPdfTestPassToString());
 #endif  // BUILDFLAG(ENABLE_PDF)
 
-// TODO(crbug.com/1491942): This fails with the field trial testing config.
+// TODO(crbug.com/40285326): This fails with the field trial testing config.
 class ChromeBackForwardCacheBrowserWithEmbedTestNoTestingConfig
     : public ChromeBackForwardCacheBrowserWithEmbedTest {
  public:
@@ -868,8 +868,10 @@ IN_PROC_BROWSER_TEST_P(
     ASSERT_TRUE(GetTestPdfViewerStreamManager(web_contents())
                     ->WaitUntilPdfLoadedInFirstChild());
   } else {
-    ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoaded(
-        web_contents(), /*wait_for_hit_test_data=*/true, std::string(tag)));
+    pdf_extension_test_util::EnsurePDFHasLoadedOptions options{
+        .pdf_element = std::string(tag)};
+    ASSERT_TRUE(pdf_extension_test_util::EnsurePDFHasLoadedWithOptions(
+        web_contents(), options));
   }
   content::RenderFrameHostWrapper rfh_a(current_frame_host());
 
@@ -895,15 +897,16 @@ IN_PROC_BROWSER_TEST_P(
   ExpectNotRestoredReason(FROM_HERE);
 }
 
-// Flaky on Mac and ChromeOS: crbug.com/1492026
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded DISABLED_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded
+// Flaky: crbug.com/40935990
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded \
+  DISABLED_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded
 #else
-#define MAYBE_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded
-#endif  //  BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
-IN_PROC_BROWSER_TEST_P(
-    ChromeBackForwardCacheBrowserWithEmbedPdfTest,
-    MAYBE_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded) {
+#define MAYBE_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded \
+  DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded
+#endif
+IN_PROC_BROWSER_TEST_P(ChromeBackForwardCacheBrowserWithEmbedPdfTest,
+                       MAYBE_DoesNotCachePageWithEmbeddedPdfAppendedOnPageLoaded) {
   const auto tag = html_tag();
 
   // Navigate to A.
@@ -911,17 +914,18 @@ IN_PROC_BROWSER_TEST_P(
       web_contents(), embedded_test_server()->GetURL("a.com", "/title1.html")));
   content::RenderFrameHostWrapper rfh_a(current_frame_host());
   //  Embed a PDF into A, and wait until PDF is loaded.
-  ASSERT_TRUE(content::ExecJs(
-      rfh_a.get(), content::JsReplace(R"(
+  EXPECT_EQ("success",
+            content::EvalJs(rfh_a.get(), content::JsReplace(
+                                             R"(
     new Promise(async resolve => {
       let el = document.createElement($1);
       el.type = 'application/pdf';
       el[$2] = '/pdf/test.pdf';
-      el.onload = e => resolve();
+      el.onload = e => resolve("success");
       document.body.append(el);
     });
   )",
-                                      tag, GetSrcAttributeForTag(tag))));
+                                             tag, GetSrcAttributeForTag(tag))));
   if (UseOopif()) {
     // Wait for the PDF to fully load.
     ASSERT_TRUE(GetTestPdfViewerStreamManager(web_contents())
@@ -970,12 +974,14 @@ IN_PROC_BROWSER_TEST_P(ChromeBackForwardCacheBrowserWithEmbedTest,
 }
 
 #if BUILDFLAG(ENABLE_PDF)
-// Flaky on Mac and Linux: crbug.com/1492026
-#if (BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
-#define MAYBE_DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf DISABLED_DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf
+// Flaky: crbug.com/40935990
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf \
+  DISABLED_DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf
 #else
-#define MAYBE_DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf
-#endif  // (BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS))
+#define MAYBE_DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf \
+  DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf
+#endif
 IN_PROC_BROWSER_TEST_P(ChromeBackForwardCacheBrowserWithEmbedPdfTest,
                        MAYBE_DoesNotCachePageWithEmbeddedHtmlMutatedIntoPdf) {
   const auto tag = html_tag();
@@ -987,16 +993,17 @@ IN_PROC_BROWSER_TEST_P(ChromeBackForwardCacheBrowserWithEmbedPdfTest,
       web_contents(), embedded_test_server()->GetURL("a.com", page_with_html)));
   content::RenderFrameHostWrapper rfh_a(current_frame_host());
   //  Mutate the embed into PDF, and wait until PDF is loaded.
-  ASSERT_TRUE(content::ExecJs(
-      rfh_a.get(), content::JsReplace(R"(
+  EXPECT_EQ("success",
+            content::EvalJs(rfh_a.get(), content::JsReplace(
+                                             R"(
     new Promise(async resolve => {
       let el = document.getElementById($1);
       el.type = 'application/pdf';
       el[$2] = '/pdf/test.pdf';
-      el.onload = e => resolve();
+      el.onload = e => resolve("success");
     });
   )",
-                                      tag, GetSrcAttributeForTag(tag))));
+                                             tag, GetSrcAttributeForTag(tag))));
   if (UseOopif()) {
     // Wait for the PDF to fully load.
     ASSERT_TRUE(GetTestPdfViewerStreamManager(web_contents())
@@ -1035,16 +1042,17 @@ IN_PROC_BROWSER_TEST_P(ChromeBackForwardCacheBrowserWithEmbedPdfTest,
       web_contents(), embedded_test_server()->GetURL("a.com", page_with_pdf)));
   content::RenderFrameHostWrapper rfh_a(current_frame_host());
   //  Mutate the embed into HTML, and wait until HTML is loaded.
-  ASSERT_TRUE(content::ExecJs(
-      rfh_a.get(), content::JsReplace(R"(
+  EXPECT_EQ("success",
+            content::EvalJs(rfh_a.get(), content::JsReplace(
+                                             R"(
     new Promise(async resolve => {
       let el = document.getElementById($1);
       el.type = 'text/html';
       el[$2] = '/title1.html';
-      el.onload = e => resolve();
+      el.onload = e => resolve("success");
     });
   )",
-                                      tag, GetSrcAttributeForTag(tag))));
+                                             tag, GetSrcAttributeForTag(tag))));
 
   // Navigate to B.
   ASSERT_TRUE(content::NavigateToURL(

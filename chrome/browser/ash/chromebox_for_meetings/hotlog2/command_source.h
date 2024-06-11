@@ -21,17 +21,13 @@ class CommandSource : public LocalDataSource {
   CommandSource& operator=(const CommandSource&) = delete;
   ~CommandSource() override;
 
- private:
   // LocalDataSource:
   const std::string& GetDisplayName() override;
   std::vector<std::string> GetNextData() override;
 
+ private:
   std::string command_;
   std::vector<std::string> command_split_;
-
-  // Contains the most recent command output. Only updated if
-  // the output is different from the last last_output_ value.
-  std::string last_output_;
 
   // Must be the last class member.
   base::WeakPtrFactory<CommandSource> weak_ptr_factory_{this};

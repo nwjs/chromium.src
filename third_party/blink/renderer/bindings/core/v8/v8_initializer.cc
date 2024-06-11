@@ -171,7 +171,7 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
     return;
 
   // If called during context initialization, there will be no entered context.
-  ScriptState* script_state = ScriptState::Current(isolate);
+  ScriptState* script_state = ScriptState::ForCurrentRealm(isolate);
   if (!script_state->ContextIsValid())
     return;
 
@@ -214,11 +214,8 @@ void V8Initializer::MessageHandlerInMainThread(v8::Local<v8::Message> message,
 void V8Initializer::MessageHandlerInWorker(v8::Local<v8::Message> message,
                                            v8::Local<v8::Value> data) {
   v8::Isolate* isolate = message->GetIsolate();
-  v8::Local<v8::Context> v8_context = isolate->GetCurrentContext();
-  CHECK(!v8_context.IsEmpty());
   // During the frame teardown, there may not be a valid context.
-  auto* script_state = ScriptState::From(v8_context);
-  CHECK(script_state);
+  ScriptState* script_state = ScriptState::ForCurrentRealm(isolate);
   if (!script_state->ContextIsValid())
     return;
 
@@ -280,10 +277,10 @@ static void PromiseRejectHandler(v8::PromiseRejectMessage data,
 #endif
 
   v8::Local<v8::Value> exception = data.GetValue();
-  if (V8DOMWrapper::IsWrapper(isolate, exception)) {
-    // Try to get the stack & location from a wrapped exception object (e.g.
-    // DOMException).
-    DCHECK(exception->IsObject());
+  if (V8PerIsolateData::From(isolate)->HasInstance(
+          DOMException::GetStaticWrapperTypeInfo(), exception)) {
+    // Try to get the stack & location from a wrapped DOMException object.
+    CHECK(exception->IsObject());
     auto private_error = V8PrivateProperty::GetSymbol(
         isolate, kPrivatePropertyDOMExceptionError);
     v8::Local<v8::Value> error;
@@ -337,7 +334,7 @@ void V8Initializer::PromiseRejectHandlerInMainThread(
     return;
 
   // Bail out if called during context initialization.
-  ScriptState* script_state = ScriptState::Current(isolate);
+  ScriptState* script_state = ScriptState::ForCurrentRealm(isolate);
   if (!script_state->ContextIsValid())
     return;
 
@@ -351,7 +348,7 @@ static void PromiseRejectHandlerInWorker(v8::PromiseRejectMessage data) {
 
   // Bail out if called during context initialization.
   v8::Isolate* isolate = promise->GetIsolate();
-  ScriptState* script_state = ScriptState::Current(isolate);
+  ScriptState* script_state = ScriptState::ForCurrentRealm(isolate);
   if (!script_state->ContextIsValid())
     return;
 
@@ -521,7 +518,7 @@ void V8Initializer::WasmAsyncResolvePromiseCallback(
     v8::Local<v8::Promise::Resolver> resolver,
     v8::Local<v8::Value> compilation_result,
     v8::WasmAsyncSuccess success) {
-  ScriptState* script_state = ScriptState::MaybeFrom(context);
+  ScriptState* script_state = ScriptState::MaybeFrom(isolate, context);
   if (!script_state ||
       !IsInParallelAlgorithmRunnable(ExecutionContext::From(script_state),
                                      script_state)) {
@@ -646,8 +643,9 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
     v8::Local<v8::Data> v8_host_defined_options,
     v8::Local<v8::Value> v8_referrer_resource_url,
     v8::Local<v8::String> v8_specifier,
-    v8::Local<v8::FixedArray> v8_import_assertions) {
-  ScriptState* script_state = ScriptState::From(context);
+    v8::Local<v8::FixedArray> v8_import_attributes) {
+  v8::Isolate* isolate = context->GetIsolate();
+  ScriptState* script_state = ScriptState::From(isolate, context);
 
   Modulator* modulator = Modulator::From(script_state);
   if (!modulator) {
@@ -693,9 +691,9 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
 
   ModuleRequest module_request(
       specifier, TextPosition::MinimumPosition(),
-      ModuleRecord::ToBlinkImportAssertions(
+      ModuleRecord::ToBlinkImportAttributes(
           script_state->GetContext(), v8::Local<v8::Module>(),
-          v8_import_assertions, /*v8_import_assertions_has_positions=*/false));
+          v8_import_attributes, /*v8_import_attributes_has_positions=*/false));
 
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLAny>>(
       script_state,
@@ -721,8 +719,8 @@ v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
 void HostGetImportMetaProperties(v8::Local<v8::Context> context,
                                  v8::Local<v8::Module> module,
                                  v8::Local<v8::Object> meta) {
-  ScriptState* script_state = ScriptState::From(context);
   v8::Isolate* isolate = context->GetIsolate();
+  ScriptState* script_state = ScriptState::From(isolate, context);
   v8::HandleScope handle_scope(isolate);
 
   Modulator* modulator = Modulator::From(script_state);

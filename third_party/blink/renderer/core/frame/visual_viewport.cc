@@ -625,9 +625,7 @@ void VisualViewport::CreateLayers() {
 
   needs_paint_property_update_ = true;
 
-  // TODO(crbug.com/1015625): Avoid scroll_layer_.
   scroll_layer_ = cc::Layer::Create();
-  scroll_layer_->SetScrollable(size_);
   scroll_layer_->SetBounds(ContentsSize());
   scroll_layer_->SetElementId(GetScrollElementId());
 
@@ -668,7 +666,7 @@ void VisualViewport::InitializeScrollbars() {
 EScrollbarWidth VisualViewport::CSSScrollbarWidth() const {
   DCHECK(IsActiveViewport());
   if (Document* main_document = LocalMainFrame().GetDocument())
-    return main_document->GetLayoutView()->StyleRef().ScrollbarWidth();
+    return main_document->GetLayoutView()->StyleRef().UsedScrollbarWidth();
 
   return EScrollbarWidth::kAuto;
 }
@@ -1205,7 +1203,7 @@ void VisualViewport::Paint(GraphicsContext& context) const {
 void VisualViewport::UsedColorSchemeChanged() {
   DCHECK(IsActiveViewport());
   // The scrollbar overlay color theme depends on the used color scheme.
-  RecalculateScrollbarOverlayColorTheme();
+  RecalculateOverlayScrollbarColorScheme();
 }
 
 void VisualViewport::ScrollbarColorChanged() {

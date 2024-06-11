@@ -11,6 +11,7 @@
 #include <optional>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/command_line.h"
@@ -41,7 +42,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/apps/app_service/app_icon/app_icon_source.h"
+#include "chrome/browser/apps/app_service/app_icon_source.h"
 #include "chrome/browser/apps/app_service/app_registry_cache_waiter.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_features.h"
@@ -129,7 +130,6 @@
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -255,7 +255,7 @@ int NumberToInt(Number number) {
 
 // Flushes the shortcuts tasks, which seem to sometimes still hang around after
 // our tasks are done.
-// TODO(crbug.com/1273568): Investigate the true source of flakiness instead of
+// TODO(crbug.com/40206415): Investigate the true source of flakiness instead of
 // papering over it here.
 void FlushShortcutTasks() {
   // Execute the UI thread task runner before and after the shortcut task runner
@@ -492,7 +492,7 @@ std::string GetSiteId(Site site) {
   return base::NumberToString(base::to_underlying(site));
 }
 
-web_package::WebBundleSigner::KeyPair GetKeyPairForSite(Site site) {
+web_package::WebBundleSigner::Ed25519KeyPair GetKeyPairForSite(Site site) {
   std::string site_id = GetSiteId(site);
   size_t seed_length = 32;
   site_id.resize(seed_length, 'a');
@@ -501,7 +501,7 @@ web_package::WebBundleSigner::KeyPair GetKeyPairForSite(Site site) {
   uint8_t public_key[ED25519_PUBLIC_KEY_LEN];
   uint8_t private_key[ED25519_PRIVATE_KEY_LEN];
   ED25519_keypair_from_seed(public_key, private_key, seed.data());
-  return web_package::WebBundleSigner::KeyPair(public_key, private_key);
+  return web_package::WebBundleSigner::Ed25519KeyPair(public_key, private_key);
 }
 
 std::string GetFileExtension(FileExtension file_extension) {
@@ -1044,8 +1044,8 @@ void WebAppIntegrationTestDriver::TearDownOnMainThread() {
       }
       LOG(INFO) << "TearDownOnMainThread: Uninstall complete.";
     }
-    // TODO(crbug.com/1273568): Investigate the true source of flakiness instead
-    // of papering over it here.
+    // TODO(crbug.com/40206415): Investigate the true source of flakiness
+    // instead of papering over it here.
     provider->command_manager().AwaitAllCommandsCompleteForTesting();
     FlushShortcutTasks();
   }
@@ -1121,18 +1121,6 @@ void WebAppIntegrationTestDriver::AwaitManifestUpdate(Site site) {
     if (!previous_manifest_updates_.contains(app_id)) {
       waiting_for_update_id_ = app_id;
       waiting_for_update_run_loop_ = std::make_unique<base::RunLoop>();
-      // Only close windows if immediate updating is not enabled.
-      if (!base::FeatureList::IsEnabled(
-              features::kWebAppManifestImmediateUpdating)) {
-        Browser* browser = GetAppBrowserForAppId(profile(), app_id);
-        while (browser != nullptr) {
-          if (browser == app_browser_) {
-            app_browser_ = nullptr;
-          }
-          delegate_->CloseBrowserSynchronously(browser);
-          browser = GetAppBrowserForAppId(profile(), app_id);
-        }
-      }
       waiting_for_update_run_loop_->Run();
       waiting_for_update_run_loop_.reset();
     }
@@ -1778,17 +1766,17 @@ void WebAppIntegrationTestDriver::LaunchFromChromeApps(Site site) {
       << "No app installed for site: " << static_cast<int>(site);
 
   WebAppRegistrar& app_registrar = provider()->registrar_unsafe();
-#if BUILDFLAG(IS_CHROMEOS)
-  DisplayMode display_mode = app_registrar.GetAppEffectiveDisplayMode(app_id);
-  bool is_open_in_app_browser =
+  const DisplayMode display_mode =
+      app_registrar.GetAppEffectiveDisplayMode(app_id);
+  const bool is_open_in_app_browser =
       (display_mode != blink::mojom::DisplayMode::kBrowser);
+#if BUILDFLAG(IS_CHROMEOS)
   if (is_open_in_app_browser) {
     app_browser_ = LaunchWebAppBrowserAndWait(profile(), app_id);
     active_app_id_ = app_id;
   } else {
     ui_test_utils::UrlLoadObserver url_observer(
-        app_registrar.GetAppLaunchUrl(app_id),
-        content::NotificationService::AllSources());
+        app_registrar.GetAppLaunchUrl(app_id));
     LaunchBrowserForWebAppInTab(profile(), app_id);
     url_observer.Wait();
   }
@@ -1808,15 +1796,18 @@ void WebAppIntegrationTestDriver::LaunchFromChromeApps(Site site) {
   event_ptr->meta_key = false;
   event_ptr->shift_key = false;
 
+  BrowserAddedWaiter browser_added_waiter;
   ui_test_utils::UrlLoadObserver url_observer(
-      app_registrar.GetAppLaunchUrl(app_id),
-      content::NotificationService::AllSources());
+      app_registrar.GetAppLaunchUrl(app_id));
   app_home_page_handler.LaunchApp(app_id, std::move(event_ptr));
   url_observer.Wait();
 
-  // The app_browser_ is needed only for apps that open in a new window, and is
-  // nullptr for apps that launch in a tab.
-  app_browser_ = GetAppBrowserForAppId(profile(), app_id);
+  // The app_browser_ is needed only for apps that open in a new window.
+  if (is_open_in_app_browser) {
+    browser_added_waiter.Wait();
+    app_browser_ = browser_added_waiter.browser_added();
+    EXPECT_TRUE(AppBrowserController::IsForWebApp(app_browser(), app_id));
+  }
   active_app_id_ = app_id;
 #endif
   AfterStateChangeAction();
@@ -2188,7 +2179,7 @@ std::vector<base::FilePath> WebAppIntegrationTestDriver::GetTestFilePaths(
 // CUJs are implemented.
 void WebAppIntegrationTestDriver::SyncAndInstallPreinstalledAppConfig(
     const GURL& install_url,
-    base::StringPiece app_config_string) {
+    std::string_view app_config_string) {
   base::AutoReset<bool> bypass_offline_manifest_requirement =
       PreinstalledWebAppManager::BypassOfflineManifestRequirementForTesting();
   // TODO: resolve how to handle return value.
@@ -4087,22 +4078,13 @@ void WebAppIntegrationTestDriver::AwaitManifestSystemIdle() {
   // Wait till all manifest update data fetch commands have completed.
   command_manager.AwaitAllCommandsCompleteForTesting();
 
-  // If there are any apps that have no app windows, then wait for the
-  // ui_manager to post the task and schedule the manifest update finalize
-  // command.
-  for (const webapps::AppId& app_id :
-       manifest_update_manager.GetAppsPendingWindowsClosingForTesting()) {
-    if (provider()->ui_manager().GetNumWindowsForApp(app_id) == 0) {
-      base::RunLoop().RunUntilIdle();
-    }
-  }
   // Wait till all manifest update finalize commands have completed (if any).
   command_manager.AwaitAllCommandsCompleteForTesting();
 }
 
 webapps::AppId GetAppIdForIsolatedSite(Site site) {
   auto parent_site = GetSiteConfiguration(site).parent_site;
-  web_package::WebBundleSigner::KeyPair key_pair =
+  web_package::WebBundleSigner::Ed25519KeyPair key_pair =
       GetKeyPairForSite(parent_site ? parent_site.value() : site);
 
   auto url_info = IsolatedWebAppUrlInfo::CreateFromSignedWebBundleId(
@@ -4773,7 +4755,6 @@ WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
   std::vector<base::test::FeatureRef> disabled_features;
   enabled_features.push_back(blink::features::kDesktopPWAsSubApps);
   enabled_features.push_back(blink::features::kDesktopPWAsTabStrip);
-  enabled_features.push_back(features::kDesktopPWAsEnforceWebAppSettingsPolicy);
   enabled_features.push_back(features::kDesktopPWAsTabStripSettings);
   enabled_features.push_back(features::kIsolatedWebAppDevMode);
   enabled_features.push_back(features::kIsolatedWebApps);
@@ -4786,7 +4767,7 @@ WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
   base::Extend(disabled_features, ash::standalone_browser::GetFeatureRefs());
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
-  // TODO(crbug.com/1357905): Update test driver to work with new UI.
+  // TODO(crbug.com/40236806): Update test driver to work with new UI.
   enabled_features.push_back(apps::features::kLinkCapturingUiUpdate);
 #else
   // TOOD(b/313492499): Update test driver to work with new intent picker UI.

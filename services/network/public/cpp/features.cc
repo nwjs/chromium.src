@@ -205,10 +205,6 @@ const base::FeatureParam<TrustTokenOriginTrialSpec>
         TrustTokenOriginTrialSpec::kOriginTrialNotRequired,
         &kTrustTokenOriginTrialParamOptions};
 
-BASE_FEATURE(kWebSocketReassembleShortMessages,
-             "WebSocketReassembleShortMessages",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable support for ACCEPT_CH H2/3 frame as part of Client Hint Reliability.
 // See:
 // https://tools.ietf.org/html/draft-davidben-http-client-hint-reliability-02#section-4.3
@@ -318,11 +314,6 @@ BASE_FEATURE(kNetworkServiceMemoryCache,
 // and continue the handshake without sending one if requested.
 BASE_FEATURE(kOmitCorsClientCert,
              "OmitCorsClientCert",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Allow pervasive payloads to use a single-keyed cache.
-BASE_FEATURE(kCacheTransparency,
-             "CacheTransparency",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Load Pervasive Payloads List for Cache Transparency.

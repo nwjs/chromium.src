@@ -28,7 +28,7 @@
 #include "extensions/common/mojom/view_type.mojom.h"
 #endif
 
-#if !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 #include "chrome/services/speech/buildflags/buildflags.h"
 #if BUILDFLAG(ENABLE_SPEECH_SERVICE)
 #include "chrome/browser/browser_process.h"
@@ -48,7 +48,7 @@
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
 #endif  // BUILDFLAG(ENABLE_SPEECH_SERVICE)
-#endif  //  !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 using content::BrowserThread;
 using content::SpeechRecognitionManager;
@@ -69,10 +69,6 @@ void ChromeSpeechRecognitionManagerDelegate::OnRecognitionStart(
 }
 
 void ChromeSpeechRecognitionManagerDelegate::OnAudioStart(int session_id) {
-}
-
-void ChromeSpeechRecognitionManagerDelegate::OnEnvironmentEstimationComplete(
-    int session_id) {
 }
 
 void ChromeSpeechRecognitionManagerDelegate::OnSoundStart(int session_id) {
@@ -143,7 +139,7 @@ bool ChromeSpeechRecognitionManagerDelegate::FilterProfanities(
       GetBoolean(prefs::kSpeechRecognitionFilterProfanities);
 }
 
-#if !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
 void ChromeSpeechRecognitionManagerDelegate::BindSpeechRecognitionContext(
     mojo::PendingReceiver<media::mojom::SpeechRecognitionContext>
         recognition_receiver) {
@@ -189,7 +185,7 @@ void ChromeSpeechRecognitionManagerDelegate::BindSpeechRecognitionContext(
           std::move(recognition_receiver)));
 #endif  // BUILDFLAG(ENABLE_SPEECH_SERVICE)
 }
-#endif  // !BUILDFLAG(IS_FUCHSIA) && !BUILDFLAG(IS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // static.
 void ChromeSpeechRecognitionManagerDelegate::CheckRenderFrameType(

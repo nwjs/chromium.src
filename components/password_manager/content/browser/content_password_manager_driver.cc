@@ -212,7 +212,7 @@ void ContentPasswordManagerDriver::GeneratedPasswordAccepted(
     const std::u16string& password) {
   // In case we can't obtain a valid URL or a frame isn't allowed to perform an
   // operation with generated URL, don't forward anything to password manager.
-  // TODO(crbug.com/1233990): Test that PasswordManager doesn't receive url
+  // TODO(crbug.com/40191770): Test that PasswordManager doesn't receive url
   // and full_url from renderer.
   if (!HasValidURL(render_frame_host_))
     return;
@@ -408,7 +408,7 @@ void ContentPasswordManagerDriver::InformAboutUserInput(
 
   // In case we can't obtain a valid URL or a frame isn't allowed to perform an
   // operation with generated URL, don't forward anything to password manager.
-  // TODO(crbug.com/1233990): Test that PasswordManager doesn't receive url
+  // TODO(crbug.com/40191770): Test that PasswordManager doesn't receive url
   // and full_url from renderer.
   if (!HasValidURL(render_frame_host_))
     return;
@@ -520,9 +520,9 @@ void ContentPasswordManagerDriver::ShowPasswordSuggestions(
     // feature is launched.
     if (client_->ShowKeyboardReplacingSurface(
             this,
-            SubmissionReadinessParams(
+            PasswordFillingParams(
                 request.form_data, request.username_field_index,
-                request.password_field_index,
+                request.password_field_index, request.element_id,
                 autofill::mojom::SubmissionReadinessState::kNoInformation),
             request.show_webauthn_credentials)) {
       return;
@@ -546,8 +546,15 @@ void ContentPasswordManagerDriver::ShowKeyboardReplacingSurface(
     return;
   }
   autofill::FormData form;
+  // This is only called when `kPasswordSuggestionBottomSheetV2` feature flag is
+  // disabled. In this scenario only `submission_readiness` field of the
+  // `PasswordFillingParams` is used later, other fields are not needed. This
+  // call will be removed after launching the `kPasswordSuggestionBottomSheetV2`
+  // feature.
   client_->ShowKeyboardReplacingSurface(
-      this, SubmissionReadinessParams(form, 0, 0, submission_readiness),
+      this,
+      PasswordFillingParams(form, 0, 0, autofill::FieldRendererId(),
+                            submission_readiness),
       is_webauthn_form);
 }
 #endif

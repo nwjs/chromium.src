@@ -12,8 +12,10 @@
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
+#include "base/strings/strcat.h"
 #include "chrome/browser/ash/input_method/autocorrect_enums.h"
 #include "chrome/browser/ash/input_method/autocorrect_prefs.h"
+#include "chrome/browser/ash/input_method/japanese/japanese_settings.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/scoped_user_pref_update.h"
 
@@ -23,6 +25,8 @@ namespace input_method {
 namespace {
 
 namespace mojom = ::ash::ime::mojom;
+
+constexpr std::string_view kJapaneseEngineId = "nacl_mozc_jp";
 
 // The values here should be kept in sync with
 // chrome/browser/resources/ash/settings/os_languages_page/input_method_util.js
@@ -346,41 +350,26 @@ mojom::ZhuyinSettingsPtr CreateZhuyinSettings(
       ValueOrEmpty(input_method_specific_pref.FindString("zhuyinPageSize")));
   return settings;
 }
+}  // namespace
 
-const base::Value::Dict& GetPrefsDictionaryForEngineId(
+mojom::InputMethodSettingsPtr CreateSettingsFromPrefs(
     const PrefService& prefs,
-    const std::string& engine_id,
-    const base::Value::Dict& fallback_dictionary) {
+    const std::string& engine_id) {
   // All input method settings are stored in a single pref whose value is a
   // dictionary.
-  const base::Value::Dict& all_input_method_pref =
-      prefs.GetDict(::prefs::kLanguageInputMethodSpecificSettings);
-
   // For each input method, the dictionary contains an entry, with the key being
   // a string that identifies the input method, and the value being a
   // subdictionary with the specific settings for that input method.  The
   // subdictionary structure depends on the type of input method it's for.  The
   // subdictionary may be null if the user hasn't changed any settings for that
   // input method.
-  const base::Value::Dict* input_method_specific_pref_or_null =
-      all_input_method_pref.FindDict(engine_id);
+  const base::Value::Dict* ime_prefs_ptr =
+      prefs.GetDict(::prefs::kLanguageInputMethodSpecificSettings)
+          .FindDict(engine_id);
 
-  // For convenience, pass an empty dictionary if there are no settings for this
-  // input method yet.
-  return input_method_specific_pref_or_null
-             ? *input_method_specific_pref_or_null
-             : fallback_dictionary;
-}
-
-// Port the Prefs sett}  // namespace
-}  // namespace
-
-mojom::InputMethodSettingsPtr CreateSettingsFromPrefs(
-    const PrefService& prefs,
-    const std::string& engine_id) {
-  base::Value::Dict empty_dictionary;
-  const auto& input_method_specific_pref =
-      GetPrefsDictionaryForEngineId(prefs, engine_id, empty_dictionary);
+  base::Value::Dict default_dict;
+  const base::Value::Dict& input_method_specific_pref =
+      ime_prefs_ptr == nullptr ? default_dict : *ime_prefs_ptr;
 
   if (IsFstEngine(engine_id)) {
     return mojom::InputMethodSettings::NewLatinSettings(
@@ -406,6 +395,10 @@ mojom::InputMethodSettingsPtr CreateSettingsFromPrefs(
     return mojom::InputMethodSettings::NewVietnameseVniSettings(
         CreateVietnameseVniSettings(input_method_specific_pref));
   }
+  if (engine_id == kJapaneseEngineId) {
+    return mojom::InputMethodSettings::NewJapaneseSettings(
+        ToMojomInputMethodSettings(input_method_specific_pref));
+  }
   // TODO(b/232341104): Add the code to send the Japanese settings to
   // the engine if the engine_id is nacl_mozc_jp or nacl_mozc_us.
   // This will do the inverse of ConvertConfigToJapaneseSettings.
@@ -414,17 +407,31 @@ mojom::InputMethodSettingsPtr CreateSettingsFromPrefs(
   return nullptr;
 }
 
+const base::Value* GetLanguageInputMethodSpecificSetting(
+    PrefService& prefs,
+    const std::string& engine_id,
+    const std::string& preference_name) {
+  return prefs.GetDict(::prefs::kLanguageInputMethodSpecificSettings)
+      .FindByDottedPath(base::StrCat({engine_id, ".", preference_name}));
+}
+
 void SetLanguageInputMethodSpecificSetting(PrefService& prefs,
                                            const std::string& engine_id,
                                            const base::Value::Dict& values) {
   // This creates a dictionary where any changes to the dictionary will notify
   // the prefs service (and its observers).
-  ScopedDictPrefUpdate update = ScopedDictPrefUpdate(
-      &prefs, ::prefs::kLanguageInputMethodSpecificSettings);
+  ScopedDictPrefUpdate update(&prefs,
+                              ::prefs::kLanguageInputMethodSpecificSettings);
 
-  for (const auto [key, value] : values) {
-    update->FindDict(engine_id)->Set(key, value.Clone());
-  }
+  // The "update" dictionary contains nested dictionaries of engine_id -> Dict.
+  // This partial dictionary contains all the new updated files set up in the
+  // same schema so it can be merged.
+  base::Value::Dict partial_dict;
+  partial_dict.Set(engine_id, values.Clone());
+
+  // Does a nested dictionary merge to the "update" dictionary. This does not
+  // modify any existing values that are not inside the partial_dict.
+  update->Merge(std::move(partial_dict));
 }
 
 bool IsAutocorrectSupported(const std::string& engine_id) {

@@ -44,6 +44,7 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab;
 import org.chromium.chrome.browser.tasks.pseudotab.PseudoTab.TitleProvider;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_management.TabGridDialogMediator.DialogController;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.GridCardOnClickListenerProvider;
@@ -144,6 +145,10 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             .with(MODE, mode)
                             .build();
             mContainerViewModel = containerViewModel;
+            Profile profile = mProfileProviderSupplier.get().getOriginalProfile();
+            TabGroupModelFilter filter = (TabGroupModelFilter) tabModelFilterSupplier.get();
+            ActionConfirmationManager actionConfirmationManager =
+                    new ActionConfirmationManager(profile, mActivity, filter, mModalDialogManager);
 
             mDialogControllerSupplier =
                     LazyOneshotSupplier.fromSupplier(
@@ -164,7 +169,8 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                                                         ::getTabGridDialogAnimationSourceView,
                                                 scrimCoordinator,
                                                 getTabGroupTitleEditor(),
-                                                /* rootView= */ coordinatorView);
+                                                /* rootView= */ coordinatorView,
+                                                actionConfirmationManager);
                                 return mTabGridDialogCoordinator.getDialogController();
                             });
 
@@ -199,6 +205,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             mode,
                             activity,
                             browserControlsStateProvider,
+                            mModalDialogManager,
                             tabModelFilterSupplier,
                             regularTabModelSupplier,
                             mMultiThumbnailCardProvider,
@@ -206,7 +213,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
                             /* actionOnRelatedTabs= */ true,
                             getGridCardOnClickListenerProvider(),
                             /* dialogHandler= */ null,
-                            TabProperties.UiType.CLOSABLE,
+                            TabProperties.TabActionState.CLOSABLE,
                             /* selectionDelegateProvider= */ null,
                             this::getPriceWelcomeMessageController,
                             parentView,
@@ -329,7 +336,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
     /** Performs hard cleanup which saves price drop information. */
     public void hardCleanup() {
         mTabListCoordinator.hardCleanup();
-        // TODO(crbug/1505772): The pre-fork implementation resets the tab list, this seems
+        // TODO(crbug.com/40946413): The pre-fork implementation resets the tab list, this seems
         // suboptimal. Consider not doing this.
         resetWithTabList(null);
     }
@@ -409,6 +416,17 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         mTabListCoordinator.waitForLayoutWithTab(tabId, r);
     }
 
+    /**
+     * Scrolls to the specified group and animates open a dialog. It is the caller's responsibility
+     * to ensure that this pane is showing before calling this.
+     *
+     * @param tabId The id of any tab in the group.
+     */
+    public void requestOpenTabGroupDialog(int tabId) {
+        mMediator.scrollToTabById(tabId);
+        mMediator.openTabGroupDialog(tabId);
+    }
+
     @Override
     public @BackPressResult int handleBackPress() {
         return mMediator.handleBackPress();
@@ -432,7 +450,7 @@ public class TabSwitcherPaneCoordinator implements BackPressHandler {
         int index = coordinator.getTabIndexFromTabId(tabId);
         ViewHolder sourceViewHolder =
                 coordinator.getContainerView().findViewHolderForAdapterPosition(index);
-        // TODO(crbug.com/999372): This is band-aid fix that will show basic fade-in/fade-out
+        // TODO(crbug.com/41479135): This is band-aid fix that will show basic fade-in/fade-out
         // animation when we cannot find the animation source view holder. This is happening due to
         // current group id in TabGridDialog can not be indexed in TabListModel, which should never
         // happen. Remove this when figure out the actual cause.

@@ -17,6 +17,8 @@ include_rules = [
   "+chrome/browser/apps/app_service",
   "+chrome/browser/ash/login/demo_mode",
   "+chrome/browser/ash/login/users",
+  "+chrome/browser/ash/ownership",
+  "+chrome/browser/ash/policy/core",
   "+chrome/browser/browser_process.h",
   "+chrome/browser/browser_process_platform_part.h",
   "+chrome/browser/component_updater",
@@ -43,3 +45,9 @@ include_rules = [
   # Dependencies outside of //chrome:
   "+ui/message_center/message_center.h",
 ]
+
+specific_include_rules = {
+  "campaigns_manager_interactive_uitest\.cc": [
+    "+chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h",
+  ],
+}

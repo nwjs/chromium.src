@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/public/cpp/image_util.h"
 #include "ash/public/cpp/new_window_delegate.h"
 #include "ash/public/cpp/test/test_new_window_delegate.h"
 #include "ash/shell.h"
@@ -16,10 +17,12 @@
 #include "ash/style/icon_button.h"
 #include "ash/style/system_textfield.h"
 #include "ash/system/mahi/mahi_constants.h"
+#include "ash/system/mahi/mahi_content_source_button.h"
 #include "ash/system/mahi/mahi_ui_controller.h"
 #include "ash/system/mahi/mahi_utils.h"
 #include "ash/system/mahi/test/mock_mahi_manager.h"
 #include "ash/test/ash_test_base.h"
+#include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -30,10 +33,10 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/gfx/text_constants.h"
-#include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/scrollbar/scroll_bar.h"
@@ -167,19 +170,42 @@ void ReturnLongSummary(chromeos::MahiManager::MahiSummaryCallback callback) {
       MahiResponseStatus::kSuccess);
 }
 
-views::Label* GetContentTitle(views::View* mahi_view) {
-  return views::AsViewClass<views::Label>(
-      mahi_view->GetViewByID(mahi_constants::ViewId::kContentTitle));
+const std::u16string& GetContentSourceTitle(views::View* mahi_view) {
+  return views::AsViewClass<MahiContentSourceButton>(
+             mahi_view->GetViewByID(
+                 mahi_constants::ViewId::kContentSourceButton))
+      ->GetText();
 }
 
-views::ImageView* GetContentIcon(views::View* mahi_view) {
-  return views::AsViewClass<views::ImageView>(
-      mahi_view->GetViewByID(mahi_constants::ViewId::kContentIcon));
+gfx::ImageSkia GetContentSourceIcon(views::View* mahi_view) {
+  return views::AsViewClass<MahiContentSourceButton>(
+             mahi_view->GetViewByID(
+                 mahi_constants::ViewId::kContentSourceButton))
+      ->GetImage(views::Button::STATE_NORMAL);
 }
 
 views::Label* GetSummaryLabel(views::View* mahi_view) {
   return views::AsViewClass<views::Label>(
       mahi_view->GetViewByID(mahi_constants::ViewId::kSummaryLabel));
+}
+
+// Generates a random string, given the maximum amount of words the string can
+// have.
+std::u16string GetRandomString(int max_words_count) {
+  int string_length = base::RandInt(1, max_words_count);
+  std::vector<char> random_chars;
+  for (int string_index = 0; string_index < string_length; string_index++) {
+    int word_length = base::RandInt(1, 10);
+    for (int word_index = 0; word_index < word_length; word_index++) {
+      // Add a random character from 'a' to 'z' to the string.
+      random_chars.push_back(base::RandInt('a', 'z'));
+    }
+
+    // Add a space between each word.
+    random_chars.push_back(0x20);
+  }
+
+  return std::u16string(random_chars.begin(), random_chars.end());
 }
 
 }  // namespace
@@ -231,7 +257,10 @@ class MahiPanelViewTest : public AshTestBase {
   void CreatePanelWidget() {
     ResetPanelWidget();
     widget_ = CreateFramelessTestWidget();
-    widget_->SetFullscreen(true);
+    widget_->SetBounds(
+        gfx::Rect(/*x=*/0, /*y=*/0,
+                  /*width=*/mahi_constants::kPanelDefaultWidth,
+                  /*height=*/mahi_constants::kPanelDefaultHeight));
     panel_view_ = widget_->SetContentsView(
         std::make_unique<MahiPanelView>(&ui_controller_));
   }
@@ -267,53 +296,6 @@ class MahiPanelViewTest : public AshTestBase {
   raw_ptr<MockNewWindowDelegate> new_window_delegate_;
   std::unique_ptr<TestNewWindowDelegateProvider> delegate_provider_;
 };
-
-// Verifies that the content title is correct when the panel is created.
-TEST_F(MahiPanelViewTest, ContentTitle) {
-  const std::u16string test_title1(u"test content title 1");
-  ON_CALL(mock_mahi_manager(), GetContentTitle)
-      .WillByDefault(Return(test_title1));
-
-  MahiPanelView mahi_view1(ui_controller());
-  const auto* const content_title_label1 = views::AsViewClass<views::Label>(
-      mahi_view1.GetViewByID(mahi_constants::ViewId::kContentTitle));
-  EXPECT_EQ(content_title_label1->GetText(), test_title1);
-
-  const std::u16string test_title2(u"test content title 2");
-  ON_CALL(mock_mahi_manager(), GetContentTitle)
-      .WillByDefault(Return(test_title2));
-
-  MahiPanelView mahi_view2(ui_controller());
-  const auto* const content_title_label2 = views::AsViewClass<views::Label>(
-      mahi_view2.GetViewByID(mahi_constants::ViewId::kContentTitle));
-  EXPECT_EQ(content_title_label2->GetText(), test_title2);
-}
-
-// Verifies that the content icon is correct when the panel is created.
-TEST_F(MahiPanelViewTest, ContentIcon) {
-  const auto test_icon1 = gfx::test::CreateImageSkia(/*size=*/128, SK_ColorRED);
-  ON_CALL(mock_mahi_manager(), GetContentIcon)
-      .WillByDefault(Return(test_icon1));
-  MahiPanelView mahi_view1(ui_controller());
-  const auto* const content_icon1 = views::AsViewClass<views::ImageView>(
-      mahi_view1.GetViewByID(mahi_constants::ViewId::kContentIcon));
-  EXPECT_TRUE(gfx::test::AreBitmapsEqual(*content_icon1->GetImage().bitmap(),
-                                         *test_icon1.bitmap()));
-  EXPECT_EQ(content_icon1->GetPreferredSize(),
-            mahi_constants::kContentIconSize);
-
-  const auto test_icon2 =
-      gfx::test::CreateImageSkia(/*size=*/128, SK_ColorBLUE);
-  ON_CALL(mock_mahi_manager(), GetContentIcon)
-      .WillByDefault(Return(test_icon2));
-  MahiPanelView mahi_view2(ui_controller());
-  const auto* const content_icon2 = views::AsViewClass<views::ImageView>(
-      mahi_view2.GetViewByID(mahi_constants::ViewId::kContentIcon));
-  EXPECT_TRUE(gfx::test::AreBitmapsEqual(*content_icon2->GetImage().bitmap(),
-                                         *test_icon2.bitmap()));
-  EXPECT_EQ(content_icon2->GetPreferredSize(),
-            mahi_constants::kContentIconSize);
-}
 
 // Checks that the summary text is set correctly in ctor with different texts.
 TEST_F(MahiPanelViewTest, SummaryText) {
@@ -1579,9 +1561,11 @@ TEST_F(MahiPanelViewTest, RefreshSummaryContents) {
 
   MahiPanelView mahi_view(ui_controller());
 
-  EXPECT_EQ(GetContentTitle(&mahi_view)->GetText(), title1);
+  EXPECT_EQ(GetContentSourceTitle(&mahi_view), title1);
   EXPECT_TRUE(gfx::test::AreBitmapsEqual(
-      *GetContentIcon(&mahi_view)->GetImage().bitmap(), *icon1.bitmap()));
+      *GetContentSourceIcon(&mahi_view).bitmap(),
+      *image_util::ResizeAndCropImage(icon1, mahi_constants::kContentIconSize)
+           .bitmap()));
   EXPECT_EQ(GetSummaryLabel(&mahi_view)->GetText(), summary1);
 
   const std::u16string title2(u"Test content title 2");
@@ -1599,10 +1583,42 @@ TEST_F(MahiPanelViewTest, RefreshSummaryContents) {
 
   ui_controller()->RefreshContents();
 
-  EXPECT_EQ(GetContentTitle(&mahi_view)->GetText(), title2);
+  EXPECT_EQ(GetContentSourceTitle(&mahi_view), title2);
   EXPECT_TRUE(gfx::test::AreBitmapsEqual(
-      *GetContentIcon(&mahi_view)->GetImage().bitmap(), *icon2.bitmap()));
+      *GetContentSourceIcon(&mahi_view).bitmap(),
+      *image_util::ResizeAndCropImage(icon2, mahi_constants::kContentIconSize)
+           .bitmap()));
   EXPECT_EQ(GetSummaryLabel(&mahi_view)->GetText(), summary2);
+}
+
+// Tests that clicking the content source button opens the source url
+// corresponding to the refreshed content shown on the Mahi panel.
+TEST_F(MahiPanelViewTest, ContentSourceButtonUrlAfterRefresh) {
+  const GURL test_url1("https://www.google.com");
+  ON_CALL(mock_mahi_manager(), GetContentUrl).WillByDefault(Return(test_url1));
+
+  CreatePanelWidget();
+
+  EXPECT_CALL(
+      new_window_delegate(),
+      OpenUrl(test_url1, NewWindowDelegate::OpenUrlFrom::kUserInteraction,
+              NewWindowDelegate::Disposition::kSwitchToTab));
+  LeftClickOn(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kContentSourceButton));
+  Mock::VerifyAndClearExpectations(&new_window_delegate());
+
+  const GURL test_url2("https://en.wikipedia.org");
+  ON_CALL(mock_mahi_manager(), GetContentUrl).WillByDefault(Return(test_url2));
+
+  ui_controller()->RefreshContents();
+
+  EXPECT_CALL(
+      new_window_delegate(),
+      OpenUrl(test_url2, NewWindowDelegate::OpenUrlFrom::kUserInteraction,
+              NewWindowDelegate::Disposition::kSwitchToTab));
+  LeftClickOn(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kContentSourceButton));
+  Mock::VerifyAndClearExpectations(&new_window_delegate());
 }
 
 // Tests that refreshing Summary contents will bring the user to the Summary
@@ -1924,6 +1940,83 @@ TEST_F(MahiPanelViewTest, ReportQuestionCountWhenMahiPanelDestroyed) {
       mahi_constants::kQuestionCountPerMahiSessionHistogramName,
       /*sample=*/2,
       /*expected_count=*/1);
+}
+
+// Make sure that summary label is displayed correctly given any kind of text.
+TEST_F(MahiPanelViewTest, RandomizedTextSummaryLabel) {
+  auto random_string = GetRandomString(/*max_words_count=*/500);
+  ON_CALL(mock_mahi_manager(), GetSummary)
+      .WillByDefault(
+          [random_string](chromeos::MahiManager::MahiSummaryCallback callback) {
+            std::move(callback).Run(random_string,
+                                    chromeos::MahiResponseStatus::kSuccess);
+          });
+
+  ui_controller()->RefreshContents();
+  views::test::RunScheduledLayout(widget());
+
+  auto* summary_label = views::AsViewClass<views::Label>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kSummaryLabel));
+
+  // Make sure the summary label is not clipped.
+  EXPECT_FALSE(summary_label->IsDisplayTextClipped())
+      << "Summary label is clipped with the text: " << random_string;
+
+  // Make sure the label is within the bounds of its parent view.
+  auto* scroll_view = views::AsViewClass<views::ScrollView>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kScrollView));
+  EXPECT_LE(summary_label->width(), scroll_view->GetVisibleRect().width())
+      << "Summary label width surpasses scroll view visible width: "
+      << random_string;
+}
+
+// Make sure the question and answer labels are displayed correctly given any
+// kind of texts.
+TEST_F(MahiPanelViewTest, RandomizedTextQuestionAnswerLabels) {
+  auto random_answer = GetRandomString(/*max_words_count=*/100);
+  ON_CALL(mock_mahi_manager(), AnswerQuestion)
+      .WillByDefault(
+          [&random_answer](
+              const std::u16string& question, bool current_panel_content,
+              chromeos::MahiManager::MahiAnswerQuestionCallback callback) {
+            std::move(callback).Run(random_answer,
+                                    chromeos::MahiResponseStatus::kSuccess);
+          });
+
+  auto random_question = GetRandomString(/*max_words_count=*/100);
+  views::AsViewClass<views::Textfield>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kQuestionTextfield))
+      ->SetText(random_question);
+
+  // Pressing the send button should create a question and answer text bubble.
+  LeftClickOn(panel_view()->GetViewByID(
+      mahi_constants::ViewId::kAskQuestionSendButton));
+
+  views::test::RunScheduledLayout(widget());
+
+  auto* question_answer_view =
+      panel_view()->GetViewByID(mahi_constants::ViewId::kQuestionAnswerView);
+  auto* question_label = views::AsViewClass<views::Label>(
+      question_answer_view->children()[0]->GetViewByID(
+          mahi_constants::ViewId::kQuestionAnswerTextBubbleLabel));
+  EXPECT_FALSE(question_label->IsDisplayTextClipped())
+      << "Question label is clipped with the text: " << random_question;
+
+  auto* scroll_view = views::AsViewClass<views::ScrollView>(
+      panel_view()->GetViewByID(mahi_constants::ViewId::kScrollView));
+  EXPECT_LE(question_label->width(), scroll_view->GetVisibleRect().width())
+      << "Question label width surpasses scroll view visible width: "
+      << random_answer;
+
+  auto* answer_label = views::AsViewClass<views::Label>(
+      question_answer_view->children()[1]->GetViewByID(
+          mahi_constants::ViewId::kQuestionAnswerTextBubbleLabel));
+
+  EXPECT_FALSE(answer_label->IsDisplayTextClipped())
+      << "Answer label is clipped with the text: " << random_answer;
+  EXPECT_LE(answer_label->width(), scroll_view->GetVisibleRect().width())
+      << "Answer label width surpasses scroll view visible width: "
+      << random_answer;
 }
 
 }  // namespace ash

@@ -308,7 +308,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="PerformanceMonitor.UsageScenario.LongInterval"
     enum="PerformanceMonitor.UsageScenario.LongInterval"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>olivierli@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -349,7 +349,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Power.AdaptiveChargingDelayDelta.{AdaptiveChargingState}.{OnTimeStatus}"
-    units="minutes" expires_after="2024-09-01">
+    units="minutes" expires_after="2024-11-03">
   <owner>dbasehore@chromium.org</owner>
   <owner>chromeos-platform-power@google.com</owner>
   <summary>
@@ -672,7 +672,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.BatteryDischargeRate" units="mW"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>puthik@chromium.org</owner>
   <owner>chromeos-platform-power@google.com</owner>
   <summary>
@@ -926,8 +926,21 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Power.BatteryRemainingWhenChargeStarts" units="%"
+    expires_after="2025-04-10">
+  <owner>puthik@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
+  <summary>
+    Chrome OS remaining battery charge as percent of the maximum battery charge,
+    sampled when charging starts.
+
+    Warning: this histogram was expired from 2022-05-01 to 2024-04-12; data may
+    be missing.
+  </summary>
+</histogram>
+
 <histogram name="Power.BatterySaver.UserBrightenedSec" units="seconds"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>cwd@google.com</owner>
   <owner>chromeos-bsm@google.com</owner>
   <summary>
@@ -956,8 +969,28 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Power.ConnectedChargingPorts"
+    enum="PowerConnectedChargingPorts" expires_after="2025-04-10">
+  <owner>bleung@chromium.org</owner>
+  <owner>puthik@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
+  <summary>
+    Connected charging ports on Chrome OS. A sample is reported every time that
+    the power manager polls sysfs (typically every 30 seconds). Ordinals are
+    assigned based on the lexicographical ordering of power supply names from
+    sysfs and have no implied correspondence with ports' physical locations. For
+    example, with ports 'CROS_USB_PD_CHARGER0' and 'CROS_USB_PD_CHARGER1',
+    'first' refers to the former and 'second' to the latter. To determine a
+    port's physical location, see the powerd charging_ports pref in the device's
+    overlay.
+
+    Warning: this histogram was expired from 2022-04-25 to 2024-04-12; data may
+    be missing.
+  </summary>
+</histogram>
+
 <histogram name="Power.CpuTimeSecondsPerProcessType" enum="ProcessType2"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>eseckler@chromium.org</owner>
   <owner>skyostil@chromium.org</owner>
   <owner>woa-performance@google.com</owner>
@@ -1041,57 +1074,83 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Power.DarkResumeWakeDurationMs" units="ms" expires_after="M85">
-  <owner>chirantan@chromium.org</owner>
-  <owner>abhishekbh@chromium.org</owner>
-  <owner>ravisadineni@chromium.org</owner>
+<histogram name="Power.DarkResumeWakeDurationMs" units="ms"
+    expires_after="2025-04-10">
+  <owner>mka@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
   <summary>
     The amount of time a system spent awake every time it woke up in dark
     resume.
+
+    Warning: this histogram was expired from M85 to 2024-04-12; data may be
+    missing.
   </summary>
 </histogram>
 
 <histogram name="Power.DarkResumeWakeDurationMs.Other" units="ms"
-    expires_after="2020-08-02">
-  <owner>chirantan@chromium.org</owner>
-  <owner>abhishekbh@chromium.org</owner>
-  <owner>ravisadineni@chromium.org</owner>
+    expires_after="2025-04-10">
+  <owner>mka@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
   <summary>
     The amount of time a system spent awake every time it woke up in dark resume
     triggered by an unknown or unsupported wake trigger.
+
+    Warning: this histogram was expired from 2020-08-03 to 2024-04-12; data may
+    be missing.
   </summary>
 </histogram>
 
 <histogram name="Power.DarkResumeWakeDurationMs.WiFi.Disconnect" units="ms"
-    expires_after="M85">
-  <owner>chirantan@chromium.org</owner>
-  <owner>abhishekbh@chromium.org</owner>
-  <owner>ravisadineni@chromium.org</owner>
+    expires_after="2025-04-10">
+  <owner>mka@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
   <summary>
     The amount of time a system spent awake every time it woke up in dark resume
     triggered by a WiFi disconnect.
+
+    Warning: this histogram was expired from M85 to 2024-04-12; data may be
+    missing.
   </summary>
 </histogram>
 
 <histogram name="Power.DarkResumeWakeDurationMs.WiFi.Pattern" units="ms"
-    expires_after="M85">
-  <owner>chirantan@chromium.org</owner>
-  <owner>abhishekbh@chromium.org</owner>
-  <owner>ravisadineni@chromium.org</owner>
+    expires_after="2025-04-10">
+  <owner>mka@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
   <summary>
     The amount of time a system spent awake every time it woke up in dark resume
     triggered by a WiFi packet pattern match.
+
+    Warning: this histogram was expired from M85 to 2024-04-12; data may be
+    missing.
   </summary>
 </histogram>
 
 <histogram name="Power.DarkResumeWakeDurationMs.WiFi.SSID" units="ms"
-    expires_after="M85">
-  <owner>chirantan@chromium.org</owner>
-  <owner>abhishekbh@chromium.org</owner>
-  <owner>ravisadineni@chromium.org</owner>
+    expires_after="2025-04-10">
+  <owner>mka@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
   <summary>
     The amount of time a system spent awake every time it woke up in dark resume
     triggered by a net detect SSID match.
+
+    Warning: this histogram was expired from M85 to 2024-04-12; data may be
+    missing.
+  </summary>
+</histogram>
+
+<histogram name="Power.DarkResumeWakeupsPerHour" units="units"
+    expires_after="2025-04-10">
+  <owner>mka@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
+  <summary>
+    The number of times a system woke up in dark resume in an hour. Note that
+    this value is scaled up or down to an hour based on the amount of time the
+    system spent in suspend. So if the system suspended for 20 minutes and woke
+    up 3 times, it would report a value of 9.
+
+    Warning: this histogram was expired from 2020-08-02 to 2024-04-12; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -1111,7 +1170,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.DisplayAfterResumeDurationMs{PowerSource}" units="ms"
-    expires_after="2024-08-18">
+    expires_after="2024-10-20">
   <owner>mhiramat@google.com</owner>
   <owner>cros-suspend-resume@google.com</owner>
   <summary>
@@ -1125,29 +1184,6 @@ chromium-metrics-reviews@google.com.
     <variant name="OnAC" summary="charging"/>
     <variant name="OnBattery" summary="battery"/>
   </token>
-</histogram>
-
-<histogram name="Power.ExternalBrightnessRequestResult"
-    enum="ExternalDisplaySendResult" expires_after="M100">
-  <owner>puthik@chromium.org</owner>
-  <owner>chromeos-platform-power@google.com</owner>
-  <summary>
-    The result of requesting an external display's brightness on Chrome OS. A
-    request is sent when the user presses a brightness key and the current
-    brightness is not already cached. A successful request is followed shortly
-    thereafter by a read attempt.
-  </summary>
-</histogram>
-
-<histogram name="Power.ExternalBrightnessWriteResult"
-    enum="ExternalDisplaySendResult" expires_after="M100">
-  <owner>puthik@chromium.org</owner>
-  <owner>chromeos-platform-power@google.com</owner>
-  <summary>
-    The result of attempting to change an external display's brightness on
-    Chrome OS. A request is sent when the user presses a brightness key and the
-    current brightness is either already cached or successfully loaded.
-  </summary>
 </histogram>
 
 <histogram name="Power.FirmwareResumeTimeOnAC" units="ms"
@@ -1245,7 +1281,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.ForegroundBatteryDrain.30Seconds{Exclusive}" units="uAh"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>eseckler@chromium.org</owner>
   <owner>skyostil@chromium.org</owner>
   <owner>woa-performance@google.com</owner>
@@ -1287,7 +1323,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.ForegroundBatteryDrain{Exclusive}" units="0.1 mAh"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>eseckler@chromium.org</owner>
   <owner>skyostil@chromium.org</owner>
   <owner>woa-performance@google.com</owner>
@@ -1501,7 +1537,7 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram base="true" name="Power.Mac" units="mW" expires_after="2024-09-01">
+<histogram base="true" name="Power.Mac" units="mW" expires_after="2024-11-03">
   <owner>olivierli@chromium.org</owner>
   <owner>markchang@chromium.org</owner>
   <summary>
@@ -1591,7 +1627,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.PowerButtonMenuAction" enum="PowerButtonMenuActionType"
-    expires_after="2024-06-30">
+    expires_after="2025-04-30">
   <owner>minch@chromium.org</owner>
   <owner>xdai@chromium.org</owner>
   <summary>Actions performed while the power button menu is open.</summary>
@@ -1609,7 +1645,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.PowerButtonPressInLaptopMode"
-    enum="PowerButtonPressType" expires_after="2024-05-01">
+    enum="PowerButtonPressType" expires_after="2025-04-30">
   <owner>minch@chromium.org</owner>
   <owner>xdai@chromium.org</owner>
   <summary>
@@ -1620,13 +1656,58 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.PowerButtonPressInTabletMode"
-    enum="PowerButtonPressType" expires_after="2024-08-11">
+    enum="PowerButtonPressType" expires_after="2025-04-30">
   <owner>minch@chromium.org</owner>
   <owner>xdai@chromium.org</owner>
   <summary>
     Press power button in tablet mode will result in different scenarios
     according to the power button up state. Counts the different power button
     press scenarios in tablet mode.
+  </summary>
+</histogram>
+
+<histogram name="Power.PowerSupplyMaxPower" units="W"
+    expires_after="2025-04-10">
+  <owner>bleung@chromium.org</owner>
+  <owner>puthik@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
+  <summary>
+    The maximum power supported by the connected power supply on Chrome OS. A
+    sample is reported every time that the power manager polls sysfs (typically
+    every 30 seconds) and sees a connected supply.
+
+    Warning: this histogram was expired from 2022-04-18 to 2024-04-12; data may
+    be missing.
+  </summary>
+</histogram>
+
+<histogram name="Power.PowerSupplyMaxVoltage" units="V"
+    expires_after="2025-04-10">
+  <owner>bleung@chromium.org</owner>
+  <owner>puthik@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
+  <summary>
+    The maximum voltage supported by the connected power supply on Chrome OS. A
+    sample is reported every time that the power manager polls sysfs (typically
+    every 30 seconds) and sees a connected supply.
+
+    Warning: this histogram was expired from 2022-04-18 to 2024-04-12; data may
+    be missing.
+  </summary>
+</histogram>
+
+<histogram name="Power.PowerSupplyType" enum="PowerSupplyType"
+    expires_after="2025-04-10">
+  <owner>bleung@chromium.org</owner>
+  <owner>puthik@chromium.org</owner>
+  <owner>chromeos-platform-power@google.com</owner>
+  <summary>
+    The type of the connected power supply on Chrome OS. A sample is reported
+    every time that the power manager polls sysfs (typically every 30 seconds)
+    and sees a connected supply.
+
+    Warning: this histogram was expired from 2022-04-11 to 2024-04-12; data may
+    be missing.
   </summary>
 </histogram>
 
@@ -1658,7 +1739,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.SuspendAttemptsBeforeCancel" units="units"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>puthik@chromium.org</owner>
   <owner>chromeos-platform-power@google.com</owner>
   <summary>
@@ -1672,7 +1753,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Power.SuspendAttemptsBeforeSuccess" units="units"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>puthik@chromium.org</owner>
   <owner>chromeos-platform-power@google.com</owner>
   <summary>

@@ -228,7 +228,6 @@ TEST(CSSParsingUtilsTest, ConsumeAbsoluteColor) {
     CSSParserContext* context = MakeContext();
     return func(range, *context);
   };
-  using css_parsing_utils::AllowedColorKeywords;
 
   struct {
     STACK_ALLOCATED();
@@ -249,10 +248,13 @@ TEST(CSSParsingUtilsTest, ConsumeAbsoluteColor) {
        nullptr},
       {"WindowText", CSSIdentifierValue::Create(CSSValueID::kWindowtext),
        nullptr},
+      {"currentcolor", CSSIdentifierValue::Create(CSSValueID::kCurrentcolor),
+       nullptr},
   };
   for (auto& expectation : expectations) {
-    EXPECT_EQ(ConsumeColorForTest(expectation.css_text,
-                                  css_parsing_utils::ConsumeColor),
+    EXPECT_EQ(ConsumeColorForTest(
+                  expectation.css_text,
+                  css_parsing_utils::ConsumeColor<CSSParserTokenRange>),
               expectation.consume_color_expectation);
     EXPECT_EQ(ConsumeColorForTest(expectation.css_text,
                                   css_parsing_utils::ConsumeAbsoluteColor),

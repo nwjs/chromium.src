@@ -119,7 +119,7 @@ void SigninInterceptFirstRunExperienceDialog::
         const AccountInfo& account_info,
         signin::SigninChoiceCallback callback) {
   // This is a brand new profile. Skip the enterprise confirmation.
-  // TODO(crbug.com/1282157): Do not show the sync promo if
+  // TODO(crbug.com/40209493): Do not show the sync promo if
   // PromotionalTabsEnabled policy is set to False
   std::move(callback).Run(signin::SIGNIN_CHOICE_CONTINUE);
 }
@@ -310,15 +310,10 @@ void SigninInterceptFirstRunExperienceDialog::DoTurnOnSync() {
   signin_metrics::LogSigninAccessPointStarted(access_point, promo_action);
   signin_metrics::RecordSigninUserActionForAccessPoint(access_point);
 
-  TurnSyncOnHelper::SigninAbortedMode abort_mode =
-      switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-          switches::ExplicitBrowserSigninPhase::kExperimental)
-          ? TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT_ON_WEB_ONLY
-          : TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT;
-
   // TurnSyncOnHelper deletes itself once done.
   new TurnSyncOnHelper(browser_->profile(), access_point, promo_action,
-                       account_id_, abort_mode,
+                       account_id_,
+                       TurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT,
                        std::make_unique<InterceptTurnSyncOnHelperDelegate>(
                            weak_ptr_factory_.GetWeakPtr()),
                        base::OnceClosure());

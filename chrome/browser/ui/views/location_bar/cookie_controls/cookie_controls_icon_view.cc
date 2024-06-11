@@ -20,7 +20,6 @@
 #include "components/content_settings/browser/ui/cookie_controls_controller.h"
 #include "components/content_settings/core/common/cookie_blocking_3pcd_status.h"
 #include "components/feature_engagement/public/event_constants.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "content/public/browser/web_contents.h"
@@ -78,7 +77,15 @@ void CookieControlsIconView::SetCoordinatorForTesting(
   bubble_coordinator_ = std::move(coordinator);
 }
 
+void CookieControlsIconView::DisableUpdatesForTesting() {
+  disable_updates_for_testing_ = true;
+}
+
 void CookieControlsIconView::UpdateImpl() {
+  if (disable_updates_for_testing_) {
+    return;
+  }
+
   auto* web_contents = delegate()->GetWebContentsForPageActionIconView();
   if (web_contents) {
     if (!controller_) {
@@ -109,20 +116,13 @@ bool CookieControlsIconView::MaybeShowIPH() {
   // Need to make element visible or calls to show IPH will fail.
   SetVisible(true);
 
-  const base::Feature* feature = nullptr;
-  if (blocking_status_ != CookieBlocking3pcdStatus::kNotIn3pcd) {
-    // UB reminder IPH in 3PCD experiment.
-    feature = &feature_engagement::kIPH3pcdUserBypassFeature;
-  } else if (should_highlight_) {
-    // UB IPH when icon should be highlighted.
-    feature = &feature_engagement::kIPHCookieControlsFeature;
-  } else {
-    // In all other cases return without trying to show IPH.
+  if (blocking_status_ != CookieBlocking3pcdStatus::kNotIn3pcd ||
+      !should_highlight_) {
     return false;
   }
 
-  CHECK(feature);
-  user_education::FeaturePromoParams params(*feature);
+  user_education::FeaturePromoParams params(
+      feature_engagement::kIPHCookieControlsFeature);
   params.close_callback = base::BindOnce(&CookieControlsIconView::OnIPHClosed,
                                          weak_ptr_factory_.GetWeakPtr());
   if (!browser_->window()->MaybeShowFeaturePromo(std::move(params))) {
@@ -135,9 +135,7 @@ bool CookieControlsIconView::MaybeShowIPH() {
 bool CookieControlsIconView::IsManagedIPHActive() const {
   CHECK(browser_->window());
   return browser_->window()->IsFeaturePromoActive(
-             feature_engagement::kIPH3pcdUserBypassFeature) ||
-         browser_->window()->IsFeaturePromoActive(
-             feature_engagement::kIPHCookieControlsFeature);
+      feature_engagement::kIPHCookieControlsFeature);
 }
 
 void CookieControlsIconView::OnIPHClosed() {
@@ -268,8 +266,6 @@ void CookieControlsIconView::ShowCookieControlsBubble() {
   CHECK(browser_->window());
   CHECK(ShouldBeVisible());
   browser_->window()->CloseFeaturePromo(
-      feature_engagement::kIPH3pcdUserBypassFeature);
-  browser_->window()->CloseFeaturePromo(
       feature_engagement::kIPHCookieControlsFeature);
   browser_->window()->NotifyFeatureEngagementEvent(
       feature_engagement::events::kCookieControlsBubbleShown);
@@ -293,12 +289,8 @@ views::BubbleDialogDelegate* CookieControlsIconView::GetBubble() const {
 }
 
 const gfx::VectorIcon& CookieControlsIconView::GetVectorIcon() const {
-  if (OmniboxFieldTrial::IsChromeRefreshIconsEnabled()) {
     return protections_on_ ? views::kEyeCrossedRefreshIcon
                            : views::kEyeRefreshIcon;
-  }
-
-  return protections_on_ ? views::kEyeCrossedIcon : views::kEyeIcon;
 }
 
 void CookieControlsIconView::UpdateTooltipForFocus() {}

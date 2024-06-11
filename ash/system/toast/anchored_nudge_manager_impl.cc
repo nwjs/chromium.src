@@ -18,17 +18,13 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "chromeos/ui/base/nudge_util.h"
-#include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
-#include "ui/events/event.h"
-#include "ui/events/event_observer.h"
 #include "ui/events/types/event_type.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/button/label_button.h"
-#include "ui/views/event_monitor.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/view_utils.h"
@@ -104,9 +100,10 @@ class AnchoredNudgeManagerImpl::PausableTimer {
   }
 
   void Pause() {
-    DCHECK(timer_.IsRunning());
-    timer_.Stop();
-    remaining_duration_ -= base::TimeTicks::Now() - time_last_started_;
+    if (timer_.IsRunning()) {
+      timer_.Stop();
+      remaining_duration_ -= base::TimeTicks::Now() - time_last_started_;
+    }
   }
 
   void Resume() {
@@ -125,68 +122,6 @@ class AnchoredNudgeManagerImpl::PausableTimer {
   base::RepeatingClosure task_;
   base::TimeDelta remaining_duration_;
   base::TimeTicks time_last_started_;
-};
-
-// A hover observer used to pause or resume the dismiss timer, and to run
-// provided callbacks that execute on hover state changes.
-class AnchoredNudgeManagerImpl::NudgeHoverObserver : public ui::EventObserver {
- public:
-  NudgeHoverObserver(aura::Window* widget_window,
-                     const std::string& nudge_id,
-                     HoverStateChangeCallback hover_state_change_callback,
-                     AnchoredNudgeManagerImpl* anchored_nudge_mananger)
-      : event_monitor_(views::EventMonitor::CreateWindowMonitor(
-            /*event_observer=*/this,
-            widget_window,
-            {ui::ET_MOUSE_ENTERED, ui::ET_MOUSE_EXITED})),
-        nudge_id_(nudge_id),
-        hover_state_change_callback_(std::move(hover_state_change_callback)),
-        anchored_nudge_manager_(anchored_nudge_mananger) {}
-
-  NudgeHoverObserver(const NudgeHoverObserver&) = delete;
-
-  NudgeHoverObserver& operator=(const NudgeHoverObserver&) = delete;
-
-  ~NudgeHoverObserver() override = default;
-
-  // ui::EventObserver:
-  void OnEvent(const ui::Event& event) override {
-    switch (event.type()) {
-      case ui::ET_MOUSE_ENTERED:
-        anchored_nudge_manager_->OnNudgeHoverStateChanged(nudge_id_,
-                                                          /*is_hovering=*/true);
-        if (!hover_state_change_callback_.is_null()) {
-          std::move(hover_state_change_callback_).Run(true);
-        }
-        break;
-      case ui::ET_MOUSE_EXITED:
-        anchored_nudge_manager_->OnNudgeHoverStateChanged(
-            nudge_id_, /*is_hovering=*/false);
-        if (!hover_state_change_callback_.is_null()) {
-          std::move(hover_state_change_callback_).Run(false);
-        }
-        break;
-      default:
-        NOTREACHED();
-        break;
-    }
-  }
-
- private:
-  // While this `EventMonitor` object exists, this object will only look for
-  // `ui::ET_MOUSE_ENTERED` and `ui::ET_MOUSE_EXITED` events that occur in the
-  // `widget_window` indicated in the constructor.
-  std::unique_ptr<views::EventMonitor> event_monitor_;
-
-  const std::string nudge_id_;
-
-  // This is run whenever the mouse enters or exits the observed window with a
-  // parameter to indicate whether the window is being hovered.
-  HoverStateChangeCallback hover_state_change_callback_;
-
-  // `NudgeHoverObserver` is guaranteed to not outlive
-  // `anchored_nudge_manager_`, which is owned by `Shell`.
-  const raw_ptr<AnchoredNudgeManagerImpl> anchored_nudge_manager_;
 };
 
 // A view observer that is used to close the nudge's widget whenever its
@@ -411,7 +346,14 @@ void AnchoredNudgeManagerImpl::Show(AnchoredNudgeData& nudge_data) {
   nudge_data.close_button_callback = base::BindRepeating(
       &AnchoredNudgeManagerImpl::Cancel, base::Unretained(this), id);
 
-  auto anchored_nudge = std::make_unique<AnchoredNudge>(nudge_data);
+  auto anchored_nudge = std::make_unique<AnchoredNudge>(
+      nudge_data, /*hover_or_focus_changed_callback=*/
+      base::BindRepeating(
+          &AnchoredNudgeManagerImpl::PauseOrResumeDismissTimer,
+          // Unretained is safe because `this` outlives any anchored nudge, as
+          // they are all deleted on the manager's destructor.
+          base::Unretained(this), id));
+
   auto* anchored_nudge_ptr = anchored_nudge.get();
   shown_nudges_[id] = anchored_nudge_ptr;
 
@@ -433,11 +375,6 @@ void AnchoredNudgeManagerImpl::Show(AnchoredNudgeData& nudge_data) {
         std::make_unique<AnchorViewWidgetObserver>(
             anchored_nudge_ptr, anchor_view, /*anchored_nudge_manager=*/this);
   }
-
-  nudge_hover_observers_[id] = std::make_unique<NudgeHoverObserver>(
-      anchored_nudge_widget->GetNativeWindow(), id,
-      std::move(nudge_data.hover_state_change_callback),
-      /*anchored_nudge_manager=*/this);
 
   // Nudge duration will be updated from default to medium if the nudge has a
   // button or its body text has `kLongBodyTextLength` or more characters.
@@ -513,7 +450,6 @@ void AnchoredNudgeManagerImpl::HandleNudgeWidgetDestroying(
   // TODO(b/296948349): Handle all observers in a single struct so they can be
   // destroyed together.
   dismiss_timers_.erase(id);
-  nudge_hover_observers_.erase(id);
   if (anchor_view_observers_[id]) {
     anchor_view_observers_.erase(id);
   }
@@ -525,9 +461,9 @@ void AnchoredNudgeManagerImpl::HandleNudgeWidgetDestroying(
   shown_nudges_.erase(id);
 }
 
-void AnchoredNudgeManagerImpl::OnNudgeHoverStateChanged(const std::string& id,
-                                                        bool is_hovering) {
-  if (is_hovering) {
+void AnchoredNudgeManagerImpl::PauseOrResumeDismissTimer(const std::string& id,
+                                                         bool pause) {
+  if (pause) {
     dismiss_timers_[id].Pause();
   } else {
     dismiss_timers_[id].Resume();

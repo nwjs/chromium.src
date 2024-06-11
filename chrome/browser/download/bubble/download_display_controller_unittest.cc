@@ -362,8 +362,7 @@ class DownloadDisplayControllerTest : public testing::Test {
         .WillRepeatedly(Return(received_bytes));
     EXPECT_CALL(item(index), GetTotalBytes()).WillRepeatedly(Return(100));
     EXPECT_CALL(item(index), AllDataSaved())
-        .WillRepeatedly(Return(
-            state == download::DownloadItem::IN_PROGRESS ? false : true));
+        .WillRepeatedly(Return(state != download::DownloadItem::IN_PROGRESS));
     EXPECT_CALL(item(index), IsDone()).WillRepeatedly(Return(false));
     EXPECT_CALL(item(index), IsTransient()).WillRepeatedly(Return(false));
     EXPECT_CALL(item(index), GetTargetFilePath())
@@ -430,7 +429,7 @@ class DownloadDisplayControllerTest : public testing::Test {
     DCHECK_GT(items_.size(), static_cast<size_t>(item_index));
 
     // In-progress but dangerous downloads are considered complete.
-    // TODO(crbug.com/1433102): Don't duplicate this logic.
+    // TODO(crbug.com/40264271): Don't duplicate this logic.
     bool in_progress_dangerous =
         (state == DownloadState::IN_PROGRESS &&
          danger_type != download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS);

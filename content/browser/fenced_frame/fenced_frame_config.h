@@ -209,6 +209,16 @@ class CONTENT_EXPORT FencedFrameProperty {
   VisibilityToContent visibility_to_content_;
 };
 
+enum class DisableUntrustedNetworkStatus {
+  kNotStarted,
+  // Set when the fenced frame has called window.fence.disableUntrustedNetwork()
+  // but its descendant fenced frames have not had their network access cut off
+  // yet.
+  kCurrentFrameTreeComplete,
+  // Set after all descendant fenced frames have had network cut off.
+  kCurrentAndDescendantFrameTreesComplete
+};
+
 // A collection of properties that can be loaded into a fenced frame and
 // specifies its subsequent behavior. (During a navigation, they are
 // transformed into a `FencedFrameProperties` object, and installed at
@@ -218,7 +228,7 @@ class CONTENT_EXPORT FencedFrameProperty {
 //
 // Config-generating APIs like Protected Audience's runAdAuction and
 // sharedStorage's selectURL return urns as handles to `FencedFrameConfig`s.
-// TODO(crbug.com/1417871): Use a single constructor that requires values to be
+// TODO(crbug.com/40257432): Use a single constructor that requires values to be
 // specified for all fields, to ensure none are accidentally omitted.
 class CONTENT_EXPORT FencedFrameConfig {
  public:
@@ -259,7 +269,7 @@ class CONTENT_EXPORT FencedFrameConfig {
   }
 
   // Add a permission to the FencedFrameConfig.
-  // TODO(crbug.com/1347953): Refactor and expand use of test utils so there is
+  // TODO(crbug.com/40233168): Refactor and expand use of test utils so there is
   // a consistent way to do this properly everywhere.
   void AddEffectiveEnabledPermissionForTesting(
       blink::mojom::PermissionsPolicyFeature feature) {
@@ -324,9 +334,9 @@ class CONTENT_EXPORT FencedFrameConfig {
   scoped_refptr<FencedFrameReporter> fenced_frame_reporter_;
 
   // The mode for the resulting fenced frame: `kDefault` or `kOpaqueAds`.
-  // TODO(crbug.com/1347953): This field is currently unused. Replace the
+  // TODO(crbug.com/40233168): This field is currently unused. Replace the
   // `mode` attribute of HTMLFencedFrameElement with this field in the config.
-  // TODO(crbug.com/1347953): Decompose this field into flags that directly
+  // TODO(crbug.com/40233168): Decompose this field into flags that directly
   // control the behavior of the frame, e.g. sandbox flags. We do not want
   // mode to exist as a concept going forward.
   DeprecatedFencedFrameMode mode_ = DeprecatedFencedFrameMode::kDefault;
@@ -460,7 +470,7 @@ class CONTENT_EXPORT FencedFrameProperties {
 
   // Used to store the shared storage context passed from the embedder
   // (navigation initiator)'s renderer into the new FencedFrameProperties.
-  // TODO(crbug.com/1417871): Refactor this to be part of the
+  // TODO(crbug.com/40257432): Refactor this to be part of the
   // FencedFrameProperties constructor rather than
   // OnFencedFrameURLMappingComplete.
   void SetEmbedderSharedStorageContext(
@@ -490,7 +500,7 @@ class CONTENT_EXPORT FencedFrameProperties {
 
   // Used for urn iframes, which should not have a separate storage/network
   // partition or access to window.fence.disableUntrustedNetwork().
-  // TODO(crbug.com/1417871): Refactor this to be part of the
+  // TODO(crbug.com/40257432): Refactor this to be part of the
   // FencedFrameProperties constructor rather than
   // OnFencedFrameURLMappingComplete.
   void AdjustPropertiesForUrnIframe() {
@@ -512,7 +522,7 @@ class CONTENT_EXPORT FencedFrameProperties {
   }
 
   // Set the current FencedFrameProperties to have "opaque ads mode".
-  // TODO(crbug.com/1347953): Refactor and expand use of test utils so there is
+  // TODO(crbug.com/40233168): Refactor and expand use of test utils so there is
   // a consistent way to do this properly everywhere. Consider removing
   // arbitrary restrictions in "default mode" so that using opaque ads mode is
   // less necessary.
@@ -524,14 +534,34 @@ class CONTENT_EXPORT FencedFrameProperties {
     return can_disable_untrusted_network_;
   }
 
-  bool has_disabled_untrusted_network() const {
-    return has_disabled_untrusted_network_;
+  bool HasDisabledNetworkForCurrentFrameTree() const {
+    return disable_untrusted_network_status_ ==
+               DisableUntrustedNetworkStatus::kCurrentFrameTreeComplete ||
+           disable_untrusted_network_status_ ==
+               DisableUntrustedNetworkStatus::
+                   kCurrentAndDescendantFrameTreesComplete;
+  }
+
+  bool HasDisabledNetworkForCurrentAndDescendantFrameTrees() const {
+    return disable_untrusted_network_status_ ==
+           DisableUntrustedNetworkStatus::
+               kCurrentAndDescendantFrameTreesComplete;
+  }
+
+  void MarkDisabledNetworkForCurrentFrameTree() {
+    CHECK(can_disable_untrusted_network_);
+    CHECK(
+        disable_untrusted_network_status_ !=
+        DisableUntrustedNetworkStatus::kCurrentAndDescendantFrameTreesComplete);
+    disable_untrusted_network_status_ =
+        DisableUntrustedNetworkStatus::kCurrentFrameTreeComplete;
   }
 
   // Safe to call multiple times (will do nothing after the first time).
-  void MarkUntrustedNetworkDisabled() {
+  void MarkDisabledNetworkForCurrentAndDescendantFrameTrees() {
     CHECK(can_disable_untrusted_network_);
-    has_disabled_untrusted_network_ = true;
+    disable_untrusted_network_status_ =
+        DisableUntrustedNetworkStatus::kCurrentAndDescendantFrameTreesComplete;
   }
 
  private:
@@ -550,7 +580,7 @@ class CONTENT_EXPORT FencedFrameProperties {
 
   std::optional<FencedFrameProperty<gfx::Size>> container_size_;
 
-  // TODO(crbug.com/1420638): The representation of size in fenced frame config
+  // TODO(crbug.com/40258855): The representation of size in fenced frame config
   // will need to work with the size carried with the winning bid.
   std::optional<FencedFrameProperty<gfx::Size>> content_size_;
 
@@ -588,6 +618,11 @@ class CONTENT_EXPORT FencedFrameProperties {
 
   scoped_refptr<FencedFrameReporter> fenced_frame_reporter_;
 
+  // The nonce that will be included in the IsolationInfo, CookiePartitionKey
+  // and StorageKey for network, cookie and storage partitioning, respectively.
+  // As part of IsolationInfo it is also used to identify which network requests
+  // should be disallowed in the network service if the initiator fenced frame
+  // tree has had its network cut off via disableUntrustedNetwork().
   std::optional<FencedFrameProperty<base::UnguessableToken>> partition_nonce_;
 
   DeprecatedFencedFrameMode mode_ = DeprecatedFencedFrameMode::kDefault;
@@ -633,15 +668,14 @@ class CONTENT_EXPORT FencedFrameProperties {
   // (and then access to unpartitioned storage).
   // Currently true in all fenced frame configs, but set to false if loaded in a
   // urn iframe.
-  // TODO(crbug.com/1415475): Remove this when urn iframes are removed.
+  // TODO(crbug.com/40256574): Remove this when urn iframes are removed.
   bool can_disable_untrusted_network_ = true;
 
-  // Whether this fenced frame has already called
-  // window.fence.disableUntrustedNetwork() (i.e., if this is true, untrusted
-  // network access should be disabled and access to unpartitioned storage
-  // should be enabled.)
-  // Set by `DisableUntrustedNetwork()`.
-  bool has_disabled_untrusted_network_ = false;
+  // Tracks the status of disabling untrusted network in this fenced frame. This
+  // requires the fenced frame and all its descendant fenced frames to call
+  // window.fence.disableUntrustedNetwork().
+  DisableUntrustedNetworkStatus disable_untrusted_network_status_ =
+      DisableUntrustedNetworkStatus::kNotStarted;
 
   // Whether the original document loaded with this config opted in to
   // cross-origin event-level reporting. That is, if the document was served

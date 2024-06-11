@@ -632,6 +632,19 @@ class AuthenticatorGPMErrorSheetModel : public AuthenticatorSheetModelBase {
   std::u16string GetStepDescription() const override;
 };
 
+class AuthenticatorGPMConnectingSheetModel
+    : public AuthenticatorSheetModelBase {
+ public:
+  explicit AuthenticatorGPMConnectingSheetModel(
+      AuthenticatorRequestDialogModel* dialog_model);
+  ~AuthenticatorGPMConnectingSheetModel() override;
+
+ private:
+  // AuthenticatorSheetModelBase:
+  std::u16string GetStepTitle() const override;
+  std::u16string GetStepDescription() const override;
+};
+
 // A confirmation screen that can be shown instead of the mechanism selection
 // screen when we are confident a request can be resolved using an already
 // paired phone.
@@ -725,6 +738,8 @@ class AuthenticatorGPMPinSheetModel : public AuthenticatorSheetModelBase {
   ~AuthenticatorGPMPinSheetModel() override;
 
   int pin_digits_count() const;
+  bool ui_disabled() const;
+  std::u16string pin() { return pin_; }
 
   // Sets currently typed pin in the sheet.
   void SetPin(std::u16string pin);
@@ -740,9 +755,11 @@ class AuthenticatorGPMPinSheetModel : public AuthenticatorSheetModelBase {
   bool IsAcceptButtonVisible() const override;
   bool IsForgotGPMPinButtonVisible() const override;
   bool IsGPMPinOptionsButtonVisible() const override;
+  bool IsActivityIndicatorVisible() const override;
   std::u16string GetAcceptButtonLabel() const override;
   void OnAccept() override;
   void OnGPMPinOptionChosen(bool is_arbitrary) const override;
+  void OnForgotGPMPin() const override;
 
   std::u16string pin_;
   const int pin_digits_count_;
@@ -767,7 +784,9 @@ class AuthenticatorGPMArbitraryPinSheetModel
   // Sets currently typed pin in the sheet.
   void SetPin(std::u16string pin);
 
+  std::u16string pin() { return pin_; }
   Mode mode() { return mode_; }
+  bool ui_disabled() const;
 
  private:
   // AuthenticatorSheetModelBase:
@@ -778,9 +797,11 @@ class AuthenticatorGPMArbitraryPinSheetModel
   bool IsAcceptButtonVisible() const override;
   bool IsForgotGPMPinButtonVisible() const override;
   bool IsGPMPinOptionsButtonVisible() const override;
+  bool IsActivityIndicatorVisible() const override;
   std::u16string GetAcceptButtonLabel() const override;
   void OnAccept() override;
   void OnGPMPinOptionChosen(bool is_arbitrary) const override;
+  void OnForgotGPMPin() const override;
 
   std::u16string pin_;
   const Mode mode_;
@@ -825,7 +846,29 @@ class AuthenticatorCreateGpmPasskeySheetModel
   std::u16string GetStepDescription() const override;
   bool IsCancelButtonVisible() const override;
   std::u16string GetCancelButtonLabel() const override;
-  std::u16string GetOtherMechanismButtonLabel() const override;
+  void OnCancel() override;
+  bool IsAcceptButtonEnabled() const override;
+  bool IsAcceptButtonVisible() const override;
+  std::u16string GetAcceptButtonLabel() const override;
+  void OnAccept() override;
+};
+
+// The sheet shown for warning a user about creating a Google Password Manager
+// passkey in incognito mode.
+class AuthenticatorGpmIncognitoCreateSheetModel
+    : public AuthenticatorSheetModelBase {
+ public:
+  explicit AuthenticatorGpmIncognitoCreateSheetModel(
+      AuthenticatorRequestDialogModel* dialog_model);
+
+  ~AuthenticatorGpmIncognitoCreateSheetModel() override;
+
+ private:
+  // AuthenticatorSheetModelBase:
+  std::u16string GetStepTitle() const override;
+  std::u16string GetStepDescription() const override;
+  bool IsCancelButtonVisible() const override;
+  std::u16string GetCancelButtonLabel() const override;
   void OnCancel() override;
   bool IsAcceptButtonEnabled() const override;
   bool IsAcceptButtonVisible() const override;
@@ -854,6 +897,7 @@ class AuthenticatorGpmOnboardingSheetModel
   bool IsAcceptButtonVisible() const override;
   std::u16string GetAcceptButtonLabel() const override;
   void OnAccept() override;
+  void OnBack() override;
 };
 
 // The sheet shown for bootstrapping Google Password Manager passkeys during

@@ -43,7 +43,7 @@ class SyncUserSettingsImpl : public SyncUserSettings {
   ~SyncUserSettingsImpl() override;
 
   ModelTypeSet GetPreferredDataTypes() const;
-  bool IsEncryptedDatatypeEnabled() const;
+  bool IsEncryptedDatatypePreferred() const;
   // The encryption bootstrap token is used for explicit passphrase users
   // (usually custom passphrase) and represents a user-entered passphrase.
   std::string GetEncryptionBootstrapToken() const;
@@ -93,7 +93,7 @@ class SyncUserSettingsImpl : public SyncUserSettings {
 #endif
   bool IsCustomPassphraseAllowed() const override;
   bool IsEncryptEverythingEnabled() const override;
-  ModelTypeSet GetEncryptedDataTypes() const override;
+  ModelTypeSet GetAllEncryptedDataTypes() const override;
   bool IsPassphraseRequired() const override;
   bool IsPassphraseRequiredForPreferredDataTypes() const override;
   bool IsPassphrasePromptMutedForCurrentProductVersion() const override;

@@ -173,9 +173,9 @@ bool IsSnapped(const TabDragContext* context) {
 
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-// TODO(1509581): This should take a weak ref and return a Liveness, because
-// setting capture may cause the drag to end and the drag controller to be
-// destroyed.
+// TODO(crbug.com/41482188): This should take a weak ref and return a Liveness,
+// because setting capture may cause the drag to end and the drag controller to
+// be destroyed.
 void SetCapture(TabDragContext* context) {
   context->GetWidget()->SetCapture(context);
 }
@@ -999,7 +999,7 @@ TabDragController::Liveness TabDragController::ContinueDragging(
       return StartSystemDragAndDropSessionIfNecessary(point_in_screen);
     } else if (DragBrowserToNewTabStrip(target_context, point_in_screen) ==
                DRAG_BROWSER_RESULT_STOP) {
-      // TODO(1509581): This may not always be correct.
+      // TODO(crbug.com/41482188): This may not always be correct.
       // `DragBrowserToNewTabStrip` can delete `this` in some cases.
       return Liveness::ALIVE;
     }
@@ -1067,7 +1067,7 @@ TabDragController::DragBrowserToNewTabStrip(TabDragContext* target_context,
     else
       SetCapture(target_context);
 
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
     // EndMoveLoop is going to snap the window back to its original location.
@@ -1950,6 +1950,14 @@ void TabDragController::AttachTabsToNewBrowserOnDrop() {
   attached_context_ = nullptr;
   Attach(new_context, last_point_in_screen_, std::move(me));
 
+  // Tabbed PWAs with a home tab should have a home tab in every window. This
+  // means when dragging tabs out to create a new window, a home tab needs to be
+  // added.
+  if (browser->app_controller() && browser->app_controller()->has_tab_strip()) {
+    web_app::MaybeAddPinnedHomeTab(browser,
+                                   browser->app_controller()->app_id());
+  }
+
   browser->window()->Show();
 }
 
@@ -2571,7 +2579,7 @@ TabDragController::Liveness TabDragController::GetLocalProcessWindow(
     if (dragged_window)
       exclude.insert(dragged_window);
   }
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   // Exclude windows which are pending deletion via Browser::TabStripEmpty().

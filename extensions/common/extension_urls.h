@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include "build/branding_buildflags.h"
 #include "extensions/common/extension_id.h"
 #include "url/gurl.h"
 
@@ -41,6 +42,10 @@ extern const char kAppMenuUtmSource[];
 extern const char kExtensionsMenuUtmSource[];
 // From the link in the sidebar in the chrome://extensions page.
 extern const char kExtensionsSidebarUtmSource[];
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+// From the link on chrome://settings/getMostChrome page.
+extern const char kGetMostChromeUtmSource[];
+#endif
 
 // Returns the URL prefix for the extension/apps gallery. Can be set via the
 // --apps-gallery-url switch. The URL returned will not contain a trailing
@@ -82,10 +87,15 @@ GURL GetWebstoreUpdateUrl();
 GURL GetWebstoreReportAbuseUrl(const extensions::ExtensionId& extension_id,
                                const std::string& referrer_id);
 
+// Returns the URL with extension recommendations related to `extension_id` in
+// the new Web Store.
+GURL GetNewWebstoreItemRecommendationsUrl(
+    const extensions::ExtensionId& extension_id);
+
 // Returns whether the URL's host matches or is in the same domain as any of the
 // webstore URLs. Note: This includes any subdomains of the webstore URLs.
-// TODO(crbug.com/1355623): We should move the domain checks for the webstore to
-// use the IsSameOrigin version below where appropriate.
+// TODO(crbug.com/40235977): We should move the domain checks for the webstore
+// to use the IsSameOrigin version below where appropriate.
 bool IsWebstoreDomain(const GURL& url);
 
 // Returns whether the origin is the same origin as any of the webstore URLs.

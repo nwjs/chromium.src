@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "base/feature_list.h"
@@ -60,7 +61,7 @@ namespace blink {
 
 BASE_FEATURE(kMediaRecorderEnableMp4Muxer,
              "MediaRecorderEnableMp4Muxer",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 namespace {
 
 constexpr double kDefaultVideoFrameRate = 30.0;
@@ -933,7 +934,7 @@ MediaRecorderHandler::CreateVideoEncoderMetricsProvider() {
       ->CreateVideoEncoderMetricsProvider();
 }
 
-void MediaRecorderHandler::WriteData(base::StringPiece data) {
+void MediaRecorderHandler::WriteData(std::string_view data) {
   DCHECK(IsMainThread());
   DVLOG(3) << __func__ << " " << data.length() << "B";
   if (invalidated_)

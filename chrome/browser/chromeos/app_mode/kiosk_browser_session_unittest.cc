@@ -194,12 +194,9 @@ class FullscreenTestBrowserWindow : public TestBrowserWindow,
     NOTIMPLEMENTED();
     return nullptr;
   }
-  void UpdateExclusiveAccessExitBubbleContent(
-      const GURL& url,
-      ExclusiveAccessBubbleType bubble_type,
-      ExclusiveAccessBubbleHideCallback bubble_first_hide_callback,
-      bool notify_download,
-      bool force_update) override {}
+  void UpdateExclusiveAccessBubble(
+      const ExclusiveAccessBubbleParams& params,
+      ExclusiveAccessBubbleHideCallback first_hide_callback) override {}
   bool IsExclusiveAccessBubbleDisplayed() const override { return false; }
   void OnExclusiveAccessUserInput() override {}
   bool CanUserExitFullscreen() const override { return true; }
@@ -278,8 +275,7 @@ class SystemWebAppWaiter {
 std::unique_ptr<web_app::WebAppInstallInfo> GetWebAppInstallInfo(
     const GURL& url) {
   std::unique_ptr<web_app::WebAppInstallInfo> info =
-      std::make_unique<web_app::WebAppInstallInfo>();
-  info->start_url = url;
+      web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(url);
   info->scope = url.GetWithoutFilename();
   info->title = u"Web App";
   return info;

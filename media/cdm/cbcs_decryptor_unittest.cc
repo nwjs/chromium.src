@@ -96,7 +96,7 @@ class CbcsDecryptorTest : public testing::Test {
     std::string ciphertext;
     EXPECT_TRUE(encryptor.Encrypt(MakeString(original), &ciphertext));
 
-    // CBC encyption adds a block of padding at the end, so discard it.
+    // CBC encryption adds a block of padding at the end, so discard it.
     DCHECK_GT(ciphertext.size(), original.size());
     ciphertext.resize(original.size());
 
@@ -112,7 +112,7 @@ class CbcsDecryptorTest : public testing::Test {
     EXPECT_FALSE(data.empty());
     EXPECT_FALSE(iv.empty());
 
-    auto encrypted_buffer = DecoderBuffer::CopyFrom(data.data(), data.size());
+    auto encrypted_buffer = DecoderBuffer::CopyFrom(data);
 
     // Key_ID is never used.
     encrypted_buffer->set_decrypt_config(DecryptConfig::CreateCbcsConfig(

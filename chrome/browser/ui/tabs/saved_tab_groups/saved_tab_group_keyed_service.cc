@@ -19,6 +19,7 @@
 #include "chrome/browser/bookmarks/url_and_id.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/model_type_store_service_factory.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_list.h"
@@ -37,6 +38,8 @@
 #include "components/sync/base/report_unrecoverable_error.h"
 #include "components/sync/model/client_tag_based_model_type_processor.h"
 #include "components/sync/model/model_type_store_service.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "content/public/browser/web_contents.h"
@@ -72,10 +75,28 @@ SavedTabGroupKeyedService::~SavedTabGroupKeyedService() {
   model_.RemoveObserver(this);
 }
 
+// Whether the sync setting is on for saved tab groups.
+bool SavedTabGroupKeyedService::AreSavedTabGroupsSynced() {
+  const syncer::SyncService* const sync_service =
+      SyncServiceFactory::GetForProfile(profile_);
+
+  if (!sync_service->IsSyncFeatureEnabled()) {
+    return false;
+  }
+
+  return sync_service->GetUserSettings()->GetSelectedTypes().Has(
+      syncer::UserSelectableType::kSavedTabGroups);
+}
+
 syncer::OnceModelTypeStoreFactory SavedTabGroupKeyedService::GetStoreFactory() {
   DCHECK(ModelTypeStoreServiceFactory::GetForProfile(profile()));
   return ModelTypeStoreServiceFactory::GetForProfile(profile())
       ->GetStoreFactory();
+}
+
+base::WeakPtr<syncer::ModelTypeControllerDelegate>
+SavedTabGroupKeyedService::GetSavedTabGroupControllerDelegate() {
+  return bridge_.change_processor()->GetControllerDelegate();
 }
 
 void SavedTabGroupKeyedService::StoreLocalToSavedId(
@@ -119,7 +140,8 @@ SavedTabGroupKeyedService::OpenSavedTabGroupInBrowser(
 
   // Activate the first tab in a group if it is already open.
   if (saved_group->local_group_id().has_value()) {
-    FocusFirstTabOrWindowInOpenGroup(saved_group->local_group_id().value());
+    tab_groups::SavedTabGroupUtils::FocusFirstTabOrWindowInOpenGroup(
+        saved_group->local_group_id().value());
     return saved_group->local_group_id().value();
   }
 
@@ -379,10 +401,11 @@ void SavedTabGroupKeyedService::AddMissingTabsToOutOfSyncLocalTabGroup(
         saved_group->saved_tabs()[relative_index_in_group].url();
 
     // Open the tab in the tabstrip and add it to the end of the group.
+    auto* navigation_handle = SavedTabGroupUtils::OpenTabInBrowser(
+        url_to_add, browser, profile_,
+        WindowOpenDisposition::NEW_BACKGROUND_TAB);
     const content::WebContents* const new_tab =
-        SavedTabGroupUtils::OpenTabInBrowser(
-            url_to_add, browser, profile_,
-            WindowOpenDisposition::NEW_BACKGROUND_TAB);
+        navigation_handle ? navigation_handle->GetWebContents() : nullptr;
 
     const int tab_index =
         browser->tab_strip_model()->GetIndexOfWebContents(new_tab);
@@ -465,10 +488,11 @@ SavedTabGroupKeyedService::GetWebContentsToTabGuidMappingForOpening(
       continue;
     }
 
+    auto* navigation_handle = SavedTabGroupUtils::OpenTabInBrowser(
+        saved_tab.url(), browser, profile_,
+        WindowOpenDisposition::NEW_BACKGROUND_TAB);
     content::WebContents* created_contents =
-        SavedTabGroupUtils::OpenTabInBrowser(
-            saved_tab.url(), browser, profile_,
-            WindowOpenDisposition::NEW_BACKGROUND_TAB);
+        navigation_handle ? navigation_handle->GetWebContents() : nullptr;
 
     if (!created_contents) {
       continue;
@@ -477,38 +501,6 @@ SavedTabGroupKeyedService::GetWebContentsToTabGuidMappingForOpening(
     web_contents.emplace(created_contents, saved_tab.saved_tab_guid());
   }
   return web_contents;
-}
-
-void SavedTabGroupKeyedService::FocusFirstTabOrWindowInOpenGroup(
-    tab_groups::TabGroupId local_group_id) {
-  Browser* browser_for_activation =
-      SavedTabGroupUtils::GetBrowserWithTabGroupId(local_group_id);
-
-  // Only activate the tab group's first tab, if it exists in any browser's
-  // tabstrip model and it is not in the active tab in the tab group.
-  CHECK(browser_for_activation);
-  TabGroup* tab_group =
-      browser_for_activation->tab_strip_model()->group_model()->GetTabGroup(
-          local_group_id);
-
-  std::optional<int> first_tab = tab_group->GetFirstTab();
-  std::optional<int> last_tab = tab_group->GetLastTab();
-  int active_index = browser_for_activation->tab_strip_model()->active_index();
-  CHECK(first_tab.has_value());
-  CHECK(last_tab.has_value());
-  CHECK_GE(active_index, 0);
-
-  if (active_index >= first_tab.value() && active_index <= last_tab) {
-    browser_for_activation->window()->Activate();
-    return;
-  }
-
-  browser_for_activation->ActivateContents(
-      browser_for_activation->tab_strip_model()->GetWebContentsAt(
-          first_tab.value()));
-
-  base::RecordAction(
-      base::UserMetricsAction("TabGroups_SavedTabGroups_Focused"));
 }
 
 const TabStripModel* SavedTabGroupKeyedService::GetTabStripModelWithTabGroupId(

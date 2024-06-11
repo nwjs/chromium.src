@@ -17,6 +17,7 @@
 #include <iterator>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/check_op.h"
@@ -325,7 +326,7 @@ std::optional<url::Origin> OSExchangeDataProviderWin::GetRendererTaintedOrigin()
   if (data.size() == 0) {
     return url::Origin();
   }
-  return url::Origin::Create(GURL(base::StringPiece(data.data(), data.size())));
+  return url::Origin::Create(GURL(std::string_view(data.data(), data.size())));
 }
 
 void OSExchangeDataProviderWin::MarkAsFromPrivileged() {
@@ -391,7 +392,7 @@ void OSExchangeDataProviderWin::SetURL(const GURL& url,
   data_->contents_.push_back(DataObjectImpl::StoredDataInfo::TakeStorageMedium(
       ClipboardFormatType::UrlAType().ToFormatEtc(), storage));
 
-  // TODO(https://crbug.com/6767): add CF_HTML.
+  // TODO(crbug.com/41292596): add CF_HTML.
 
   // Also add text representations (these should be last since they're the
   // least preferable).
@@ -642,7 +643,7 @@ std::optional<std::vector<FileInfo>>
 OSExchangeDataProviderWin::GetVirtualFilenames() const {
   // ui_base_clipboard can't use FileInfo struct which is part of ui_base, so
   // use FilePath instead.
-  // TODO(https://crbug.com/950360): ui_base_clipboard can't use FileInfo struct
+  // TODO(crbug.com/41451590): ui_base_clipboard can't use FileInfo struct
   // which is part of ui_base (layering issue).
   std::optional<std::vector<base::FilePath>> display_names =
       clipboard_util::GetVirtualFilenames(source_object_.Get());

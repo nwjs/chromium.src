@@ -464,7 +464,8 @@ component("headless_non_renderer") {
     if (use_v8_context_snapshot) {
       data += [ "$root_out_dir/$v8_context_snapshot_filename" ]
       data_deps += [ "//tools/v8_context_snapshot" ]
-    } else {
+    }
+    if (!use_v8_context_snapshot || include_both_v8_snapshots) {
       data += [ "$root_out_dir/snapshot_blob.bin" ]
     }
   }
@@ -605,7 +606,7 @@ test("headless_browsertests") {
     sources += [ "test/headless_command_browsertest.cc" ]
   }
 
-  # TODO(crbug.com/1318548): Enable on Fuchsia when no longer flakily timeout.
+  # TODO(crbug.com/40222911): Enable on Fuchsia when no longer flakily timeout.
   if (!is_fuchsia) {
     sources += [
       "test/headless_compositor_browsertest.cc",
@@ -636,7 +637,7 @@ test("headless_browsertests") {
     additional_manifest_fragments = [
       "//build/config/fuchsia/test/fonts.shard.test-cml",
 
-      # TODO(https://crbug.com/1185811): Investigate removing the requirement
+      # TODO(crbug.com/40055105): Investigate removing the requirement
       # for VmexResource.
       "//build/config/fuchsia/test/mark_vmo_executable.shard.test-cml",
       "//build/config/fuchsia/test/network.shard.test-cml",

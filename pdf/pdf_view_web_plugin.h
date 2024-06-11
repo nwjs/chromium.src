@@ -23,6 +23,7 @@
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "pdf/accessibility_structs.h"
+#include "pdf/buildflags.h"
 #include "pdf/loader/url_loader.h"
 #include "pdf/mojom/pdf.mojom.h"
 #include "pdf/paint_manager.h"
@@ -75,6 +76,10 @@ class MetricsHandler;
 class PDFiumEngine;
 class PdfAccessibilityDataHandler;
 class Thumbnail;
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+class InkModule;
+#endif
 
 class PdfViewWebPlugin final : public PDFEngine::Client,
                                public blink::WebPlugin,
@@ -556,13 +561,13 @@ class PdfViewWebPlugin final : public PDFEngine::Client,
   bool HandleWebInputEvent(const blink::WebInputEvent& event);
 
   // Helper method for converting IME text to input events.
-  // TODO(crbug.com/1253665): Consider handling composition events.
+  // TODO(crbug.com/40199248): Consider handling composition events.
   void HandleImeCommit(const blink::WebString& text);
 
   // Callback to print without re-entrancy issues. The callback prevents the
   // invocation of printing in the middle of an event handler, which is risky;
   // see crbug.com/66334.
-  // TODO(crbug.com/1217012): Re-evaluate the need for a callback when parts of
+  // TODO(crbug.com/40185029): Re-evaluate the need for a callback when parts of
   // the plugin are moved off the main thread.
   void OnInvokePrintDialog();
 
@@ -633,6 +638,11 @@ class PdfViewWebPlugin final : public PDFEngine::Client,
   mojo::AssociatedRemote<pdf::mojom::PdfHost> const pdf_host_;
 
   mojo::Receiver<pdf::mojom::PdfListener> listener_receiver_{this};
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  // Null if `features::kPdfInk2` is not enabled.
+  std::unique_ptr<InkModule> const ink_module_;
+#endif
 
   std::unique_ptr<PDFiumEngine> engine_;
 

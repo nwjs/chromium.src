@@ -11,6 +11,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -50,6 +51,7 @@ import org.chromium.base.ApplicationStatus.ActivityStateListener;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -73,6 +75,8 @@ import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorBase;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorFactory;
+import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderState;
+import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModelSelector;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -151,7 +155,9 @@ public class MultiInstanceManagerApi31UnitTest {
     @Mock ObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
     @Mock ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     @Mock MenuOrKeyboardActionController mMenuOrKeyboardActionController;
-    @Mock ObservableSupplier<Boolean> mDesktopWindowModeSupplier;
+    @Mock Supplier<DesktopWindowStateProvider> mDesktopWindowStateProviderSupplier;
+    @Mock DesktopWindowStateProvider mDesktopWindowStateProvider;
+    @Mock AppHeaderState mAppHeaderState;
 
     @Mock Profile mProfile;
     @Mock Profile mIncognitoProfile;
@@ -208,7 +214,7 @@ public class MultiInstanceManagerApi31UnitTest {
                 ActivityLifecycleDispatcher activityLifecycleDispatcher,
                 ObservableSupplier<ModalDialogManager> modalDialogManagerSupplier,
                 MenuOrKeyboardActionController menuOrKeyboardActionController,
-                ObservableSupplier<Boolean> desktopWindowModeSupplier) {
+                Supplier<DesktopWindowStateProvider> desktopWindowStateProviderSupplier) {
             super(
                     activity,
                     tabModelOrchestratorSupplier,
@@ -216,7 +222,7 @@ public class MultiInstanceManagerApi31UnitTest {
                     activityLifecycleDispatcher,
                     modalDialogManagerSupplier,
                     menuOrKeyboardActionController,
-                    desktopWindowModeSupplier);
+                    desktopWindowStateProviderSupplier);
         }
 
         private void createInstance(int instanceId, Activity activity) {
@@ -372,7 +378,7 @@ public class MultiInstanceManagerApi31UnitTest {
                                 mActivityLifecycleDispatcher,
                                 mModalDialogManagerSupplier,
                                 mMenuOrKeyboardActionController,
-                                mDesktopWindowModeSupplier));
+                                mDesktopWindowStateProviderSupplier));
         ApplicationStatus.setCachingEnabled(true);
         ApplicationStatus.onStateChangeForTesting(mCurrentActivity, ActivityState.CREATED);
         ChromeSharedPreferences.getInstance()
@@ -386,6 +392,9 @@ public class MultiInstanceManagerApi31UnitTest {
                     mTabbedActivityTask65,
                     mTabbedActivityTask66,
                 };
+
+        when(mDesktopWindowStateProviderSupplier.get()).thenReturn(mDesktopWindowStateProvider);
+        when(mDesktopWindowStateProvider.getAppHeaderState()).thenReturn(mAppHeaderState);
     }
 
     @After
@@ -654,7 +663,7 @@ public class MultiInstanceManagerApi31UnitTest {
                         mActivityLifecycleDispatcher,
                         mModalDialogManagerSupplier,
                         mMenuOrKeyboardActionController,
-                        mDesktopWindowModeSupplier);
+                        mDesktopWindowStateProviderSupplier);
         multiInstanceManager.initialize(INSTANCE_ID_1, TASK_ID_57);
         TabModelObserver tabModelObserver = multiInstanceManager.getTabModelObserverForTesting();
 
@@ -739,7 +748,7 @@ public class MultiInstanceManagerApi31UnitTest {
                         mActivityLifecycleDispatcher,
                         mModalDialogManagerSupplier,
                         mMenuOrKeyboardActionController,
-                        mDesktopWindowModeSupplier);
+                        mDesktopWindowStateProviderSupplier);
         multiInstanceManager.initialize(INSTANCE_ID_1, TASK_ID_57);
         TabModelObserver tabModelObserver = multiInstanceManager.getTabModelObserverForTesting();
 
@@ -824,7 +833,7 @@ public class MultiInstanceManagerApi31UnitTest {
                         mActivityLifecycleDispatcher,
                         mModalDialogManagerSupplier,
                         mMenuOrKeyboardActionController,
-                        mDesktopWindowModeSupplier);
+                        mDesktopWindowStateProviderSupplier);
         multiInstanceManager.initialize(INSTANCE_ID_1, TASK_ID_57);
         TabModelObserver tabModelObserver = multiInstanceManager.getTabModelObserverForTesting();
 
@@ -889,6 +898,26 @@ public class MultiInstanceManagerApi31UnitTest {
                 "The window ID of the running ChromeTabbedActivity should match.",
                 2,
                 runningTabbedActivityIds.valueAt(0));
+    }
+
+    @Test
+    @SmallTest
+    @Config(sdk = 31)
+    public void testGetRunningTabbedActivityCount() {
+        // Create 1 activity that is not a ChromeTabbedActivity and 2 ChromeTabbedActivity's.
+        assertEquals(0, allocInstanceIndex(PASSED_ID_INVALID, mActivityTask56));
+        assertEquals(1, allocInstanceIndex(PASSED_ID_INVALID, mTabbedActivityTask62));
+        assertEquals(2, allocInstanceIndex(PASSED_ID_INVALID, mTabbedActivityTask63));
+
+        // Remove ChromeTabbedActivity |mTabbedActivityTask62|, this will be considered a
+        // non-running activity subsequently.
+        removeTaskOnRecentsScreen(mTabbedActivityTask62);
+
+        int runningTabbedActivityCount = MultiInstanceManagerApi31.getRunningTabbedActivityCount();
+        assertEquals(
+                "There should be only 1 running ChromeTabbedActivity.",
+                1,
+                runningTabbedActivityCount);
     }
 
     private void triggerSelectTab(TabModelObserver tabModelObserver, Tab tab) {
@@ -1012,7 +1041,7 @@ public class MultiInstanceManagerApi31UnitTest {
                         mActivityLifecycleDispatcher,
                         mModalDialogManagerSupplier,
                         mMenuOrKeyboardActionController,
-                        mDesktopWindowModeSupplier);
+                        mDesktopWindowStateProviderSupplier);
         multiInstanceManager.initialize(instanceId, taskId);
         multiInstanceManager.onTabStateInitialized();
         TabModelObserver tabModelObserver = multiInstanceManager.getTabModelObserverForTesting();
@@ -1029,13 +1058,14 @@ public class MultiInstanceManagerApi31UnitTest {
     @SmallTest
     @Config(sdk = 31)
     @EnableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
+    @DisableFeatures(ChromeFeatureList.TAB_LINK_DRAG_DROP_ANDROID)
     public void testTabMove_MoveTabToNewWindow_calledWithDesiredParameters() {
         mMultiInstanceManager.mTestBuildInstancesList = true;
         MultiWindowTestUtils.enableMultiInstance();
         // Allocate and create two instances.
         assertEquals(0, allocInstanceIndex(PASSED_ID_INVALID, mTabbedActivityTask62, true));
         assertEquals(1, allocInstanceIndex(PASSED_ID_INVALID, mTabbedActivityTask63, true));
-        Mockito.doNothing()
+        doNothing()
                 .when(mMultiInstanceManager)
                 .moveAndReparentTabToNewWindow(
                         eq(mTab1), eq(INVALID_INSTANCE_ID), eq(true), eq(false), eq(true));
@@ -1059,7 +1089,7 @@ public class MultiInstanceManagerApi31UnitTest {
                 Mockito.spy(
                         createChromeInstance(
                                 INSTANCE_ID_1, TASK_ID_62, List.of(mTab1, mTab2, mTab3)));
-        Mockito.doNothing()
+        doNothing()
                 .when(multiInstanceManager1)
                 .moveAndReparentTabToNewWindow(
                         eq(mTab2), eq(INVALID_INSTANCE_ID), eq(true), eq(false), eq(true));
@@ -1079,6 +1109,7 @@ public class MultiInstanceManagerApi31UnitTest {
     @SmallTest
     @Config(sdk = 31)
     @EnableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
+    @DisableFeatures(ChromeFeatureList.TAB_LINK_DRAG_DROP_ANDROID)
     public void testTabMove_MoveTabToNewWindow_BeyondMaxWindows_CallsOnly_OpenNewWindow() {
         mMultiInstanceManager.mTestBuildInstancesList = true;
         MultiWindowTestUtils.enableMultiInstance();
@@ -1091,7 +1122,7 @@ public class MultiInstanceManagerApi31UnitTest {
                 mMultiInstanceManager.mMaxInstances,
                 mMultiInstanceManager.getInstanceInfo().size());
 
-        Mockito.doNothing()
+        doNothing()
                 .when(mMultiInstanceManager)
                 .openNewWindow(eq("Android.WindowManager.NewWindow"));
 
@@ -1107,6 +1138,7 @@ public class MultiInstanceManagerApi31UnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
+    @DisableFeatures(ChromeFeatureList.TAB_LINK_DRAG_DROP_ANDROID)
     @Config(sdk = 31)
     public void testTabMove_MoveTabToCurrentWindow_calledWithDesiredParameters() {
         int tabAtIndex = 0;
@@ -1117,9 +1149,7 @@ public class MultiInstanceManagerApi31UnitTest {
         assertEquals(INSTANCE_ID_2, allocInstanceIndex(INSTANCE_ID_2, mTabbedActivityTask63, true));
         assertEquals(2, mMultiInstanceManager.getInstanceInfo().size());
 
-        Mockito.doNothing()
-                .when(mMultiInstanceManager)
-                .moveTabAction(any(), eq(mTab1), eq(tabAtIndex));
+        doNothing().when(mMultiInstanceManager).moveTabAction(any(), eq(mTab1), eq(tabAtIndex));
 
         // Action
         mMultiInstanceManager.moveTabToWindow(mTabbedActivityTask63, mTab1, tabAtIndex);
@@ -1130,16 +1160,17 @@ public class MultiInstanceManagerApi31UnitTest {
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.TAB_DRAG_DROP_ANDROID)
+    @DisableFeatures({
+        ChromeFeatureList.TAB_DRAG_DROP_ANDROID,
+        ChromeFeatureList.TAB_LINK_DRAG_DROP_ANDROID
+    })
     public void testTabMove_MoveTabToWindow_notCalled() {
         int tabAtIndex = 0;
         MultiInstanceManagerApi31 multiInstanceManager =
                 Mockito.spy(
                         createChromeInstance(
                                 INSTANCE_ID_1, TASK_ID_62, List.of(mTab1, mTab2, mTab3)));
-        Mockito.doNothing()
-                .when(multiInstanceManager)
-                .moveTabAction(any(), eq(mTab2), eq(tabAtIndex));
+        doNothing().when(multiInstanceManager).moveTabAction(any(), eq(mTab2), eq(tabAtIndex));
 
         // Action
         multiInstanceManager.moveTabToWindow(mTabbedActivityTask62, mTab2, tabAtIndex);
@@ -1244,7 +1275,7 @@ public class MultiInstanceManagerApi31UnitTest {
         assertEquals(INSTANCE_ID_1, allocInstanceIndex(INSTANCE_ID_1, mTabbedActivityTask62, true));
         assertEquals(1, mMultiInstanceManager.getInstanceInfo().size());
         // Assume that Chrome is in a desktop window.
-        when(mDesktopWindowModeSupplier.get()).thenReturn(true);
+        when(mAppHeaderState.isInDesktopWindow()).thenReturn(true);
 
         // Action
         mMultiInstanceManager.closeChromeWindowIfEmpty(INSTANCE_ID_1);
@@ -1262,7 +1293,7 @@ public class MultiInstanceManagerApi31UnitTest {
         assertEquals(INSTANCE_ID_1, allocInstanceIndex(INSTANCE_ID_1, mTabbedActivityTask62, true));
         assertEquals(1, mMultiInstanceManager.getInstanceInfo().size());
         // Assume that Chrome is not in a desktop window.
-        when(mDesktopWindowModeSupplier.get()).thenReturn(false);
+        when(mAppHeaderState.isInDesktopWindow()).thenReturn(false);
 
         // Action
         mMultiInstanceManager.closeChromeWindowIfEmpty(INSTANCE_ID_1);

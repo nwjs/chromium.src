@@ -14,7 +14,7 @@
 #include "base/ranges/algorithm.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/extensions/tab_helper.h"
+#include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -353,18 +353,27 @@ void ExtensionsToolbarContainer::UpdateRequestAccessButton(
     return;
   }
 
-  // Extensions are included in the request access button only when the site
-  // allows customizing site access by extension, and when the extension
-  // itself can show access requests in the toolbar and hasn't been dismissed.
+  // Extensions are included in the request access button only when:
+  //   - site allows customizing site access by extension
+  //   - extension added a request that has not been dismised
+  //   - requests can be shown in the toolbar
   std::vector<extensions::ExtensionId> extensions;
   if (site_setting ==
       extensions::PermissionsManager::UserSiteSetting::kCustomizeByExtension) {
+    int tab_id = extensions::ExtensionTabUtil::GetTabId(web_contents);
+    auto* permissions_manager =
+        extensions::PermissionsManager::Get(browser_->profile());
+    auto site_permissions_helper =
+        extensions::SitePermissionsHelper(browser_->profile());
+
     for (const auto& action : actions_) {
-      bool dismissed_requests =
-          extensions::TabHelper::FromWebContents(web_contents)
-              ->HasExtensionDismissedRequests(action->GetId());
-      if (action->ShouldShowSiteAccessRequestInToolbar(web_contents) &&
-          !dismissed_requests) {
+      std::string action_id = action->GetId();
+      bool has_active_request =
+          permissions_manager->HasActiveSiteAccessRequest(tab_id, action_id);
+      bool can_show_access_requests_in_toolbar =
+          site_permissions_helper.ShowAccessRequestsInToolbar(action_id);
+
+      if (has_active_request && can_show_access_requests_in_toolbar) {
         extensions.push_back(action->GetId());
       }
     }

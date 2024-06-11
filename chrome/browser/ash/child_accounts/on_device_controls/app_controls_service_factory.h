@@ -16,8 +16,11 @@ namespace content {
 class BrowserContext;
 }  // namespace content
 
-namespace ash {
-namespace on_device_controls {
+namespace user_prefs {
+class PrefRegistrySyncable;
+}  // namespace user_prefs
+
+namespace ash::on_device_controls {
 
 class AppControlsService;
 
@@ -47,9 +50,10 @@ class AppControlsServiceFactory : public ProfileKeyedServiceFactory {
   // BrowserContextKeyedServiceFactory:
   std::unique_ptr<KeyedService> BuildServiceInstanceForBrowserContext(
       content::BrowserContext* context) const override;
+  void RegisterProfilePrefs(
+      user_prefs::PrefRegistrySyncable* registry) override;
 };
 
-}  // namespace on_device_controls
-}  // namespace ash
+}  // namespace ash::on_device_controls
 
-#endif
+#endif  // CHROME_BROWSER_ASH_CHILD_ACCOUNTS_ON_DEVICE_CONTROLS_APP_CONTROLS_SERVICE_FACTORY_H_

@@ -44,7 +44,6 @@ import org.chromium.chrome.browser.logo.LogoView;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.ntp.NewTabPage.OnSearchBoxScrollListener;
 import org.chromium.chrome.browser.ntp.search.SearchBoxCoordinator;
-import org.chromium.chrome.browser.omnibox.OmniboxFeatures;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.suggestions.tile.MostVisitedTilesCoordinator;
 import org.chromium.chrome.browser.suggestions.tile.TileGroup;
@@ -59,6 +58,7 @@ import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.displaystyle.DisplayStyleObserver;
 import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.base.WindowAndroid;
@@ -142,8 +142,6 @@ public class NewTabPageLayout extends LinearLayout {
     private Boolean mIsHalfMvtLandscape;
     private Boolean mIsHalfMvtPortrait;
     private boolean mIsSurfacePolishEnabled;
-    private boolean mIsSurfacePolishOmniboxColorEnabled;
-    private boolean mIsSurfacePolishLessBrandSpaceEnabled;
     private Boolean mIsMvtAllFilledLandscape;
     private Boolean mIsMvtAllFilledPortrait;
     private final int mTileViewIntervalPaddingTabletForPolish;
@@ -218,10 +216,6 @@ public class NewTabPageLayout extends LinearLayout {
      * @param profile The {@link Profile} associated with the NTP.
      * @param windowAndroid An instance of a {@link WindowAndroid}
      * @param isSurfacePolishEnabled {@code true} if the NTP surface is polished.
-     * @param isSurfacePolishOmniboxColorEnabled {@code true} if the NTP surface is polished and the
-     *     omnibox should be colorful.
-     * @param isSurfacePolishLessBrandSpaceEnabled {@code true} if the NTP surface is polished with
-     *     less brand space.
      * @param isTablet {@code true} if the NTP surface is in tablet mode.
      * @param tabStripHeightSupplier Supplier of the tab strip height.
      */
@@ -239,8 +233,6 @@ public class NewTabPageLayout extends LinearLayout {
             Profile profile,
             WindowAndroid windowAndroid,
             boolean isSurfacePolishEnabled,
-            boolean isSurfacePolishOmniboxColorEnabled,
-            boolean isSurfacePolishLessBrandSpaceEnabled,
             boolean isTablet,
             ObservableSupplier<Integer> tabStripHeightSupplier) {
         TraceEvent.begin(TAG + ".initialize()");
@@ -252,8 +244,6 @@ public class NewTabPageLayout extends LinearLayout {
         mNewTabPageUma = uma;
         mWindowAndroid = windowAndroid;
         mIsSurfacePolishEnabled = isSurfacePolishEnabled;
-        mIsSurfacePolishOmniboxColorEnabled = isSurfacePolishOmniboxColorEnabled;
-        mIsSurfacePolishLessBrandSpaceEnabled = isSurfacePolishLessBrandSpaceEnabled;
         mIsLogoPolishEnabled =
                 StartSurfaceConfiguration.isLogoPolishEnabledWithGoogleDoodle(
                         mSearchProviderIsGoogle && mShowingNonStandardGoogleLogo);
@@ -335,7 +325,7 @@ public class NewTabPageLayout extends LinearLayout {
     }
 
     public void reload() {
-        // TODO(1515325): Add handler in Magic Stack and dispatcher.
+        // TODO(crbug.com/41487877): Add handler in Magic Stack and dispatcher.
     }
 
     /**
@@ -347,21 +337,11 @@ public class NewTabPageLayout extends LinearLayout {
 
     /** Sets up the search box background or background tint. */
     private void initializeSearchBoxBackground() {
-        if (mIsSurfacePolishOmniboxColorEnabled) {
-            findViewById(R.id.search_box)
-                    .setBackground(
-                            AppCompatResources.getDrawable(
-                                    mContext,
-                                    R.drawable.home_surface_search_box_background_colorful));
-            return;
-        }
-
         if (mIsSurfacePolishEnabled) {
             findViewById(R.id.search_box)
                     .setBackground(
                             AppCompatResources.getDrawable(
-                                    mContext,
-                                    R.drawable.home_surface_search_box_background_neutral));
+                                    mContext, R.drawable.home_surface_search_box_background));
             return;
         }
 
@@ -377,7 +357,7 @@ public class NewTabPageLayout extends LinearLayout {
 
         mSearchBoxCoordinator.setSearchBoxClickListener(v -> mManager.focusSearchBox(false, null));
 
-        // @TODO(crbug.com/1519592): Add test case for search box OnDragListener.
+        // @TODO(crbug.com/41492572): Add test case for search box OnDragListener.
         mSearchBoxCoordinator.setSearchBoxDragListener(
                 new OnDragListener() {
                     @Override
@@ -487,7 +467,6 @@ public class NewTabPageLayout extends LinearLayout {
                     mLogoView,
                     getResources(),
                     mIsTablet,
-                    mIsSurfacePolishLessBrandSpaceEnabled,
                     mIsLogoPolishEnabled,
                     mIsInMultiWindowModeOnTablet
                             ? LogoSizeForLogoPolish.SMALL
@@ -504,7 +483,6 @@ public class NewTabPageLayout extends LinearLayout {
                         mLogoView,
                         shouldFetchDoodle,
                         mOnLogoAvailableCallback,
-                        /* isParentSurfaceShown= */ true,
                         /* visibilityObserver= */ null);
         mLogoCoordinator.initWithNative();
         setSearchProviderInfo(searchProviderHasLogo, searchProviderIsGoogle);
@@ -792,7 +770,6 @@ public class NewTabPageLayout extends LinearLayout {
                 mLogoView,
                 getResources(),
                 mIsTablet,
-                mIsSurfacePolishLessBrandSpaceEnabled,
                 mIsLogoPolishEnabled,
                 mIsInMultiWindowModeOnTablet
                         ? LogoSizeForLogoPolish.SMALL
@@ -1019,7 +996,7 @@ public class NewTabPageLayout extends LinearLayout {
      * @param isTopMargin True to return the top margin; False to return bottom margin.
      * @return The top margin or bottom margin of the logo.
      */
-    // TODO(https://crbug.com/1329288): Remove this method when the Feed position experiment is
+    // TODO(crbug.com/40226731): Remove this method when the Feed position experiment is
     // cleaned up.
     private int getLogoMargin(boolean isTopMargin) {
         if (FeedPositionUtils.isFeedPullUpEnabled() && mSearchProviderHasLogo) return 0;
@@ -1035,12 +1012,7 @@ public class NewTabPageLayout extends LinearLayout {
         }
 
         if (mIsSurfacePolishEnabled && mSearchProviderHasLogo) {
-            if (mIsSurfacePolishLessBrandSpaceEnabled && !mIsTablet) {
-                return LogoUtils.getTopMarginPolishedSmall(resources);
-
-            } else {
-                return LogoUtils.getTopMarginPolished(resources);
-            }
+            return LogoUtils.getTopMarginPolished(resources);
         }
 
         if (mIsTablet && mSearchProviderHasLogo) {
@@ -1058,11 +1030,7 @@ public class NewTabPageLayout extends LinearLayout {
         }
 
         if (mIsSurfacePolishEnabled && mSearchProviderHasLogo) {
-            if (mIsSurfacePolishLessBrandSpaceEnabled && !mIsTablet) {
-                return LogoUtils.getBottomMarginPolishedSmall(resources);
-            } else {
-                return LogoUtils.getBottomMarginPolished(resources);
-            }
+            return LogoUtils.getBottomMarginPolished(resources);
         }
 
         if (mIsTablet && mSearchProviderHasLogo) {
@@ -1209,7 +1177,7 @@ public class NewTabPageLayout extends LinearLayout {
         return NewTabPage.isScrollableMvtEnabled(mContext);
     }
 
-    // TODO(crbug.com/1329288): Remove this method when the Feed position experiment is cleaned up.
+    // TODO(crbug.com/40226731): Remove this method when the Feed position experiment is cleaned up.
     private int getGridMvtTopMargin() {
         if (!shouldShowLogo()) {
             return getResources()
@@ -1232,7 +1200,7 @@ public class NewTabPageLayout extends LinearLayout {
         return getResources().getDimensionPixelSize(resourcesId);
     }
 
-    // TODO(crbug.com/1329288): Remove this method when the Feed position experiment is cleaned up.
+    // TODO(crbug.com/40226731): Remove this method when the Feed position experiment is cleaned up.
     private int getGridMvtBottomMargin() {
         int resourcesId = R.dimen.tile_grid_layout_bottom_margin;
 
@@ -1302,7 +1270,6 @@ public class NewTabPageLayout extends LinearLayout {
                     mLogoView,
                     getResources(),
                     mIsTablet,
-                    mIsSurfacePolishLessBrandSpaceEnabled,
                     mIsLogoPolishEnabled,
                     mIsInMultiWindowModeOnTablet
                             ? LogoSizeForLogoPolish.SMALL

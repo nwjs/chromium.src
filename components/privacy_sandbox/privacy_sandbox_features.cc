@@ -17,6 +17,9 @@ const char kPrivacySandboxAdsNoticeCCTAppIdName[] = "app-id";
 
 const base::FeatureParam<std::string> kPrivacySandboxAdsNoticeCCTAppId{
     &kPrivacySandboxAdsNoticeCCT, kPrivacySandboxAdsNoticeCCTAppIdName, ""};
+
+const base::FeatureParam<bool> kPrivacySandboxAdsNoticeCCTIncludeModeB{
+    &kPrivacySandboxAdsNoticeCCT, "include-mode-b", false};
 #endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kPrivacySandboxSettings4,
@@ -116,11 +119,19 @@ BASE_FEATURE(kPrivacySandboxAttestationsHigherComponentRegistrationPriority,
 
 BASE_FEATURE(kPrivacySandboxAttestationsUserBlockingPriority,
              "PrivacySandboxAttestationsUserBlockingPriority",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPrivacySandboxProactiveTopicsBlocking,
              "PrivacySandboxProactiveTopicsBlocking",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+const char kPrivacySandboxProactiveTopicsBlockingIncludeModeBName[] =
+    "include-mode-b";
+
+const base::FeatureParam<bool>
+    kPrivacySandboxProactiveTopicsBlockingIncludeModeB{
+        &kPrivacySandboxProactiveTopicsBlocking,
+        kPrivacySandboxProactiveTopicsBlockingIncludeModeBName, false};
 
 BASE_FEATURE(kTrackingProtectionSettingsPageRollbackNotice,
              "TrackingProtectionSettingsPageRollbackNotice",
@@ -165,10 +176,6 @@ BASE_FEATURE(kIpProtectionUx,
              "IpProtectionUx",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCookieSettingsUiAlignment,
-             "CookieSettingsUiAlignment",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kTrackingProtectionSettingsLaunch,
              "TrackingProtectionSettingsLaunch",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -177,9 +184,21 @@ BASE_FEATURE(kPrivacySandboxRelatedWebsiteSetsUi,
              "PrivacySandboxRelatedWebsiteSetsUi",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTrackingProtectionContentSetting,
+             "TrackingProtectionContentSetting",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kTrackingProtectionNoticeRequestTracking,
              "TrackingProtectionNoticeRequestTracking",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTrackingProtectionUserBypassPwa,
+             "TrackingProtectionUserBypassPwa",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTrackingProtectionUserBypassPwaTrigger,
+             "TrackingProtectionUserBypassPwaTrigger",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -192,5 +211,23 @@ const base::FeatureParam<bool> kPsRedesignAdPrivacyPageEnableToggles{
 BASE_FEATURE(kTrackingProtectionReminder,
              "TrackingProtectionReminder",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPrivacySandboxActivityTypeStorage,
+             "PrivacySandboxActivityTypeStorage",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+const char kPrivacySandboxActivityTypeStorageLastNLaunchesName[] =
+    "last-n-launches";
+
+const base::FeatureParam<int> kPrivacySandboxActivityTypeStorageLastNLaunches{
+    &kPrivacySandboxActivityTypeStorage,
+    kPrivacySandboxActivityTypeStorageLastNLaunchesName, 100};
+
+const char kPrivacySandboxActivityTypeStorageWithinXDaysName[] =
+    "within-x-days";
+
+const base::FeatureParam<int> kPrivacySandboxActivityTypeStorageWithinXDays{
+    &kPrivacySandboxActivityTypeStorage,
+    kPrivacySandboxActivityTypeStorageWithinXDaysName, 60};
 
 }  // namespace privacy_sandbox

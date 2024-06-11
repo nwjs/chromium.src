@@ -31,12 +31,17 @@ BASE_DECLARE_FEATURE(kOmniboxLockIconEnabled);
 // Feature flag to enable the use of content configuration for the popup rows.
 BASE_DECLARE_FEATURE(kOmniboxPopupRowContentConfiguration);
 
+// Feature flag to enable actions in suggest.
+BASE_DECLARE_FEATURE(kOmniboxActionsInSuggest);
+
 // Type of rich autocompletion implementation.
 enum class RichAutocompletionImplementation {
   // kRichAutocompletionParamLabel.
   kLabel,
   // kRichAutocompletionParamTextField.
   kTextField,
+  // kRichAutocompletionParamNoAdditionalText.
+  kNoAdditionalText,
   // Any implementation type.
   kAny,
 };
@@ -53,5 +58,7 @@ extern const char kRichAutocompletionParam[];
 extern const char kRichAutocompletionParamLabel[];
 // Rich autocompletion is shown inside of the text field.
 extern const char kRichAutocompletionParamTextField[];
+// Rich autocompletion with no additional text.
+extern const char kRichAutocompletionParamNoAdditionalText[];
 
 #endif  // IOS_CHROME_BROWSER_UI_OMNIBOX_OMNIBOX_UI_FEATURES_H_

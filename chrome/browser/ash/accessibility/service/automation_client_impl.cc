@@ -55,7 +55,7 @@ void AutomationClientImpl::DispatchAccessibilityEvents(
 }
 
 void AutomationClientImpl::DispatchAccessibilityLocationChange(
-    const content::AXLocationChangeNotificationDetails& details) {
+    const ui::AXLocationChanges& details) {
   ui::AXTreeID tree_id = details.ax_tree_id;
   if (tree_id == ui::AXTreeIDUnknown())
     return;

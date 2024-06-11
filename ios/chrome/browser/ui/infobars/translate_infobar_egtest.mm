@@ -7,6 +7,7 @@
 #import <memory>
 #import <string>
 
+#import "base/ios/ios_util.h"
 #import "base/strings/stringprintf.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
@@ -41,6 +42,12 @@ using base::test::ios::kWaitForUIElementTimeout;
 using chrome_test_util::WebStateScrollViewMatcher;
 
 namespace {
+
+// Infobar requires language detection to happen and may take a little longer
+// than kWaitForUIElementTimeout on laggy devices (like test bots).
+// Set a longer timeout.
+constexpr base::TimeDelta kWaitForUIElement3xTimeout =
+    3 * kWaitForUIElementTimeout;
 
 // Paragraph height height for test pages. This must be large enough to trigger
 // the fullscreen mode.
@@ -90,7 +97,7 @@ const char kMetaItContentLanguage[] =
     "<meta http-equiv=\"content-language\" content=\"it\">";
 
 // Various link components.
-// TODO(crbug.com/729195): Re-write the hardcoded address.
+// TODO(crbug.com/41322998): Re-write the hardcoded address.
 const char kHttpServerDomain[] = "127.0.0.1";
 const char kLanguagePath[] = "/languagepath/";
 const char kLinkPath[] = "/linkpath/";
@@ -288,7 +295,7 @@ void TestResponseProvider::GetLanguageResponse(
 
 // Tests that different language signals are detected correctly.
 - (void)testLanguageDetection {
-// TODO(crbug.com/1235979): test failing on ipad device
+// TODO(crbug.com/40192556): test failing on ipad device
 #if !TARGET_IPHONE_SIMULATOR
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_SKIPPED(@"This test doesn't pass on iPad device.");
@@ -356,7 +363,7 @@ void TestResponseProvider::GetLanguageResponse(
 }
 
 // Tests that history.pushState triggers a new detection.
-// TODO(crbug.com/1442963): This test is flaky.
+// TODO(crbug.com/40910864): This test is flaky.
 - (void)FLAKY_testLanguageDetectionWithPushState {
   const GURL URL = web::test::HttpServer::MakeUrl(
       "http://scenarioLanguageDetectionPushState");
@@ -534,6 +541,11 @@ void TestResponseProvider::GetLanguageResponse(
 // Tests that the infobar banner persists as the page scrolls mode and that the
 // banner can be dimissed.
 - (void)testInfobarShowHideDismiss {
+  // TODO(crbug.com/334867767): Test fails when run on iOS 17 iPad simulator.
+  if (base::ios::IsRunningOnIOS17OrLater() && [ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iOS 17 iPad simulator.");
+  }
+
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
   web::test::SetUpHttpServer(std::move(provider));
@@ -655,8 +667,11 @@ void TestResponseProvider::GetLanguageResponse(
 
 // Test that the Show Original banner dismisses with a longer delay since it is
 // a high priority banner.
-// TODO(crbug.com/331774758): Test flaky.
-- (void)DISABLED_testInfobarAcceptedBannerDismissWithHighPriorityDelay {
+- (void)testInfobarAcceptedBannerDismissWithHighPriorityDelay {
+  // TODO(b/338250535): Test is failing on iPad simulator.
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iPad.");
+  }
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
   web::test::SetUpHttpServer(std::move(provider));
@@ -746,9 +761,8 @@ void TestResponseProvider::GetLanguageResponse(
       assertWithMatcher:grey_notNil()];
 }
 
-// Tests that the target language can be changed. TODO(crbug.com/1046629):
+// Tests that the target language can be changed. TODO(crbug.com/40670920):
 // implement test for changing source language.
-// TODO(crbug.com/1116012): This test is failing flaky on iOS14.
 - (void)testInfobarChangeTargetLanguage {
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
@@ -799,7 +813,7 @@ void TestResponseProvider::GetLanguageResponse(
 // Tests that the "Always Translate" options can be toggled and the prefs are
 // updated accordingly.
 // TODO(crbug.com/334867767) Fix and reenable tests.
-- (void)DISABLED_testInfobarAlwaysTranslate {
+- (void)testInfobarAlwaysTranslate {
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
   web::test::SetUpHttpServer(std::move(provider));
@@ -923,6 +937,11 @@ void TestResponseProvider::GetLanguageResponse(
 // Tests that the "Never Translate this site" option dismisses the infobar and
 // updates the prefs accordingly.
 - (void)testInfobarNeverTranslateSite {
+  // TODO(crbug.com/334867767): Test fails when run on iOS 17 iPad simulator.
+  if (base::ios::IsRunningOnIOS17OrLater() && [ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fails on iOS 17 iPad simulator.");
+  }
+
   // Start the HTTP server.
   std::unique_ptr<web::DataResponseProvider> provider(new TestResponseProvider);
   web::test::SetUpHttpServer(std::move(provider));
@@ -1095,7 +1114,7 @@ void TestResponseProvider::GetLanguageResponse(
 #pragma mark - Utility methods
 
 - (BOOL)isBeforeTranslateBannerVisible {
-  BOOL bannerShown = WaitUntilConditionOrTimeout(kWaitForUIElementTimeout, ^{
+  BOOL bannerShown = WaitUntilConditionOrTimeout(kWaitForUIElement3xTimeout, ^{
     NSError* error = nil;
     [[EarlGrey
         selectElementWithMatcher:
@@ -1112,7 +1131,7 @@ void TestResponseProvider::GetLanguageResponse(
 
 - (BOOL)isAfterTranslateBannerVisible {
   BOOL showOriginalBannerShown =
-      WaitUntilConditionOrTimeout(kWaitForUIElementTimeout, ^{
+      WaitUntilConditionOrTimeout(kWaitForUIElement3xTimeout, ^{
         NSError* error = nil;
         [[EarlGrey
             selectElementWithMatcher:
@@ -1140,7 +1159,7 @@ void TestResponseProvider::GetLanguageResponse(
 // Returns whether a language has been detected on the current page. Returns
 // false if a timeout was detected while waiting for language detection.
 - (BOOL)waitForLanguageDetection {
-  bool detected = WaitUntilConditionOrTimeout(kWaitForUIElementTimeout, ^{
+  bool detected = WaitUntilConditionOrTimeout(kWaitForUIElement3xTimeout, ^{
     return [TranslateAppInterface isLanguageDetected];
   });
   return detected;

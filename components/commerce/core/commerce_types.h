@@ -153,6 +153,7 @@ struct ProductSpecifications {
     GURL image_url;
     std::map<ProductDimensionId, std::vector<std::string>>
         product_dimension_values;
+    std::string summary;
   };
 
   // A map of each product dimension ID to its human readable name.
@@ -190,6 +191,22 @@ struct UrlInfo {
 
   GURL url;
   std::u16string title;
+};
+
+// Class representing the tap strip entry point.
+struct EntryPointInfo {
+  EntryPointInfo(const std::string& title,
+                 std::set<GURL> similar_candidate_products_urls);
+  ~EntryPointInfo();
+  EntryPointInfo(const EntryPointInfo&);
+  EntryPointInfo& operator=(const EntryPointInfo&);
+
+  // Title of the product group to be clustered.
+  std::string title;
+
+  // Set of URLs of candidate products that are similar and can
+  // be clustered into one product group.
+  std::set<GURL> similar_candidate_products_urls;
 };
 
 // Callbacks and typedefs for various accessors in the shopping service.

@@ -40,6 +40,12 @@ component("manta") {
       "orca_provider.h",
       "snapper_provider.cc",
       "snapper_provider.h",
+      "sparky/sparky_delegate.cc",
+      "sparky/sparky_delegate.h",
+      "sparky/sparky_provider.cc",
+      "sparky/sparky_provider.h",
+      "sparky/sparky_util.cc",
+      "sparky/sparky_util.h",
     ]
     deps += [ "//chromeos/constants:constants" ]
   }
@@ -57,6 +63,8 @@ source_set("unit_tests") {
     sources += [
       "orca_provider_unittest.cc",
       "snapper_provider_unittest.cc",
+      "sparky/sparky_provider_unittest.cc",
+      "sparky/sparky_util_unittest.cc",
     ]
   }
 

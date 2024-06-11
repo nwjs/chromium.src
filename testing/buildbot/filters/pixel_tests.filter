@@ -20,6 +20,7 @@ ChromeSignoutConfirmationPromptPixelTest.*
 ConfirmBubbleTest.*
 ContentAnalysysDialogUiTest.*
 ContentSettingBubbleDialogTest.*
+CookieClearOnExitMigrationNoticePixelTest.*
 CookieControlsBubbleViewPixelTest.*
 OldCookieControlsBubbleViewTest.*
 *CreatePopupRowViewTest.*
@@ -45,8 +46,6 @@ FirstRunDialogTest.*
 FirstRunIntroPixelTest.*
 GlobalErrorBubbleTest.*
 HatsBubbleTest.*
-*HighEfficiencyFaviconTreatmentTest.*
-*HighEfficiencyMemorySavingsReportingImprovementsTest.*
 HomeButtonUiTest.*
 HungRendererDialogViewBrowserTest.*
 ImportLockDialogViewBrowserTest.*
@@ -59,6 +58,9 @@ InteractionTestUtilBrowserTest.CompareScreenshot_*
 InteractionTestUtilBrowserUiTest.CompareScreenshot_*
 IsolatedWebAppInstallerViewUiPixelTest.*
 LocalCardMigrationBrowserUiTest.*
+*MemorySaverChipInteractiveTest.*
+*MemorySaverFaviconTreatmentTest.*
+*MemorySaverImprovedFaviconTreatmentTest.*
 NewTabPageTest.*
 OfferNotificationBubbleViewPixelBrowserTest.*
 OutdatedUpgradeBubbleTest.*
@@ -80,8 +82,9 @@ PasswordBubbleInteractiveUiTest.NavigateToManagementDetailsViewWithMoveFooterVis
 PasswordReuseModalWarningTest.*
 PaymentsWindowUserConsentDialogBrowserTest*
 PerformanceToolbarButtonInteractiveUiTest.*
+PerformanceInterventionInteractiveTest.InterventionToolbarButton
 PermissionRequestChipBrowserUiTest.*
-*PermissionPromptBubble*ViewBrowserTest.InvokeUi_*
+*PermissionPromptBubble*View*BrowserTest.InvokeUi_*
 PermissionPromptPreviewBrowserTest.InvokeUi_*
 *PopupViewViewsBrowsertest*
 PrivacySandboxDialogViewBrowserTest.*

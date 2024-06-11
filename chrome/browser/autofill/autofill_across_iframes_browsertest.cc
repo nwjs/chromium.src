@@ -80,7 +80,8 @@ class TestAutofillManager : public BrowserAutofillManager {
  public:
   explicit TestAutofillManager(ContentAutofillDriver* driver)
       : BrowserAutofillManager(driver, "en-US") {
-    test_api(*this).set_limit_before_refill(base::Hours(1));
+    test_api(test_api(*this).form_filler())
+        .set_limit_before_refill(base::Hours(1));
   }
 
   static TestAutofillManager& GetForRenderFrameHost(
@@ -173,7 +174,7 @@ std::vector<std::string> AllFieldValues(content::WebContents* web_contents,
 
   std::vector<std::string> values;
   for (const FormFieldData& field : form.fields) {
-    LocalFrameToken frame = field.host_frame;
+    LocalFrameToken frame = field.host_frame();
     if (frame_to_iters[frame] == frame_to_values[frame].end())
       return {};
     values.push_back(*frame_to_iters[frame]++);
@@ -247,8 +248,8 @@ class AutofillAcrossIframesTest : public InProcessBrowserTest {
   void TearDownOnMainThread() override {
     base::RunLoop().RunUntilIdle();
     // Make sure to close any showing popups prior to tearing down the UI.
-    main_autofill_manager().client().HideAutofillPopup(
-        PopupHidingReason::kTabGone);
+    main_autofill_manager().client().HideAutofillSuggestions(
+        SuggestionHidingReason::kTabGone);
     test::ReenableSystemServices();
     InProcessBrowserTest::TearDownOnMainThread();
   }
@@ -313,7 +314,7 @@ class AutofillAcrossIframesTest : public InProcessBrowserTest {
   // FormFieldData::is_focusable for all forms. This is admissible for our
   // testing purposes because all test forms only have (what should be)
   // focusable fields.
-  // TODO(crbug.com/1393058): Remove this hack when the focusability issue is
+  // TODO(crbug.com/40248042): Remove this hack when the focusability issue is
   // fixed.
   const FormStructure* GetOrWaitForFormWithFocusableFields(size_t num_fields) {
     const FormStructure* form =
@@ -323,7 +324,7 @@ class AutofillAcrossIframesTest : public InProcessBrowserTest {
             },
             num_fields));
     for (const auto& field : *form)
-      const_cast<AutofillField&>(*field).is_focusable = true;
+      const_cast<AutofillField&>(*field).set_is_focusable(true);
     return form;
   }
 
@@ -676,8 +677,8 @@ IN_PROC_BROWSER_TEST_F(AutofillAcrossIframesTest_NestedAndLargeForm,
     auto unspecified = HtmlFieldType::kUnspecified;
     auto m = [](std::string_view host, HtmlFieldType type) {
       return Pointee(AllOf(Property(&AutofillField::html_type, Eq(type)),
-                           Field(&AutofillField::origin,
-                                 Property(&url::Origin::host, Eq(host)))));
+                           Property(&AutofillField::origin,
+                                    Property(&url::Origin::host, Eq(host)))));
     };
     // The indentation reflects the nesting of frames.
     // clang-format off
@@ -739,8 +740,8 @@ IN_PROC_BROWSER_TEST_F(AutofillAcrossIframesTest_NestedAndLargeForm,
     // clang-format on
   }
   const FormData& form_data = form->ToFormData();
-  ASSERT_EQ("e.com", form_data.fields[4].origin.host());
-  ASSERT_EQ("cc-name", form_data.fields[4].autocomplete_attribute);
+  ASSERT_EQ("e.com", form_data.fields[4].origin().host());
+  ASSERT_EQ("cc-name", form_data.fields[4].autocomplete_attribute());
   FillCard(main_frame(), form_data, form_data.fields[4]);
   EXPECT_TRUE(main_autofill_manager().WaitForAutofill(5));
   {
@@ -789,9 +790,10 @@ IN_PROC_BROWSER_TEST_F(AutofillAcrossIframesTest_NestedAndLargeForm,
     auto exp = HtmlFieldType::kCreditCardExpDate4DigitYear;
     auto cvc = HtmlFieldType::kCreditCardVerificationCode;
     auto m = [](HtmlFieldType type) {
-      return Pointee(AllOf(Property(&AutofillField::html_type, Eq(type)),
-                           Field(&AutofillField::origin,
-                                 Property(&url::Origin::host, Eq("a.com")))));
+      return Pointee(
+          AllOf(Property(&AutofillField::html_type, Eq(type)),
+                Property(&AutofillField::origin,
+                         Property(&url::Origin::host, Eq("a.com")))));
     };
     EXPECT_THAT(form->fields(), ElementsAre(m(name), m(num), m(exp), m(cvc),  //
                                             m(name), m(num), m(exp), m(cvc),  //

@@ -10,6 +10,8 @@
 #include "ash/components/arc/session/arc_bridge_service.h"
 #include "ash/components/arc/session/arc_service_manager.h"
 #include "ash/constants/ash_features.h"
+#include "ash/display/cros_display_config.h"
+#include "ash/shell.h"
 #include "base/functional/bind.h"
 #include "base/memory/singleton.h"
 #include "base/metrics/histogram_functions.h"
@@ -34,6 +36,7 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "ui/aura/window.h"
+#include "ui/display/screen.h"
 
 // Enable VLOG level 1.
 #undef ENABLED_VLOG_LEVEL
@@ -66,7 +69,7 @@ class ArcAppPerformanceTracingFactory
   friend base::DefaultSingletonTraits<ArcAppPerformanceTracingFactory>;
   ArcAppPerformanceTracingFactory() {
     DependsOn(ArcAppListPrefsFactory::GetInstance());
-    // TODO(crbug.com/1330894): This should probably depend on SyncService.
+    // TODO(crbug.com/40227318): This should probably depend on SyncService.
   }
   ~ArcAppPerformanceTracingFactory() override = default;
 };
@@ -209,6 +212,12 @@ void ArcAppPerformanceTracing::OnCustomTraceDone(
           .Set("janksPerMinute", success ? result->janks_per_minute : 0));
 }
 
+bool ExpectingPresentEvents() {
+  auto* screen = display::Screen::GetScreen();
+
+  return screen->GetNumDisplays() > 1 || screen->GetPrimaryDisplay().detected();
+}
+
 bool ArcAppPerformanceTracing::StartCustomTracing() {
   if (!active_window_) {
     return false;
@@ -216,6 +225,10 @@ bool ArcAppPerformanceTracing::StartCustomTracing() {
 
   session_ = std::make_unique<ArcAppPerformanceTracingSession>(
       active_window_, *ticks_now_callback());
+
+  // Disable listening for presents if we don't have an attached display.
+  // See b/332726656
+  session_->set_trace_real_presents(ExpectingPresentEvents());
 
   custom_trace_result_.reset();
   session_->Schedule(
@@ -500,7 +513,7 @@ void ArcAppPerformanceTracing::MaybeStartTracing() {
       SyncServiceFactory::GetForProfile(profile);
   if (!sync_service) {
     // Possible if sync is disabled by command line flag.
-    // TODO(crbug.com/1330894): This should probably handled by
+    // TODO(crbug.com/40227318): This should probably handled by
     // ArcAppPerformanceTracingFactory.
     VLOG(1) << "Cannot trace: Sync service not available";
     return;

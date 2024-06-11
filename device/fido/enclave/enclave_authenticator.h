@@ -39,8 +39,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) EnclaveAuthenticator
  public:
   EnclaveAuthenticator(
       std::unique_ptr<CredentialRequest> ui_request,
-      base::RepeatingCallback<void(sync_pb::WebauthnCredentialSpecifics)>
-          save_passkey_callback,
       NetworkContextFactory network_context_factory);
   ~EnclaveAuthenticator() override;
 
@@ -93,6 +91,10 @@ class COMPONENT_EXPORT(DEVICE_FIDO) EnclaveAuthenticator
     MakeCredentialCallback callback;
   };
 
+  void DispatchMakeCredentialWithNewUVKey(
+      base::span<const uint8_t> uv_public_key);
+  void DispatchGetAssertionWithNewUVKey(
+      base::span<const uint8_t> uv_public_key);
   void ProcessMakeCredentialResponse(std::optional<cbor::Value> response);
   void ProcessGetAssertionResponse(std::optional<cbor::Value> response);
   void CompleteRequestWithError(CtapDeviceResponseCode error);
@@ -102,20 +104,20 @@ class COMPONENT_EXPORT(DEVICE_FIDO) EnclaveAuthenticator
   void CompleteGetAssertionRequest(
       CtapDeviceResponseCode status,
       std::vector<AuthenticatorGetAssertionResponse> responses);
+  void ProcessErrorResponse(const ErrorResponse& error);
 
   const std::array<uint8_t, 8> id_;
   const NetworkContextFactory network_context_factory_;
   const std::unique_ptr<CredentialRequest> ui_request_;
-
-  // Callback for storing a newly-created passkey.
-  const base::RepeatingCallback<void(sync_pb::WebauthnCredentialSpecifics)>
-      save_passkey_callback_;
 
   // Caches the request while waiting for the connection to be established.
   // At most one of these can be non-null at any given time.
   std::unique_ptr<PendingGetAssertionRequest> pending_get_assertion_request_;
   std::unique_ptr<PendingMakeCredentialRequest>
       pending_make_credential_request_;
+
+  // Set to true when the request included a deferred UV key creation.
+  bool includes_new_uv_key_ = false;
 
   base::WeakPtrFactory<EnclaveAuthenticator> weak_factory_{this};
 };

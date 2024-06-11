@@ -84,7 +84,7 @@ export {DEFAULT_CHECKED_VALUE, DEFAULT_UNCHECKED_VALUE} from '/shared/settings/c
 export {ExtensionControlBrowserProxy, ExtensionControlBrowserProxyImpl} from '/shared/settings/extension_control_browser_proxy.js';
 export {LifetimeBrowserProxy, LifetimeBrowserProxyImpl} from '/shared/settings/lifetime_browser_proxy.js';
 export {ProfileInfo, ProfileInfoBrowserProxy, ProfileInfoBrowserProxyImpl} from '/shared/settings/people_page/profile_info_browser_proxy.js';
-export {ChromeSigninUserChoice, ChromeSigninUserChoiceInfo, PageStatus, StatusAction, StoredAccount, SyncBrowserProxy, SyncBrowserProxyImpl, SyncPrefs, SyncStatus} from '/shared/settings/people_page/sync_browser_proxy.js';
+export {ChromeSigninUserChoice, ChromeSigninUserChoiceInfo, PageStatus, SignedInState, StatusAction, StoredAccount, SyncBrowserProxy, SyncBrowserProxyImpl, SyncPrefs, SyncStatus} from '/shared/settings/people_page/sync_browser_proxy.js';
 export {SettingsPrefsElement} from '/shared/settings/prefs/prefs.js';
 export {CrSettingsPrefs} from '/shared/settings/prefs/prefs_types.js';
 export {MetricsReporting, PrivacyPageBrowserProxy, PrivacyPageBrowserProxyImpl, ResolverOption, SecureDnsMode, SecureDnsSetting, SecureDnsUiManagementMode} from '/shared/settings/privacy_page/privacy_page_browser_proxy.js';
@@ -139,6 +139,9 @@ export {SettingsDropdownMenuElement} from './controls/settings_dropdown_menu.js'
 export {SettingsSliderElement} from './controls/settings_slider.js';
 export {SettingsToggleButtonElement} from './controls/settings_toggle_button.js';
 export {PrefControlMixinInternal} from './controls/v2/pref_control_mixin_internal.js';
+export {SettingsDropdownV2Element} from './controls/v2/settings_dropdown_v2.js';
+export {SettingsSliderV2Element} from './controls/v2/settings_slider_v2.js';
+export {SettingsToggleV2Element} from './controls/v2/settings_toggle_v2.js';
 export {SettingsAudioElement} from './device_page/audio.js';
 export {setCrosAudioConfigForTesting} from './device_page/cros_audio_config.js';
 export {SettingsDevicePageElement} from './device_page/device_page.js';
@@ -166,6 +169,7 @@ export {SettingsPerDeviceTouchpadElement} from './device_page/per_device_touchpa
 export {SettingsPerDeviceTouchpadSubsectionElement} from './device_page/per_device_touchpad_subsection.js';
 export {getShortcutInputProvider} from './device_page/shortcut_input_mojo_interface_provider.js';
 export {ensureLazyLoaded} from './ensure_lazy_loaded.js';
+export {ApnSubpageElement} from './internet_page/apn_subpage.js';
 export {OsSettingsCellularSetupDialogElement} from './internet_page/cellular_setup_dialog.js';
 export {EsimRemoveProfileDialogElement} from './internet_page/esim_remove_profile_dialog.js';
 export {EsimRenameDialogElement} from './internet_page/esim_rename_dialog.js';
@@ -182,6 +186,7 @@ export {MainPageContainerElement} from './main_page_container/main_page_containe
 export {PageDisplayerElement} from './main_page_container/page_displayer.js';
 export {recordClick, recordNavigation, recordPageBlur, recordPageFocus, recordSearch, recordSettingChange, setUserActionRecorderForTesting} from './metrics_recorder.js';
 export * as appNotificationHandlerMojom from './mojom-webui/app_notification_handler.mojom-webui.js';
+export * as appParentalControlsHandlerMojom from './mojom-webui/app_parental_controls_handler.mojom-webui.js';
 export * as appPermissionHandlerMojom from './mojom-webui/app_permission_handler.mojom-webui.js';
 export * as crosAudioConfigMojom from './mojom-webui/cros_audio_config.mojom-webui.js';
 export * as displaySettingsProviderMojom from './mojom-webui/display_settings_provider.mojom-webui.js';
@@ -215,9 +220,11 @@ export {OsAboutPageElement} from './os_about_page/os_about_page.js';
 export {AndroidAppsBrowserProxy, AndroidAppsBrowserProxyImpl} from './os_apps_page/android_apps_browser_proxy.js';
 export {AppManagementFileHandlingItemElement} from './os_apps_page/app_management_page/file_handling_item.js';
 export {PluginVmBrowserProxy, PluginVmBrowserProxyImpl} from './os_apps_page/app_management_page/plugin_vm_page/plugin_vm_browser_proxy.js';
+export {AppManagementReadOnlyPermissionItemElement} from './os_apps_page/app_management_page/read_only_permission_item.js';
 export {AppManagementSupportedLinksItemElement} from './os_apps_page/app_management_page/supported_links_item.js';
 export {AppManagementToggleRowElement} from './os_apps_page/app_management_page/toggle_row.js';
 export {setAppNotificationProviderForTesting} from './os_apps_page/app_notifications_page/mojo_interface_provider.js';
+export {setAppParentalControlsProviderForTesting} from './os_apps_page/app_parental_controls/mojo_interface_provider.js';
 export {OsSettingsAppsPageElement} from './os_apps_page/os_apps_page.js';
 export {OsBluetoothDevicesSubpageBrowserProxy, OsBluetoothDevicesSubpageBrowserProxyImpl} from './os_bluetooth_page/os_bluetooth_devices_subpage_browser_proxy.js';
 export {SettingsBluetoothPageElement} from './os_bluetooth_page/os_bluetooth_page.js';
@@ -236,7 +243,7 @@ export {setAppPermissionProviderForTesting} from './os_privacy_page/mojo_interfa
 export {OsSettingsPrivacyPageElement} from './os_privacy_page/os_privacy_page.js';
 export {DataAccessPolicyState, PeripheralDataAccessBrowserProxy, PeripheralDataAccessBrowserProxyImpl} from './os_privacy_page/peripheral_data_access_browser_proxy.js';
 export {SettingsPrivacyHubAppPermissionRow} from './os_privacy_page/privacy_hub_app_permission_row.js';
-export {GeolocationAccessLevel} from './os_privacy_page/privacy_hub_geolocation_subpage.js';
+export {GeolocationAccessLevel, ScheduleType} from './os_privacy_page/privacy_hub_geolocation_subpage.js';
 export {PrivacyHubSensorSubpageUserAction} from './os_privacy_page/privacy_hub_metrics_util.js';
 export {SettingsPrivacyHubSystemServiceRow} from './os_privacy_page/privacy_hub_system_service_row.js';
 export {OsResetBrowserProxy, OsResetBrowserProxyImpl} from './os_reset_page/os_reset_browser_proxy.js';

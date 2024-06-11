@@ -94,7 +94,6 @@ import org.chromium.base.metrics.ScopedSysTraceEvent;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
-import org.chromium.components.autofill.AndroidAutofillClient;
 import org.chromium.components.autofill.AutofillProvider;
 import org.chromium.components.autofill.AutofillSelectionMenuItemHelper;
 import org.chromium.components.content_capture.OnscreenContentProvider;
@@ -205,6 +204,9 @@ public class AwContents implements SmartClipProvider {
     // DOM id grammar: https://www.w3.org/TR/1999/REC-html401-19991224/types.html#type-name
     private static final Pattern sDataURLWithSelectorPattern =
             Pattern.compile("^[^#]*(#[A-Za-z][A-Za-z0-9\\-_:.]*)$");
+
+    private static final String CONSTRUCTOR_HISTOGRAM_NAME =
+            "Android.WebView.AwContentsConstructorTime";
 
     private static class ForceAuxiliaryBitmapRendering {
         private static final boolean sResult = lazyCheck();
@@ -490,8 +492,6 @@ public class AwContents implements SmartClipProvider {
     private float mMaxPageScaleFactor = 1.0f;
     private float mContentWidthDip;
     private float mContentHeightDip;
-
-    private AndroidAutofillClient mAndroidAutofillClient;
 
     private AwPdfExporter mAwPdfExporter;
 
@@ -895,11 +895,19 @@ public class AwContents implements SmartClipProvider {
         @Override
         public void onScrollUpdateGestureConsumed() {
             mScrollAccessibilityHelper.postViewScrolledAccessibilityEventCallback();
-            mZoomControls.invokeZoomPicker();
+            if (AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_INVOKE_ZOOM_PICKER_ON_GSU)) {
+                mZoomControls.invokeZoomPicker();
+            }
         }
 
         @Override
         public void onScrollStarted(int scrollOffsetY, int scrollExtentY, boolean isDirectionUp) {
+            if (!AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_INVOKE_ZOOM_PICKER_ON_GSU)) {
+                // This needs to be paired with call to setAutoDismissed(true) and a call to invoke
+                // zoom picker, so that a delayed hide task is posted by android. This is happening
+                // on scroll end below.
+                mZoomControls.setAutoDismissed(false);
+            }
             mZoomControls.invokeZoomPicker();
             if (mAwFrameMetricsListener != null) {
                 mAwFrameMetricsListener.onWebContentsScrollStateUpdate(
@@ -909,6 +917,12 @@ public class AwContents implements SmartClipProvider {
 
         @Override
         public void onScrollEnded(int scrollOffsetY, int scrollExtentY) {
+            if (!AwFeatureMap.isEnabled(AwFeatures.WEBVIEW_INVOKE_ZOOM_PICKER_ON_GSU)) {
+                mZoomControls.setAutoDismissed(true);
+                // A call to invoke is required so that a delayed hide task can be posted by
+                // android.
+                mZoomControls.invokeZoomPicker();
+            }
             if (mAwFrameMetricsListener != null) {
                 mAwFrameMetricsListener.onWebContentsScrollStateUpdate(
                         /* isScrolling= */ false, mId);
@@ -1273,6 +1287,7 @@ public class AwContents implements SmartClipProvider {
             AwSettings settings,
             DependencyFactory dependencyFactory) {
         assert browserContext != null;
+        long startTime = SystemClock.uptimeMillis();
         sLastId += 1;
         mId = sLastId;
         if (!browserContext.isDefaultAwBrowserContext()) {
@@ -1392,6 +1407,11 @@ public class AwContents implements SmartClipProvider {
 
             onContainerViewChanged();
         }
+        long delta = SystemClock.uptimeMillis() - startTime;
+        RecordHistogram.recordTimesHistogram(CONSTRUCTOR_HISTOGRAM_NAME, delta);
+        if (mId == 1) {
+            RecordHistogram.recordTimesHistogram(CONSTRUCTOR_HISTOGRAM_NAME + ".First", delta);
+        }
     }
 
     private void initWebContents(
@@ -1401,7 +1421,7 @@ public class AwContents implements SmartClipProvider {
             WindowAndroid windowAndroid,
             WebContentsInternalsHolder internalsHolder,
             AwSelectionActionMenuDelegate selectionActionMenuDelegate) {
-        webContents.initialize(
+        webContents.setDelegates(
                 PRODUCT_VERSION, viewDelegate, internalDispatcher, windowAndroid, internalsHolder);
         mViewEventSink = ViewEventSink.from(mWebContents);
         mViewEventSink.setHideKeyboardOnBlur(false);
@@ -2074,6 +2094,11 @@ public class AwContents implements SmartClipProvider {
 
     public AwDarkMode getAwDarkModeForTesting() {
         return mAwDarkMode;
+    }
+
+    public void flushBackForwardCache() {
+        if (isDestroyed(NO_WARN)) return;
+        AwContentsJni.get().flushBackForwardCache(mNativeAwContents);
     }
 
     /** Destroys this object and deletes its native counterpart. */
@@ -3134,24 +3159,24 @@ public class AwContents implements SmartClipProvider {
      * Add a JavaScript snippet that will run after the document has been created, but before any
      * script in the document executes. Note that calling this method multiple times will add
      * multiple scripts. Added scripts will take effect from the next navigation. If want to remove
-     * previously set script, use the returned ScriptHandler object to do so. Any JavaScript
-     * objects injected by addWebMessageListener() or addJavascriptInterface() will be available to
-     * use in this script. Scripts can be removed using the ScriptHandler object returned when
-     * they were added. The DOM tree may not be ready at the moment that the script runs.
+     * previously set script, use the returned ScriptHandler object to do so. Any JavaScript objects
+     * injected by addWebMessageListener() or addJavascriptInterface() will be available to use in
+     * this script. Scripts can be removed using the ScriptHandler object returned when they were
+     * added. The DOM tree may not be ready at the moment that the script runs.
      *
-     * If multiple scripts are added, they will be executed in the same order they were added.
+     * <p>If multiple scripts are added, they will be executed in the same order they were added.
      *
-     * @param script             The JavaScript snippet to be run.
+     * @param script The JavaScript snippet to be run.
      * @param allowedOriginRules The JavaScript snippet will run on every frame whose origin matches
-     *                           any one of the allowedOriginRules.
-     *
+     *     any one of the allowedOriginRules.
      * @throws IllegalArgumentException if one of the allowedOriginRules is invalid or one of
-     *                                  jsObjectName and allowedOriginRules is {@code null}.
+     *     jsObjectName and allowedOriginRules is {@code null}.
      * @return A {@link ScriptHandler} for removing the script.
      */
     public ScriptHandler addDocumentStartJavaScript(
             @NonNull String script, @NonNull String[] allowedOriginRules) {
         if (TRACE) Log.i(TAG, "%s addDocumentStartJavaScript", this);
+        if (isDestroyed(WARN)) return null;
         if (script == null) {
             throw new IllegalArgumentException("script shouldn't be null.");
         }
@@ -3170,6 +3195,7 @@ public class AwContents implements SmartClipProvider {
     }
 
     /* package */ void removeDocumentStartJavaScript(int scriptId) {
+        if (isDestroyed(WARN)) return;
         AwContentsJni.get().removeDocumentStartJavaScript(mNativeAwContents, scriptId);
     }
 
@@ -3179,16 +3205,14 @@ public class AwContents implements SmartClipProvider {
      * this call will not inject the JS object immediately. The JS object will be injected only for
      * future navigations (in DidClearWindowObject).
      *
-     * @param jsObjectName    The name for the injected JavaScript object for this {@link
-     *                        WebMessageListener}.
-     * @param allowedOrigins  A list of matching rules for the allowed origins.
-     *                        The JavaScript object will be injected when the frame's origin matches
-     *                        any one of the allowed origins. If a wildcard "*" is provided, it will
-     *                        inject JavaScript object to all frames.
-     * @param listener        The {@link WebMessageListener} to be called when received
-     *                        onPostMessage().
+     * @param jsObjectName The name for the injected JavaScript object for this {@link
+     *     WebMessageListener}.
+     * @param allowedOrigins A list of matching rules for the allowed origins. The JavaScript object
+     *     will be injected when the frame's origin matches any one of the allowed origins. If a
+     *     wildcard "*" is provided, it will inject JavaScript object to all frames.
+     * @param listener The {@link WebMessageListener} to be called when received onPostMessage().
      * @throws IllegalArgumentException if one of the allowedOriginRules is invalid or one of
-     *                                  jsObjectName and allowedOriginRules is {@code null}.
+     *     jsObjectName and allowedOriginRules is {@code null}.
      * @throws NullPointerException if listener is {@code null}.
      */
     public void addWebMessageListener(
@@ -3196,6 +3220,7 @@ public class AwContents implements SmartClipProvider {
             @NonNull String[] allowedOriginRules,
             @NonNull WebMessageListener listener) {
         if (TRACE) Log.i(TAG, "%s addWebMessageListener=%s", this, jsObjectName);
+        if (isDestroyed(WARN)) return;
         if (listener == null) {
             throw new NullPointerException("listener shouldn't be null");
         }
@@ -3234,6 +3259,7 @@ public class AwContents implements SmartClipProvider {
      */
     public void removeWebMessageListener(@NonNull String jsObjectName) {
         if (TRACE) Log.i(TAG, "%s removeWebMessageListener=%s", this, jsObjectName);
+        if (isDestroyed(WARN)) return;
         AwContentsJni.get().removeWebMessageListener(mNativeAwContents, jsObjectName);
     }
 
@@ -4157,16 +4183,6 @@ public class AwContents implements SmartClipProvider {
     }
 
     @CalledByNative
-    private void setAndroidAutofillClient(AndroidAutofillClient client) {
-        mAndroidAutofillClient = client;
-    }
-
-    @VisibleForTesting
-    public AndroidAutofillClient getAutofillClient() {
-        return mAndroidAutofillClient;
-    }
-
-    @CalledByNative
     private void didOverscroll(
             int deltaX, int deltaY, float velocityX, float velocityY, boolean insideVSync) {
         mScrollOffsetManager.overScrollBy(deltaX, deltaY);
@@ -5065,5 +5081,7 @@ public class AwContents implements SmartClipProvider {
         StartupJavascriptInfo[] getDocumentStartupJavascripts(long nativeAwContents);
 
         void onConfigurationChanged(long nativeAwContents);
+
+        void flushBackForwardCache(long nativeAwContents);
     }
 }

@@ -85,25 +85,14 @@ constexpr gfx::Rect kMaxRect = gfx::Rect(0,
 // could be RGBA/BGRA depends on platform and the preference of the buffer
 // format. When user wants ARGB result, it requests a CopyOutputRequest with
 // ResultFormat::RGBA which gives RGBA/BGRA results depends on platform and
-// where the result is stored (system memory or shared texture).
-// In our case, when requesting a kPreferGpuMemoryBuffer, it will create a blit
-// request, results in CopyOutputRequest uses whatever RGBA/BGRA pixel format
-// the GMB is, which we created in advance. For now, it is determined by
-// GetFramePoolPlatformPixelFormat.
+// where the result is stored (buffer format preference).
+// Currently, kPreferGpuMemoryBuffer + ARGB will request BGRA as pixel format,
+// but kDefault + ARGB will be platform dependent because CopyOutputRequest
+// will use kN32_SkColorType (RGBA on Android, BGRA elsewhere) mostly, and use
+// kRGBA_8888_SkColorType on iOS.
 // This is also documented in the mojom comments (https://crrev.com/c/5418235)
 // about SetFormat, indicating the ARGB format may produce RGBA/BGRA frames
 // depends on platform.
-
-media::VideoPixelFormat GetFramePoolPlatformPixelFormat(
-    media::VideoPixelFormat format,
-    mojom::BufferFormatPreference buffer_format_preference) {
-  if (format == media::PIXEL_FORMAT_ARGB &&
-      buffer_format_preference ==
-          mojom::BufferFormatPreference::kPreferGpuMemoryBuffer) {
-    return media::PIXEL_FORMAT_ABGR;
-  }
-  return format;
-}
 
 // Get the frame pool for the specific format. We need context_provider if the
 // format is NV12 or ARGB (when buffer_format_preference is kNativeTexture).
@@ -124,9 +113,8 @@ std::unique_ptr<VideoFramePool> GetVideoFramePoolForFormat(
       switch (buffer_format_preference) {
         case mojom::BufferFormatPreference::kPreferGpuMemoryBuffer:
           return std::make_unique<GpuMemoryBufferVideoFramePool>(
-              capacity,
-              GetFramePoolPlatformPixelFormat(format, buffer_format_preference),
-              gfx::ColorSpace::CreateSRGB(), context_provider);
+              capacity, format, gfx::ColorSpace::CreateSRGB(),
+              context_provider);
         case mojom::BufferFormatPreference::kDefault:
           return std::make_unique<SharedMemoryVideoFramePool>(capacity);
         default:
@@ -863,10 +851,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
                         region_properties->render_pass_subrect.ToString());
     auto reserve_start_time = base::TimeTicks::Now();
 
-    frame = frame_pool_->ReserveVideoFrame(
-        GetFramePoolPlatformPixelFormat(pixel_format_,
-                                        buffer_format_preference_),
-        capture_size);
+    frame = frame_pool_->ReserveVideoFrame(pixel_format_, capture_size);
 
     UMA_HISTOGRAM_CUSTOM_TIMES(
         "Viz.FrameSinkVideoCapturer.ReserveFrameDuration",
@@ -1001,18 +986,18 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
       switch (frame->format()) {
         case media::PIXEL_FORMAT_I420:
           strides = base::StringPrintf("strideY:%d StrideU:%d StrideV:%d",
-                                       frame->stride(VideoFrame::kYPlane),
-                                       frame->stride(VideoFrame::kUPlane),
-                                       frame->stride(VideoFrame::kVPlane));
+                                       frame->stride(VideoFrame::Plane::kY),
+                                       frame->stride(VideoFrame::Plane::kU),
+                                       frame->stride(VideoFrame::Plane::kV));
           break;
         case media::PIXEL_FORMAT_ARGB:
           strides = base::StringPrintf("strideARGB:%d",
-                                       frame->stride(VideoFrame::kARGBPlane));
+                                       frame->stride(VideoFrame::Plane::kARGB));
           break;
         case media::PIXEL_FORMAT_NV12:
           strides = base::StringPrintf("strideY:%d StrideUV:%d",
-                                       frame->stride(VideoFrame::kYPlane),
-                                       frame->stride(VideoFrame::kUVPlane));
+                                       frame->stride(VideoFrame::Plane::kY),
+                                       frame->stride(VideoFrame::Plane::kUV));
           break;
         default:
           strides = "strides:???";
@@ -1111,7 +1096,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
     std::array<gpu::MailboxHolder, CopyOutputResult::kMaxPlanes>
         mailbox_holders{first_mailbox, second_mailbox, gpu::MailboxHolder{}};
 
-    // TODO(https://crbug.com/775740): change the capturer to only request the
+    // TODO(crbug.com/41350322): change the capturer to only request the
     // parts of the frame that have changed whenever possible.
     blit_request =
         BlitRequest(content_rect.origin(), LetterboxingBehavior::kLetterbox,
@@ -1180,7 +1165,7 @@ void FrameSinkVideoCapturerImpl::MaybeCaptureFrame(
   request->SetScaleRatio(
       gfx::Vector2d(source_size.width(), source_size.height()),
       gfx::Vector2d(content_rect.width(), content_rect.height()));
-  // TODO(https://crbug.com/775740): As an optimization, set the result
+  // TODO(crbug.com/41350322): As an optimization, set the result
   // selection to just the part of the result that would have changed due to
   // aggregated damage over all the frames that weren't captured. This is
   // only possible if we kept track of the damage between contents stored
@@ -1240,9 +1225,9 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
       case CopyOutputResult::Format::I420_PLANES:
         format = "I420";
         strides = base::StringPrintf("strideY:%d StrideU:%d StrideV:%d",
-                                     frame->stride(VideoFrame::kYPlane),
-                                     frame->stride(VideoFrame::kUPlane),
-                                     frame->stride(VideoFrame::kVPlane));
+                                     frame->stride(VideoFrame::Plane::kY),
+                                     frame->stride(VideoFrame::Plane::kU),
+                                     frame->stride(VideoFrame::Plane::kV));
         break;
       case CopyOutputResult::Format::NV12_PLANES:
       case CopyOutputResult::Format::NV12_MULTIPLANE:
@@ -1250,12 +1235,12 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
                      ? "NV12_MULTIPLANE"
                      : "NV12";
         strides = base::StringPrintf("strideY:%d StrideUV:%d",
-                                     frame->stride(VideoFrame::kYPlane),
-                                     frame->stride(VideoFrame::kUVPlane));
+                                     frame->stride(VideoFrame::Plane::kY),
+                                     frame->stride(VideoFrame::Plane::kUV));
         break;
       case CopyOutputResult::Format::RGBA:
         strides = base::StringPrintf("strideARGB:%d",
-                                     frame->stride(VideoFrame::kARGBPlane));
+                                     frame->stride(VideoFrame::Plane::kARGB));
 
         switch (result->destination()) {
           case CopyOutputResult::Destination::kSystemMemory:
@@ -1288,15 +1273,15 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
     DCHECK_EQ(content_rect.width() % 2, 0);
     DCHECK_EQ(content_rect.height() % 2, 0);
     // Populate the VideoFrame from the CopyOutputResult.
-    const int y_stride = frame->stride(VideoFrame::kYPlane);
-    uint8_t* const y = frame->GetWritableVisibleData(VideoFrame::kYPlane) +
+    const int y_stride = frame->stride(VideoFrame::Plane::kY);
+    uint8_t* const y = frame->GetWritableVisibleData(VideoFrame::Plane::kY) +
                        content_rect.y() * y_stride + content_rect.x();
-    const int u_stride = frame->stride(VideoFrame::kUPlane);
-    uint8_t* const u = frame->GetWritableVisibleData(VideoFrame::kUPlane) +
+    const int u_stride = frame->stride(VideoFrame::Plane::kU);
+    uint8_t* const u = frame->GetWritableVisibleData(VideoFrame::Plane::kU) +
                        (content_rect.y() / 2) * u_stride +
                        (content_rect.x() / 2);
-    const int v_stride = frame->stride(VideoFrame::kVPlane);
-    uint8_t* const v = frame->GetWritableVisibleData(VideoFrame::kVPlane) +
+    const int v_stride = frame->stride(VideoFrame::Plane::kV);
+    uint8_t* const v = frame->GetWritableVisibleData(VideoFrame::Plane::kV) +
                        (content_rect.y() / 2) * v_stride +
                        (content_rect.x() / 2);
     bool success =
@@ -1314,11 +1299,11 @@ void FrameSinkVideoCapturerImpl::DidCopyFrame(
     UMA_HISTOGRAM_CAPTURE_SUCCEEDED("I420", success);
   } else if (pixel_format_ == media::PIXEL_FORMAT_ARGB) {
     if (buffer_format_preference_ == mojom::BufferFormatPreference::kDefault) {
-      int stride = frame->stride(VideoFrame::kARGBPlane);
+      int stride = frame->stride(VideoFrame::Plane::kARGB);
       // Note: ResultFormat::RGBA CopyOutputResult's format currently is
       // kN32_SkColorType, which can be RGBA or BGRA depending on the platform.
       uint8_t* const pixels =
-          frame->GetWritableVisibleData(VideoFrame::kARGBPlane) +
+          frame->GetWritableVisibleData(VideoFrame::Plane::kARGB) +
           content_rect.y() * stride + content_rect.x() * 4;
       bool success = result->ReadRGBAPlane(pixels, stride);
       if (success) {
@@ -1469,8 +1454,10 @@ void FrameSinkVideoCapturerImpl::MaybeDeliverFrame(
     // Note: The following is used by
     // chrome/browser/media/cast_mirroring_performance_browsertest.cc, in
     // addition to the usual runtime tracing
-    TRACE_EVENT_END("gpu.capture", CaptureTrack(frame->metadata()), "success",
-                    false);
+    if (frame) {
+      TRACE_EVENT_END("gpu.capture", CaptureTrack(frame->metadata()), "success",
+                      false);
+    }
     MaybeScheduleRefreshFrame();
     return;
   }
@@ -1521,14 +1508,7 @@ void FrameSinkVideoCapturerImpl::MaybeDeliverFrame(
 
   num_frames_in_flight_++;
 
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
   TRACE_COUNTER("gpu.capture", "NumFramesInFlight", num_frames_in_flight_);
-#else
-  // TODO(crbug.com/42050015): Delete when Perfetto is the default.
-  TRACE_COUNTER_ID1("gpu.capture",
-                    "FrameSinkVideoCapturerImpl::num_frames_in_flight_", this,
-                    num_frames_in_flight_);
-#endif  // BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
 
   // Send the frame to the consumer.
   consumer_->OnFrameCaptured(std::move(handle), std::move(info), content_rect,

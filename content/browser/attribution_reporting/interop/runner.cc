@@ -267,8 +267,7 @@ void Handle(const AttributionSimulationEvent::StartRequest& event,
   }
 
   auto suitable_context = AttributionSuitableContext::CreateForTesting(
-      event.context_origin,
-      /*is_nested_within_fenced_frame=*/false, kFrameId,
+      event.context_origin, event.fenced, kFrameId,
       /*last_navigation_id=*/kNavigationId);
 
   std::optional<blink::AttributionSrcToken> attribution_src_token;
@@ -438,14 +437,20 @@ RunAttributionInteropSimulation(AttributionInteropRun run,
       std::make_unique<NoOpAttributionOsLevelManager>(), storage_partition,
       storage_task_runner);
 
-  static_cast<AggregationServiceImpl*>(
-      storage_partition->GetAggregationService())
-      ->SetPublicKeysForTesting(  // IN-TEST
-          GetAggregationServiceProcessingUrl(
-              ::aggregation_service::GetDefaultAggregationCoordinatorOrigin()),
-          PublicKeyset({hpke_key},
-                       /*fetch_time=*/base::Time::Now(),
-                       /*expiry_time=*/base::Time::Max()));
+  for (const auto& origin : run.config.aggregation_coordinator_origins) {
+    // TODO: Consider using a different public key for each origin.
+    static_cast<AggregationServiceImpl*>(
+        storage_partition->GetAggregationService())
+        ->SetPublicKeysForTesting(  // IN-TEST
+            GetAggregationServiceProcessingUrl(origin),
+            PublicKeyset({hpke_key},
+                         /*fetch_time=*/base::Time::Now(),
+                         /*expiry_time=*/base::Time::Max()));
+  }
+
+  aggregation_service::ScopedAggregationCoordinatorAllowlistForTesting
+      scoped_aggregation_coordinators(
+          std::move(run.config.aggregation_coordinator_origins));
 
   for (const auto& event : run.events) {
     task_environment.FastForwardBy(event.time - base::Time::Now());

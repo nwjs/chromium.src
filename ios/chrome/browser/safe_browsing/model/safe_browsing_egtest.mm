@@ -71,10 +71,10 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   GURL _malwareURL;
   // Text that is found on the malware page.
   std::string _malwareContent;
-  // A URL of a page with an iframe that is treated as having malware.
-  GURL _iframeWithMalwareURL;
-  // Text that is found on the iframe that is treated as having malware.
-  std::string _iframeWithMalwareContent;
+  // A URL of a page with an iframe that is treated as a phishing page.
+  GURL _iframeWithPhishingURL;
+  // Text that is found on the iframe that is treated as a phishing page.
+  std::string _iframeWithPhishingContent;
   // A URL that is treated as a safe page.
   GURL _safeURL1;
   // Text that is found on the safe page.
@@ -104,6 +104,24 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   config.additional_args.push_back(std::string("--mark_as_malware=") +
                                    _malwareURL.spec());
   config.additional_args.push_back(
+      std::string("--mark_as_hash_prefix_real_time_phishing=") +
+      _phishingURL.spec());
+
+  // Disable HPRT for malware URL related tests since artificial verdict caching
+  // for HPRT marks a URL for phishing which breaks tests. Additionally, this
+  // promotes continued test coverage for the non-HPRT logic path.
+  if ([self
+          isRunningTest:@selector(testRestoreToWarningPagePreservesHistory)] ||
+      [self isRunningTest:@selector(testMalwarePage)] ||
+      [self isRunningTest:@selector(testProceedingPastMalwareWarning)]) {
+    config.additional_args.push_back(std::string(
+        "--disable-features=SafeBrowsingHashPrefixRealTimeLookups"));
+  } else {
+    config.additional_args.push_back(
+        std::string("--enable-features=SafeBrowsingHashPrefixRealTimeLookups"));
+  }
+
+  config.additional_args.push_back(
       std::string("--mark_as_real_time_phishing=") +
       _realTimePhishingURL.spec());
   config.additional_args.push_back(
@@ -124,9 +142,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   _malwareURL = self.testServer->GetURL("/echo_malware_page");
   _malwareContent = "malware_page";
 
-  _iframeWithMalwareURL =
-      self.testServer->GetURL("/iframe?" + _malwareURL.spec());
-  _iframeWithMalwareContent = _malwareContent;
+  _iframeWithPhishingURL =
+      self.testServer->GetURL("/iframe?" + _phishingURL.spec());
+  _iframeWithPhishingContent = _phishingContent;
 
   _safeURL1 = self.testServer->GetURL("/echo_safe_page");
   _safeContent1 = "safe_page";
@@ -134,17 +152,15 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   _safeURL2 = self.testServer->GetURL("/echo_also_safe");
   _safeContent2 = "also_safe";
 
-  if (@available(iOS 15.1, *)) {
-  } else {
-    // Workaround https://bugs.webkit.org/show_bug.cgi?id=226323, which breaks
-    // some back/forward navigations between pages that share a renderer
-    // process. Use 'localhost' instead of '127.0.0.1' for safe URLs to
-    // prevent sharing renderer processes with unsafe URLs.
-    GURL::Replacements replacements;
-    replacements.SetHostStr("localhost");
-    _safeURL1 = _safeURL1.ReplaceComponents(replacements);
-    _safeURL2 = _safeURL2.ReplaceComponents(replacements);
-  }
+  // Artificial verdict caching for hash prefix real time causes URLs with the
+  // same host to be seen as unsafe. Replacing the host string with localhost
+  // allows for proper testing between safe browsing v5 and iframe queries.
+  GURL::Replacements replacements;
+  replacements.SetHostStr("localhost");
+  _safeURL1 = _safeURL1.ReplaceComponents(replacements);
+  _safeURL2 = _safeURL2.ReplaceComponents(replacements);
+  _iframeWithPhishingURL =
+      _iframeWithPhishingURL.ReplaceComponents(replacements);
 
   // `appConfigurationForTestCase` is called during [super setUp], and
   // depends on the URLs initialized above.
@@ -415,7 +431,7 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   [ChromeEarlGrey setBoolValue:YES forUserPref:prefs::kSafeBrowsingEnabled];
   [ChromeEarlGrey loadURL:_safeURL2];
   [ChromeEarlGrey waitForWebStateContainingText:_safeContent2];
-  [ChromeEarlGrey loadURL:_malwareURL];
+  [ChromeEarlGrey loadURL:_phishingURL];
   [ChromeEarlGrey waitForWebStateContainingText:l10n_util::GetStringUTF8(
                                                     IDS_SAFEBROWSING_HEADING)];
 }
@@ -507,11 +523,11 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
                    forUserPref:prefs::kSafeBrowsingProceedAnywayDisabled];
 
   // Load the a malware safe browsing error page.
-  [ChromeEarlGrey loadURL:_malwareURL];
+  [ChromeEarlGrey loadURL:_phishingURL];
   [ChromeEarlGrey waitForWebStateContainingText:"Dangerous site"];
 
   [ChromeEarlGrey tapWebStateElementWithID:@"details-button"];
-  [ChromeEarlGrey waitForWebStateContainingText:kMalwareWarningDetails];
+  [ChromeEarlGrey waitForWebStateContainingText:kPhishingWarningDetails];
 
   // Verify that the proceed-link element is not found.  When the proceed link
   // is disabled, the entire second paragraph hidden.
@@ -537,20 +553,20 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
   [ChromeEarlGrey waitForWebStateContainingText:_safeContent1];
 
   // Load the malware page and verify a warning is shown.
-  [ChromeEarlGrey loadURL:_malwareURL];
+  [ChromeEarlGrey loadURL:_phishingURL];
   [ChromeEarlGrey waitForWebStateContainingText:l10n_util::GetStringUTF8(
                                                     IDS_SAFEBROWSING_HEADING)];
 
   [ChromeEarlGrey loadURL:_safeURL2];
   [ChromeEarlGrey waitForWebStateContainingText:_safeContent2];
-  // TODO(crbug.com/1153261): Adding a delay to avoid never-ending load on the
+  // TODO(crbug.com/40159013): Adding a delay to avoid never-ending load on the
   // last navigation forward. Should be fixed in newer iOS version.
   base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(1));
 
   [ChromeEarlGrey goBack];
   [ChromeEarlGrey waitForWebStateContainingText:l10n_util::GetStringUTF8(
                                                     IDS_SAFEBROWSING_HEADING)];
-  // TODO(crbug.com/1153261): Adding a delay to avoid never-ending load on the
+  // TODO(crbug.com/40159013): Adding a delay to avoid never-ending load on the
   // last navigation forward. Should be fixed in newer iOS version.
   base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(1));
 
@@ -584,7 +600,7 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
 // Tests that performing session restoration to a Safe Browsing warning page
 // preserves navigation history.
-// TODO(crbug.com/1516583):  Test is flaky on device. Re-enable the test.
+// TODO(crbug.com/41489568):  Test is flaky on device. Re-enable the test.
 - (void)testRestoreToWarningPagePreservesHistory {
   // Build up navigation history that consists of a safe URL, a warning page,
   // and another safe URL.
@@ -639,8 +655,9 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
   // Load a page that has an iframe with malware, and verify that a warning is
   // not shown.
-  [ChromeEarlGrey loadURL:_iframeWithMalwareURL];
-  [ChromeEarlGrey waitForWebStateFrameContainingText:_malwareContent];
+  [ChromeEarlGrey loadURL:_iframeWithPhishingURL];
+  [ChromeEarlGrey
+      waitForWebStateFrameContainingText:_iframeWithPhishingContent];
 }
 
 // Tests that real-time lookups are not performed when opted-out of real-time
@@ -694,7 +711,7 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
 // Tests that a page identified as unsafe by real-time Safe Browsing is blocked
 // when loaded as part of session restoration.
-// TODO(crbug.com/1516583):  Test is flaky. Re-enable the test.
+// TODO(crbug.com/41489568):  Test is flaky. Re-enable the test.
 - (void)DISABLED_testRestoreRealTimeWarning {
   // Opt-in to real-time checks.
   [ChromeEarlGrey setURLKeyedAnonymizedDataCollectionEnabled:YES];

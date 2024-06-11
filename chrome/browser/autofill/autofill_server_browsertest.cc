@@ -210,9 +210,9 @@ MATCHER_P(EqualsUploadProto, expected_const, "") {
         ->clear_randomized_field_metadata();
   }
 
-  // TODO(crbug.com/1251119): The language is sometimes missing from the upload,
-  // making the test flaky. Add the language back to the comparison when the
-  // root cause is fixed.
+  // TODO(crbug.com/40792292): The language is sometimes missing from the
+  // upload, making the test flaky. Add the language back to the comparison when
+  // the root cause is fixed.
   request.mutable_upload()->clear_language();
   expected.mutable_upload()->clear_language();
 
@@ -280,7 +280,7 @@ IN_PROC_BROWSER_TEST_F(AutofillServerTest,
   // the calculation of the mask.
   std::string data_present = "1f7e0003f80000080004000001c420180002";
 
-  // TODO(crbug.com/1311937): Additional phone number trunk types are present
+  // TODO(crbug.com/40220393): Additional phone number trunk types are present
   // if AutofillEnableSupportForPhoneNumberTrunkTypes is enabled. Clean-up
   // implementation when launched.
   if (base::FeatureList::IsEnabled(

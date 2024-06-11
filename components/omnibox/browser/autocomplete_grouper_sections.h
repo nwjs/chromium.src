@@ -82,7 +82,12 @@ class ZpsSectionWithMVTiles : public ZpsSection {
 // Android prefixed section for Adaptive Suggestions grouping.
 class AndroidNonZPSSection : public Section {
  public:
-  explicit AndroidNonZPSSection(omnibox::GroupConfigMap& group_configs);
+  // Construct a new instance of the grouping class used in non-zero-prefix
+  // context.
+  // When `show_only_search_suggestions` is set to `true`, URLs will not be
+  // offered at any position other than position 0 (the Default Match).
+  explicit AndroidNonZPSSection(bool show_only_search_suggestions,
+                                omnibox::GroupConfigMap& group_configs);
 
   // Section:
   void InitFromMatches(ACMatches& matches) override;
@@ -133,12 +138,22 @@ class AndroidWebZpsSection : public ZpsSectionWithMVTiles {
 };
 
 // Section expressing the Desktop ZPS limits and grouping for the NTP.
-// - up to 8 suggestions total.
+// - up to 8 suggestions total or 7 total if the ZPS IPH is enabled (the 8th
+// suggestion being the IPH).
 //  - up to 8 personalized suggestions.
 //  - up to 8 trending search suggestions.
 class DesktopNTPZpsSection : public ZpsSection {
  public:
-  explicit DesktopNTPZpsSection(omnibox::GroupConfigMap& group_configs);
+  explicit DesktopNTPZpsSection(omnibox::GroupConfigMap& group_configs,
+                                size_t limit);
+};
+
+// Section expressing the Desktop ZPS limits and grouping for the IPH suggestion
+// on the NTP.
+// - Up to 1 IPH suggestion total
+class DesktopNTPZpsIPHSection : public ZpsSection {
+ public:
+  explicit DesktopNTPZpsIPHSection(omnibox::GroupConfigMap& group_configs);
 };
 
 // Section expressing the Desktop secondary ZPS limits and grouping for the NTP.

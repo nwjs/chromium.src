@@ -325,7 +325,8 @@ chromium-metrics-reviews@google.com.
 <enum name="AutofillDeveloperEngagement">
   <int value="0" label="Fillable form parsed without type hints"/>
   <int value="1" label="Fillable form parsed with type hints"/>
-  <int value="2" label="Includes UPI-VPA type hint"/>
+  <int value="2"
+      label="(Obsolete) Includes UPI-VPA type hint (removed 04/2024)"/>
 </enum>
 
 <enum name="AutofilledFieldUserEditingStatus">
@@ -1462,6 +1463,7 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="Mexico test address selected"/>
   <int value="3" label="Japan test address selected"/>
   <int value="4" label="India test address selected"/>
+  <int value="5" label="Germany test address selected"/>
 </enum>
 
 <enum name="AutofillInDevtoolsTestAddressesEvents">
@@ -1584,67 +1586,6 @@ Called by update_autofill_enums.py.-->
   <int value="4"
       label="OTP input dialog closed automatically after a server failure
              response"/>
-</enum>
-
-<enum name="AutofillPopupHidingReason">
-  <int value="0" label="A suggestion was accepted."/>
-  <int value="1" label="An interstitial page displaces the popup."/>
-  <int value="2"
-      label="A field isn't edited anymore but remains focused for now."/>
-  <int value="3" label="Focus removed from field. Follows kEndEditing."/>
-  <int value="4"
-      label="Scrolling or zooming into the page displaces the popup."/>
-  <int value="5" label="A navigation on the page or frame level."/>
-  <int value="6" label="The popup is or would become empty."/>
-  <int value="7" label="The renderer explicitly requested closing the popup."/>
-  <int value="8"
-      label="The tab with the popup is destroyed, hidden or has become
-             inactive."/>
-  <int value="9" label="The popup contains stale data."/>
-  <int value="10"
-      label="The user explicitly dismissed the popup (e.g. ESC key)."/>
-  <int value="11"
-      label="The popup view (or its controller) goes out of scope."/>
-  <int value="12" label="The platform-native UI changed (e.g. window resize)."/>
-  <int value="13"
-      label="Not enough space in the content area to display at least one row
-             of the popup within the bounds of the content area."/>
-  <int value="14"
-      label="The popup would overlap with another open prompt, and may hide
-             sensitive information in the prompt."/>
-  <int value="15"
-      label="The anchor element for which the popup would be shown is not
-             visible in the content area."/>
-  <int value="16" label="The frame holds a pointer lock."/>
-  <int value="17"
-      label="The password generation popup would overlap and hide autofill
-             popup."/>
-  <int value="18"
-      label="The Touch To Fill surface is shown instead of autofill
-             suggestions."/>
-  <int value="19"
-      label="The context menu is shown instead of the autofill suggestions."/>
-  <int value="20"
-      label="The Fast Checkout surface is shown instead of autofill
-             suggestions."/>
-  <int value="21"
-      label="The Picture-in-picture window overlaps with the autofill
-             suggestion."/>
-  <int value="22"
-      label="The context menu was open after the autofill popup, which could
-             overlap with the autofill popup."/>
-  <int value="23"
-      label="No frame currently has focus. This case is caught for safety
-             because it might be reachable due to race conditions."/>
-  <int value="24"
-      label="The sub-popup was closed, e.g. because the mouse was moved to a
-             different suggestion in the parent popup."/>
-  <int value="25"
-      label="The user edited the field. Currently applied only to Compose
-             suggestions."/>
-  <int value="26"
-      label="The popup has faded due to an expired timer. Currently applied
-             only to Compose suggestions."/>
 </enum>
 
 <enum name="AutofillPredictionsComparisonResult">
@@ -3450,6 +3391,67 @@ Called by update_autofill_enums.py.-->
   <int value="3" label="Expiration date did not match, masked server card"/>
 </enum>
 
+<enum name="AutofillSuggestionHidingReason">
+  <int value="0" label="A suggestion was accepted."/>
+  <int value="1" label="An interstitial page displaces the popup."/>
+  <int value="2"
+      label="A field isn't edited anymore but remains focused for now."/>
+  <int value="3" label="Focus removed from field. Follows kEndEditing."/>
+  <int value="4"
+      label="Scrolling or zooming into the page displaces the popup."/>
+  <int value="5" label="A navigation on the page or frame level."/>
+  <int value="6" label="The popup is or would become empty."/>
+  <int value="7" label="The renderer explicitly requested closing the popup."/>
+  <int value="8"
+      label="The tab with the popup is destroyed, hidden or has become
+             inactive."/>
+  <int value="9" label="The popup contains stale data."/>
+  <int value="10"
+      label="The user explicitly dismissed the popup (e.g. ESC key)."/>
+  <int value="11"
+      label="The popup view (or its controller) goes out of scope."/>
+  <int value="12" label="The platform-native UI changed (e.g. window resize)."/>
+  <int value="13"
+      label="Not enough space in the content area to display at least one row
+             of the popup within the bounds of the content area."/>
+  <int value="14"
+      label="The popup would overlap with another open prompt, and may hide
+             sensitive information in the prompt."/>
+  <int value="15"
+      label="The anchor element for which the popup would be shown is not
+             visible in the content area."/>
+  <int value="16" label="The frame holds a pointer lock."/>
+  <int value="17"
+      label="The password generation popup would overlap and hide autofill
+             popup."/>
+  <int value="18"
+      label="The Touch To Fill surface is shown instead of autofill
+             suggestions."/>
+  <int value="19"
+      label="The context menu is shown instead of the autofill suggestions."/>
+  <int value="20"
+      label="The Fast Checkout surface is shown instead of autofill
+             suggestions."/>
+  <int value="21"
+      label="The Picture-in-picture window overlaps with the autofill
+             suggestion."/>
+  <int value="22"
+      label="The context menu was open after the autofill popup, which could
+             overlap with the autofill popup."/>
+  <int value="23"
+      label="No frame currently has focus. This case is caught for safety
+             because it might be reachable due to race conditions."/>
+  <int value="24"
+      label="The sub-popup was closed, e.g. because the mouse was moved to a
+             different suggestion in the parent popup."/>
+  <int value="25"
+      label="The user edited the field. Currently applied only to Compose
+             suggestions."/>
+  <int value="26"
+      label="The popup has faded due to an expired timer. Currently applied
+             only to Compose suggestions."/>
+</enum>
+
 <enum name="AutofillSuggestionManageType">
   <int value="0" label="Other"/>
   <int value="1" label="(Obsolete) Personal Information. Deprecated in M122"/>
@@ -3845,11 +3847,16 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="Unclassified."/>
 </enum>
 
-<enum name="FieldFillingStat">
+<enum name="FieldFillingStatus">
   <int value="0" label="Accepted"/>
-  <int value="1" label="Corrected"/>
-  <int value="2" label="Manually Filled"/>
-  <int value="3" label="LeftEmpty"/>
+  <int value="1" label="CorrectedToSameType"/>
+  <int value="2" label="CorrectedToDifferentType"/>
+  <int value="3" label="CorrectedToUnkownType"/>
+  <int value="4" label="CorrectedToEmpty"/>
+  <int value="5" label="ManuallyFilledToSameType"/>
+  <int value="6" label="ManuallyFilledToDifferentType"/>
+  <int value="7" label="ManuallyFilledToUnknownType"/>
+  <int value="8" label="LeftEmpty"/>
 </enum>
 
 <enum name="IbanSuggestionBlockListStatus">
@@ -3974,6 +3981,13 @@ Called by update_autofill_enums.py.-->
       label="Form passed is different from the one that initiated the session"/>
 </enum>
 
+<enum name="PaymentsWindowUserConsentDialogResult">
+  <int value="0" label="The tab or browser was closed"/>
+  <int value="1" label="The escape key was pressed, closing the dialog"/>
+  <int value="2" label="The cancel button was pressed, closing the dialog"/>
+  <int value="3" label="The accept button was pressed, closing the dialog"/>
+</enum>
+
 <enum name="PhoneNumberGrammarUsage2">
   <int value="0"
       label="Country code: [cc] Area Code: [ac] Prefix: [phone] Suffix:
@@ -4077,6 +4091,27 @@ Called by update_autofill_enums.py.-->
 <enum name="UploadPaymentMethodOrigin">
   <int value="0" label="Upload was for existing local payment method"/>
   <int value="1" label="Upload was for newly-seen payment method"/>
+</enum>
+
+<enum name="Vcn3dsFlowEvents">
+  <int value="0"
+      label="The flow has started, and the consent dialog or a pop-up are
+             about to be shown"/>
+  <int value="1" label="The consent dialog was skipped"/>
+  <int value="2" label="The consent dialog was accepted"/>
+  <int value="3" label="The consent dialog was declined"/>
+  <int value="4"
+      label="The pop-up was not able to be shown when a show was attempted"/>
+  <int value="5"
+      label="The user cancelled the flow by closing the pop-up before
+             authentication has finished"/>
+  <int value="6" label="The authentication inside of the pop-up failed"/>
+  <int value="7"
+      label="The user cancelled the progress dialog while retrieving the VCN"/>
+  <int value="8"
+      label="The flow failed after pop-up closed while retrieving the VCN"/>
+  <int value="9"
+      label="The flow has successfully completed and retrieved a VCN"/>
 </enum>
 
 <enum name="VirtualCardStandaloneCvcSuggestionFormEvent">

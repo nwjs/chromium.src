@@ -57,16 +57,6 @@ BASE_FEATURE(kWebAuthnHybridLinkWithoutNotifications,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enabled in M118. Remove in or after M121.
-BASE_FEATURE(kWebAuthnRequireUpToDateJSONForRemoteDesktop,
-             "WebAuthenticationRequireUpToDateJSONForRemoteDesktop",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enabled in M118. Remove in or after M121.
-BASE_FEATURE(kWebAuthnICloudKeychain,
-             "WebAuthenticationICloudKeychain",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enabled in M118. Remove in or after M121.
 BASE_FEATURE(kWebAuthnICloudKeychainForGoogle,
              "WebAuthenticationICloudKeychainForGoogle",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -101,15 +91,15 @@ BASE_FEATURE(kWebAuthnEnclaveAuthenticator,
              "WebAuthenticationEnclaveAuthenticator",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Not yet enabled by default.
+BASE_FEATURE(kWebAuthnGpmPin,
+             "WebAuthenticationGpmPin",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enabled in M118 on all platforms except ChromeOS. Enabled on M121 for
 // ChromeOS. Remove in or after M124.
 BASE_FEATURE(kWebAuthnFilterGooglePasskeys,
              "WebAuthenticationFilterGooglePasskeys",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enabled in M120. Remove in or after M123.
-BASE_FEATURE(kWebAuthnPRFEvalDuringCreate,
-             "WebAuthenticationPRFEvalDuringCreate",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -168,6 +158,11 @@ BASE_FEATURE(kWebAuthnUseInsecureSoftwareUnexportableKeys,
 // Default enabled in M126. Remove in or after M129.
 BASE_FEATURE(kWebAuthnCredProtectWin10BugWorkaround,
              "WebAuthenticationCredProtectWin10BugWorkaround",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Default enabled in M126. Remove in or after M129.
+BASE_FEATURE(kWebAuthnICloudRecoveryKey,
+             "WebAuthenticationICloudRecoveryKey",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace device

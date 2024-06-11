@@ -450,7 +450,12 @@ vm_tools::concierge::StartArcVmRequest CreateStartArcVmRequest(
 
   request.set_enable_broadcast_anr_prenotify(
       base::FeatureList::IsEnabled(arc::kVmBroadcastPreNotifyANR));
+
   request.set_enable_virtio_blk_data(start_params.use_virtio_blk_data);
+  request.set_enable_data_block_io_scheduler(
+      start_params.use_virtio_blk_data &&
+      base::FeatureList::IsEnabled(kBlockIoScheduler) &&
+      kEnableDataBlockIoScheduler.Get());
 
   if (base::FeatureList::IsEnabled(kGuestZram)) {
     request.set_guest_swappiness(kGuestZramSwappiness.Get());
@@ -530,6 +535,8 @@ vm_tools::concierge::StartArcVmRequest CreateStartArcVmRequest(
     default:
       NOTREACHED_NORETURN();
   }
+
+  request.set_use_gki(base::FeatureList::IsEnabled(kArcVmGki));
   return request;
 }
 
@@ -1110,11 +1117,22 @@ class ArcVmClientAdapter : public ArcClientAdapter,
         break;
     }
 
+    std::string arcvm_data_type;
+    if (start_params_.use_virtio_blk_data) {
+      arcvm_data_type = ShouldUseLvmApplicationContainerForVirtioBlkData()
+                            ? "lvm_volume"
+                            : "concierge_disk";
+    } else {
+      arcvm_data_type = "virtiofs";
+    }
+
     VLOG(2) << "Starting upstart jobs for UpgradeArc()";
     std::vector<std::string> environment{
         "CHROMEOS_USER=" +
-        cryptohome::CreateAccountIdentifierFromIdentification(cryptohome_id_)
-            .account_id()};
+            cryptohome::CreateAccountIdentifierFromIdentification(
+                cryptohome_id_)
+                .account_id(),
+        "ARCVM_DATA_TYPE=" + arcvm_data_type};
     std::deque<JobDesc> jobs{
         JobDesc{kArcVmPostLoginServicesJobName, UpstartOperation::JOB_START,
                 std::move(environment)},

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef BASE_DEBUG_STACK_TRACE_H_
 #define BASE_DEBUG_STACK_TRACE_H_
 
@@ -68,7 +73,7 @@ class BASE_EXPORT StackTrace {
  public:
   // LINT.IfChange(max_stack_frames)
 #if BUILDFLAG(IS_ANDROID)
-  // TODO(https://crbug.com/925525): Testing indicates that Android has issues
+  // TODO(crbug.com/41437515): Testing indicates that Android has issues
   // with a larger value here, so leave Android at 62.
   static constexpr size_t kMaxTraces = 62;
 #else

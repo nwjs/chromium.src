@@ -103,7 +103,7 @@ void ExclusiveAccessTest::TearDownOnMainThread() {
 // static
 bool ExclusiveAccessTest::IsBubbleDownloadNotification(
     ExclusiveAccessBubble* bubble) {
-  return bubble->notify_download_;
+  return bubble->params_.has_download;
 }
 
 bool ExclusiveAccessTest::RequestKeyboardLock(bool esc_key_locked) {
@@ -282,10 +282,6 @@ void ExclusiveAccessTest::SetUserEscapeTimestampForTest(
   GetExclusiveAccessManager()
       ->pointer_lock_controller()
       ->last_user_escape_time_ = timestamp;
-}
-
-int ExclusiveAccessTest::InitialBubbleDelayMs() const {
-  return ExclusiveAccessBubble::kInitialDelayMs;
 }
 
 void ExclusiveAccessTest::ExpectMockControllerReceivedEscape(int count) {

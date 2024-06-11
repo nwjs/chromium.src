@@ -49,7 +49,9 @@ class ASH_EXPORT SplitViewDivider : public aura::WindowObserver,
   SplitViewDivider& operator=(const SplitViewDivider&) = delete;
   ~SplitViewDivider() override;
 
-  // static version of GetDividerBoundsInScreen(bool is_dragging) function.
+  // static
+  // Returns the divider bounds in screen where `divider_position` is in the
+  // divider's root window's bounds.
   static gfx::Rect GetDividerBoundsInScreen(
       const gfx::Rect& work_area_bounds_in_screen,
       bool landscape,
@@ -60,7 +62,10 @@ class ASH_EXPORT SplitViewDivider : public aura::WindowObserver,
 
   int divider_position() const { return divider_position_; }
 
+  bool target_visibility() const { return target_visibility_; }
+
   bool is_resizing_with_divider() const { return is_resizing_with_divider_; }
+
   // Does not consider any order of `observed_windows_`. Clients of the divider
   // are responsible for maintaining the order themselves.
   const aura::Window::Windows& observed_windows() const {
@@ -76,8 +81,8 @@ class ASH_EXPORT SplitViewDivider : public aura::WindowObserver,
   // Updates the divider's target visibility.
   void SetVisible(bool visible);
 
-  // Sets the divider's position, ensuring it meets the minimum window size
-  // requirement.
+  // Sets the divider's position in root window bounds, ensuring it meets the
+  // minimum window size requirement.
   void SetDividerPosition(int divider_position);
 
   // Updates divider position while resizing, keeping it within allowed range.
@@ -97,16 +102,16 @@ class ASH_EXPORT SplitViewDivider : public aura::WindowObserver,
   // external events (split view ending, tablet mode ending, etc.).
   void CleanUpWindowResizing();
 
-  // Do the divider spawning animation that adds a finishing touch to the
-  // snapping animation of a window.
-  void DoSpawningAnimation(int spawn_position);
-
   // Updates `divider_widget_`'s bounds.
   void UpdateDividerBounds();
 
   // Calculates the divider's expected bounds according to the divider's
   // position.
   gfx::Rect GetDividerBoundsInScreen(bool is_dragging);
+
+  // Provides visual feedback by adjusting `divider_widget_` bounds in response
+  // to user hover or drag interactions (enlarged on interaction, thin default).
+  void EnlargeOrShrinkDivider(bool should_enlarge);
 
   // Sets the adjustability of the divider bar. Unadjustable divider does not
   // receive event and the divider bar view is not visible. When the divider is
@@ -165,6 +170,11 @@ class ASH_EXPORT SplitViewDivider : public aura::WindowObserver,
   void CreateDividerWidget(int divider_position);
   void CloseDividerWidget();
 
+  // Returns the `TargetVisibility()` of the `divider_widget_`,  which directly
+  // assesses the window's target visibility, regardless of the visibility of
+  // its parent's layer.
+  bool GetActualTargetVisibility() const;
+
   // Refreshes the stacking order of the `divider_widget_` to be right on top of
   // the `observed_windows_` and reparents the split view divider to be on the
   // same parent container of the above window of the `observed_windows_` while
@@ -187,11 +197,12 @@ class ASH_EXPORT SplitViewDivider : public aura::WindowObserver,
   const raw_ptr<LayoutDividerController> controller_;
 
   // The distance between the origin of `divider_widget_` and the origin
-  // of the current display's work area in screen coordinates.
+  // of the current display's work area in screen coordinates, which essentially
+  // makes it relative to the divider widget's root window.
   //     |<---     divider_position_    --->|
   //     ---------------------------------------------------------------
   //     |                                  | |                        |
-  //     |        primary_window_           | |   secondary_window_    |
+  //     |        primary window            | |   secondary window     |
   //     |                                  | |                        |
   //     ---------------------------------------------------------------
   // Initialized as -1 before `divider_widget_` is created and shown.

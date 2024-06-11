@@ -60,12 +60,14 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
                                    TriggerSource source) = 0;
 
     // The local tab group corresponding to the |local_id| was removed.
-    virtual void OnTabGroupRemoved(const LocalTabGroupID& local_id) = 0;
+    virtual void OnTabGroupRemoved(const LocalTabGroupID& local_id,
+                                   TriggerSource source) = 0;
 
     // Tab group corresponding to the |sync_id| was removed. Only used by the
     // revisit surface that needs to show both open and closed tab groups.
     // All other consumers should use the local ID variant of this method.
-    virtual void OnTabGroupRemoved(const base::Uuid& sync_id) = 0;
+    virtual void OnTabGroupRemoved(const base::Uuid& sync_id,
+                                   TriggerSource source) = 0;
   };
 
 #if BUILDFLAG(IS_ANDROID)
@@ -90,6 +92,7 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
   // Mutator methods that result in group metadata mutation.
   virtual void AddGroup(const SavedTabGroup& group) = 0;
   virtual void RemoveGroup(const LocalTabGroupID& local_id) = 0;
+  virtual void RemoveGroup(const base::Uuid& sync_id) = 0;
   virtual void UpdateVisualData(
       const LocalTabGroupID local_group_id,
       const tab_groups::TabGroupVisualData* visual_data) = 0;
@@ -107,21 +110,29 @@ class TabGroupSyncService : public KeyedService, public base::SupportsUserData {
                          std::optional<size_t> position) = 0;
   virtual void RemoveTab(const LocalTabGroupID& group_id,
                          const LocalTabID& tab_id) = 0;
+  virtual void MoveTab(const LocalTabGroupID& group_id,
+                       const LocalTabID& tab_id,
+                       int new_group_index) = 0;
 
   // Accessor methods.
   virtual std::vector<SavedTabGroup> GetAllGroups() = 0;
   virtual std::optional<SavedTabGroup> GetGroup(const base::Uuid& guid) = 0;
   virtual std::optional<SavedTabGroup> GetGroup(LocalTabGroupID& local_id) = 0;
+  virtual std::vector<LocalTabGroupID> GetDeletedGroupIds() = 0;
 
   // Book-keeping methods to maintain in-memory mapping of sync and local IDs.
-  virtual void UpdateLocalTabGroupId(const base::Uuid& sync_id,
-                                     const LocalTabGroupID& local_id) = 0;
+  virtual void UpdateLocalTabGroupMapping(const base::Uuid& sync_id,
+                                          const LocalTabGroupID& local_id) = 0;
+  virtual void RemoveLocalTabGroupMapping(const LocalTabGroupID& local_id) = 0;
   virtual void UpdateLocalTabId(const LocalTabGroupID& local_group_id,
                                 const base::Uuid& sync_tab_id,
                                 const LocalTabID& local_tab_id) = 0;
 
   // For connecting to sync engine.
-  virtual syncer::ModelTypeSyncBridge* bridge() = 0;
+  virtual base::WeakPtr<syncer::ModelTypeControllerDelegate>
+  GetSavedTabGroupControllerDelegate() = 0;
+  virtual base::WeakPtr<syncer::ModelTypeControllerDelegate>
+  GetSharedTabGroupControllerDelegate() = 0;
 
   // Add / remove observers.
   virtual void AddObserver(Observer* observer) = 0;

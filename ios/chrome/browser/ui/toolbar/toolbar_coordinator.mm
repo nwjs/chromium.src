@@ -161,7 +161,7 @@
   self.orchestrator.editViewAnimatee =
       [self.locationBarCoordinator editViewAnimatee];
 
-  if (IsBottomOmniboxSteadyStateEnabled()) {
+  if (IsBottomOmniboxAvailable()) {
     [self.toolbarMediator setInitialOmniboxPosition];
   } else {
     [self.primaryToolbarCoordinator
@@ -296,7 +296,7 @@
   [self.toolbarMediator locationBarFocusChangedTo:focused];
 
   // Disable toolbar animations when focusing the omnibox on secondary toolbar.
-  // TODO(crbug.com/1462889): Add animation in OmniboxFocusOrchestrator if
+  // TODO(crbug.com/40275116): Add animation in OmniboxFocusOrchestrator if
   // needed.
   BOOL animateTransition = _enableAnimationsForOmniboxFocus &&
                            _steadyStateOmniboxPosition == ToolbarType::kPrimary;
@@ -329,8 +329,7 @@
 
 - (CGFloat)collapsedPrimaryToolbarHeight {
   if (_omniboxPosition == ToolbarType::kSecondary) {
-    CHECK(IsBottomOmniboxSteadyStateEnabled());
-    // TODO(crbug.com/1473629): Find out why primary toolbar height cannot be
+    // TODO(crbug.com/40279063): Find out why primary toolbar height cannot be
     // zero. This is a temporary fix for the pdf bug.
     return 1.0;
   }
@@ -341,8 +340,7 @@
 
 - (CGFloat)expandedPrimaryToolbarHeight {
   if (_omniboxPosition == ToolbarType::kSecondary) {
-    CHECK(IsBottomOmniboxSteadyStateEnabled());
-    // TODO(crbug.com/1473629): Find out why primary toolbar height cannot be
+    // TODO(crbug.com/40279063): Find out why primary toolbar height cannot be
     // zero. This is a temporary fix for the pdf bug.
     return 1.0;
   }
@@ -358,7 +356,6 @@
 
 - (CGFloat)collapsedSecondaryToolbarHeight {
   if (_omniboxPosition == ToolbarType::kSecondary) {
-    CHECK(IsBottomOmniboxSteadyStateEnabled());
     return ToolbarCollapsedHeight(
         self.traitEnvironment.traitCollection.preferredContentSizeCategory);
   }
@@ -372,7 +369,6 @@
   CGFloat height =
       self.secondaryToolbarViewController.view.intrinsicContentSize.height;
   if (_omniboxPosition == ToolbarType::kSecondary) {
-    CHECK(IsBottomOmniboxSteadyStateEnabled());
     height += ToolbarExpandedHeight(
         self.traitEnvironment.traitCollection.preferredContentSizeCategory);
   }

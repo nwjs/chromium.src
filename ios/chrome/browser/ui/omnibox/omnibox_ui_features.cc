@@ -32,6 +32,10 @@ BASE_FEATURE(kOmniboxPopupRowContentConfiguration,
              "OmniboxPopupRowContentConfiguration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kOmniboxActionsInSuggest,
+             "OmniboxIOSActionsInSuggest",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsIpadPopoutOmniboxEnabled() {
   return base::FeatureList::IsEnabled(kEnablePopoutOmniboxIpad) &&
          ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
@@ -44,6 +48,7 @@ bool IsRichAutocompletionEnabled() {
 const char kRichAutocompletionParam[] = "RichAutocompletionParam";
 const char kRichAutocompletionParamLabel[] = "Label";
 const char kRichAutocompletionParamTextField[] = "TextField";
+const char kRichAutocompletionParamNoAdditionalText[] = "NoAdditionalText";
 
 bool IsRichAutocompletionEnabled(RichAutocompletionImplementation type) {
   if (!IsRichAutocompletionEnabled()) {
@@ -56,10 +61,13 @@ bool IsRichAutocompletionEnabled(RichAutocompletionImplementation type) {
 
   std::string featureParam = base::GetFieldTrialParamValueByFeature(
       omnibox::kRichAutocompletion, kRichAutocompletionParam);
-  if (type == RichAutocompletionImplementation::kTextField) {
-    return featureParam == kRichAutocompletionParamTextField;
+  if (type == RichAutocompletionImplementation::kLabel) {
+    return featureParam == kRichAutocompletionParamLabel;
+  } else if (type == RichAutocompletionImplementation::kNoAdditionalText) {
+    return featureParam == kRichAutocompletionParamNoAdditionalText;
   }
 
-  // Label is the default.
-  return true;
+  // TextField is the default.
+  return featureParam == kRichAutocompletionParamTextField ||
+         featureParam.empty();
 }

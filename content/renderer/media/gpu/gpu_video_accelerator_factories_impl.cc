@@ -37,17 +37,7 @@
 namespace content {
 namespace {
 
-// Kill switch for using multiplanar YV12 instead of I420 with 3x single planar.
-BASE_FEATURE(kUseYV12MultiPlanar,
-             "UseYV12MultiPlanar",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool UseYV12MultiPlanar() {
-  return base::FeatureList::IsEnabled(
-             media::kUseMultiPlaneFormatForSoftwareVideo) &&
-         base::FeatureList::IsEnabled(kUseYV12MultiPlanar);
-}
-
+#if !BUILDFLAG(IS_FUCHSIA)
 // Controls if this should always use a single NV12 GMB with multiplanar path.
 bool UseSingleNV12() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -63,11 +53,11 @@ bool UseSingleNV12() {
                       base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-  return base::FeatureList::IsEnabled(
-             media::kUseMultiPlaneFormatForSoftwareVideo) &&
+  return media::IsMultiPlaneFormatForSoftwareVideoEnabled() &&
          base::FeatureList::IsEnabled(kUseSingleNV12ForSoftwareGMB);
 #endif
 }
+#endif
 
 }  // namespace
 
@@ -368,7 +358,7 @@ GpuVideoAcceleratorFactoriesImpl::VideoFrameOutputFormatImpl(
     }
 #endif
     if (capabilities.texture_rg) {
-      if (UseYV12MultiPlanar()) {
+      if (media::IsMultiPlaneFormatForSoftwareVideoEnabled()) {
         return OutputFormat::YV12;
       }
       return OutputFormat::I420;
@@ -384,6 +374,13 @@ GpuVideoAcceleratorFactoriesImpl::VideoFrameOutputFormatImpl(
 #endif
   }
 
+#if BUILDFLAG(IS_FUCHSIA)
+  // Hardware support for NV12 GMBs is expected to be present on all supported
+  // Fuchsia devices.
+  CHECK(capabilities.image_ycbcr_420v);
+  CHECK(!capabilities.image_ycbcr_420v_disabled_for_video_frames);
+  return OutputFormat::NV12_SINGLE_GMB;
+#else
   if (capabilities.image_ycbcr_420v &&
       !capabilities.image_ycbcr_420v_disabled_for_video_frames) {
     return OutputFormat::NV12_SINGLE_GMB;
@@ -401,6 +398,7 @@ GpuVideoAcceleratorFactoriesImpl::VideoFrameOutputFormatImpl(
                            : OutputFormat::NV12_DUAL_GMB;
   }
   return OutputFormat::UNDEFINED;
+#endif  // BUILDFLAG(IS_FUCHSIA)
 }
 
 gpu::SharedImageInterface*

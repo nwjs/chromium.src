@@ -26,11 +26,13 @@ namespace {
 // numeric values should never be reused. Keep in sync with
 // TrustedVaultFetchKeysAttempt in
 // tools/metrics/histograms/metadata/sync/enums.xml.
+// LINT.IfChange(TrustedVaultFetchKeysAttempt)
 enum class TrustedVaultFetchKeysAttemptForUMA {
   kFirstAttempt = 0,
   kSecondAttempt = 1,
   kMaxValue = kSecondAttempt
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:TrustedVaultFetchKeysAttempt)
 
 // A SyncEncryptionHandler::Observer implementation that simply posts all calls
 // to another task runner.
@@ -256,7 +258,7 @@ void SyncServiceCrypto::SetEncryptionPassphrase(const std::string& passphrase) {
       // TODO(crbug.com/40904402): this is currently reachable on iOS due to
       // discrepancy in UI code. Fix iOS implementation and avoid using more
       // strict checks here until this is done.
-      NOTREACHED()
+      DUMP_WILL_BE_NOTREACHED_NORETURN()
           << "Can not set explicit passphrase when decryption is needed.";
       return;
   }
@@ -405,7 +407,7 @@ SyncServiceCrypto::GetEncryptionObserverProxy() {
       base::SequencedTaskRunner::GetCurrentDefault());
 }
 
-ModelTypeSet SyncServiceCrypto::GetEncryptedDataTypes() const {
+ModelTypeSet SyncServiceCrypto::GetAllEncryptedDataTypes() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(state_.encrypted_types.HasAll(AlwaysEncryptedUserTypes()));
   // We may be called during the setup process before we're

@@ -35,10 +35,8 @@ import org.chromium.chrome.browser.magic_stack.ModuleDelegate;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionDataProvider.ResultStrength;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionDataProvider.SuggestionsResult;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallbacks;
-import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.ui.modelutil.PropertyModel;
-import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
 import java.util.ArrayList;
@@ -55,7 +53,6 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
     @Mock private ModuleDelegate mModuleDelegate;
     @Mock private TabResumptionDataProvider mDataProvider;
     @Mock private UrlImageProvider mUrlImageProvider;
-    @Mock private TabListFaviconProvider mFaviconProvider;
     @Mock private ThumbnailProvider mThumbnailProvider;
     @Mock private SuggestionClickCallbacks mClickCallbacks;
 
@@ -75,25 +72,24 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
 
         mMediator =
                 new TabResumptionModuleMediator(
-                        context,
-                        mModuleDelegate,
-                        mModel,
-                        mDataProvider,
-                        mUrlImageProvider,
-                        mFaviconProvider,
-                        mThumbnailProvider,
-                        mClickCallbacks) {
+                        /* context= */ context,
+                        /* moduleDelegate= */ mModuleDelegate,
+                        /* model= */ mModel,
+                        /* urlImageProvider= */ mUrlImageProvider,
+                        /* thumbnailProvider= */ mThumbnailProvider,
+                        /* statusChangedCallback= */ () -> {},
+                        /* seeMoreLinkClickCallback= */ () -> {},
+                        /* suggestionClickCallbacks= */ mClickCallbacks) {
                     @Override
                     long getCurrentTimeMs() {
                         return CURRENT_TIME_MS;
                     }
                 };
+        mMediator.startSession(mDataProvider);
 
         Assert.assertFalse((Boolean) mModel.get(TabResumptionModuleProperties.IS_VISIBLE));
         Assert.assertEquals(
                 mUrlImageProvider, mModel.get(TabResumptionModuleProperties.URL_IMAGE_PROVIDER));
-        Assert.assertEquals(
-                mFaviconProvider, mModel.get(TabResumptionModuleProperties.FAVICON_PROVIDER));
         Assert.assertEquals(
                 mThumbnailProvider, mModel.get(TabResumptionModuleProperties.THUMBNAIL_PROVIDER));
         // `mClickCallback` may get wrapped, so just check for non-null.
@@ -102,7 +98,9 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
 
     @After
     public void tearDown() {
+        mMediator.endSession();
         mMediator.destroy();
+        Assert.assertNull(mModel.get(TabResumptionModuleProperties.URL_IMAGE_PROVIDER));
         mModel = null;
         mMediator = null;
     }
@@ -265,7 +263,7 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
     @SmallTest
     public void testTentativeNothingStableSomething() {
         List<SuggestionEntry> tentativeSuggestions = new ArrayList<SuggestionEntry>();
-        List<SuggestionEntry> stableSuggestions1 = Arrays.asList(makeValidEntry(0));
+        List<SuggestionEntry> stableSuggestions1 = Arrays.asList(makeSyncDerivedSuggestion(0));
 
         // Tentative suggestions = nothing: Don't fail yet; wait some more.
         mMediator.loadModule();
@@ -311,7 +309,7 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
     @Test
     @SmallTest
     public void testTentativeSomethingStableNothing() {
-        List<SuggestionEntry> tentativeSuggestions = Arrays.asList(makeValidEntry(1));
+        List<SuggestionEntry> tentativeSuggestions = Arrays.asList(makeSyncDerivedSuggestion(1));
         List<SuggestionEntry> stableSuggestions1 = new ArrayList<SuggestionEntry>();
 
         // Tentative suggestions = something: Call onDataReady() and show (tentative).
@@ -349,10 +347,10 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
     @Test
     @SmallTest
     public void testTentativeSomethingStableSomething() {
-        List<SuggestionEntry> tentativeSuggestions = Arrays.asList(makeValidEntry(0));
+        List<SuggestionEntry> tentativeSuggestions = Arrays.asList(makeSyncDerivedSuggestion(0));
         List<SuggestionEntry> stableSuggestions1 =
-                Arrays.asList(makeValidEntry(1), makeValidEntry(0));
-        List<SuggestionEntry> stableSuggestions2 = Arrays.asList(makeValidEntry(0));
+                Arrays.asList(makeSyncDerivedSuggestion(1), makeSyncDerivedSuggestion(0));
+        List<SuggestionEntry> stableSuggestions2 = Arrays.asList(makeSyncDerivedSuggestion(0));
         List<SuggestionEntry> stableSuggestions3 = new ArrayList<SuggestionEntry>();
 
         // Tentative suggestions = something: Call onDataReady() and show (tentative).
@@ -421,16 +419,35 @@ public class TabResumptionModuleMediatorUnitTest extends TestSupport {
                 /* expectRemoveModuleCalls= */ 1);
     }
 
-    private SuggestionEntry makeValidEntry(int index) {
-        assert index == 0 || index == 1;
-        GURL[] urlChoices = {JUnitTestGURLs.GOOGLE_URL_DOG, JUnitTestGURLs.GOOGLE_URL_CAT};
-        String[] titleChoices = {"Google Dog", "Google Cat"};
-        return new SuggestionEntry(
-                /* sourceName= */ "Desktop",
-                /* url= */ urlChoices[index],
-                /* title= */ titleChoices[index],
-                /* timestamp= */ makeTimestamp(16, 0, 0),
-                /* id= */ 45);
+    @Test
+    @SmallTest
+    public void testMaxTilesNumber_Single() {
+        testMaxTilesNumberImpl(1);
+    }
+
+    @Test
+    @SmallTest
+    public void testMaxTilesNumber_Double() {
+        testMaxTilesNumberImpl(2);
+    }
+
+    private void testMaxTilesNumberImpl(int maxTilesNumber) {
+        TabResumptionModuleUtils.TAB_RESUMPTION_MAX_TILES_NUMBER.setForTesting(maxTilesNumber);
+        List<SuggestionEntry> suggestions =
+                Arrays.asList(makeSyncDerivedSuggestion(1), makeSyncDerivedSuggestion(0));
+
+        mMediator.loadModule();
+        verify(mDataProvider, times(1)).fetchSuggestions(mFetchSuggestionCallbackCaptor.capture());
+        mFetchSuggestionCallbackCaptor
+                .getAllValues()
+                .get(0)
+                .onResult(new SuggestionsResult(ResultStrength.STABLE, suggestions));
+        checkModuleState(
+                /* isVisible= */ true,
+                /* expectOnDataReadyCalls= */ 1,
+                /* expectOnDataFetchFailedCalls= */ 0,
+                /* expectRemoveModuleCalls= */ 0);
+        Assert.assertEquals(maxTilesNumber, getSuggestionBundle().entries.size());
     }
 
     private void checkModuleState(

@@ -133,10 +133,10 @@ TEST_F(AutocompleteHistoryManagerTest, CreditCardNumberValue) {
 
   // Valid Visa credit card number pulled from the paypal help site.
   FormFieldData valid_cc;
-  valid_cc.label = u"Credit Card";
+  valid_cc.set_label(u"Credit Card");
   valid_cc.set_name(u"ccnum");
   valid_cc.set_value(u"4012888888881881");
-  valid_cc.properties_mask |= kUserTyped;
+  valid_cc.set_properties_mask(valid_cc.properties_mask() | kUserTyped);
   valid_cc.set_form_control_type(FormControlType::kInputText);
   form.fields.push_back(valid_cc);
 
@@ -157,10 +157,10 @@ TEST_F(AutocompleteHistoryManagerTest, NonCreditCardNumberValue) {
 
   // Invalid credit card number.
   FormFieldData invalid_cc;
-  invalid_cc.label = u"Credit Card";
+  invalid_cc.set_label(u"Credit Card");
   invalid_cc.set_name(u"ccnum");
   invalid_cc.set_value(u"4580123456789012");
-  invalid_cc.properties_mask |= kUserTyped;
+  invalid_cc.set_properties_mask(invalid_cc.properties_mask() | kUserTyped);
   invalid_cc.set_form_control_type(FormControlType::kInputText);
   form.fields.push_back(invalid_cc);
 
@@ -178,10 +178,10 @@ TEST_F(AutocompleteHistoryManagerTest, SSNValue) {
   form.action = GURL("http://myform.com/submit.html");
 
   FormFieldData ssn;
-  ssn.label = u"Social Security Number";
+  ssn.set_label(u"Social Security Number");
   ssn.set_name(u"ssn");
   ssn.set_value(u"078-05-1120");
-  ssn.properties_mask |= kUserTyped;
+  ssn.set_properties_mask(ssn.properties_mask() | kUserTyped);
   ssn.set_form_control_type(FormControlType::kInputText);
   form.fields.push_back(ssn);
 
@@ -200,10 +200,10 @@ TEST_F(AutocompleteHistoryManagerTest, SearchField) {
 
   // Search field.
   FormFieldData search_field;
-  search_field.label = u"Search";
+  search_field.set_label(u"Search");
   search_field.set_name(u"search");
   search_field.set_value(u"my favorite query");
-  search_field.properties_mask |= kUserTyped;
+  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
   search_field.set_form_control_type(FormControlType::kInputSearch);
   form.fields.push_back(search_field);
 
@@ -221,10 +221,10 @@ TEST_F(AutocompleteHistoryManagerTest, AutocompleteFeatureOff) {
 
   // Search field.
   FormFieldData search_field;
-  search_field.label = u"Search";
+  search_field.set_label(u"Search");
   search_field.set_name(u"search");
   search_field.set_value(u"my favorite query");
-  search_field.properties_mask |= kUserTyped;
+  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
   search_field.set_form_control_type(FormControlType::kInputSearch);
   form.fields.push_back(search_field);
 
@@ -245,26 +245,26 @@ TEST_F(AutocompleteHistoryManagerTest, InvalidValues) {
   FormFieldData search_field;
 
   // Empty value.
-  search_field.label = u"Search";
+  search_field.set_label(u"Search");
   search_field.set_name(u"search");
   search_field.set_value(u"");
-  search_field.properties_mask |= kUserTyped;
+  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
   search_field.set_form_control_type(FormControlType::kInputSearch);
   form.fields.push_back(search_field);
 
   // Single whitespace.
-  search_field.label = u"Search2";
+  search_field.set_label(u"Search2");
   search_field.set_name(u"other search");
   search_field.set_value(u" ");
-  search_field.properties_mask |= kUserTyped;
+  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
   search_field.set_form_control_type(FormControlType::kInputSearch);
   form.fields.push_back(search_field);
 
   // Multiple whitespaces.
-  search_field.label = u"Search3";
+  search_field.set_label(u"Search3");
   search_field.set_name(u"other search");
   search_field.set_value(u"      ");
-  search_field.properties_mask |= kUserTyped;
+  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
   search_field.set_form_control_type(FormControlType::kInputSearch);
   form.fields.push_back(search_field);
 
@@ -286,12 +286,12 @@ TEST_F(AutocompleteHistoryManagerTest, FieldWithAutocompleteOff) {
 
   // Field specifying autocomplete="off".
   FormFieldData field;
-  field.label = u"Something esoteric";
+  field.set_label(u"Something esoteric");
   field.set_name(u"esoterica");
   field.set_value(u"a truly esoteric value, I assure you");
-  field.properties_mask |= kUserTyped;
+  field.set_properties_mask(field.properties_mask() | kUserTyped);
   field.set_form_control_type(FormControlType::kInputText);
-  field.should_autocomplete = false;
+  field.set_should_autocomplete(false);
   form.fields.push_back(field);
 
   EXPECT_CALL(*web_data_service_, AddFormFields(_)).Times(0);
@@ -311,10 +311,10 @@ TEST_F(AutocompleteHistoryManagerTest, Incognito) {
 
   // Search field.
   FormFieldData search_field;
-  search_field.label = u"Search";
+  search_field.set_label(u"Search");
   search_field.set_name(u"search");
   search_field.set_value(u"my favorite query");
-  search_field.properties_mask |= kUserTyped;
+  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
   search_field.set_form_control_type(FormControlType::kInputSearch);
   form.fields.push_back(search_field);
 
@@ -336,12 +336,12 @@ TEST_F(AutocompleteHistoryManagerTest, UserInputNotFocusable) {
 
   // Search field.
   FormFieldData search_field;
-  search_field.label = u"Search";
+  search_field.set_label(u"Search");
   search_field.set_name(u"search");
   search_field.set_value(u"my favorite query");
   search_field.set_form_control_type(FormControlType::kInputSearch);
-  search_field.properties_mask |= kUserTyped;
-  search_field.is_focusable = false;
+  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
+  search_field.set_is_focusable(false);
   form.fields.push_back(search_field);
 
   EXPECT_CALL(*(web_data_service_.get()), AddFormFields(_));
@@ -361,12 +361,12 @@ TEST_F(AutocompleteHistoryManagerTest, PresentationField) {
 
   // Presentation field.
   FormFieldData field;
-  field.label = u"Something esoteric";
+  field.set_label(u"Something esoteric");
   field.set_name(u"esoterica");
   field.set_value(u"a truly esoteric value, I assure you");
-  field.properties_mask |= kUserTyped;
+  field.set_properties_mask(field.properties_mask() | kUserTyped);
   field.set_form_control_type(FormControlType::kInputText);
-  field.role = FormFieldData::RoleAttribute::kPresentation;
+  field.set_role(FormFieldData::RoleAttribute::kPresentation);
   form.fields.push_back(field);
 
   EXPECT_CALL(*web_data_service_, AddFormFields(_)).Times(0);
@@ -435,7 +435,7 @@ TEST_F(AutocompleteHistoryManagerTest,
 // Make sure suggestions are not returned if the field should not autocomplete.
 TEST_F(AutocompleteHistoryManagerTest,
        OnGetSingleFieldSuggestions_FieldShouldNotAutocomplete) {
-  test_field_.should_autocomplete = false;
+  test_field_.set_should_autocomplete(false);
 
   // Setting up mock to verify that call to the handler's OnSuggestionsReturned
   // is not triggered.
@@ -741,7 +741,7 @@ TEST_F(AutocompleteHistoryManagerTest,
   // Now simulate one autocomplete entry being selected, and expect a metric
   // being logged for that value alone.
   autocomplete_manager_->OnSingleFieldSuggestionSelected(
-      test_value, PopupItemId::kAutocompleteEntry);
+      test_value, SuggestionType::kAutocompleteEntry);
 
   histogram_tester.ExpectBucketCount("Autocomplete.DaysSinceLastUse",
                                      days_since_last_use, 1);

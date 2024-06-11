@@ -45,6 +45,8 @@
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/webauthn/change_pin_controller.h"
+#include "chrome/browser/webauthn/enclave_manager.h"
+#include "chrome/browser/webauthn/enclave_manager_factory.h"
 #include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/extensions/api/passwords_private.h"
@@ -303,9 +305,11 @@ PasswordsPrivateDelegateImpl::PasswordsPrivateDelegateImpl(Profile* profile)
           base::BindRepeating(
               &PasswordsPrivateDelegateImpl::OnPasswordsExportProgress,
               base::Unretained(this)))),
-      password_check_delegate_(profile,
-                               &saved_passwords_presenter_,
-                               &credential_id_generator_),
+      password_check_delegate_(
+          profile,
+          &saved_passwords_presenter_,
+          &credential_id_generator_,
+          PasswordsPrivateEventRouterFactory::GetForProfile(profile_)),
       current_entries_initialized_(false),
       is_initialized_(false) {
   auth_timeout_handler_.Init(
@@ -576,7 +580,7 @@ void PasswordsPrivateDelegateImpl::OnFetchingFamilyMembersCompleted(
       break;
     case FetchFamilyMembersRequestStatus::kSuccess:
     case FetchFamilyMembersRequestStatus::kNoOtherFamilyMembers:
-      // TODO(crbug.com/1445526): Add new FamilyFetchStatus and its handling.
+      // TODO(crbug.com/40268194): Add new FamilyFetchStatus and its handling.
       results.status = api::passwords_private::FamilyFetchStatus::kSuccess;
       break;
     case FetchFamilyMembersRequestStatus::kNoFamily:
@@ -935,11 +939,12 @@ void PasswordsPrivateDelegateImpl::ShowExportedFileInShell(
 }
 
 void PasswordsPrivateDelegateImpl::ChangePasswordManagerPin(
-    content::WebContents* web_contents) {
+    content::WebContents* web_contents,
+    base::OnceCallback<void(bool)> success_callback) {
   ChangePinController* controller =
       ChangePinController::ForWebContents(web_contents);
   if (controller) {
-    controller->StartChangePin();
+    controller->StartChangePin(std::move(success_callback));
   }
 }
 
@@ -951,6 +956,30 @@ bool PasswordsPrivateDelegateImpl::IsPasswordManagerPinAvailable(
     return false;
   }
   return controller->IsChangePinFlowAvailable();
+}
+
+void PasswordsPrivateDelegateImpl::DisconnectCloudAuthenticator(
+    content::WebContents* web_contents,
+    base::OnceCallback<void(bool)> success_callback) {
+  EnclaveManagerInterface* enclave_manager =
+      EnclaveManagerFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext()));
+  if (enclave_manager) {
+    enclave_manager->Unenroll(std::move(success_callback));
+  }
+}
+
+bool PasswordsPrivateDelegateImpl::IsConnectedToCloudAuthenticator(
+    content::WebContents* web_contents) {
+  EnclaveManagerInterface* enclave_manager =
+      EnclaveManagerFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext()));
+
+  if (!enclave_manager) {
+    return false;
+  }
+
+  return enclave_manager->is_registered();
 }
 
 base::WeakPtr<PasswordsPrivateDelegate>
@@ -1088,8 +1117,8 @@ void PasswordsPrivateDelegateImpl::OnImportPasswordsAuthResult(
     bool authenticated) {
   if (!authenticated) {
     password_manager::ImportResults result;
-    // TODO(crbug/1417650): Use specific enum for reauth_failed.
-    // TODO(crbug/1417650): Record metric for reauth failed.
+    // TODO(crbug.com/40894187): Use specific enum for reauth_failed.
+    // TODO(crbug.com/40894187): Record metric for reauth failed.
     result.status = password_manager::ImportResults::DISMISSED;
     std::move(results_callback).Run(ConvertImportResults(result));
     return;
@@ -1181,8 +1210,8 @@ void PasswordsPrivateDelegateImpl::AuthenticateUser(
     base::TimeDelta auth_validity_period,
     const std::u16string& message,
     AuthResultCallback auth_callback) {
-  auto callback = password_manager::metrics_util::TimeCallback(
-      std::move(auth_callback), "PasswordManager.Settings.AuthenticationTime");
+  auto callback = password_manager::metrics_util::TimeCallbackMediumTimes(
+      std::move(auth_callback), "PasswordManager.Settings.AuthenticationTime2");
 
 #if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS)
   std::move(callback).Run(true);
@@ -1245,6 +1274,10 @@ PasswordsPrivateDelegateImpl::CreatePasswordUiEntryFromCredentialUiEntry(
   entry.username = base::UTF16ToUTF8(credential.username);
   if (entry.is_passkey) {
     entry.display_name = base::UTF16ToUTF8(credential.user_display_name);
+  }
+  if (credential.creation_time.has_value()) {
+    entry.creation_time =
+        credential.creation_time->InMillisecondsSinceUnixEpoch();
   }
   entry.stored_in = extensions::StoreSetFromCredential(credential);
   if (!credential.federation_origin.opaque()) {

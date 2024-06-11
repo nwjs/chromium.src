@@ -22,6 +22,7 @@
 #include "base/timer/timer.h"
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
+#include "content/browser/preloading/prefetch/no_vary_search_helper.h"
 #include "content/browser/preloading/prefetch/prefetch_document_manager.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_match_resolver.h"
@@ -448,11 +449,12 @@ void PrefetchService::CheckEligibilityOfPrefetch(
     OnEligibilityResultCallback result_callback) const {
   CHECK(prefetch_container);
 
-  // TODO(https://crbug.com/1299059): Clean up the following checks by: 1)
+  // TODO(crbug.com/40215782): Clean up the following checks by: 1)
   // moving each check to a separate function, and 2) requiring that failed
   // checks provide a PrefetchStatus related to the check.
 
-  if (browser_context_->IsOffTheRecord()) {
+  if (browser_context_->IsOffTheRecord() &&
+      !base::FeatureList::IsEnabled(features::kPrefetchOffTheRecord)) {
     std::move(result_callback)
         .Run(prefetch_container,
              PreloadingEligibility::kBrowserContextOffTheRecord);
@@ -610,7 +612,7 @@ void PrefetchService::OnGotServiceWorkerResult(
   // proxy. Same-site prefetches are made using the default network context, and
   // the prefetch request cannot be configured to use the proxy in that network
   // context.
-  // TODO(https://crbug.com/1439986): Allow same-site cross-origin prefetches
+  // TODO(crbug.com/40265797): Allow same-site cross-origin prefetches
   // that require the prefetch proxy to be made.
   if (prefetch_container->IsProxyRequiredForURL(url) &&
       !prefetch_container
@@ -710,7 +712,7 @@ void PrefetchService::StartProxyLookupCheck(
     OnEligibilityResultCallback result_callback) const {
   // Same origin prefetches (which use the default network context and cannot
   // use the prefetch proxy) can use the existing proxy settings.
-  // TODO(https://crbug.com/1343903): Copy proxy settings over to the isolated
+  // TODO(crbug.com/40231580): Copy proxy settings over to the isolated
   // network context for the prefetch in order to allow non-private cross origin
   // prefetches to be made using the existing proxy settings.
   if (!prefetch_container
@@ -1118,7 +1120,7 @@ void PrefetchService::StartSinglePrefetch(
     // want to use the prefetch. Checking the canary cache can be a slow and
     // blocking operation (see crbug.com/1266018), so we only do this for the
     // first non-decoy prefetch we make on the page.
-    // TODO(crbug.com/1266018): once this bug is fixed, fire off canary check
+    // TODO(crbug.com/40801832): once this bug is fixed, fire off canary check
     // regardless of whether the request is a decoy or not.
     origin_prober_->RunCanaryChecksIfNeeded();
 
@@ -1555,7 +1557,7 @@ PrefetchService::HandlePrefetchContainerToServe(
       DVLOG(1) << "PrefetchService::HandlePrefetchContainerToServe(" << url
                << "): " << prefetch_container << " is blocked until head";
       if (prefetch_match_resolver.IsWaitingForPrefetch(prefetch_container)) {
-        // TODO(crbug.com/1462206): Figure out if this path is actually
+        // TODO(crbug.com/40274818): Figure out if this path is actually
         // possible. The reason I believe it is not possible is because the
         // second time `GetPrefetchToServe` is called it executes
         // HandlePrefetchContainerToServe first for the prefetch container
@@ -1624,6 +1626,8 @@ void PrefetchService::GetPrefetchToServe(
   // If there is at least one prefetch that we are waiting for the head then
   // stop.
   if (waiting_on_prefetch_head) {
+    DVLOG(1) << "PrefetchService::GetPrefetchToServe(" << key
+             << "): waiting on prefetch head";
     return;
   }
   // If not waiting on any prefetches it means there is no match. Let the
@@ -1655,12 +1659,20 @@ void PrefetchService::WaitOnPrefetchToServeHead(
   // Make sure we are not waiting on this prefetch_url anymore.
   CHECK(!prefetch_match_resolver->IsWaitingForPrefetch(prefetch_url));
 
+  if (!prefetch_container) {
+    DVLOG(1) << "PrefetchService::WaitOnPrefetchToServeHead(" << key
+             << "): deleted while waiting for head";
+    ReturnPrefetchToServe(prefetch_url, {}, *prefetch_match_resolver);
+    return;
+  }
+
   DVLOG(1) << "PrefetchService::WaitOnPrefetchToServeHead(" << key
            << "): PrefetchContainer head received for " << prefetch_url << "!";
   // This method is registered with the prefetch_container as the
   // ReceivedHeadCallback. We only call this method immediately after
-  // requesting the ReceivedHeadCallback from the prefetch_container.
-  // The prefetch_container must be alive.
+  // requesting the ReceivedHeadCallback from `prefetch_container` (in which
+  // case it is alive) or during its destruction after invalidating weak
+  // pointers (in which case we should have bailed just now).
   CHECK(prefetch_container);
   prefetch_container->ResetBlockUntilHeadTimer();
 

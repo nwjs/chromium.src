@@ -7,12 +7,16 @@
 
 #include "base/check.h"
 #include "base/component_export.h"
+#include "base/files/scoped_file.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/values.h"
+#include "chromeos/ash/components/dbus/shill/shill_property_changed_observer.h"
 
 namespace ash {
+
+class WifiP2PGroup;
 
 // Class for handling initialization and access to chromeos wifi_p2p controller.
 // Exposes functions for following operations:
@@ -22,7 +26,8 @@ namespace ash {
 // 4. Disconnect from a p2p group
 // 5. Fetch p2p group/client properties
 // 6. Tag socket to a WiFi direct group network rules.
-class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController {
+class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController
+    : public ShillPropertyChangedObserver {
  public:
   // Sets the global instance. Must be called before any calls to Get().
   static void Initialize();
@@ -36,17 +41,22 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController {
   // Returns true if the global instance has been initialized.
   static bool IsInitialized();
 
-  // Wifi direct group metadata includes: shill_id and frequency.
-  struct WifiDirectConnectionMetadata {
-    // Unique ID to identify the Wifi direct group.
-    int shill_id;
-    // The operating frequency of the Wifi direct group network.
-    uint32_t frequency;
-    // Unique ID to identify the network in Patchpanel.
-    int network_id;
+  struct WifiP2PCapabilities {
+    WifiP2PCapabilities(const bool is_owner_ready, const bool is_client_ready)
+        : is_owner_ready(is_owner_ready), is_client_ready(is_client_ready) {}
+
+    ~WifiP2PCapabilities() = default;
+
+    // Whether platform is ready for creating p2p GO interface without any
+    // concurrency conflict.
+    bool is_owner_ready;
+
+    // Whether platform is ready for creating p2p GC interface without any
+    // concurrency conflict.
+    bool is_client_ready;
   };
 
-  enum OperationResult {
+  enum class OperationResult {
     kSuccess,
     // Wifi direct is disallowed in platform per Manager.P2PAllowed.
     kNotAllowed,
@@ -62,6 +72,8 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController {
     kGroupNotFound,
     // Already connected to the Wifi direct group.
     kAlreadyConnected,
+    // Device is not connected to a Wifi direct group.
+    kNotConnected,
     // Wifi direct operation is already in progress.
     kOperationInProgress,
     // Invalid arguments.
@@ -76,20 +88,31 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController {
     kOperationFailed,
     // Wifi direct operation failed due to DBus error.
     kDBusError,
-    // Unknown error.
-    kUnknownError,
   };
 
   // Return callback for the CreateWifiP2PGroup or ConnectToWifiP2PGroup
   // methods.
-  using WifiP2PGroupCallback = base::OnceCallback<void(
-      OperationResult result,
-      std::optional<WifiDirectConnectionMetadata> metadata)>;
+  using WifiP2PGroupCallback =
+      base::OnceCallback<void(OperationResult result,
+                              std::optional<WifiP2PGroup> group_metadata)>;
 
-  // Create a Wifi P2P group with the given `ssid` and `passphrase`.
-  void CreateWifiP2PGroup(const std::string& ssid,
-                          const std::string& passphrase,
+  // SSID and passphrase should be provided or omit at the same time. If both
+  // SSID and passphrase are provide, it will attempt to create the WiFi P2P
+  // group with the given `ssid` and `passphrase`. Otherwise, the platform will
+  // generate the ssid and passphrase.
+  void CreateWifiP2PGroup(std::optional<std::string> ssid,
+                          std::optional<std::string> passphrase,
                           WifiP2PGroupCallback callback);
+
+  // Destroys the Wifi P2P group using its shill id.
+  void DestroyWifiP2PGroup(
+      int shill_id,
+      base::OnceCallback<void(OperationResult result)> callback);
+
+  // Disconnects from the Wifi P2P group.
+  void DisconnectFromWifiP2PGroup(
+      int shill_id,
+      base::OnceCallback<void(OperationResult result)> callback);
 
   // Connect to a Wifi P2P group with given `ssid` and `passphrase`. If
   // `frequency` is provided, the operation will fail if no group found at the
@@ -99,14 +122,26 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController {
                              const std::string& passphrase,
                              std::optional<uint32_t> frequency,
                              WifiP2PGroupCallback callback);
+  const WifiP2PCapabilities& GetP2PCapabilities() const;
+
+  // Tags the TCP/UDP socket with the given `socket_fd` to the network
+  // specified by `network_id`. The `socket_fd` should be the duplicate of the
+  // fd that the caller process actually keeps.
+  void TagSocket(int network_id,
+                 base::ScopedFD socket_fd,
+                 base::OnceCallback<void(bool success)> callback);
 
  private:
   WifiP2PController();
   WifiP2PController(const WifiP2PController&) = delete;
   WifiP2PController& operator=(const WifiP2PController&) = delete;
-  ~WifiP2PController();
+  ~WifiP2PController() override;
 
   void Init();
+
+  // ShillPropertyChangedObserver overrides
+  void OnPropertyChanged(const std::string& key,
+                         const base::Value& value) override;
 
   void OnCreateOrConnectP2PGroupSuccess(bool create_group,
                                         WifiP2PGroupCallback callback,
@@ -115,6 +150,16 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController {
   void OnCreateOrConnectP2PGroupFailure(WifiP2PGroupCallback callback,
                                         const std::string& error_name,
                                         const std::string& error_message);
+
+  void OnDestroyOrDisconnectP2PGroupSuccess(
+      base::OnceCallback<void(OperationResult result)> callback,
+      base::Value::Dict result);
+
+  void OnDestroyOrDisconnectP2PGroupFailure(
+      base::OnceCallback<void(OperationResult result)> callback,
+      const std::string& error_name,
+      const std::string& error_message);
+
   void GetP2PGroupMetadata(int shill_id,
                            bool is_owner,
                            WifiP2PGroupCallback callback,
@@ -124,6 +169,12 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_WIFI_P2P) WifiP2PController {
   void OnSetManagerPropertyFailure(const std::string& property_name,
                                    const std::string& error_name,
                                    const std::string& error_message);
+
+  void OnGetManagerProperties(std::optional<base::Value::Dict> properties);
+
+  void UpdateP2PCapabilities(const base::Value::Dict& capabilities);
+
+  WifiP2PCapabilities wifi_p2p_capabilities_{false, false};
 
   base::WeakPtrFactory<WifiP2PController> weak_ptr_factory_{this};
 };

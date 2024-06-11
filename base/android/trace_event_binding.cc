@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/android/trace_event_binding.h"
+
 #include <jni.h>
 
 #include <set>
 
 #include "base/android/jni_string.h"
-#include "base/android/trace_event_binding.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/trace_event/base_tracing.h"
 #include "base/tracing_buildflags.h"
@@ -36,7 +37,6 @@ constexpr const char kAndroidViewHierarchyTraceCategory[] =
     TRACE_DISABLED_BY_DEFAULT("android_view_hierarchy");
 constexpr const char kAndroidViewHierarchyEventName[] = "AndroidView";
 
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
 class TraceEnabledObserver : public perfetto::TrackEventSessionObserver {
  public:
   static TraceEnabledObserver* GetInstance() {
@@ -89,44 +89,12 @@ class TraceEnabledObserver : public perfetto::TrackEventSessionObserver {
   std::unordered_map<uint32_t, bool> event_name_filtering_per_session_;
 };
 
-#else   // !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
-
-class TraceEnabledObserver
-    : public trace_event::TraceLog::EnabledStateObserver {
- public:
-  ~TraceEnabledObserver() override = default;
-
-  // trace_event::TraceLog::EnabledStateObserver:
-  void OnTraceLogEnabled() override {
-    JNIEnv* env = jni_zero::AttachCurrentThread();
-    base::android::Java_TraceEvent_setEnabled(env, true);
-    if (base::trace_event::TraceLog::GetInstance()
-            ->GetCurrentTraceConfig()
-            .IsEventPackageNameFilterEnabled()) {
-      base::android::Java_TraceEvent_setEventNameFilteringEnabled(env, true);
-    }
-  }
-
-  void OnTraceLogDisabled() override {
-    JNIEnv* env = jni_zero::AttachCurrentThread();
-    base::android::Java_TraceEvent_setEnabled(env, false);
-    base::android::Java_TraceEvent_setEventNameFilteringEnabled(env, false);
-  }
-};
-#endif  // !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
 
 }  // namespace
 
 static void JNI_TraceEvent_RegisterEnabledObserver(JNIEnv* env) {
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
   base::android::Java_TraceEvent_setEnabled(env, base::TrackEvent::IsEnabled());
   base::TrackEvent::AddSessionObserver(TraceEnabledObserver::GetInstance());
-#else
-  bool enabled = trace_event::TraceLog::GetInstance()->IsEnabled();
-  base::android::Java_TraceEvent_setEnabled(env, enabled);
-  trace_event::TraceLog::GetInstance()->AddOwnedEnabledStateObserver(
-      std::make_unique<TraceEnabledObserver>());
-#endif
 }
 
 static jboolean JNI_TraceEvent_ViewHierarchyDumpEnabled(JNIEnv* env) {
@@ -318,9 +286,8 @@ static void JNI_TraceEvent_WebViewStartupTotalFactoryInit(JNIEnv* env,
                                                           jlong start_time_ms,
                                                           jlong duration_ms) {
 #if BUILDFLAG(ENABLE_BASE_TRACING)
-  auto t = perfetto::Track::ThreadScoped(env);
-  auto desc = t.Serialize();
-  desc.set_name("android_webview.timeline");
+  auto t = perfetto::Track::ThreadScoped(
+      reinterpret_cast<void*>(trace_event::GetNextGlobalTraceId()));
   TRACE_EVENT_BEGIN("android_webview.timeline",
                     "WebView.Startup.CreationTime.TotalFactoryInitTime", t,
                     TimeTicks() + Milliseconds(start_time_ms));
@@ -333,9 +300,8 @@ static void JNI_TraceEvent_WebViewStartupStage1(JNIEnv* env,
                                                 jlong start_time_ms,
                                                 jlong duration_ms) {
 #if BUILDFLAG(ENABLE_BASE_TRACING)
-  auto t = perfetto::Track::ThreadScoped(env);
-  auto desc = t.Serialize();
-  desc.set_name("android_webview.timeline");
+  auto t = perfetto::Track::ThreadScoped(
+      reinterpret_cast<void*>(trace_event::GetNextGlobalTraceId()));
   TRACE_EVENT_BEGIN("android_webview.timeline",
                     "WebView.Startup.CreationTime.Stage1.FactoryInit", t,
                     TimeTicks() + Milliseconds(start_time_ms));
@@ -349,9 +315,8 @@ static void JNI_TraceEvent_WebViewStartupStage2(JNIEnv* env,
                                                 jlong duration_ms,
                                                 jboolean is_cold_startup) {
 #if BUILDFLAG(ENABLE_BASE_TRACING)
-  auto t = perfetto::Track::ThreadScoped(env);
-  auto desc = t.Serialize();
-  desc.set_name("android_webview.timeline");
+  auto t = perfetto::Track::ThreadScoped(
+      reinterpret_cast<void*>(trace_event::GetNextGlobalTraceId()));
   if (is_cold_startup) {
     TRACE_EVENT_BEGIN("android_webview.timeline",
                       "WebView.Startup.CreationTime.Stage2.ProviderInit.Cold",
@@ -370,15 +335,25 @@ static void JNI_TraceEvent_WebViewStartupStage2(JNIEnv* env,
 static void JNI_TraceEvent_WebViewStartupStartChromiumLocked(
     JNIEnv* env,
     jlong start_time_ms,
-    jlong duration_ms) {
+    jlong duration_ms,
+    jint call_site,
+    jboolean from_ui_thread) {
 #if BUILDFLAG(ENABLE_BASE_TRACING)
-  auto t = perfetto::Track::ThreadScoped(env);
-  auto desc = t.Serialize();
-  desc.set_name("android_webview.timeline");
-  TrackEvent::SetTrackDescriptor(t, desc);
-  TRACE_EVENT_BEGIN("android_webview.timeline",
-                    "WebView.Startup.CreationTime.StartChromiumLocked", t,
-                    TimeTicks() + Milliseconds(start_time_ms));
+  auto t = perfetto::Track::ThreadScoped(
+      reinterpret_cast<void*>(trace_event::GetNextGlobalTraceId()));
+  TRACE_EVENT_BEGIN(
+      "android_webview.timeline",
+      "WebView.Startup.CreationTime.StartChromiumLocked", t,
+      TimeTicks() + Milliseconds(start_time_ms),
+      [&](perfetto::EventContext ctx) {
+        auto* webview_startup =
+            ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>()
+                ->set_webview_startup();
+        webview_startup->set_from_ui_thread((bool)from_ui_thread);
+        webview_startup->set_call_site(
+            (perfetto::protos::pbzero::perfetto_pbzero_enum_WebViewStartup::
+                 CallSite)call_site);
+      });
   TRACE_EVENT_END("android_webview.timeline", t,
                   TimeTicks() + Milliseconds(start_time_ms + duration_ms));
 #endif  // BUILDFLAG(ENABLE_BASE_TRACING)

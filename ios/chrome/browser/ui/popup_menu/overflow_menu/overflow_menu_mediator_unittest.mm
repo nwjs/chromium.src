@@ -165,8 +165,8 @@ class OverflowMenuMediatorTest : public PlatformTest {
   void SetUp() override {
     PlatformTest::SetUp();
 
-    // TODO(crbug.com/1425657): Removed this once the other test suites properly
-    // clean up their NSUserDefaults on teardown.
+    // TODO(crbug.com/40260996): Removed this once the other test suites
+    // properly clean up their NSUserDefaults on teardown.
     CleanupNSUserDefaults();
 
     TestChromeBrowserState::Builder builder;
@@ -753,7 +753,7 @@ TEST_F(OverflowMenuMediatorTest, TestBookmarksToolsMenuButtons) {
   EXPECT_TRUE(HasItem(kToolsMenuEditBookmark, /*enabled=*/YES));
 
   ios::BookmarkModelFactory::GetForBrowserState(browser_state_.get())
-      ->RemoveAllUserBookmarks();
+      ->RemoveAllUserBookmarks(FROM_HERE);
   EXPECT_TRUE(HasItem(kToolsMenuAddToBookmarks, /*enabled=*/YES));
   EXPECT_FALSE(HasItem(kToolsMenuEditBookmark, /*enabled=*/YES));
 }

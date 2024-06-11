@@ -11,7 +11,6 @@
 
 #include "base/component_export.h"
 #include "base/containers/flat_set.h"
-#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/task/single_thread_task_runner.h"
@@ -204,7 +203,7 @@ class COMPONENT_EXPORT(OZONE) OzonePlatform {
 
     // Wayland only: determines whether clip rects can be delegated via the
     // wayland protocol when some quads are out of window.
-    // TODO(crbug.com/1470024): The flag is currently disabled by default since
+    // TODO(crbug.com/40277728): The flag is currently disabled by default since
     // there is a bug. Set this flag to enabled in GPU process when the
     // remaining issues are resolved.
     bool supports_out_of_window_clip_rect = false;
@@ -395,7 +394,6 @@ class COMPONENT_EXPORT(OZONE) OzonePlatform {
   bool initialized_ui_ = false;
   bool initialized_gpu_ = false;
   bool prearly_initialized_ = false;
-  bool pre_feature_list_initialized_ = false;
 
   // This value is checked on multiple threads. Declaring it volatile makes
   // modifications to |single_process_| visible by other threads. Mutex is not

@@ -140,7 +140,7 @@ void FlushCookieStoreOnIOThread(
   // Whether the application is currently in the background.
   // This is a workaround for rdar://22392526 where
   // -applicationDidEnterBackground: can be called twice.
-  // TODO(crbug.com/546196): Remove this once rdar://22392526 is fixed.
+  // TODO(crbug.com/41211311): Remove this once rdar://22392526 is fixed.
   BOOL _applicationInBackground;
   // The counter of the number of views which want to block the screen to
   // portrait mode for iPhone. This counter should always be 0 for iPad.
@@ -331,7 +331,7 @@ void FlushCookieStoreOnIOThread(
   if (self.initStage < InitStageBrowserObjectsForUI) {
     // Invariant: The app has passed InitStageStart.
     CHECK(self.initStage != InitStageStart);
-    // TODO(crbug.com/1197330): This function should only be called once
+    // TODO(crbug.com/40760092): This function should only be called once
     // during a specific stage, but this requires non-trivial refactoring, so
     // for now #initializeUIPreSafeMode will just return early if called more
     // than once.
@@ -550,7 +550,7 @@ void FlushCookieStoreOnIOThread(
   for (UIWindowScene* scene in connectedScenes) {
     if (![scene.delegate isKindOfClass:[SceneDelegate class]]) {
       // This might happen in tests.
-      // TODO(crbug.com/1113097): This shouldn't be needed. (It might also
+      // TODO(crbug.com/40710078): This shouldn't be needed. (It might also
       // be the cause of crbug.com/1142782).
       [sceneStates addObject:[[SceneState alloc] initWithAppState:self]];
       continue;
@@ -573,7 +573,7 @@ void FlushCookieStoreOnIOThread(
 }
 
 - (void)initializeUIPreSafeMode {
-  // TODO(crbug.com/1197330): Consider replacing this with a DCHECK once we
+  // TODO(crbug.com/40760092): Consider replacing this with a DCHECK once we
   // make sure that #initializeUIPreSafeMode is only called once. This should
   // be done in a one-line change that is easy to revert.
   // Only perform the pre-safemode initialization once.
@@ -714,7 +714,7 @@ void FlushCookieStoreOnIOThread(
 
 #pragma mark - AppStateObserver
 
-// TODO(crbug.com/1191489): Move this logic to a specific agent.
+// TODO(crbug.com/40756629): Move this logic to a specific agent.
 - (void)appState:(AppState*)appState
     didTransitionFromInitStage:(InitStage)previousInitStage {
   if (previousInitStage != InitStageBrowserObjectsForUI) {

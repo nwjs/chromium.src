@@ -279,7 +279,8 @@ const CGFloat kClearButtonSize = 28.5f;
                   range:NSMakeRange(0, addditionalAttributedText.length)];
       _textField.additionalText = addditionalAttributedText;
     }
-  } else {
+  } else if (IsRichAutocompletionEnabled(
+                 RichAutocompletionImplementation::kLabel)) {
     // Additional text in Label.
     _additionalTextLabel.text = additionalText;
     _additionalTextLabel.hidden = !additionalText.length;
@@ -296,6 +297,12 @@ const CGFloat kClearButtonSize = 28.5f;
       _textField.placeholder = nil;
     }
   }
+}
+
+- (void)setOmniboxHasRichInline:(BOOL)omniboxHasRichInline {
+  CHECK(IsRichAutocompletionEnabled(
+      RichAutocompletionImplementation::kNoAdditionalText));
+  _textField.omniboxHasRichInline = omniboxHasRichInline;
 }
 
 #pragma mark - TextFieldViewContaining

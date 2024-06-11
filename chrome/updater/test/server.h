@@ -28,8 +28,7 @@ class HttpResponse;
 }  // namespace test_server
 }  // namespace net
 
-namespace updater {
-namespace test {
+namespace updater::test {
 
 class IntegrationTestCommands;
 
@@ -46,6 +45,10 @@ class ScopedServer {
 
   ScopedServer(const ScopedServer&) = delete;
   ScopedServer& operator=(const ScopedServer&) = delete;
+
+  std::string host_port_pair() const {
+    return test_server_->host_port_pair().ToString();
+  }
 
   // Registers an expected request with the server. Requests must match the
   // expectation defined by applying all individual request matchers composing
@@ -81,6 +84,9 @@ class ScopedServer {
   std::string app_logo_path() const { return "/applogo/"; }
   GURL app_logo_url() const { return test_server_->GetURL(app_logo_path()); }
 
+  std::string proxy_pac_path() const { return "/pac_script.pac"; }
+  GURL proxy_pac_url() const { return test_server_->GetURL(proxy_pac_path()); }
+
   std::string proxy_url_no_path() const {
     std::string proxy = test_server_->base_url().spec();
     // A valid proxy string should not have any path component. Strip the root
@@ -103,7 +109,6 @@ class ScopedServer {
   base::TimeDelta download_delay_;
 };
 
-}  // namespace test
-}  // namespace updater
+}  // namespace updater::test
 
 #endif  // CHROME_UPDATER_TEST_SERVER_H_

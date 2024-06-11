@@ -60,7 +60,7 @@ FileSystemAccessHandleBase& AsHandleBase(
   return *absl::get<std::unique_ptr<FileSystemAccessFileHandleImpl>>(handle);
 }
 
-// TODO(https://crbug.com/1019297): Move this to a helper shared with
+// TODO(crbug.com/40105284): Move this to a helper shared with
 // `FileSystemAccessDirectoryHandleImpl`.
 std::vector<std::string> GetRelativePathAsVectorOfStrings(
     const base::FilePath& relative_path) {
@@ -161,10 +161,10 @@ void FileSystemAccessObserverObservation::OnChanges(
   const storage::FileSystemURL& handle_url = AsHandleBase(handle_).url();
 
   // Do not relay changes if the site has lost read permission to the handle.
-  // TODO(https://crbug.com/1489035): Add tests for this.
+  // TODO(crbug.com/40283887): Add tests for this.
   if (handle_state.read_grant->GetStatus() !=
       blink::mojom::PermissionStatus::GRANTED) {
-    // TODO(https://crbug.com/1489035): Proactively listen for permission
+    // TODO(crbug.com/40283887): Proactively listen for permission
     // changes, rather than (or perhaps in addition to) checking on each change.
     return;
   }
@@ -172,13 +172,13 @@ void FileSystemAccessObserverObservation::OnChanges(
   std::vector<blink::mojom::FileSystemAccessChangePtr> mojo_changes;
   for (const auto& change : changes) {
     if (change.type->is_errored()) {
-      // TODO(https://crbug.com/1019297): Consider destroying `observation_`...
+      // TODO(crbug.com/40105284): Consider destroying `observation_`...
       // Or don't bother passing along errored changes from the WatcherManager
       // to its Observations in the first place.
       continue;
     }
 
-    // TODO(https://crbug.com/1019297): Consider refactoring to keep the "scope"
+    // TODO(crbug.com/40105284): Consider refactoring to keep the "scope"
     // concept within the WatcherManager and its associated classes. This method
     // just needs the root url.
     //

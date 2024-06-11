@@ -157,7 +157,7 @@ void PasswordStore::UpdateLoginWithPrimaryKey(
     return;  // Once the shutdown started, ignore new requests.
   }
   PasswordForm new_form_with_correct_password_issues = new_form;
-  // TODO(crbug.com/1223022): Re-evaluate this once all places that call
+  // TODO(crbug.com/40774419): Re-evaluate this once all places that call
   // UpdateLoginWithPrimaryKey() have properly set the |password_issues|
   // field.
   if (new_form.password_value != old_primary_key.password_value) {
@@ -180,25 +180,28 @@ void PasswordStore::UpdateLoginWithPrimaryKey(
                  LoginsChangedTrigger::Update))
              .Then(std::move(completion)));
 
-  backend_->RemoveLoginAsync(old_primary_key, barrier_callback);
+  backend_->RemoveLoginAsync(FROM_HERE, old_primary_key, barrier_callback);
   backend_->AddLoginAsync(new_form_with_correct_password_issues,
                           barrier_callback);
   backend_->RecordAddLoginAsyncCalledFromTheStore();
 }
 
-void PasswordStore::RemoveLogin(const PasswordForm& form) {
+void PasswordStore::RemoveLogin(const base::Location& location,
+                                const PasswordForm& form) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
   if (!backend_) {
     return;  // Once the shutdown started, ignore new requests.
   }
   backend_->RemoveLoginAsync(
-      form, base::BindOnce(&GetPasswordChangesOrNulloptOnFailure)
-                .Then(base::BindOnce(
-                    &PasswordStore::NotifyLoginsChangedOnMainSequence, this,
-                    LoginsChangedTrigger::Deletion)));
+      location, form,
+      base::BindOnce(&GetPasswordChangesOrNulloptOnFailure)
+          .Then(
+              base::BindOnce(&PasswordStore::NotifyLoginsChangedOnMainSequence,
+                             this, LoginsChangedTrigger::Deletion)));
 }
 
 void PasswordStore::RemoveLoginsByURLAndTime(
+    const base::Location& location,
     const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time delete_begin,
     base::Time delete_end,
@@ -210,7 +213,8 @@ void PasswordStore::RemoveLoginsByURLAndTime(
     return;  // Once the shutdown started, ignore new requests.
   }
   backend_->RemoveLoginsByURLAndTimeAsync(
-      url_filter, delete_begin, delete_end, std::move(sync_completion),
+      location, url_filter, delete_begin, delete_end,
+      std::move(sync_completion),
       base::BindOnce(&GetPasswordChangesOrNulloptOnFailure)
           .Then(
               base::BindOnce(&PasswordStore::NotifyLoginsChangedOnMainSequence,
@@ -219,6 +223,7 @@ void PasswordStore::RemoveLoginsByURLAndTime(
 }
 
 void PasswordStore::RemoveLoginsCreatedBetween(
+    const base::Location& location,
     base::Time delete_begin,
     base::Time delete_end,
     base::OnceCallback<void(bool)> completion) {
@@ -231,7 +236,7 @@ void PasswordStore::RemoveLoginsCreatedBetween(
       base::BindOnce(&PasswordStore::NotifyLoginsChangedOnMainSequence, this,
                      LoginsChangedTrigger::BatchDeletion);
   backend_->RemoveLoginsCreatedBetweenAsync(
-      delete_begin, delete_end,
+      location, delete_begin, delete_end,
       base::BindOnce(&GetPasswordChangesOrNulloptOnFailure)
           .Then(base::BindOnce(&InvokeCallbacksForSuspectedChanges,
                                std::move(callback), std::move(completion))));
@@ -373,14 +378,6 @@ void PasswordStore::OnSyncServiceInitialized(
   }
 }
 
-PasswordStoreSyncInterface* PasswordStore::GetPasswordStoreSyncInterface() {
-  return this;
-}
-
-PasswordStoreBackend* PasswordStore::GetBackendForTesting() {
-  return backend_.get();
-}
-
 base::CallbackListSubscription PasswordStore::AddSyncEnabledOrDisabledCallback(
     base::RepeatingClosure sync_enabled_or_disabled_cb) {
   DCHECK(sync_enabled_or_disabled_cbs_);
@@ -388,16 +385,9 @@ base::CallbackListSubscription PasswordStore::AddSyncEnabledOrDisabledCallback(
       std::move(sync_enabled_or_disabled_cb));
 }
 
-#if !BUILDFLAG(IS_ANDROID)
-void PasswordStore::GetUnsyncedCredentials(
-    base::OnceCallback<void(std::vector<PasswordForm>)> callback) {
-  if (!backend_) {
-    std::move(callback).Run({});
-    return;
-  }
-  backend_->GetUnsyncedCredentials(std::move(callback));
+PasswordStoreBackend* PasswordStore::GetBackendForTesting() {
+  return backend_.get();
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 PasswordStore::~PasswordStore() {
   DCHECK(!backend_) << "Shutdown() needs to be called before destruction!";
@@ -524,7 +514,7 @@ void PasswordStore::UnblocklistInternal(base::OnceClosure completion,
                                   .Then(std::move(notify_callback)));
 
   for (const auto& form : forms_to_remove) {
-    backend_->RemoveLoginAsync(form, barrier_callback);
+    backend_->RemoveLoginAsync(FROM_HERE, form, barrier_callback);
   }
 }
 

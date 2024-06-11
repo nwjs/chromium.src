@@ -70,68 +70,20 @@ std::vector<AppListItem*> GetAppListItemsForCollection(
 
 }  // namespace
 
-// The grid delegate for each AppListItemView. Collection app icons cannot be
-// dragged, so this implementation is mostly a stub.
-class AppsCollectionSectionView::GridDelegateImpl
-    : public AppListItemView::GridDelegate {
- public:
-  explicit GridDelegateImpl(AppListViewDelegate* view_delegate)
-      : view_delegate_(view_delegate) {}
-  GridDelegateImpl(const GridDelegateImpl&) = delete;
-  GridDelegateImpl& operator=(const GridDelegateImpl&) = delete;
-  ~GridDelegateImpl() override = default;
-
-  // AppListItemView::GridDelegate:
-  bool IsInFolder() const override { return false; }
-  void SetSelectedView(AppListItemView* view) override {
-    selected_view_ = view;
-  }
-  void ClearSelectedView() override { selected_view_ = nullptr; }
-  bool IsSelectedView(const AppListItemView* view) const override {
-    return view == selected_view_;
-  }
-  bool InitiateDrag(AppListItemView* view,
-                    const gfx::Point& location,
-                    const gfx::Point& root_location,
-                    base::OnceClosure drag_start_callback,
-                    base::OnceClosure drag_end_callback) override {
-    return false;
-  }
-  void StartDragAndDropHostDragAfterLongPress() override {}
-  bool UpdateDragFromItem(bool is_touch,
-                          const ui::LocatedEvent& event) override {
-    return false;
-  }
-  void EndDrag(bool cancel) override {}
-  void OnAppListItemViewActivated(AppListItemView* pressed_item_view,
-                                  const ui::Event& event) override {
-    const std::string id = pressed_item_view->item()->id();
-    view_delegate_->ActivateItem(
-        id, event.flags(), AppListLaunchedFrom::kLaunchedFromAppsCollections);
-    RecordAppListByCollectionLaunched(
-        pressed_item_view->item()->collection_id(),
-        /*is_apps_collections_page=*/true);
-    // `this` may be deleted.
-  }
-
- private:
-  const raw_ptr<AppListViewDelegate> view_delegate_;
-  raw_ptr<AppListItemView> selected_view_ = nullptr;
-};
-
 AppsCollectionSectionView::AppsCollectionSectionView(
     AppCollection collection,
-    AppListViewDelegate* view_delegate)
+    AppListViewDelegate* view_delegate,
+    AppListItemViewGridDelegate* grid_delegate)
     : collection_(collection),
       view_delegate_(view_delegate),
-      grid_delegate_(std::make_unique<GridDelegateImpl>(view_delegate_)) {
+      grid_delegate_(grid_delegate) {
   DCHECK(view_delegate_);
 
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
   layout->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kStart);
   layout->set_cross_axis_alignment(
-      views::BoxLayout::CrossAxisAlignment::kStart);
+      views::BoxLayout::CrossAxisAlignment::kStretch);
 
   views::Label* label = AddChildView(
       std::make_unique<views::Label>(GetAppCollectionName(collection)));
@@ -143,7 +95,7 @@ AppsCollectionSectionView::AppsCollectionSectionView(
   apps_container_ = AddChildView(std::make_unique<views::View>());
   apps_container_->SetProperty(views::kMarginsKey, kAppsGridPadding);
   apps_container_->SetLayoutManager(
-      std::make_unique<SimpleGridLayout>(kAppsPerColumn, 0, 0));
+      std::make_unique<SimpleGridLayout>(kAppsPerColumn));
 
   SetBackground(views::CreateThemedRoundedRectBackground(
       cros_tokens::kCrosSysSystemOnBase, kCornerRadius));
@@ -205,23 +157,6 @@ void AppsCollectionSectionView::SetModel(AppListModel* model) {
 
 size_t AppsCollectionSectionView::GetItemViewCount() const {
   return item_views_.view_size();
-}
-
-void AppsCollectionSectionView::OnBoundsChanged(
-    const gfx::Rect& previous_bounds) {
-  const int between_child_padding = CalculateTilePadding();
-  apps_container_->SetLayoutManager(std::make_unique<SimpleGridLayout>(
-      kAppsPerColumn, 2 * between_child_padding, between_child_padding));
-}
-
-int AppsCollectionSectionView::CalculateTilePadding() const {
-  DCHECK(app_list_config_);
-  int content_width = GetContentsBounds().width();
-  int tile_width = app_list_config_->grid_tile_width();
-  int width_to_distribute =
-      content_width - kAppsGridPadding.width() - kAppsPerColumn * tile_width;
-
-  return width_to_distribute / ((kAppsPerColumn - 1) * 2);
 }
 
 std::optional<size_t> AppsCollectionSectionView::GetViewIndexForItem(

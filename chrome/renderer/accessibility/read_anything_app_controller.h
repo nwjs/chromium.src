@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/safe_ref.h"
 #include "chrome/common/accessibility/read_anything.mojom.h"
 #include "chrome/renderer/accessibility/read_anything_app_model.h"
 #include "gin/wrappable.h"
@@ -34,6 +35,10 @@ class AXNode;
 class AXSerializableTree;
 class AXTree;
 }  // namespace ui
+
+namespace ukm {
+class MojoUkmRecorder;
+}  // namespace ukm
 
 class AXTreeDistiller;
 class ReadAnythingAppControllerTest;
@@ -103,9 +108,14 @@ class ReadAnythingAppController
       read_anything::mojom::Colors color,
       double speech_rate,
       base::Value::Dict voices,
+      base::Value::List languages_enabled_in_pref,
       read_anything::mojom::HighlightGranularity granularity) override;
   void SetLanguageCode(const std::string& code) override;
+  void SetDefaultLanguageCode(const std::string& code) override;
   void ScreenAIServiceReady() override;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  void OnDeviceLocked() override;
+#endif
 
   // gin templates:
   ui::AXNodeID RootId() const;
@@ -138,7 +148,8 @@ class ReadAnythingAppController
   int DarkTheme() const;
   int YellowTheme() const;
   int BlueTheme() const;
-  std::string GetStoredVoice(const std::string& lang) const;
+  std::string GetStoredVoice() const;
+  std::vector<std::string> GetLanguagesEnabledInPref() const;
   std::vector<ui::AXNodeID> GetChildren(ui::AXNodeID ax_node_id) const;
   std::string GetDataFontCss(ui::AXNodeID ax_node_id) const;
   std::string GetHtmlTag(ui::AXNodeID ax_node_id) const;
@@ -148,6 +159,12 @@ class ReadAnythingAppController
   std::string GetTextDirection(ui::AXNodeID ax_node_id) const;
   std::string GetUrl(ui::AXNodeID ax_node_id) const;
   std::string GetAltText(ui::AXNodeID ax_node_id) const;
+  void SendGetVoicePackInfoRequest(const std::string& language) const;
+  void OnGetVoicePackInfoResponse(
+      read_anything::mojom::VoicePackInfoPtr voice_pack_info);
+  void SendInstallVoicePackRequest(const std::string& language) const;
+  void OnInstallVoicePackResponse(
+      read_anything::mojom::VoicePackInfoPtr voice_pack_info);
   bool ShouldBold(ui::AXNodeID ax_node_id) const;
   bool IsOverline(ui::AXNodeID ax_node_id) const;
   bool IsLeafNode(ui::AXNodeID ax_node_id) const;
@@ -163,6 +180,10 @@ class ReadAnythingAppController
   bool IsGoogleDocs() const;
   bool IsWebUIToolbarEnabled() const;
   bool IsReadAloudEnabled() const;
+  bool IsChromeOsAsh() const;
+  bool IsAutoVoiceSwitchingEnabled() const;
+  bool IsLanguagePackDownloadingEnabled() const;
+  bool IsAutomaticWordHighlightingEnabled() const;
   void OnStandardLineSpacing();
   void OnLooseLineSpacing();
   void OnVeryLooseLineSpacing();
@@ -177,6 +198,8 @@ class ReadAnythingAppController
   void OnFontChange(const std::string& font);
   void OnSpeechRateChange(double rate);
   void OnVoiceChange(const std::string& voice, const std::string& lang);
+  void OnLanguagePrefChange(const std::string& lang, bool enabled);
+  bool RequiresDistillation();
   void TurnedHighlightOn();
   void TurnedHighlightOff();
   double GetLineSpacingValue(int line_spacing) const;
@@ -184,10 +207,15 @@ class ReadAnythingAppController
   std::vector<std::string> GetSupportedFonts() const;
   void RequestImageDataUrl(ui::AXNodeID node_id) const;
   std::string GetImageDataUrl(ui::AXNodeID node_id) const;
+  void OnSpeechPlayingStateChanged(bool paused);
 
   // The language code that should be used to determine which voices are
   // supported for speech.
   const std::string& GetLanguageCodeForSpeech() const;
+
+  // The fallback language code if GetLanguageCodeForSpeech has an error.
+  // However, this may be the same value as GetLanguageCodeForSpeech.
+  const std::string& GetDefaultLanguageCodeForSpeech() const;
 
   const std::string GetDisplayNameForLocale(
       const std::string& locale,
@@ -211,7 +239,7 @@ class ReadAnythingAppController
   void ShouldShowUI();
 
   // Inits the AXPosition with a starting node.
-  // TODO(crbug.com/1474951): We should be able to use AXPosition in a way
+  // TODO(crbug.com/40927698): We should be able to use AXPosition in a way
   // where this isn't needed.
   void InitAXPositionWithNode(const ui::AXNodeID& starting_node_id);
 
@@ -226,7 +254,7 @@ class ReadAnythingAppController
   // indices for specific text that should be referenced within the node.
   std::vector<ui::AXNodeID> GetCurrentText();
 
-  // TODO(crbug.com/1474951): Random access to processed nodes might not always
+  // TODO(crbug.com/40927698): Random access to processed nodes might not always
   // work (e.g. if we're switching granularities or jumping to a specific node),
   // so we should implement a method of retrieving previous text from
   // AXPosition.
@@ -253,6 +281,14 @@ class ReadAnythingAppController
   // moment, this will return the length of the node's text. Returns -1 if the
   // node isn't in the current segment.
   int GetCurrentTextEndIndex(ui::AXNodeID node_id);
+
+  // Records the number of selections that occurred for the active page. Called
+  // when the active tree changes.
+  void RecordNumSelections();
+
+  ui::AXNodeID GetNodeIdForCurrentSegmentIndex(int index);
+
+  int GetNextWordHighlightLength(int index);
 
   // SetContentForTesting, SetThemeForTesting, and SetLanguageForTesting are
   // used by ReadAnythingAppTest and thus need to be kept in
@@ -286,8 +322,13 @@ class ReadAnythingAppController
                           int letter_spacing);
   void SetLanguageForTesting(const std::string& language_code);
 
-  // Helper for logging UmaHistograms based on times recorded in WebUI.
+  // Helpers for logging UmaHistograms based on times recorded in WebUI.
+  void LogUmaHistogramTimes(int64_t time, std::string metric);
   void LogUmaHistogramLongTimes(int64_t time, std::string metric);
+  void IncrementMetricCount(std::string metric);
+  void LogSpeechEventCounts();
+
+  void LogSpeechErrorEvent(std::string error_code);
 
   content::RenderFrame* GetRenderFrame();
 
@@ -302,6 +343,8 @@ class ReadAnythingAppController
   ReadAnythingAppModel model_;
 
   // For metrics logging
+
+  std::unique_ptr<ukm::MojoUkmRecorder> ukm_recorder_;
 
   // The time when the renderer constructor is first triggered.
   base::TimeTicks renderer_load_triggered_time_ms_;

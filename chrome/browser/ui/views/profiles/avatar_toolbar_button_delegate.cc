@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button_delegate.h"
 
+#include <optional>
+
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -48,9 +50,11 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
+#include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
+#include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -474,6 +478,10 @@ class SyncErrorStateProvider : public StateProvider,
                &profile_.get());
   }
 
+  std::optional<AvatarSyncErrorType> GetLastAvatarSyncErrorType() const {
+    return last_avatar_error_;
+  }
+
  private:
   // StateProvider:
   void accept(StateVisitor& visitor) const override { visitor.visit(this); }
@@ -868,8 +876,7 @@ class StateManager : public StateObserver,
                 avatar_toolbar_button_.get());
       }
 
-      if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-              switches::ExplicitBrowserSigninPhase::kFull)) {
+      if (switches::IsExplicitBrowserSigninUIOnDesktopEnabled()) {
         states_[ButtonState::kSigninPaused] =
             std::make_unique<SigninPausedStateProvider>(
                 /*state_observer=*/*this, *profile, *avatar_toolbar_button_);
@@ -1013,7 +1020,12 @@ AvatarToolbarButtonDelegate::AvatarToolbarButtonDelegate(
     Browser* browser)
     : avatar_toolbar_button_(button),
       browser_(browser),
-      profile_(browser->profile()) {
+      profile_(browser->profile()),
+      identity_manager_(
+          IdentityManagerFactory::GetForProfile(browser->profile())) {
+  if (identity_manager_) {
+    identity_manager_observation_.Observe(identity_manager_);
+  }
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   // On CrOS this button should only show as badging for Incognito, Guest and
   // captivie portal signin. It's only enabled for non captive portal Incognito
@@ -1176,7 +1188,10 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
       break;
     }
     case ButtonState::kShowIdentityName:
-      text = GetShortProfileName();
+      text = switches::IsExplicitBrowserSigninUIOnDesktopEnabled()
+                 ? l10n_util::GetStringFUTF16(IDS_AVATAR_BUTTON_GREETING,
+                                              GetShortProfileName())
+                 : GetShortProfileName();
       break;
     case ButtonState::kExplicitTextShowing: {
       const internal::ExplicitStateProvider* explicit_state =
@@ -1185,6 +1200,7 @@ AvatarToolbarButtonDelegate::GetTextAndColor(
               .AsExplicit();
       CHECK(explicit_state);
       text = explicit_state->GetExplicitText();
+      color = color_provider->GetColor(kColorAvatarButtonHighlightExplicitText);
       break;
     }
     case ButtonState::kSyncError: {
@@ -1276,15 +1292,13 @@ SkColor AvatarToolbarButtonDelegate::GetHighlightTextColor(
             kColorAvatarButtonHighlightSyncErrorForeground);
       }
     }
-    case ButtonState::kGuestSession:
-    case ButtonState::kExplicitTextShowing:
-    case ButtonState::kShowIdentityName:
-      return color_provider->GetColor(
-          kColorAvatarButtonHighlightDefaultForeground);
     case ButtonState::kManagement:
     case ButtonState::kSigninPaused:
       return color_provider->GetColor(
           kColorAvatarButtonHighlightNormalForeground);
+    case ButtonState::kExplicitTextShowing:
+    case ButtonState::kGuestSession:
+    case ButtonState::kShowIdentityName:
     case ButtonState::kNormal:
       return color_provider->GetColor(
           kColorAvatarButtonHighlightDefaultForeground);
@@ -1300,9 +1314,14 @@ std::u16string AvatarToolbarButtonDelegate::GetAvatarTooltipText() const {
     case ButtonState::kShowIdentityName:
       return GetShortProfileName();
     case ButtonState::kSyncError: {
+      const internal::SyncErrorStateProvider* sync_error_state =
+          internal::StateProviderGetter(
+              *state_manager_->GetActiveStateProvider())
+              .AsSyncError();
+      CHECK(sync_error_state);
       std::optional<AvatarSyncErrorType> sync_error =
-          ::GetAvatarSyncErrorType(profile_);
-      DCHECK(sync_error);
+          sync_error_state->GetLastAvatarSyncErrorType();
+      CHECK(sync_error.has_value());
       return l10n_util::GetStringFUTF16(
           IDS_AVATAR_BUTTON_SYNC_ERROR_TOOLTIP, GetShortProfileName(),
           GetAvatarSyncErrorDescription(
@@ -1395,6 +1414,25 @@ bool AvatarToolbarButtonDelegate::ShouldPaintBorder() const {
     case ButtonState::kSigninPaused:
     case ButtonState::kSyncError:
       return false;
+  }
+}
+
+// signin::IdentityManager::Observer:
+void AvatarToolbarButtonDelegate::OnErrorStateOfRefreshTokenUpdatedForAccount(
+    const CoreAccountInfo& account_info,
+    const GoogleServiceAuthError& error,
+    signin_metrics::SourceForRefreshTokenOperation token_operation_source) {
+  if (base::FeatureList::IsEnabled(
+          syncer::kReplaceSyncPromosWithSignInPromos) &&
+      profile_->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin) &&
+      account_info == identity_manager_->GetPrimaryAccountInfo(
+                          signin::ConsentLevel::kSignin) &&
+      !identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSync) &&
+      error.state() ==
+          GoogleServiceAuthError::State::INVALID_GAIA_CREDENTIALS &&
+      token_operation_source == signin_metrics::SourceForRefreshTokenOperation::
+                                    kDiceResponseHandler_Signout) {
+    avatar_toolbar_button_->MaybeShowWebSignoutIPH(account_info.gaia);
   }
 }
 

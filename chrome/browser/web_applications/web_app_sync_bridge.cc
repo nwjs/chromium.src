@@ -43,6 +43,7 @@
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/channel_info.h"
+#include "components/sync/base/deletion_origin.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/report_unrecoverable_error.h"
 #include "components/sync/model/client_tag_based_model_type_processor.h"
@@ -130,7 +131,7 @@ std::unique_ptr<syncer::EntityData> CreateSyncEntityData(const WebApp& app) {
 
   auto entity_data = std::make_unique<syncer::EntityData>();
   entity_data->name = app.untranslated_name();
-  // TODO(crbug.com/1103570): Remove this fallback later.
+  // TODO(crbug.com/40139320): Remove this fallback later.
   if (entity_data->name.empty())
     entity_data->name = app.start_url().spec();
 
@@ -144,37 +145,44 @@ void ApplySyncDataToApp(const sync_pb::WebAppSpecifics& sync_proto,
 
   sync_pb::WebAppSpecifics modified_sync_proto = sync_proto;
 
+  std::string relative_manifest_id_path =
+      RelativeManifestIdPath(app->manifest_id());
+  if (modified_sync_proto.has_relative_manifest_id() &&
+      modified_sync_proto.relative_manifest_id() != relative_manifest_id_path) {
+    modified_sync_proto.set_relative_manifest_id(relative_manifest_id_path);
+    // Record when this happens. When it is rare enough we could remove the
+    // logic here and instead drop incoming sync data with fragment parts in the
+    // manifest_id_path.
+    base::UmaHistogramBoolean("WebApp.ApplySyncDataToApp.ManifestIdMatch",
+                              false);
+  } else {
+    // Record success for comparison.
+    base::UmaHistogramBoolean("WebApp.ApplySyncDataToApp.ManifestIdMatch",
+                              true);
+  }
+
   // Prevent incoming sync data from clearing recently-added fields in our local
   // copy. This ensures new sync fields are preserved despite old (pre-M125)
   // clients incorrectly clearing unknown fields. Any new fields added to the
   // sync proto should also be added here (if we don't want them to be cleared
   // by old clients) until this block can be removed. This can be removed when
   // there are few <M125 clients remaining.
-  if (base::FeatureList::IsEnabled(kSyncOnlySeparateUserDisplayModeForCrOS)) {
-    if (app->sync_proto().has_user_display_mode_cros() &&
-        !modified_sync_proto.has_user_display_mode_cros()) {
-      modified_sync_proto.set_user_display_mode_cros(
-          app->sync_proto().user_display_mode_cros());
-    }
-    if (base::FeatureList::IsEnabled(kSeparateUserDisplayModeForCrOS)) {
-      if (app->sync_proto().has_user_display_mode_default() &&
-          !modified_sync_proto.has_user_display_mode_default()) {
-        modified_sync_proto.set_user_display_mode_default(
-            app->sync_proto().user_display_mode_default());
-      }
+  if (app->sync_proto().has_user_display_mode_cros() &&
+      !modified_sync_proto.has_user_display_mode_cros()) {
+    modified_sync_proto.set_user_display_mode_cros(
+        app->sync_proto().user_display_mode_cros());
+  }
+  if (app->sync_proto().has_user_display_mode_default() &&
+      !modified_sync_proto.has_user_display_mode_default()) {
+    modified_sync_proto.set_user_display_mode_default(
+        app->sync_proto().user_display_mode_default());
+  }
 
-      // Ensure the current platform's UserDisplayMode is set.
-      // Conditional to avoid clobbering a valid UDM with an absent one, for the
-      // case of old clients clearing the CrOS UDM value or non-sync-installed
-      // apps.
-      if (!HasCurrentPlatformUserDisplayMode(modified_sync_proto)) {
-        auto udm = ResolvePlatformSpecificUserDisplayMode(modified_sync_proto);
-        SetPlatformSpecificUserDisplayMode(udm, &modified_sync_proto);
-      }
-    }
-    // If `kSeparateUserDisplayModeForCrOS` is disabled, maintain original
-    // behaviour of clobbering UDM-default with the synced value, even if
-    // absent.
+  // Ensure the current platform's UserDisplayMode is set.
+  // Conditional to avoid clobbering an unknown new UDM with a fallback one.
+  if (!HasCurrentPlatformUserDisplayMode(modified_sync_proto)) {
+    auto udm = ResolvePlatformSpecificUserDisplayMode(modified_sync_proto);
+    SetPlatformSpecificUserDisplayMode(udm, &modified_sync_proto);
   }
 
   app->SetSyncProto(std::move(modified_sync_proto));
@@ -539,7 +547,8 @@ void WebAppSyncBridge::UpdateSync(
       change_processor()->Put(app_id, CreateSyncEntityData(*new_state),
                               metadata_change_list);
     } else if (current_state->IsSynced()) {
-      change_processor()->Delete(app_id, metadata_change_list);
+      change_processor()->Delete(app_id, syncer::DeletionOrigin::Unspecified(),
+                                 metadata_change_list);
     }
   }
 
@@ -548,7 +557,9 @@ void WebAppSyncBridge::UpdateSync(
     DCHECK(current_state);
     // Exclude the app from the sync "view" if IsSynced flag was true.
     if (current_state->IsSynced())
-      change_processor()->Delete(app_id_to_delete, metadata_change_list);
+      change_processor()->Delete(app_id_to_delete,
+                                 syncer::DeletionOrigin::Unspecified(),
+                                 metadata_change_list);
   }
 }
 
@@ -565,9 +576,7 @@ void WebAppSyncBridge::OnDatabaseOpened(
 
   // Do database migrations to ensure apps are valid before notifying anything
   // else that the sync bridge is ready.
-  if (base::FeatureList::IsEnabled(kSeparateUserDisplayModeForCrOS)) {
-    EnsureAppsHaveUserDisplayModeForCurrentPlatform();
-  }
+  EnsureAppsHaveUserDisplayModeForCurrentPlatform();
 
   std::move(initialized_callback).Run();
 
@@ -800,6 +809,7 @@ std::optional<syncer::ModelError> WebAppSyncBridge::MergeFullSyncData(
     if (base::FeatureList::IsEnabled(kDeleteBadWebAppSyncEntitites) &&
         result != ManifestIdParseResult::kSuccess) {
       change_processor()->Delete(GetStorageKey(change->data()),
+                                 syncer::DeletionOrigin::Unspecified(),
                                  metadata_change_list.get());
     }
   }

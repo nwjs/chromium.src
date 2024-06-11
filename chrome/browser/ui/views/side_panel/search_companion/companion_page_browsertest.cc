@@ -2151,8 +2151,10 @@ IN_PROC_BROWSER_TEST_F(CompanionPageDisabledBrowserTest,
 // Verifies the behavior when companion feature is disabled but a navigation to
 // exps registration URL is observed. Restart the browser and verify that
 // companion is active and pinned.
+//
+// TODO(crbug.com/334977785): Flaky.
 IN_PROC_BROWSER_TEST_F(CompanionPageDisabledBrowserTest,
-                       ObservesExpsRegistrationSuccessURL) {
+                       DISABLED_ObservesExpsRegistrationSuccessURL) {
   EXPECT_TRUE(companion::IsCompanionFeatureEnabled());
   EXPECT_TRUE(base::FeatureList::IsEnabled(
       companion::features::internal::
@@ -2339,7 +2341,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCompanion2BrowserDisabledTest,
   EXPECT_EQ(0u, requests_received_on_server());
 }
 
-// TODO(crbug.com/1491942): This fails with the field trial testing config.
+// TODO(crbug.com/40285326): This fails with the field trial testing config.
 class SidePanelCompanion2BrowserEnabledTestNoTestingConfig
     : public SidePanelCompanion2BrowserEnabledTest {
  public:

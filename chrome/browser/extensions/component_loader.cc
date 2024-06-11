@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include "content/public/common/content_features.h"
 #include "base/strings/utf_string_conversions.h"
 
@@ -93,6 +94,12 @@ using content::BrowserThread;
 namespace extensions {
 
 namespace {
+
+#if BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
+BASE_FEATURE(kHangoutsExtensionV3,
+             "HangoutsExtensionV3",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
 
 bool g_enable_background_extensions_during_testing = false;
 
@@ -213,7 +220,7 @@ void ComponentLoader::LoadAll() {
 }
 
 std::optional<base::Value::Dict> ComponentLoader::ParseManifest(
-    base::StringPiece manifest_contents) const {
+    std::string_view manifest_contents) const {
   JSONStringValueDeserializer deserializer(manifest_contents);
   std::unique_ptr<base::Value> manifest =
       deserializer.Deserialize(nullptr, nullptr);
@@ -233,7 +240,7 @@ ExtensionId ComponentLoader::Add(int manifest_resource_id,
     return std::string();
   }
 
-  base::StringPiece manifest_contents =
+  std::string_view manifest_contents =
       ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
           manifest_resource_id);
   return Add(manifest_contents, root_directory, true);
@@ -244,12 +251,12 @@ ExtensionId ComponentLoader::Add(base::Value::Dict manifest,
   return Add(std::move(manifest), root_directory, false);
 }
 
-ExtensionId ComponentLoader::Add(const base::StringPiece& manifest_contents,
+ExtensionId ComponentLoader::Add(std::string_view manifest_contents,
                                  const base::FilePath& root_directory) {
   return Add(manifest_contents, root_directory, false);
 }
 
-ExtensionId ComponentLoader::Add(const base::StringPiece& manifest_contents,
+ExtensionId ComponentLoader::Add(std::string_view manifest_contents,
                                  const base::FilePath& root_directory,
                                  bool skip_allowlist) {
   // The Value is kept for the lifetime of the ComponentLoader. This is
@@ -370,8 +377,14 @@ std::vector<ExtensionId> ComponentLoader::GetRegisteredComponentExtensionsIds()
 
 #if BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
 void ComponentLoader::AddHangoutServicesExtension() {
-  Add(IDR_HANGOUT_SERVICES_MANIFEST,
-      base::FilePath(FILE_PATH_LITERAL("hangout_services")));
+  // Finch controlled migration to a v3 Manifest - see crbug.com/326877912.
+  if (base::FeatureList::IsEnabled(kHangoutsExtensionV3)) {
+    Add(IDR_HANGOUT_SERVICES_MANIFEST_V3,
+        base::FilePath(FILE_PATH_LITERAL("hangout_services")));
+  } else {
+    Add(IDR_HANGOUT_SERVICES_MANIFEST_V2,
+        base::FilePath(FILE_PATH_LITERAL("hangout_services")));
+  }
 }
 #endif  // BUILDFLAG(ENABLE_HANGOUT_SERVICES_EXTENSION)
 
@@ -390,7 +403,7 @@ void ComponentLoader::AddWithNameAndDescription(
     return;
   }
 
-  base::StringPiece manifest_contents =
+  std::string_view manifest_contents =
       ui::ResourceBundle::GetSharedInstance().GetRawDataResource(
           manifest_resource_id);
 

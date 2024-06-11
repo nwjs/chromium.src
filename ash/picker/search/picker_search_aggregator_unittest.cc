@@ -90,6 +90,14 @@ INSTANTIATE_TEST_SUITE_P(
         TestCase{
             .source = PickerSearchSource::kMath,
             .section_type = PickerSectionType::kSuggestions,
+        },
+        TestCase{
+            .source = PickerSearchSource::kEditorWrite,
+            .section_type = PickerSectionType::kEditorWrite,
+        },
+        TestCase{
+            .source = PickerSearchSource::kEditorRewrite,
+            .section_type = PickerSectionType::kEditorRewrite,
         }));
 
 TEST_P(PickerSearchAggregatorTest, DoesNotPublishResultsDuringBurnIn) {
@@ -280,6 +288,24 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                                  &PickerSearchResult::TextData::primary_text,
                                  u"category")))))),
           AllOf(Property("type", &PickerSearchResultsSection::type,
+                         PickerSectionType::kEditorWrite),
+                Property("results", &PickerSearchResultsSection::results,
+                         ElementsAre(Property(
+                             "data", &PickerSearchResult::data,
+                             VariantWith<PickerSearchResult::TextData>(Field(
+                                 "primary_text",
+                                 &PickerSearchResult::TextData::primary_text,
+                                 u"write")))))),
+          AllOf(Property("type", &PickerSearchResultsSection::type,
+                         PickerSectionType::kEditorRewrite),
+                Property("results", &PickerSearchResultsSection::results,
+                         ElementsAre(Property(
+                             "data", &PickerSearchResult::data,
+                             VariantWith<PickerSearchResult::TextData>(Field(
+                                 "primary_text",
+                                 &PickerSearchResult::TextData::primary_text,
+                                 u"rewrite")))))),
+          AllOf(Property("type", &PickerSearchResultsSection::type,
                          PickerSectionType::kExpressions),
                 Property("results", &PickerSearchResultsSection::results,
                          ElementsAre(Property(
@@ -354,6 +380,12 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                                        /*has_more_results=*/false);
   aggregator.HandleSearchSourceResults(PickerSearchSource::kMath,
                                        {PickerSearchResult::Text(u"math")},
+                                       /*has_more_results=*/false);
+  aggregator.HandleSearchSourceResults(PickerSearchSource::kEditorWrite,
+                                       {PickerSearchResult::Text(u"write")},
+                                       /*has_more_results=*/false);
+  aggregator.HandleSearchSourceResults(PickerSearchSource::kEditorRewrite,
+                                       {PickerSearchResult::Text(u"rewrite")},
                                        /*has_more_results=*/false);
   task_environment().FastForwardBy(kBurnInPeriod);
 }
@@ -436,6 +468,30 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                                    &PickerSearchResult::TextData::primary_text,
                                    u"local")))))))))
       .Times(1);
+  EXPECT_CALL(search_results_callback,
+              Call(ElementsAre(AllOf(
+                  Property("type", &PickerSearchResultsSection::type,
+                           PickerSectionType::kEditorWrite),
+                  Property("results", &PickerSearchResultsSection::results,
+                           ElementsAre(Property(
+                               "data", &PickerSearchResult::data,
+                               VariantWith<PickerSearchResult::TextData>(Field(
+                                   "primary_text",
+                                   &PickerSearchResult::TextData::primary_text,
+                                   u"write")))))))))
+      .Times(1);
+  EXPECT_CALL(search_results_callback,
+              Call(ElementsAre(AllOf(
+                  Property("type", &PickerSearchResultsSection::type,
+                           PickerSectionType::kEditorRewrite),
+                  Property("results", &PickerSearchResultsSection::results,
+                           ElementsAre(Property(
+                               "data", &PickerSearchResult::data,
+                               VariantWith<PickerSearchResult::TextData>(Field(
+                                   "primary_text",
+                                   &PickerSearchResult::TextData::primary_text,
+                                   u"rewrite")))))))))
+      .Times(1);
 
   PickerSearchAggregator aggregator(
       kBurnInPeriod,
@@ -466,6 +522,12 @@ TEST_F(PickerSearchAggregatorMultipleSourcesTest,
                                        /*has_more_results=*/false);
   aggregator.HandleSearchSourceResults(PickerSearchSource::kMath,
                                        {PickerSearchResult::Text(u"math")},
+                                       /*has_more_results=*/false);
+  aggregator.HandleSearchSourceResults(PickerSearchSource::kEditorWrite,
+                                       {PickerSearchResult::Text(u"write")},
+                                       /*has_more_results=*/false);
+  aggregator.HandleSearchSourceResults(PickerSearchSource::kEditorRewrite,
+                                       {PickerSearchResult::Text(u"rewrite")},
                                        /*has_more_results=*/false);
 }
 

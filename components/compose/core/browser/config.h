@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_COMPOSE_CORE_BROWSER_CONFIG_H_
 #define COMPONENTS_COMPOSE_CORE_BROWSER_CONFIG_H_
 
+#include "base/time/time.h"
+
 namespace compose {
 
 // How Compose should position its dialog if there isn't enough space above or
@@ -56,14 +58,43 @@ struct Config {
   // Whether to enable the proactive nudge with no saved state.
   bool proactive_nudge_enabled = false;
 
+  // Use the compact UI for proactive nudge.
+  bool proactive_nudge_compact_ui = false;
+
+  // Whether or not the proactive nudge is shown at the cursor.
+  bool is_nudge_shown_at_cursor = false;
+
   // Used to randomly hide the nudge in order to reduce exposure, experimental
   // flag for triggering research experiments only. If param is greater than
   // `1`, always shows. If param is negative, never shows.
   double proactive_nudge_show_probability = 1e-3;
 
+  // When segmentation is enabled and working, this parameter controls how often
+  // we randomly decide to show the proactive nudge regardless of the
+  // segmentation platform's response. Nudges shown in this way contribute to
+  // training data for the segmentation platform.
+  double proactive_nudge_force_show_probability = 1e-5;
+
+  // Whether to collect training data for the segmentation platform any time the
+  // nudge is shown. If false, training data is only collected when the nudge is
+  // randomly force-shown, see `proactive_nudge_force_show_probability`.
+  bool proactive_nudge_always_collect_training_data = false;
+
   // Ignores OptGuide decision to disable the nudge. Does not bypass other
   // hint decisions.
   bool proactive_nudge_bypass_optimization_guide = false;
+
+  // Uses segmentation platform to predict nudge utility.
+  bool proactive_nudge_segmentation = true;
+
+  // How long to wait to show the proactive nudge.
+  base::TimeDelta proactive_nudge_delay = base::Seconds(3);
+
+  // If true, nudge at most once per field per navigation. If false, at most
+  // once per field per focus.
+  bool proactive_nudge_field_per_navigation = true;
+
+  unsigned int nudge_field_change_event_max = 3;
 
   // The duration that the saved state notification is shown before
   // auto-dismissal.

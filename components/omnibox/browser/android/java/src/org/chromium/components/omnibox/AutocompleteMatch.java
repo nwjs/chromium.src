@@ -12,12 +12,15 @@ import androidx.annotation.VisibleForTesting;
 import androidx.collection.ArraySet;
 import androidx.core.util.ObjectsCompat;
 
+import com.google.protobuf.InvalidProtocolBufferException;
+
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.chrome.browser.omnibox.MatchClassificationStyle;
 import org.chromium.components.omnibox.GroupsProto.GroupId;
+import org.chromium.components.omnibox.RichAnswerTemplateProto.RichAnswerTemplate;
 import org.chromium.components.omnibox.action.OmniboxAction;
 import org.chromium.url.GURL;
 
@@ -69,6 +72,7 @@ public class AutocompleteMatch {
     private String mDescription;
     private List<MatchClassification> mDescriptionClassifications;
     private SuggestionAnswer mAnswer;
+    private @Nullable RichAnswerTemplate mAnswerTemplate;
     private final String mFillIntoEdit;
     private GURL mUrl;
     private final GURL mImageUrl;
@@ -83,6 +87,9 @@ public class AutocompleteMatch {
     private boolean mHasTabMatch;
     private long mNativeMatch;
     private final @NonNull List<OmniboxAction> mActions;
+    private final boolean mAllowedToBeDefaultMatch;
+    private final String mInlineAutocompletion;
+    private final String mAdditionalText;
 
     public AutocompleteMatch(
             int nativeType,
@@ -95,6 +102,7 @@ public class AutocompleteMatch {
             String description,
             List<MatchClassification> descriptionClassifications,
             SuggestionAnswer answer,
+            byte[] serializedAnswerTemplate,
             String fillIntoEdit,
             GURL url,
             GURL imageUrl,
@@ -105,7 +113,10 @@ public class AutocompleteMatch {
             int groupId,
             byte[] clipboardImageData,
             boolean hasTabMatch,
-            @Nullable List<OmniboxAction> actions) {
+            @Nullable List<OmniboxAction> actions,
+            boolean allowedToBeDefaultMatch,
+            String inlineAutocompletion,
+            String additionalText) {
         if (subtypes == null) {
             subtypes = Collections.emptySet();
         }
@@ -119,6 +130,13 @@ public class AutocompleteMatch {
         mDescription = description;
         mDescriptionClassifications = descriptionClassifications;
         mAnswer = answer;
+        if (serializedAnswerTemplate != null) {
+            try {
+                mAnswerTemplate = RichAnswerTemplate.parseFrom(serializedAnswerTemplate);
+            } catch (InvalidProtocolBufferException e) {
+                // When parsing error occurs, leave template as null.
+            }
+        }
         mFillIntoEdit = TextUtils.isEmpty(fillIntoEdit) ? displayText : fillIntoEdit;
         assert url != null;
         mUrl = url;
@@ -132,6 +150,9 @@ public class AutocompleteMatch {
         mClipboardImageData = clipboardImageData;
         mHasTabMatch = hasTabMatch;
         mActions = actions != null ? actions : Arrays.asList();
+        mAllowedToBeDefaultMatch = allowedToBeDefaultMatch;
+        mInlineAutocompletion = inlineAutocompletion;
+        mAdditionalText = additionalText;
     }
 
     @CalledByNative
@@ -149,6 +170,7 @@ public class AutocompleteMatch {
             int[] descriptionClassificationOffsets,
             int[] descriptionClassificationStyles,
             SuggestionAnswer answer,
+            byte[] serializedAnswerTemplate,
             String fillIntoEdit,
             GURL url,
             GURL imageUrl,
@@ -159,7 +181,10 @@ public class AutocompleteMatch {
             int groupId,
             byte[] clipboardImageData,
             boolean hasTabMatch,
-            @JniType("std::vector") Object[] actions) {
+            @JniType("std::vector") Object[] actions,
+            boolean allowedToBeDefaultMatch,
+            String inlineAutocompletion,
+            String additionalText) {
         assert contentClassificationOffsets.length == contentClassificationStyles.length;
         List<MatchClassification> contentClassifications = new ArrayList<>();
         for (int i = 0; i < contentClassificationOffsets.length; i++) {
@@ -185,6 +210,7 @@ public class AutocompleteMatch {
                         description,
                         new ArrayList<>(),
                         answer,
+                        serializedAnswerTemplate,
                         fillIntoEdit,
                         url,
                         imageUrl,
@@ -195,7 +221,10 @@ public class AutocompleteMatch {
                         groupId,
                         clipboardImageData,
                         hasTabMatch,
-                        (List<OmniboxAction>) (List<?>) Arrays.asList(actions));
+                        (List<OmniboxAction>) (List<?>) Arrays.asList(actions),
+                        allowedToBeDefaultMatch,
+                        inlineAutocompletion,
+                        additionalText);
         match.updateNativeObjectRef(nativeObject);
         match.setDescription(
                 description, descriptionClassificationOffsets, descriptionClassificationStyles);
@@ -305,6 +334,10 @@ public class AutocompleteMatch {
         return mAnswer != null;
     }
 
+    public @Nullable RichAnswerTemplate getAnswerTemplate() {
+        return mAnswerTemplate;
+    }
+
     public @NonNull String getFillIntoEdit() {
         return mFillIntoEdit;
     }
@@ -347,6 +380,18 @@ public class AutocompleteMatch {
     @NonNull
     public List<OmniboxAction> getActions() {
         return mActions;
+    }
+
+    public boolean allowedToBeDefaultMatch() {
+        return mAllowedToBeDefaultMatch;
+    }
+
+    public String getInlineAutocompletion() {
+        return mInlineAutocompletion;
+    }
+
+    public String getAdditionalText() {
+        return mAdditionalText;
     }
 
     /**

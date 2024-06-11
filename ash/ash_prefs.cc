@@ -41,6 +41,7 @@
 #include "ash/shelf/shelf_controller.h"
 #include "ash/style/color_palette_controller.h"
 #include "ash/style/dark_light_mode_controller_impl.h"
+#include "ash/system/brightness/brightness_controller_chromeos.h"
 #include "ash/system/camera/autozoom_controller_impl.h"
 #include "ash/system/camera/autozoom_nudge_controller.h"
 #include "ash/system/camera/camera_app_prefs.h"
@@ -64,6 +65,7 @@
 #include "ash/system/pcie_peripheral/pcie_peripheral_notification_controller.h"
 #include "ash/system/phonehub/onboarding_nudge_controller.h"
 #include "ash/system/power/battery_saver_controller.h"
+#include "ash/system/power/power_notification_controller.h"
 #include "ash/system/power/power_prefs.h"
 #include "ash/system/power/power_sounds_controller.h"
 #include "ash/system/privacy_hub/privacy_hub_controller.h"
@@ -162,6 +164,7 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry,
   SearchNotifierController::RegisterProfilePrefs(registry);
   ShelfController::RegisterProfilePrefs(registry);
   SnoopingProtectionController::RegisterProfilePrefs(registry);
+  system::BrightnessControllerChromeos::RegisterProfilePrefs(registry);
   TabletModeTuckEducation::RegisterProfilePrefs(registry);
   TouchDevicesController::RegisterProfilePrefs(registry, for_test);
   UserEducationController::RegisterProfilePrefs(registry);
@@ -221,6 +224,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry, bool for_test) {
   KeyboardBacklightColorController::RegisterPrefs(registry);
   BatterySaverController::RegisterLocalStatePrefs(registry);
   PowerSoundsController::RegisterLocalStatePrefs(registry);
+  PowerNotificationController::RegisterLocalStatePrefs(registry);
   quick_pair::ScanningEnabledProvider::RegisterLocalStatePrefs(registry);
 
   if (for_test) {

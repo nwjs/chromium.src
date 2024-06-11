@@ -35,13 +35,8 @@ class QuickStartController
       public TargetDeviceBootstrapController::Observer,
       public bluetooth_config::mojom::SystemPropertiesObserver {
  public:
-  // QuickStart flow entry point locations.
-  enum class EntryPoint {
-    WELCOME_SCREEN,
-    NETWORK_SCREEN,
-    GAIA_INFO_SCREEN,
-    GAIA_SCREEN,
-  };
+  using AbortFlowReason = QuickStartMetrics::AbortFlowReason;
+  using EntryPoint = QuickStartMetrics::EntryPoint;
 
   // Main state used by the controller.
   // TODO(b:283965994) - Finalize states.
@@ -57,17 +52,6 @@ class QuickStartController
     CONTINUING_AFTER_ENROLLMENT_CHECKS,
     FALLBACK_URL_FLOW_ON_GAIA_SCREEN,
     SETUP_COMPLETE,
-  };
-
-  enum class AbortFlowReason {
-    USER_CLICKED_BACK,
-    USER_CLICKED_CANCEL,
-    SIGNIN_SCHOOL,
-    ENTERPRISE_ENROLLMENT,
-    QUICK_START_FLOW_COMPLETE,
-    ERROR,
-    // Child accounts are not yet supported.
-    ADD_CHILD,
   };
 
   // Implemented by the QuickStartScreen
@@ -106,7 +90,12 @@ class QuickStartController
     std::string avatar_url = "";
   };
 
-  using EntryPointButtonVisibilityCallback = base::OnceCallback<void(bool)>;
+  // EntryPointButtonVisibilityCallback is a RepeatingCallback since the
+  // bluetooth adapter may not be present and powered the first time it's
+  // invoked. The bluetooth adapter asynchronously affects the feature support
+  // status and thus the entry point visibility.
+  using EntryPointButtonVisibilityCallback =
+      base::RepeatingCallback<void(bool)>;
   using UiState = UiDelegate::UiState;
 
   QuickStartController();
@@ -166,11 +155,14 @@ class QuickStartController
 
   // Exposes TargetDeviceBootstrapController::PrepareForUpdate() to the OOBE
   // UpdateScreen and ConsumerUpdateScreen.
-  void PrepareForUpdate();
+  void PrepareForUpdate(bool is_forced);
 
   // Resumes current session if an update is aborted on
   // the OOBE UpdateScreen or ConsumerUpdateScreen.
   void ResumeSessionAfterCancelledUpdate();
+
+  // Called after a user clicks "next" on final Setup Complete UI.
+  void RecordFlowFinished();
 
   bool did_transfer_wifi() const {
     return bootstrap_controller_->did_transfer_wifi();
@@ -195,7 +187,7 @@ class QuickStartController
   void MaybeRecordQuickStartScreenOpened(UiState new_ui);
 
   // Records ScreenClosed metric when UiState or OOBE screen changes.
-  void MaybeRecordQuickStartScreenClosed(UiState closed_ui);
+  void MaybeRecordQuickStartScreenAdvanced(std::optional<UiState> closed_ui);
 
   // Updates the UI state and notifies the frontend.
   void UpdateUiState(UiState ui_state);
@@ -293,6 +285,12 @@ class QuickStartController
 
   bluetooth_config::mojom::BluetoothSystemState bluetooth_system_state_ =
       bluetooth_config::mojom::BluetoothSystemState::kUnavailable;
+
+  // Whether OOBE is transitioning to the QuickStartScreen. Used for recording
+  // UI metrics.
+  bool is_transitioning_to_quick_start_screen_ = false;
+
+  bool should_resume_quick_start_after_update_ = false;
 
   base::ScopedObservation<OobeUI, OobeUI::Observer> observation_{this};
   base::WeakPtrFactory<QuickStartController> weak_ptr_factory_{this};

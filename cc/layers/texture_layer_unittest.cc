@@ -60,7 +60,7 @@ using ::testing::AtLeast;
 using ::testing::InvokeWithoutArgs;
 using ::testing::Mock;
 
-// TODO(https://crbug.com/1400943): settings new expecations after
+// TODO(crbug.com/40883999): settings new expecations after
 // VerifyAndClearExpectations is undefined behavior. See
 // http://google.github.io/googletest/gmock_cook_book.html#forcing-a-verification
 #define EXPECT_SET_NEEDS_COMMIT(expect, code_to_test)                 \
@@ -154,7 +154,7 @@ struct CommonResourceObjects {
     sw_release_callback_ = base::BindRepeating(
         &MockReleaseCallback::Release2, base::Unretained(&mock_callback_),
         shared_bitmap_id_);
-    sw_resource_ = viz::TransferableResource::MakeSoftware(
+    sw_resource_ = viz::TransferableResource::MakeSoftwareSharedBitmap(
         shared_bitmap_id_, gpu::SyncToken(), size,
         viz::SinglePlaneFormat::kRGBA_8888);
   }
@@ -1068,7 +1068,7 @@ class TextureLayerChangeInvisibleMailboxTest : public LayerTreeTest,
 
     // The actual releasing of resources by
     // TextureLayer::TransferableResourceHolder::dtor can be done as a PostTask.
-    // The test signal being used, DidReceiveCompositorFrameAck itself is also
+    // The test signal being used, DidPresentCompositorFrame itself is also
     // posted back from the Compositor-thread to the Main-thread. Due to this
     // there's a teardown race which tsan builds can encounter. So if
     // `close_on_resource_returned_` is set we actually end the test here.
@@ -1105,14 +1105,16 @@ class TextureLayerChangeInvisibleMailboxTest : public LayerTreeTest,
 
   void BeginTest() override { PostSetNeedsCommitToMainThread(); }
 
-  void DidReceiveCompositorFrameAck() override {
-    ++ack_count_;
-    // The fifth frame to be Acked will be returning resources. Due to PostTasks
-    // the ResourcesReleased callback may not yet have been called. So we can
-    // only end the test here if we have received the updated
+  void DidPresentCompositorFrame(
+      uint32_t frame_token,
+      const viz::FrameTimingDetails& frame_timing_details) override {
+    ++presented_count_;
+    // The fifth frame to be presented will be returning resources. Due to
+    // PostTasks the ResourcesReleased callback may not yet have been called. So
+    // we can only end the test here if we have received the updated
     // `resource_returned_`. Otherwise set `close_on_resources_returned_` to
     // have the callback do the teardown.
-    if (ack_count_ == 5) {
+    if (presented_count_ == 5) {
       if (resource_returned_ < 2) {
         close_on_resource_returned_ = true;
       } else {
@@ -1124,7 +1126,7 @@ class TextureLayerChangeInvisibleMailboxTest : public LayerTreeTest,
 
   void DidCommitAndDrawFrame() override {
     ++commit_and_draw_count_;
-    // The timing of DidReceiveCompositorFrameAck is not guaranteed. Each of
+    // The timing of DidPresentCompositorFrame is not guaranteed. Each of
     // these checks are actually valid immediately after frame submission, as
     // the are a part of Commit.
     switch (commit_and_draw_count_) {
@@ -1156,7 +1158,7 @@ class TextureLayerChangeInvisibleMailboxTest : public LayerTreeTest,
         // Layer should have been updated.
         // It's not sufficient to check if |prepare_called_| is 2. It's possible
         // for BeginMainFrame and hence PrepareTransferableResource to run twice
-        // before DidReceiveCompositorFrameAck due to pipelining.
+        // before DidPresentCompositorFrame due to pipelining.
         EXPECT_GE(prepare_called_, 2);
         // So the old resource should have been returned already. This resource
         // is returned during paint, and so does not need the same PostTask
@@ -1179,12 +1181,12 @@ class TextureLayerChangeInvisibleMailboxTest : public LayerTreeTest,
   viz::TransferableResource resource_;
   int resource_returned_ = 0;
   int prepare_called_ = 0;
-  int ack_count_ = 0;
+  int presented_count_ = 0;
   int commit_and_draw_count_ = 0;
   bool close_on_resource_returned_ = false;
 };
 
-// TODO(crbug.com/1197350): Test fails on chromeos-amd64-generic-rel.
+// TODO(crbug.com/40760099): Test fails on chromeos-amd64-generic-rel.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_SINGLE_AND_MULTI_THREAD_TEST_F MULTI_THREAD_TEST_F
 #else
@@ -1521,7 +1523,7 @@ class SoftwareTextureLayerSwitchTreesTest : public SoftwareTextureLayerTest {
         // Give the TextureLayer a resource so it contributes to the frame. It
         // doesn't need to register the SharedBitmapId otherwise.
         texture_layer_->SetTransferableResource(
-            viz::TransferableResource::MakeSoftware(
+            viz::TransferableResource::MakeSoftwareSharedBitmap(
                 id_, gpu::SyncToken(), gfx::Size(1, 1),
                 viz::SinglePlaneFormat::kRGBA_8888),
             base::BindOnce([](const gpu::SyncToken&, bool) {}));
@@ -1625,7 +1627,7 @@ class SoftwareTextureLayerPurgeMemoryTest : public SoftwareTextureLayerTest {
         // Give the TextureLayer a resource so it contributes to the frame. It
         // doesn't need to register the SharedBitmapId otherwise.
         texture_layer_->SetTransferableResource(
-            viz::TransferableResource::MakeSoftware(
+            viz::TransferableResource::MakeSoftwareSharedBitmap(
                 id_, gpu::SyncToken(), gfx::Size(1, 1),
                 viz::SinglePlaneFormat::kRGBA_8888),
             base::BindOnce([](const gpu::SyncToken&, bool) {}));
@@ -1710,7 +1712,7 @@ class SoftwareTextureLayerMultipleRegisterTest
         // Give the TextureLayer a resource so it contributes to the frame. It
         // doesn't need to register the SharedBitmapId otherwise.
         texture_layer_->SetTransferableResource(
-            viz::TransferableResource::MakeSoftware(
+            viz::TransferableResource::MakeSoftwareSharedBitmap(
                 id1_, gpu::SyncToken(), gfx::Size(1, 1),
                 viz::SinglePlaneFormat::kRGBA_8888),
             base::BindOnce([](const gpu::SyncToken&, bool) {}));
@@ -1812,7 +1814,7 @@ class SoftwareTextureLayerRegisterUnregisterTest
         // Give the TextureLayer a resource so it contributes to the frame. It
         // doesn't need to register the SharedBitmapId otherwise.
         texture_layer_->SetTransferableResource(
-            viz::TransferableResource::MakeSoftware(
+            viz::TransferableResource::MakeSoftwareSharedBitmap(
                 id1_, gpu::SyncToken(), gfx::Size(1, 1),
                 viz::SinglePlaneFormat::kRGBA_8888),
             base::BindOnce([](const gpu::SyncToken&, bool) {}));
@@ -1900,7 +1902,7 @@ class SoftwareTextureLayerLoseFrameSinkTest : public SoftwareTextureLayerTest {
         // Give the TextureLayer a resource so it contributes to the frame. It
         // doesn't need to register the SharedBitmapId otherwise.
         texture_layer_->SetTransferableResource(
-            viz::TransferableResource::MakeSoftware(
+            viz::TransferableResource::MakeSoftwareSharedBitmap(
                 id_, gpu::SyncToken(), gfx::Size(1, 1),
                 viz::SinglePlaneFormat::kRGBA_8888),
             base::BindOnce(
@@ -2019,7 +2021,7 @@ class SoftwareTextureLayerUnregisterRegisterTest
         // Give the TextureLayer a resource so it contributes to the frame. It
         // doesn't need to register the SharedBitmapId otherwise.
         texture_layer_->SetTransferableResource(
-            viz::TransferableResource::MakeSoftware(
+            viz::TransferableResource::MakeSoftwareSharedBitmap(
                 id_, gpu::SyncToken(), gfx::Size(1, 1),
                 viz::SinglePlaneFormat::kRGBA_8888),
             base::BindOnce([](const gpu::SyncToken&, bool) {}));

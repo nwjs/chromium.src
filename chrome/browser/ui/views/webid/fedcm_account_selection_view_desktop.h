@@ -162,7 +162,7 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   FRIEND_TEST_ALL_PREFIXES(FedCmAccountSelectionViewDesktopTest,
                            IdpSigninStatusPopupClosedAfterAccountsPopulated);
   FRIEND_TEST_ALL_PREFIXES(FedCmAccountSelectionViewDesktopTest,
-                           ClosePopupAfterVerifyingSheetShouldNotify);
+                           UserClosingPopupAfterVerifyingSheetShouldNotify);
   FRIEND_TEST_ALL_PREFIXES(FedCmAccountSelectionViewDesktopTest,
                            AccountChooserResultMetric);
 
@@ -266,6 +266,9 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   bool ShowVerifyingSheet(const Account& account,
                           const IdentityProviderDisplayData& idp_display_data);
 
+  // Shows the dialog widget.
+  void ShowDialogWidget();
+
   // Returns the SheetType to be used for metrics reporting.
   SheetType GetSheetType();
 
@@ -282,8 +285,8 @@ class FedCmAccountSelectionView : public AccountSelectionView,
   base::WeakPtr<views::Widget> GetDialogWidget();
 
   // Resets `account_selection_view_`. Typically, to recreate it later to show a
-  // different kind of dialog.
-  void ResetAccountSelectionView();
+  // different kind of dialog. Virtual for testing purposes.
+  virtual void MaybeResetAccountSelectionView();
 
   // Returns whether an IDP sign-in pop-up window is currently open.
   bool IsIdpSigninPopupOpen();

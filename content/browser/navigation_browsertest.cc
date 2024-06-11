@@ -16,6 +16,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/statistics_recorder.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
@@ -32,6 +33,7 @@
 #include "content/browser/browser_url_handler_impl.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/renderer_host/navigation_request.h"
+#include "content/browser/renderer_host/navigation_state_keep_alive.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -288,6 +290,21 @@ BlockNavigationWillProcessResponse(WebContentsImpl* web_content) {
 
             return throttle;
           }));
+}
+
+void WaitForHistogramRecordedInChildProcess(std::string name) {
+  base::HistogramTester histogram_tester;
+
+  while (true) {
+    if (!histogram_tester.GetAllSamples(name).empty()) {
+      return;
+    }
+
+    // Retry fetching the histogram since it's not populated yet.
+    content::FetchHistogramsFromChildProcesses();
+    base::StatisticsRecorder::ImportProvidedHistogramsSync();
+    base::RunLoop().RunUntilIdle();
+  }
 }
 
 }  // namespace
@@ -813,7 +830,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
             controller.GetLastCommittedEntry()->GetVirtualURL());
 }
 
-// TODO(https://crbug.com/1467626): Test is flaky on Android, Linux.
+// TODO(crbug.com/40924471): Test is flaky on Android, Linux.
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
 #define MAYBE_BackFollowedByReload DISABLED_BackFollowedByReload
 #else
@@ -3543,7 +3560,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
 // navigation, so..
 // 6. The browser will perform a cross-document navigation to a.html#foo.
 //
-// TODO(https://crbug.com/1262032): Test is flaky on various platforms.
+// TODO(crbug.com/40799231): Test is flaky on various platforms.
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
                        DISABLED_SameDocumentNavigationRacesPushStateURLChange) {
   WebContents* wc = shell()->web_contents();
@@ -3751,7 +3768,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   // browser process does not crash due to an empty base URL, and that the
   // blocked URL is used, unlike in the non-about:blank case in the
   // SameDocumentLongURLHashNavigation test.
-  // TODO(crbug.com/1464018): Ideally this would be blocked earlier in the
+  // TODO(crbug.com/40067230): Ideally this would be blocked earlier in the
   // renderer process, failing the navigation.
   EXPECT_EQ(GURL(kBlockedURL), web_contents()->GetLastCommittedURL());
   // The renderer process considers the same-document navigation to the long URL
@@ -3772,7 +3789,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   // too long URL (>2 MB), it simply pretends that the renderer performed a
   // same-document navigation to the currently committed URL (previously, it was
   // mapped to about:blank#blocked, which could be confusing).
-  // TODO(crbug.com/1464018): Ideally this would be blocked in the renderer
+  // TODO(crbug.com/40067230): Ideally this would be blocked in the renderer
   // instead of having special browser-side handling.
   EXPECT_EQ(url, web_contents()->GetLastCommittedURL());
   // The renderer process enforces no such limit and should consider the
@@ -3793,7 +3810,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, SameDocumentLongURLPushState) {
   // too long URL (>2 MB), it simply pretends that the renderer performed a
   // same-document navigation to the currently committed URL (previously, it was
   // mapped to about:blank#blocked, which could be confusing).
-  // TODO(crbug.com/1464018): Ideally this would be blocked in the renderer
+  // TODO(crbug.com/40067230): Ideally this would be blocked in the renderer
   // instead of having special browser-side handling.
   EXPECT_EQ(url, web_contents()->GetLastCommittedURL());
   // The renderer process enforces no such limit and should consider the
@@ -3827,7 +3844,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   // which means the URLs are not equal ignoring fragments, and Blink performs a
   // cross-document navigation instead.
   //
-  // TODO(crbug.com/1464443): This probably should be fixed to be treated as a
+  // TODO(crbug.com/40922971): This probably should be fixed to be treated as a
   // same-document navigation.
   EXPECT_TRUE(WaitForLoadStop(opened_shell->web_contents()));
   EXPECT_EQ(GURL(kBlockedURL),
@@ -3855,7 +3872,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   // URL (which is, surprisingly enough, the empty URL) rather than the URL the
   // web platform generally sees (which is about:blank).
   //
-  // TODO(crbug.com/1464443): This pushState() should probably be allowed.
+  // TODO(crbug.com/40922971): This pushState() should probably be allowed.
   EXPECT_EQ(
       "SecurityError",
       EvalJs(
@@ -3924,6 +3941,12 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   RenderFrameHost* openee_rfh =
       static_cast<WebContentsImpl*>(openee_shell->web_contents())
           ->GetPrimaryMainFrame();
+  // Issue a KeepAlive for the navigation state so that the PolicyContainerHost
+  // will still exist after the initiator RenderFrameHost is gone.
+  mojo::PendingRemote<blink::mojom::NavigationStateKeepAliveHandle> keep_alive;
+  static_cast<RenderFrameHostImpl*>(openee_rfh)
+      ->IssueKeepAliveHandle(keep_alive.InitWithNewPipeAndPassReceiver());
+
   auto initiator_global_token = openee_rfh->GetGlobalFrameToken();
   base::RunLoop loop;
   DidStartNavigationCallback callback(
@@ -3944,8 +3967,11 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
         // Even if the initiator RenderFrameHost is gone, its policy container
         // should still be around since the LocalFrame has not been destroyed
         // yet.
-        auto* initiator_policy_container =
-            PolicyContainerHost::FromFrameToken(frame_token.value());
+        PolicyContainerHost* initiator_policy_container =
+            RenderFrameHostImpl::GetPolicyContainerHost(
+                base::OptionalToPtr(frame_token),
+                request->GetInitiatorProcessId(),
+                web_contents()->GetPrimaryMainFrame()->GetStoragePartition());
         ASSERT_TRUE(initiator_policy_container);
         ASSERT_EQ(network::mojom::ReferrerPolicy::kAlways,
                   initiator_policy_container->referrer_policy());
@@ -4034,8 +4060,11 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, FormSubmissionThenDeleteFrame) {
         // Even if the initiator RenderFrameHost is gone, its policy container
         // should still be around since the LocalFrame has not been destroyed
         // yet.
-        auto* initiator_policy_container =
-            PolicyContainerHost::FromFrameToken(frame_token.value());
+        PolicyContainerHost* initiator_policy_container =
+            RenderFrameHostImpl::GetPolicyContainerHost(
+                base::OptionalToPtr(frame_token),
+                request->GetInitiatorProcessId(),
+                web_contents()->GetPrimaryMainFrame()->GetStoragePartition());
         ASSERT_TRUE(initiator_policy_container);
         EXPECT_EQ(network::mojom::ReferrerPolicy::kAlways,
                   initiator_policy_container->referrer_policy());
@@ -4140,8 +4169,11 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
         // Even if the initiator RenderFrameHost is gone, its policy container
         // should still be around since the LocalFrame has not been destroyed
         // yet.
-        auto* initiator_policy_container =
-            PolicyContainerHost::FromFrameToken(frame_token.value());
+        PolicyContainerHost* initiator_policy_container =
+            RenderFrameHostImpl::GetPolicyContainerHost(
+                base::OptionalToPtr(frame_token),
+                request->GetInitiatorProcessId(),
+                web_contents()->GetPrimaryMainFrame()->GetStoragePartition());
         ASSERT_TRUE(initiator_policy_container);
         EXPECT_EQ(network::mojom::ReferrerPolicy::kAlways,
                   initiator_policy_container->referrer_policy());
@@ -4187,14 +4219,16 @@ class InitiatorClosingOpenURLInterceptor
   InitiatorClosingOpenURLInterceptor(content::RenderFrameProxyHost* proxy_host,
                                      std::unique_ptr<Shell> shell_to_close,
                                      RenderProcessHost* renderer_to_exit)
-      : proxy_host_(proxy_host),
-        shell_to_close_(std::move(shell_to_close)),
+      : shell_to_close_(std::move(shell_to_close)),
         renderer_to_exit_(renderer_to_exit),
-        swapped_impl_(proxy_host_->frame_host_receiver_for_testing(), this) {}
+        swapped_impl_(std::make_unique<mojo::test::ScopedSwapImplForTesting<
+                          blink::mojom::RemoteFrameHost>>(
+            proxy_host->frame_host_receiver_for_testing(),
+            this)) {}
   ~InitiatorClosingOpenURLInterceptor() override = default;
 
   blink::mojom::RemoteFrameHost* GetForwardingInterface() override {
-    return proxy_host_;
+    return swapped_impl_->old_impl();
   }
 
   // This closes `shell_to_close_` and causes `renderer_to_exit_` to exit
@@ -4209,14 +4243,29 @@ class InitiatorClosingOpenURLInterceptor
     renderer_to_exit_->Shutdown(content::RESULT_CODE_KILLED);
 
     GetForwardingInterface()->OpenURL(std::move(params));
+
+    // Delete the swapped impl while the real RenderFrameProxyHost still exists,
+    // since we only need to intercept a single OpenURL call. The next task may
+    // delete the real impl.
+    swapped_impl_.reset();
+
+    // Clear the other raw_ptrs to avoid dangling pointers.
+    renderer_to_exit_ = nullptr;
   }
 
  private:
-  const raw_ptr<content::RenderFrameProxyHost> proxy_host_;
   std::unique_ptr<Shell> shell_to_close_;
   raw_ptr<RenderProcessHost> renderer_to_exit_;
-  mojo::test::ScopedSwapImplForTesting<
-      mojo::AssociatedReceiver<blink::mojom::RemoteFrameHost>>
+
+  // The `swapped_impl_` is a unique_ptr, so the member can be deleted before
+  // `this` gets destroyed. The original implementation would normally be
+  // swapped back in when `this` is destroyed. However, in this test, the
+  // `RenderFrameProxyHost` is deleted shortly after the OpenURL IPC is handled,
+  // and relying on normal scoper cleanup would cause a use-after-free. To avoid
+  // this, we early delete the `swapped_impl_` to swap back the original
+  // implementation as soon as `OpenURL()` has been processed.
+  std::unique_ptr<
+      mojo::test::ScopedSwapImplForTesting<blink::mojom::RemoteFrameHost>>
       swapped_impl_;
 };
 
@@ -4228,13 +4277,21 @@ class InitiatorClosingOpenURLInterceptor
 // (and only) frame of that SiteInstance. Deleting it usually causes proxies in
 // the same SiteInstanceGroup to be deleted, meaning the OpenURL IPC may never
 // be received.
-// TODO(crbug.com/323753235, yangsharon): Enable this test when the navigation
-// state keep alive is introduced.
+//
+// Fails on linux-bfcache-rel and android-bfcache-rel. See crbug.com/336671248.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_ANDROID)
+#define MAYBE_FormSubmissionInRemoteFrameSenderDeletedBeforeReceivingOpenURL \
+  DISABLED_FormSubmissionInRemoteFrameSenderDeletedBeforeReceivingOpenURL
+#else
+#define MAYBE_FormSubmissionInRemoteFrameSenderDeletedBeforeReceivingOpenURL \
+  FormSubmissionInRemoteFrameSenderDeletedBeforeReceivingOpenURL
+#endif
 IN_PROC_BROWSER_TEST_F(
     NavigationBrowserTest,
-    DISABLED_FormSubmissionInRemoteFrameSenderDeletedBeforeReceivingOpenURL) {
+    MAYBE_FormSubmissionInRemoteFrameSenderDeletedBeforeReceivingOpenURL) {
   // We crash a renderer in the OpenURL interceptor.
   content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
+  content::IsolateAllSitesForTesting(base::CommandLine::ForCurrentProcess());
 
   // Get a unique_ptr to the shell, which will be used to transfer ownership
   // later on.
@@ -4294,8 +4351,11 @@ IN_PROC_BROWSER_TEST_F(
         // Even if the initiator RenderFrameHost is gone, its
         // PolicyContainerHost should still be around since the LocalFrame has
         // not been destroyed yet.
-        auto* initiator_policy_container =
-            PolicyContainerHost::FromFrameToken(frame_token.value());
+        PolicyContainerHost* initiator_policy_container =
+            RenderFrameHostImpl::GetPolicyContainerHost(
+                base::OptionalToPtr(frame_token),
+                request->GetInitiatorProcessId(),
+                web_contents()->GetPrimaryMainFrame()->GetStoragePartition());
         ASSERT_TRUE(initiator_policy_container);
         EXPECT_EQ(network::mojom::ReferrerPolicy::kAlways,
                   initiator_policy_container->referrer_policy());
@@ -4621,7 +4681,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
 
   EXPECT_TRUE(origin_to_commit.opaque());
   EXPECT_TRUE(origin_committed.opaque());
-  // TODO(https://crbug.com/888079). The nonce must match.
+  // TODO(crbug.com/40092527). The nonce must match.
   EXPECT_NE(origin_to_commit, origin_committed);
 }
 
@@ -4647,7 +4707,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
 
   EXPECT_TRUE(origin_to_commit.opaque());
   EXPECT_TRUE(origin_committed.opaque());
-  // TODO(https://crbug.com/888079). The nonce must match.
+  // TODO(crbug.com/40092527). The nonce must match.
   EXPECT_NE(origin_to_commit, origin_committed);
 
   // Both document have the same URL. Only the first sets CSP:sandbox, but both
@@ -4833,7 +4893,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, OriginToCommitSandboxFromFrame) {
 
   EXPECT_TRUE(origin_to_commit.opaque());
   EXPECT_TRUE(origin_committed.opaque());
-  // TODO(https://crbug.com/888079). Make the nonce to match.
+  // TODO(crbug.com/40092527). Make the nonce to match.
   EXPECT_NE(origin_to_commit, origin_committed);
 }
 
@@ -5545,7 +5605,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, SameOriginOfSandboxedIframe) {
       shell()->web_contents(),
       base::BindLambdaForTesting([&](NavigationHandle* handle) {
         ASSERT_TRUE(handle->HasCommitted());
-        // TODO(https://crbug.com/888079) Take sandbox into account. Same Origin
+        // TODO(crbug.com/40092527) Take sandbox into account. Same Origin
         // should be true
         EXPECT_FALSE(handle->IsSameOrigin());
         loop.Quit();
@@ -5694,7 +5754,7 @@ IN_PROC_BROWSER_TEST_F(
   // matching `request_initiator_origin_lock` (e.g. inherited from the opener).
   VerifyImageSubresourceLoads(shell(), "popup.document");
 
-  // TODO(https://crbug.com/1194763): Crash recovery doesn't work when there is
+  // TODO(crbug.com/40758605): Crash recovery doesn't work when there is
   // no opener.
   DontTestNetworkServiceCrashes();
   // Test again after closing the opener..
@@ -5758,7 +5818,7 @@ IN_PROC_BROWSER_TEST_F(
   // matching `request_initiator_origin_lock` (e.g. inherited from the opener).
   VerifyImageSubresourceLoads(popup);
 
-  // TODO(https://crbug.com/1194763): Crash recovery doesn't work when there is
+  // TODO(crbug.com/40758605): Crash recovery doesn't work when there is
   // no opener.
   DontTestNetworkServiceCrashes();
   // Test again after closing the opener..
@@ -5935,7 +5995,7 @@ class UndoCommitNavigationBrowserTest : public NavigationBrowserTest {
     // Force-enable it for test coverage; otherwise, by default,
     // PerformanceManager uses the dummy implementation.
     //
-    // TODO(https://crbug.com/1222647): Enable this by default in content_shell.
+    // TODO(crbug.com/40187286): Enable this by default in content_shell.
     command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
                                     "PerformanceManagerInstrumentation");
   }
@@ -7143,6 +7203,127 @@ INSTANTIATE_TEST_SUITE_P(,
                          ::testing::Bool(),
                          &CommitNavigationRaceBrowserTest::DescribeParams);
 
+// Validate browser-side state when a pending commit RFH sends a bad
+// CommitNavigation() IPC. Immediately after the bad message is reported, the
+// speculative RFH should remain in the kPendingCommit state, but with no
+// pending commit for a cross-document navigation. This somewhat odd state comes
+// about because processing the commit navigation ack consumes the
+// NavigationRequest early on, before the bad message is reported. Reporting the
+// bad message cancels any further processing of the commit navigation ack, but
+// does not directly clear any other navigation-related state.
+//
+// Instead, the pending commit speculative RFH will be asynchronously torn down
+// later, when the browser process observes the renderer process going away,
+// which then implicitly ends the navigation.
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
+                       CommitBadNavigationInPendingCommitRFHCleanup) {
+  if (!AreAllSitesIsolatedForTesting()) {
+    GTEST_SKIP();
+  }
+
+  // Populate the main window with something so a subsequent navigation will
+  // create a speculative RFH.
+  EXPECT_TRUE(NavigateToURL(
+      web_contents(), embedded_test_server()->GetURL("b.com", "/title1.html")));
+
+  class CommitBadOriginInterceptor : public DidCommitNavigationInterceptor {
+   public:
+    using DidCommitNavigationInterceptor::DidCommitNavigationInterceptor;
+
+    WebContentsImpl* web_contents() {
+      return static_cast<WebContentsImpl*>(
+          DidCommitNavigationInterceptor::web_contents());
+    }
+
+    bool WillProcessDidCommitNavigation(
+        RenderFrameHost* render_frame_host,
+        NavigationRequest* navigation_request,
+        mojom::DidCommitProvisionalLoadParamsPtr* params,
+        mojom::DidCommitProvisionalLoadInterfaceParamsPtr* interface_params)
+        override {
+      // Mismatch from the expected origin for the renderer process, which
+      // should trigger a bad message kill.
+      (*params)->origin = url::Origin::Create(GURL("https://example.com/"));
+
+      frame_watcher_.emplace(render_frame_host);
+      process_watcher_.emplace(
+          render_frame_host->GetProcess(),
+          RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindLambdaForTesting([this]() {
+            // This task should run after the browser has reported a bad
+            // message, but before the browser process has observed render
+            // process termination, so the pending commit speculative RFH should
+            // still be present...
+            auto* speculative_rfh = web_contents()
+                                        ->GetPrimaryFrameTree()
+                                        .root()
+                                        ->render_manager()
+                                        ->speculative_frame_host();
+            ASSERT_TRUE(speculative_rfh);
+            EXPECT_EQ(RenderFrameHostImpl::LifecycleStateImpl::kPendingCommit,
+                      speculative_rfh->lifecycle_state());
+
+            // But it should not have any pending cross-document navigation
+            // commits, since the NavigationRequest is consumed from
+            // `RenderFrameHostImpl::navigation_requests_` as one of the first
+            // parts of handling the commit navigation ack from the renderer.
+            EXPECT_FALSE(
+                speculative_rfh->HasPendingCommitForCrossDocumentNavigation());
+
+            validated_speculative_rfh_state_ = true;
+          }));
+
+      return true;
+    }
+
+    void CheckPendingCommitRenderFrameHostIsGone() const {
+      // Make sure the validations in the posted callback actually ran.
+      EXPECT_TRUE(validated_speculative_rfh_state_);
+      EXPECT_TRUE(frame_watcher_->IsDestroyed());
+    }
+    void WaitForRenderProcessExit() { process_watcher_->Wait(); }
+
+   private:
+    bool validated_speculative_rfh_state_ = false;
+    std::optional<RenderFrameHostWrapper> frame_watcher_;
+    std::optional<RenderProcessHostWatcher> process_watcher_;
+  };
+
+  CommitBadOriginInterceptor interceptor(web_contents());
+
+  content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
+  // The infinitely loading page is load-bearing here: `NavigateToURL()` waits
+  // for `DidStopLoading()`, which can be triggered by:
+  // 1. The renderer completing the load and sending `DidStopLoading()` (this is
+  //    typical).
+  // 2. The renderer process going away (e.g. crashing) and the browser manually
+  //    triggering `DidStopLoading()` (this is unusual).
+  //
+  // However, this test is specifically testing case #2. To avoid the potential
+  // of #1 and #2 racing (and causing the test to flakily fail if #1 wins the
+  // race), set up the test so that the renderer will never call
+  // `DidStopLoading()`.
+  EXPECT_FALSE(NavigateToURL(web_contents(),
+                             embedded_test_server()->GetURL(
+                                 "a.com", "/infinitely_loading_image.html")));
+
+  // NavigateToURL() should fail; at this point, make sure the speculative RFH
+  // was in the expected state after the browser reported a bad message.
+  //
+  // Furthermore, after the navigation completes, the speculative RFH should
+  // also be destroyed (implicitly, by the renderer process being terminated for
+  // a bad message).
+  interceptor.CheckPendingCommitRenderFrameHostIsGone();
+
+  // This should actually be signalled inside `NavigateToURL()`, since it waits
+  // for the navigation to finish (whether successful or not) before returning.
+  // Make sure the render process host actually exited: if it didn't, then the
+  // test will timeout here.
+  interceptor.WaitForRenderProcessExit();
+}
+
 // The following test checks what happens if a WebContentsDelegate navigates
 // away in response to the NavigationStateChanged event. Previously
 // (https://crbug.com/1210234), this was triggering a crash when creating the
@@ -8005,7 +8186,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, FilterURL_JavascriptURLs) {
     // origin should not be inherited according to spec. See:
     // https://html.spec.whatwg.org/multipage/document-sequences.html#navigable-target-names%3Acreating-a-new-top-level-traversable
     // https://html.spec.whatwg.org/multipage/document-sequences.html#creating-a-new-browsing-context
-    // TODO(https://crbug.com/1357515): Also prevent the origin from being
+    // TODO(crbug.com/40236679): Also prevent the origin from being
     // inherited.
     EXPECT_EQ(nullptr, EvalJs(popup_contents, "window.foo"));
   }
@@ -8317,6 +8498,19 @@ IN_PROC_BROWSER_TEST_P(NavigationBrowserTestDeprecateUnloadOptOut,
             IsOptOutEnabled() ? "dispatched" : "not_dispatched");
 }
 
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, FCPMetrics) {
+  GURL url_1(embedded_test_server()->GetURL("/title1.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), url_1));
+
+  GURL url_2(embedded_test_server()->GetURL("/title2.html"));
+  NavigationController::LoadURLParams params(url_2);
+  params.transition_type = ui::PageTransitionFromInt(
+      ui::PAGE_TRANSITION_TYPED | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+  web_contents()->GetController().LoadURLWithParams(params);
+  WaitForHistogramRecordedInChildProcess(
+      "Navigation.FCPFrameSubmittedBeforeSurfaceEmbed");
+}
+
 class NavigationWithPageSwapBrowserTest : public NavigationBrowserTest {
  public:
   NavigationWithPageSwapBrowserTest() {
@@ -8386,6 +8580,9 @@ class NavigationBrowserTestPaintHoldingSubframe
       public ::testing::WithParamInterface<bool> {
  public:
   NavigationBrowserTestPaintHoldingSubframe() {
+    paint_holding_feature_.InitAndEnableFeature(
+        blink::features::kPaintHoldingForIframes);
+
     const bool enable_render_document = GetParam();
     if (enable_render_document) {
       InitAndEnableRenderDocumentFeature(
@@ -8427,9 +8624,20 @@ class NavigationBrowserTestPaintHoldingSubframe
     run_loop_ = nullptr;
   }
 
-  void FinishStylesheetRequest() {
+  void FinishStylesheetRequest(RenderFrameHost* rfh) {
     std::move(start_response_).Run();
     std::move(finish_response_).Run();
+
+    // Ensure that the stylesheet response unblocks rendering for this Document.
+    ASSERT_TRUE(ExecJs(rfh, JsReplace(
+                                R"(
+    (async () => {
+      let rafFired = new Promise((resolve) => {
+        requestAnimationFrame(resolve);
+      });
+      await rafFired;
+    })();
+    )")));
   }
 
   SkBitmap CopyView(RenderWidgetHostView* view) {
@@ -8477,16 +8685,11 @@ class NavigationBrowserTestPaintHoldingSubframe
   raw_ptr<base::RunLoop> run_loop_;
   base::OnceClosure start_response_;
   base::OnceClosure finish_response_;
+  base::test::ScopedFeatureList paint_holding_feature_;
   base::test::ScopedFeatureList render_document_feature_;
 };
 
 IN_PROC_BROWSER_TEST_P(NavigationBrowserTestPaintHoldingSubframe, Basic) {
-  // TODO(khushalsagar): Enable for RenderDocument with the feature code.
-  const bool enable_render_document = GetParam();
-  if (enable_render_document) {
-    GTEST_SKIP();
-  }
-
   auto* web_contents = shell()->web_contents();
 
   GURL main_url(
@@ -8494,10 +8697,9 @@ IN_PROC_BROWSER_TEST_P(NavigationBrowserTestPaintHoldingSubframe, Basic) {
   ASSERT_TRUE(NavigateToURL(web_contents, main_url));
 
   const std::string iframe_id = "iframe_id";
+  RenderFrameHostImpl* subframe_rfh = nullptr;
 
   {
-    GURL subframe_url(embedded_test_server()->GetURL(
-        "a.com", "/render-blocking-subframe.html"));
     const std::string kCreateIFrameWithID = R"(
     const iframe = document.createElement("iframe");
     iframe.id = $1;
@@ -8506,19 +8708,23 @@ IN_PROC_BROWSER_TEST_P(NavigationBrowserTestPaintHoldingSubframe, Basic) {
     ASSERT_TRUE(ExecJs(web_contents->GetPrimaryMainFrame(),
                        JsReplace(kCreateIFrameWithID, "iframe_id")));
 
+    GURL subframe_url(embedded_test_server()->GetURL(
+        "a.com", "/render-blocking-subframe.html"));
     TestNavigationObserver load_observer(web_contents);
     ASSERT_TRUE(
         BeginNavigateIframeToURL(web_contents, "iframe_id", subframe_url));
+    load_observer.WaitForNavigationFinished();
     WaitForStylesheetRequest();
-    FinishStylesheetRequest();
-    load_observer.Wait();
-  }
 
-  // We should have a cross-process iframe which is a local root.
-  auto* subframe_rfh = static_cast<RenderFrameHostImpl*>(
-      ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
-  ASSERT_TRUE(subframe_rfh);
-  ASSERT_TRUE(subframe_rfh->is_local_root());
+    // We should have a cross-process iframe which is a local root.
+    subframe_rfh = static_cast<RenderFrameHostImpl*>(
+        ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+    ASSERT_TRUE(subframe_rfh);
+    ASSERT_TRUE(subframe_rfh->is_local_root());
+
+    FinishStylesheetRequest(subframe_rfh);
+    WaitForCopyableViewInWebContents(web_contents);
+  }
 
   // The frame is displaying blue.
   WaitForCopyableViewInFrame(subframe_rfh);
@@ -8549,7 +8755,169 @@ IN_PROC_BROWSER_TEST_P(NavigationBrowserTestPaintHoldingSubframe, Basic) {
 
   // Respond to the stylesheet request which will resume rendering in the
   // subframe.
-  FinishStylesheetRequest();
+  FinishStylesheetRequest(subframe_rfh);
+
+  // Now the frame is displaying red.
+  WaitForCopyableViewInFrame(subframe_rfh);
+  bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorRED) << cc::GetPNGDataUrl(bitmap);
+}
+
+IN_PROC_BROWSER_TEST_P(NavigationBrowserTestPaintHoldingSubframe, CrossOrigin) {
+  auto* web_contents = shell()->web_contents();
+
+  GURL main_url(
+      embedded_test_server()->GetURL("/render-blocking-mainframe.html"));
+  ASSERT_TRUE(NavigateToURL(web_contents, main_url));
+
+  const std::string iframe_id = "iframe_id";
+  RenderFrameHostImpl* subframe_rfh = nullptr;
+
+  {
+    const std::string kCreateIFrameWithID = R"(
+    const iframe = document.createElement("iframe");
+    iframe.id = $1;
+    document.body.appendChild(iframe);
+  )";
+    ASSERT_TRUE(ExecJs(web_contents->GetPrimaryMainFrame(),
+                       JsReplace(kCreateIFrameWithID, "iframe_id")));
+
+    GURL subframe_url(embedded_test_server()->GetURL(
+        "a.com", "/render-blocking-subframe.html"));
+    TestNavigationObserver load_observer(web_contents);
+    ASSERT_TRUE(
+        BeginNavigateIframeToURL(web_contents, "iframe_id", subframe_url));
+    load_observer.WaitForNavigationFinished();
+    WaitForStylesheetRequest();
+
+    // We should have a cross-process iframe which is a local root.
+    subframe_rfh = static_cast<RenderFrameHostImpl*>(
+        ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+    ASSERT_TRUE(subframe_rfh);
+    ASSERT_TRUE(subframe_rfh->is_local_root());
+
+    FinishStylesheetRequest(subframe_rfh);
+    WaitForCopyableViewInWebContents(web_contents);
+  }
+
+  // The frame is displaying blue.
+  WaitForCopyableViewInFrame(subframe_rfh);
+  auto bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorBLUE) << cc::GetPNGDataUrl(bitmap);
+
+  {
+    GURL subframe_url(embedded_test_server()->GetURL(
+        "b.com", "/render-blocking-subframe.html?red"));
+
+    TestNavigationObserver load_observer(web_contents);
+    ASSERT_TRUE(
+        BeginNavigateIframeToURL(web_contents, "iframe_id", subframe_url));
+    load_observer.WaitForNavigationFinished();
+    WaitForStylesheetRequest();
+
+    // The subframe RFH could have changed.
+    subframe_rfh = static_cast<RenderFrameHostImpl*>(
+        ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+    ASSERT_TRUE(subframe_rfh);
+    ASSERT_TRUE(subframe_rfh->is_local_root());
+  }
+
+  // The frame is displaying white (from the main frame) because paint holding
+  // is disabled.
+  WaitForCopyableViewInWebContents(web_contents);
+  bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorWHITE);
+
+  // Respond to the stylesheet request which will resume rendering in the
+  // subframe.
+  FinishStylesheetRequest(subframe_rfh);
+
+  // Now the frame is displaying red.
+  WaitForCopyableViewInFrame(subframe_rfh);
+  bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorRED) << cc::GetPNGDataUrl(bitmap);
+}
+
+IN_PROC_BROWSER_TEST_P(NavigationBrowserTestPaintHoldingSubframe,
+                       CrashSubframe) {
+  auto* web_contents = shell()->web_contents();
+
+  GURL main_url(
+      embedded_test_server()->GetURL("/render-blocking-mainframe.html"));
+  ASSERT_TRUE(NavigateToURL(web_contents, main_url));
+
+  const std::string iframe_id = "iframe_id";
+  RenderFrameHostImpl* subframe_rfh = nullptr;
+
+  {
+    const std::string kCreateIFrameWithID = R"(
+    const iframe = document.createElement("iframe");
+    iframe.id = $1;
+    document.body.appendChild(iframe);
+  )";
+    ASSERT_TRUE(ExecJs(web_contents->GetPrimaryMainFrame(),
+                       JsReplace(kCreateIFrameWithID, "iframe_id")));
+
+    GURL subframe_url(embedded_test_server()->GetURL(
+        "a.com", "/render-blocking-subframe.html"));
+    TestNavigationObserver load_observer(web_contents);
+    ASSERT_TRUE(
+        BeginNavigateIframeToURL(web_contents, "iframe_id", subframe_url));
+    load_observer.WaitForNavigationFinished();
+    WaitForStylesheetRequest();
+
+    // We should have a cross-process iframe which is a local root.
+    subframe_rfh = static_cast<RenderFrameHostImpl*>(
+        ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+    ASSERT_TRUE(subframe_rfh);
+    ASSERT_TRUE(subframe_rfh->is_local_root());
+
+    FinishStylesheetRequest(subframe_rfh);
+    WaitForCopyableViewInWebContents(web_contents);
+  }
+
+  // The frame is displaying blue.
+  WaitForCopyableViewInFrame(subframe_rfh);
+  auto bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorBLUE) << cc::GetPNGDataUrl(bitmap);
+
+  // Crash the subframe.
+  {
+    auto* process = subframe_rfh->GetProcess();
+    content::ScopedAllowRendererCrashes allow_renderer_crashes(process);
+
+    RenderProcessHostWatcher watcher(
+        process, RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+    process->Shutdown(content::RESULT_CODE_KILLED);
+    watcher.Wait();
+  }
+
+  {
+    GURL subframe_url(embedded_test_server()->GetURL(
+        "a.com", "/render-blocking-subframe.html?red"));
+
+    TestNavigationObserver load_observer(web_contents);
+    ASSERT_TRUE(
+        BeginNavigateIframeToURL(web_contents, "iframe_id", subframe_url));
+    load_observer.WaitForNavigationFinished();
+    WaitForStylesheetRequest();
+
+    // The subframe RFH could have changed.
+    subframe_rfh = static_cast<RenderFrameHostImpl*>(
+        ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0));
+    ASSERT_TRUE(subframe_rfh);
+    ASSERT_TRUE(subframe_rfh->is_local_root());
+  }
+
+  // The frame is displaying white (from the main frame) because paint holding
+  // is disabled.
+  WaitForCopyableViewInWebContents(web_contents);
+  bitmap = CopyView(web_contents->GetRenderWidgetHostView());
+  EXPECT_EQ(bitmap.getColor(4, 4), SK_ColorWHITE) << cc::GetPNGDataUrl(bitmap);
+
+  // Respond to the stylesheet request which will resume rendering in the
+  // subframe.
+  FinishStylesheetRequest(subframe_rfh);
 
   // Now the frame is displaying red.
   WaitForCopyableViewInFrame(subframe_rfh);

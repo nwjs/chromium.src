@@ -74,11 +74,13 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_AUDIO) CrasAudioHandler
   enum class SurveyType {
     kGeneral,
     kBluetooth,
+    kOutputProc,
   };
 
   static constexpr char kSurveyNameKey[] = "SurveyName";
   static constexpr char kSurveyNameGeneral[] = "GENERAL";
   static constexpr char kSurveyNameBluetooth[] = "BLUETOOTH";
+  static constexpr char kSurveyNameOutputProc[] = "OUTPUTPROC";
 
   // Key-value mapping type for audio survey specific data.
   // For audio satisfaction survey, it contains
@@ -237,13 +239,6 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_AUDIO) CrasAudioHandler
    protected:
     AudioObserver();
     virtual ~AudioObserver();
-  };
-
-  enum DeviceActivateType {
-    ACTIVATE_BY_PRIORITY = 0,
-    ACTIVATE_BY_USER,
-    ACTIVATE_BY_RESTORE_PREVIOUS_STATE,
-    ACTIVATE_BY_CAMERA
   };
 
   enum class ClientType {
@@ -944,6 +939,28 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_AUDIO) CrasAudioHandler
   // set.
   void HandleHotPlugDeviceWithNotification(const AudioDevice& hotplug_device);
 
+  // Handles the system boots or restarts case.
+  // - If the device boots with only one device, activate it automatically.
+  // - If the device set was seen before, activate the preferred one.
+  // - Otherwise if a 3.5mm headphone is connected, activate it and don't show
+  // notification.
+  // - Otherwise activate the most recent activated device and show
+  // notification.
+  // - Otherwise if there is an internal device, activate it and show
+  // notification.
+  // - Otherwise when no most recent activated device and no internal device (a
+  // brand new chromebox), activate the highest priority device based on the
+  // pre-determined priority list and show notification.
+  void HandleSystemBoots(bool is_input, const AudioDeviceList& devices);
+
+  // Adds a device to most recently activated device list.
+  void AddDeviceToMostRecentActivatedList(const AudioDevice& device);
+
+  // Activates the most recently active device. Return false if no device in the
+  // most recently active device list is currently connected, otherwise
+  // return true.
+  bool ActivateMostRecentActiveDevice(bool is_input);
+
   // Static helper function to abstract the |AudioSurvey| from input
   // |survey_specific_data|.
   static std::unique_ptr<CrasAudioHandler::AudioSurvey> AbstractAudioSurvey(
@@ -1037,6 +1054,12 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_AUDIO) CrasAudioHandler
   // by real interaction with Pref service.
   std::map<std::string, std::string> output_device_pref_set_map_;
   std::map<std::string, std::string> input_device_pref_set_map_;
+
+  // Stores a list of most recently activated devices' stable id. Most recent
+  // device on the end.
+  // TODO(zhangwenyu): To be replaced by real interaction with Pref service.
+  std::vector<std::string> most_recent_activated_input_device_ids_;
+  std::vector<std::string> most_recent_activated_output_device_ids_;
 
   // Indicates whether the audio selection notification should be displayed.
   bool should_show_notification_ = false;

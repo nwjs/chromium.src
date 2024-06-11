@@ -1227,6 +1227,12 @@ void WebFrameWidgetImpl::StartDragging(LocalFrame* source_frame,
                                        const SkBitmap& drag_image,
                                        const gfx::Vector2d& cursor_offset,
                                        const gfx::Rect& drag_obj_rect) {
+  if (doing_drag_and_drop_) {
+    // TODO: crbug.com/330274075 - Root cause nested drag-start events, remove
+    // once issue has been resolved.
+    base::debug::DumpWithoutCrashing();
+  }
+
   doing_drag_and_drop_ = true;
   if (drag_and_drop_disabled_) {
     DragSourceSystemDragEnded();
@@ -1366,6 +1372,11 @@ void WebFrameWidgetImpl::UpdateCompositorScrollState(
 
 bool WebFrameWidgetImpl::IsScrollGestureActive() const {
   return is_scroll_gesture_active_;
+}
+
+void WebFrameWidgetImpl::RequestViewportScreenshot(
+    const base::UnguessableToken& token) {
+  LayerTreeHost()->RequestViewportScreenshot(token);
 }
 
 void WebFrameWidgetImpl::RequestNewLocalSurfaceId() {
@@ -1540,18 +1551,22 @@ void WebFrameWidgetImpl::OnTaskCompletedForFrame(
 }
 
 void WebFrameWidgetImpl::DidBeginMainFrame() {
-  LocalFrame* root_frame = LocalRootImpl()->GetFrame();
-  DCHECK(root_frame);
+  LocalFrame* local_root_frame = LocalRootImpl()->GetFrame();
+  CHECK(local_root_frame);
 
-  if (LocalFrameView* frame_view = root_frame->View())
+  if (LocalFrameView* frame_view = local_root_frame->View()) {
     frame_view->RunPostLifecycleSteps();
-
-  if (animation_frame_timing_monitor_) {
-    animation_frame_timing_monitor_->DidBeginMainFrame();
   }
 
-  if (Page* page = root_frame->GetPage())
+  if (animation_frame_timing_monitor_) {
+    CHECK(local_root_frame->DomWindow());
+    animation_frame_timing_monitor_->DidBeginMainFrame(
+        *local_root_frame->DomWindow());
+  }
+
+  if (Page* page = local_root_frame->GetPage()) {
     page->Animator().PostAnimate();
+  }
 }
 
 void WebFrameWidgetImpl::UpdateLifecycle(WebLifecycleUpdate requested_update,
@@ -1909,7 +1924,6 @@ void WebFrameWidgetImpl::SetEventListenerProperties(
     if (!has_touch_handlers_ || *has_touch_handlers_ != has_touch_handlers) {
       has_touch_handlers_ = has_touch_handlers;
 
-      widget_base_->WidgetScheduler()->SetHasTouchHandler(has_touch_handlers);
       // Set touch event consumers based on whether there are touch event
       // handlers or the page has hit testable scrollbars.
       auto touch_event_consumers = mojom::blink::TouchEventConsumers::New(
@@ -4439,6 +4453,11 @@ void WebFrameWidgetImpl::ForEachRemoteFrameControlledByWidget(
     base::FunctionRef<void(RemoteFrame*)> callback) {
   ForEachRemoteFrameChildrenControlledByWidget(local_root_->GetFrame(),
                                                callback);
+}
+
+void WebFrameWidgetImpl::CalculateSelectionBounds(gfx::Rect& anchor_root_frame,
+                                                  gfx::Rect& focus_root_frame) {
+  CalculateSelectionBounds(anchor_root_frame, focus_root_frame, nullptr);
 }
 
 void WebFrameWidgetImpl::CalculateSelectionBounds(

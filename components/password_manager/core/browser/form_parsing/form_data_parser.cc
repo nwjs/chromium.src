@@ -10,6 +10,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -20,7 +21,6 @@
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_split.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -61,7 +61,7 @@ struct AutocompleteParsing {
 // this sets accepts_webauthn_credentials to true.
 AutocompleteParsing ParseAutocomplete(const std::string& attribute) {
   AutocompleteParsing result;
-  std::vector<base::StringPiece> tokens =
+  std::vector<std::string_view> tokens =
       base::SplitStringPiece(attribute, base::kWhitespaceASCII,
                              base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
   if (tokens.empty())
@@ -76,7 +76,7 @@ AutocompleteParsing ParseAutocomplete(const std::string& attribute) {
   if (tokens.empty())
     return result;
 
-  const base::StringPiece& field_type = tokens.back();
+  std::string_view field_type = tokens.back();
   if (base::EqualsCaseInsensitiveASCII(field_type,
                                        constants::kAutocompleteUsername)) {
     result.flag = AutocompleteFlag::kUsername;
@@ -123,8 +123,8 @@ bool StringMatchesHiddenValue(const std::u16string& str) {
 // autocomplete attribute or keywords in field's id and name.
 bool IsCreditCardField(const ProcessedField& field) {
   return field.autocomplete_flag == AutocompleteFlag::kCreditCardField ||
-         StringMatchesCVC(field.field->name_attribute) ||
-         StringMatchesCVC(field.field->id_attribute);
+         StringMatchesCVC(field.field->name_attribute()) ||
+         StringMatchesCVC(field.field->id_attribute());
 }
 
 // Returns true if the `field` is suspected to be not a password field
@@ -135,12 +135,12 @@ bool IsNotPasswordField(const ProcessedField& field,
                         bool* otp_field_detected_with_regex = nullptr) {
   if (IsCreditCardField(field) ||
       field.autocomplete_flag == AutocompleteFlag::kOneTimeCode ||
-      StringMatchesSSN(field.field->name_attribute) ||
-      StringMatchesSSN(field.field->id_attribute)) {
+      StringMatchesSSN(field.field->name_attribute()) ||
+      StringMatchesSSN(field.field->id_attribute())) {
     return true;
   }
-  bool is_otp_field = StringMatchesOTP(field.field->name_attribute) ||
-                      StringMatchesOTP(field.field->id_attribute);
+  bool is_otp_field = StringMatchesOTP(field.field->name_attribute()) ||
+                      StringMatchesOTP(field.field->id_attribute());
   if (otp_field_detected_with_regex) {
     *otp_field_detected_with_regex |= is_otp_field;
   }
@@ -168,7 +168,7 @@ bool MatchesInteractability(const ProcessedField& processed_field,
                             Interactability interactability_bar) {
   return (processed_field.interactability >= interactability_bar) ||
          (interactability_bar == Interactability::kCertain &&
-          (processed_field.field->properties_mask &
+          (processed_field.field->properties_mask() &
            FieldPropertiesFlags::kAutofilled));
 }
 
@@ -183,7 +183,7 @@ bool IsProbablyNotUsername(const std::u16string& s) {
 
 // Returns |user_input| if it is not empty, |value| otherwise.
 const std::u16string& GetFieldValue(const FormFieldData& field) {
-  return field.user_input.empty() ? field.value() : field.user_input;
+  return field.user_input().empty() ? field.value() : field.user_input();
 }
 
 // A helper struct that is used to capture significant fields to be used for
@@ -342,8 +342,9 @@ ProcessedField* FindField(std::vector<ProcessedField>* processed_fields,
 }
 
 bool CanBeConsideredAsSingleUsernameField(const FormFieldData* field) {
-  return field && util::CanFieldBeConsideredAsSingleUsername(
-                      field->name_attribute, field->id_attribute, field->label);
+  return field &&
+         util::CanFieldBeConsideredAsSingleUsername(
+             field->name_attribute(), field->id_attribute(), field->label());
 }
 
 // Given a `new_password` field tries to find a matching confirmation_password
@@ -605,9 +606,9 @@ bool IsLikelyPassword(const ProcessedField& field, size_t* ignored_readonly) {
   // only temporarily, that makes it still interesting for saving. The fact
   // that a user typed or Chrome filled into that field in the past is an
   // indicator that the readonly was only temporary.
-  if (field.field->is_readonly &&
-      !(field.field->properties_mask & (FieldPropertiesFlags::kUserTyped |
-                                        FieldPropertiesFlags::kAutofilled))) {
+  if (field.field->is_readonly() &&
+      !(field.field->properties_mask() & (FieldPropertiesFlags::kUserTyped |
+                                          FieldPropertiesFlags::kAutofilled))) {
     ++*ignored_readonly;
     return false;
   }
@@ -747,7 +748,7 @@ const FormFieldData* FindUsernameFieldBaseHeuristics(
       continue;
     if (!username)
       username = it->field;
-    if (!focusable_username && it->field->is_focusable) {
+    if (!focusable_username && it->field->is_focusable()) {
       focusable_username = it->field;
     }
     if (stored_usernames.contains(base::i18n::ToLower(it->field->value()))) {
@@ -914,9 +915,9 @@ std::vector<ProcessedField> ProcessFields(
 
   // |all_alternative_passwords| should only contain each value once.
   // |seen_password_values| ensures that duplicates are ignored.
-  std::set<base::StringPiece16> seen_password_values;
+  std::set<std::u16string_view> seen_password_values;
   // Similarly for usernames.
-  std::set<base::StringPiece16> seen_username_values;
+  std::set<std::u16string_view> seen_username_values;
 
   const bool consider_only_non_empty = mode == FormDataParser::Mode::kSaving;
   for (const FormFieldData& field : fields) {
@@ -933,7 +934,7 @@ std::vector<ProcessedField> ProcessFields(
         field.form_control_type() == autofill::FormControlType::kInputPassword;
 
     if (!field_value.empty()) {
-      std::set<base::StringPiece16>& seen_values =
+      std::set<std::u16string_view>& seen_values =
           is_password ? seen_password_values : seen_username_values;
       AlternativeElementVector* all_alternative_fields =
           is_password ? all_alternative_passwords : all_alternative_usernames;
@@ -948,7 +949,7 @@ std::vector<ProcessedField> ProcessFields(
     }
 
     const AutocompleteParsing autocomplete_parsing =
-        ParseAutocomplete(field.autocomplete_attribute);
+        ParseAutocomplete(field.autocomplete_attribute());
 
     ProcessedField processed_field = {
         .field = &field,
@@ -957,10 +958,11 @@ std::vector<ProcessedField> ProcessFields(
         .accepts_webauthn_credentials =
             autocomplete_parsing.accepts_webauthn_credentials};
 
-    if (field.properties_mask & FieldPropertiesFlags::kUserTyped)
+    if (field.properties_mask() & FieldPropertiesFlags::kUserTyped) {
       processed_field.interactability = Interactability::kCertain;
-    else if (field.is_focusable)
+    } else if (field.is_focusable()) {
       processed_field.interactability = Interactability::kPossible;
+    }
 
     result.push_back(processed_field);
   }
@@ -1030,7 +1032,7 @@ std::unique_ptr<PasswordForm> AssemblePasswordForm(
   for (const FormFieldData& field : form_data.fields) {
     if (field.form_control_type() ==
             autofill::FormControlType::kInputPassword &&
-        (field.properties_mask & FieldPropertiesFlags::kAutofilled)) {
+        (field.properties_mask() & FieldPropertiesFlags::kAutofilled)) {
       result->form_has_autofilled_value = true;
     }
   }

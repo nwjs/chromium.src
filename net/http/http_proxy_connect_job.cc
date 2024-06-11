@@ -30,6 +30,7 @@
 #include "net/log/net_log_source_type.h"
 #include "net/log/net_log_with_source.h"
 #include "net/nqe/network_quality_estimator.h"
+#include "net/quic/quic_context.h"
 #include "net/quic/quic_http_utils.h"
 #include "net/quic/quic_proxy_client_socket.h"
 #include "net/quic/quic_session_key.h"
@@ -201,7 +202,7 @@ HttpProxySocketParams::HttpProxySocketParams(
   DCHECK(!(nested_params_ && quic_ssl_config_));
 
   // Only supports proxy endpoints without scheme for now.
-  // TODO(crbug.com/1206799): Handle scheme.
+  // TODO(crbug.com/40181080): Handle scheme.
   if (is_over_transport()) {
     DCHECK(absl::holds_alternative<HostPortPair>(
         nested_params_->transport()->destination()));
@@ -539,7 +540,7 @@ int HttpProxyConnectJob::DoTransportConnectComplete(int result) {
         // cert request info won't have been set up for the parent
         // HttpProxyConnectJob to use it in this method. Fail gracefully when
         // this case is encountered.
-        // TODO(https://crbug.com/1491092): Investigate whether changes are
+        // TODO(crbug.com/40284947): Investigate whether changes are
         // needed to support making the SSL cert request info available here in
         // the case described above. Just returning `result` here makes the
         // behavior for multi-proxy chains match that of single-proxy chains
@@ -725,9 +726,9 @@ int HttpProxyConnectJob::DoQuicProxyCreateSession() {
   quic_session_request_ = std::make_unique<QuicSessionRequest>(
       common_connect_job_params()->quic_session_pool);
 
-  // Use default QUIC version, which is the version listed supported version.
-  quic::ParsedQuicVersion quic_version =
-      common_connect_job_params()->quic_supported_versions->front();
+  // Select the default QUIC version for the session to the proxy, since there
+  // is no DNS or Alt-Svc information to use.
+  quic::ParsedQuicVersion quic_version = SupportedQuicVersionForProxying();
 
   // The QuicSessionRequest will handle connecting to any proxies earlier in the
   // chain to this one, but expects a ProxyChain containing only QUIC proxies.
@@ -740,7 +741,7 @@ int HttpProxyConnectJob::DoQuicProxyCreateSession() {
   }
 
   return quic_session_request_->Request(
-      // TODO(crbug.com/1206799) Pass the destination directly once it's
+      // TODO(crbug.com/40181080) Pass the destination directly once it's
       // converted to contain scheme.
       url::SchemeHostPort(url::kHttpsScheme, proxy_server.host(),
                           proxy_server.port()),

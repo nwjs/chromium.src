@@ -46,6 +46,8 @@
 #include "third_party/blink/renderer/core/svg/svg_point_list.h"
 #include "third_party/blink/renderer/core/svg/svg_preserve_aspect_ratio.h"
 #include "third_party/blink/renderer/core/svg/svg_rect.h"
+#include "third_party/blink/renderer/core/svg/svg_script_element.h"
+#include "third_party/blink/renderer/core/svg/svg_set_element.h"
 #include "third_party/blink/renderer/core/svg/svg_string.h"
 #include "third_party/blink/renderer/core/xlink_names.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -461,17 +463,16 @@ bool SVGAnimateElement::CalculateToAtEndOfDurationValue(
   return true;
 }
 
-bool SVGAnimateElement::CalculateFromAndToValues(const String& from_string,
+void SVGAnimateElement::CalculateFromAndToValues(const String& from_string,
                                                  const String& to_string) {
   DCHECK(targetElement());
   from_property_ = ParseValue(from_string);
   from_property_value_type_ = PropertyValueType(AttributeName(), from_string);
   to_property_ = ParseValue(to_string);
   to_property_value_type_ = PropertyValueType(AttributeName(), to_string);
-  return true;
 }
 
-bool SVGAnimateElement::CalculateFromAndByValues(const String& from_string,
+void SVGAnimateElement::CalculateFromAndByValues(const String& from_string,
                                                  const String& by_string) {
   DCHECK(targetElement());
   DCHECK(GetAnimationMode() == kByAnimation ||
@@ -484,7 +485,6 @@ bool SVGAnimateElement::CalculateFromAndByValues(const String& from_string,
   to_property_ = ParseValue(by_string);
   to_property_value_type_ = PropertyValueType(AttributeName(), by_string);
   to_property_->Add(from_property_, targetElement());
-  return true;
 }
 
 SVGPropertyBase* SVGAnimateElement::CreateUnderlyingValueForAnimation() const {

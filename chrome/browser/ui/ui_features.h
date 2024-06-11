@@ -88,6 +88,8 @@ BASE_DECLARE_FEATURE(kEvDetailsInPageInfo);
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 BASE_DECLARE_FEATURE(kGetTheMostOutOfChrome);
 
+BASE_DECLARE_FEATURE(kIOSPromoRefreshedPasswordBubble);
+
 BASE_DECLARE_FEATURE(kIOSPromoAddressBubble);
 
 BASE_DECLARE_FEATURE(kIOSPromoBookmarkBubble);
@@ -120,6 +122,9 @@ enum class PreloadTopChromeWebUIMode {
   kPreloadOnWarmup = 0,
   kPreloadOnMakeContents = 1
 };
+extern const char kPreloadTopChromeWebUIModeName[];
+extern const char kPreloadTopChromeWebUIModePreloadOnWarmupName[];
+extern const char kPreloadTopChromeWebUIModePreloadOnMakeContentsName[];
 extern const base::FeatureParam<PreloadTopChromeWebUIMode>
     kPreloadTopChromeWebUIMode;
 
@@ -195,7 +200,11 @@ bool IsTabOrganization();
 
 BASE_DECLARE_FEATURE(kMultiTabOrganization);
 
+BASE_DECLARE_FEATURE(kTabOrganizationAppMenuItem);
+
 BASE_DECLARE_FEATURE(kTabReorganization);
+
+BASE_DECLARE_FEATURE(kTabReorganizationDivider);
 
 // The target (and minimum) interval between proactive nudge triggers. Measured
 // against a clock that only runs while Chrome is in the foreground.
@@ -294,10 +303,6 @@ BASE_DECLARE_FEATURE(kWebUITabStrip);
 // Controls whether the context menu is shown on a touch press or a touch
 // tap gesture on the WebUI Tab Strip.
 BASE_DECLARE_FEATURE(kWebUITabStripContextMenuAfterTap);
-
-#if BUILDFLAG(IS_CHROMEOS)
-BASE_DECLARE_FEATURE(kChromeOSTabSearchCaptionButton);
-#endif
 
 // Cocoa to views migration.
 #if BUILDFLAG(IS_MAC)

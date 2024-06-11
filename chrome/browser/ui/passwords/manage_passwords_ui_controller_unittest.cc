@@ -1942,7 +1942,7 @@ TEST_F(ManagePasswordsUIControllerTest, UsernameAdded) {
   EXPECT_CALL(*test_form_manager_raw,
               OnUpdateUsernameFromPrompt(Eq(kExampleUsername)));
   EXPECT_CALL(*controller(), OnUpdateBubbleAndIconVisibility());
-  controller()->OnAddUsernameSaveClicked(kExampleUsername);
+  controller()->OnAddUsernameSaveClicked(kExampleUsername, submitted_form());
 
   EXPECT_TRUE(controller()->opened_automatic_bubble());
   EXPECT_EQ(password_manager::ui::SAVE_CONFIRMATION_STATE,
@@ -2417,10 +2417,14 @@ TEST_F(ManagePasswordsUIControllerWithBrowserTestExplicitBrowserSignin,
   // Set up form manager and save password to profile store.
   std::vector<PasswordForm> matches;
   auto test_form_manager = CreateFormManagerWithBestMatches(matches, &form());
+  EXPECT_CALL(*test_form_manager, Save()).WillOnce(testing::Invoke([this] {
+    client().GetProfilePasswordStore()->AddLogin(form());
+  }));
+  controller()->OnPasswordSubmitted(std::move(test_form_manager));
+
   auto profile_store_waiter =
       password_manager::PasswordStoreWaiter(client().GetProfilePasswordStore());
-  controller()->SaveUnsyncedCredentialsInProfileStore({form()});
-  controller()->OnPasswordSubmitted(std::move(test_form_manager));
+  controller()->SavePassword(form().username_value, form().password_value);
   profile_store_waiter.WaitOrReturn();
 
   // Check if password was properly saved to profile store.
@@ -2457,7 +2461,7 @@ TEST_F(ManagePasswordsUIControllerWithBrowserTestExplicitBrowserSignin,
   // account on the web.
   auto account_store_waiter =
       password_manager::PasswordStoreWaiter(client().GetAccountPasswordStore());
-  controller()->SignIn(account_info);
+  controller()->SignIn(account_info, form());
   account_store_waiter.WaitOrReturn();
 
   // Check that the user was signed in to Chrome.

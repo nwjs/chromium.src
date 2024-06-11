@@ -683,7 +683,7 @@ void DesktopCaptureAccessHandler::AcceptRequest(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK(web_contents);
 
-  // TODO(crbug.com/1300883): Generalize to multiple streams.
+  // TODO(crbug.com/40216442): Generalize to multiple streams.
   blink::mojom::StreamDevicesSet stream_devices_set;
   stream_devices_set.stream_devices.emplace_back(
       blink::mojom::StreamDevices::New());
@@ -692,7 +692,7 @@ void DesktopCaptureAccessHandler::AcceptRequest(
   std::unique_ptr<content::MediaStreamUI> ui = GetDevicesForDesktopCapture(
       pending_request->request, web_contents, media_id, capture_audio,
       pending_request->request.disable_local_echo,
-      // TODO(crbug.com/1378667): Support suppressLocalAudioPlayback for the
+      // TODO(crbug.com/40244027): Support suppressLocalAudioPlayback for the
       // extension API as well. If this happens as a result of merging
       // DesktopCaptureAccessHandler and DisplayMediaAccessHandler, that's fine.
       /*suppress_local_audio_playback=*/false,

@@ -4,10 +4,11 @@
 
 #include <stdint.h>
 
+#include <string_view>
+
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
@@ -128,7 +129,7 @@ class BrowserActionApiTest : public ExtensionApiTest {
     ExtensionAction* extension_action =
         ExtensionActionManager::Get(browser->profile())
             ->GetExtensionAction(extension);
-    return extension_action->action_type() == ActionInfo::TYPE_BROWSER
+    return extension_action->action_type() == ActionInfo::Type::kBrowser
                ? extension_action
                : nullptr;
   }
@@ -139,7 +140,7 @@ class BrowserActionApiTest : public ExtensionApiTest {
 
 // Canvas tests rely on the harness producing pixel output in order to read back
 // pixels from a canvas element. So we have to override the setup function.
-// TODO(https://crbug.com/1093066): Investigate to see if these tests can be
+// TODO(crbug.com/40698663): Investigate to see if these tests can be
 // enabled for Service Worker-based extensions.
 class BrowserActionApiCanvasTest : public BrowserActionApiTest {
  public:
@@ -161,7 +162,7 @@ class BrowserActionApiTestWithContextType
       const BrowserActionApiTestWithContextType&) = delete;
 
  protected:
-  void RunUpdateTest(base::StringPiece path, bool expect_failure) {
+  void RunUpdateTest(std::string_view path, bool expect_failure) {
     ExtensionTestMessageListener ready_listener("ready",
                                                 ReplyBehavior::kWillReply);
     ASSERT_TRUE(embedded_test_server()->Start());
@@ -201,7 +202,7 @@ class BrowserActionApiTestWithContextType
               action->GetBadgeBackgroundColor(ExtensionAction::kDefaultTabId));
   }
 
-  void RunEnableTest(base::StringPiece path, bool start_enabled) {
+  void RunEnableTest(std::string_view path, bool start_enabled) {
     ExtensionTestMessageListener ready_listener("ready",
                                                 ReplyBehavior::kWillReply);
     const Extension* extension =
@@ -302,7 +303,6 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, DynamicBrowserAction) {
       profile(), extension, GetBrowserAction(browser(), *extension), nullptr);
   // Test that there is a browser action in the toolbar.
   ASSERT_EQ(1, GetBrowserActionsBar()->NumberOfBrowserActions());
-  EXPECT_TRUE(GetBrowserActionsBar()->HasIcon(extension->id()));
 
   gfx::Image action_icon = icon_factory.GetIcon(0);
   uint32_t action_icon_last_id = action_icon.ToSkBitmap()->getGenerationID();
@@ -478,7 +478,6 @@ IN_PROC_BROWSER_TEST_F(BrowserActionApiCanvasTest, InvisibleIconBrowserAction) {
 
   // Test there is a browser action in the toolbar.
   ASSERT_EQ(1, GetBrowserActionsBar()->NumberOfBrowserActions());
-  EXPECT_TRUE(GetBrowserActionsBar()->HasIcon(extension->id()));
   gfx::Image initial_bar_icon =
       GetBrowserActionsBar()->GetIcon(extension->id());
 
@@ -715,7 +714,14 @@ IN_PROC_BROWSER_TEST_P(BrowserActionApiTestWithContextType, IncognitoBasic) {
   EXPECT_TRUE(catcher.GetNextResult());
 }
 
-IN_PROC_BROWSER_TEST_P(BrowserActionApiTestWithContextType, IncognitoUpdate) {
+// TODO(crbug.com/338638098): leaks flakily on LSAN bots.
+#if defined(LEAK_SANITIZER)
+#define MAYBE_IncognitoUpdate DISABLED_IncognitoUpdate
+#else
+#define MAYBE_IncognitoUpdate IncognitoUpdate
+#endif
+IN_PROC_BROWSER_TEST_P(BrowserActionApiTestWithContextType,
+                       MAYBE_IncognitoUpdate) {
   ASSERT_TRUE(embedded_test_server()->Start());
   ExtensionTestMessageListener incognito_not_allowed_listener(
       "incognito not allowed");

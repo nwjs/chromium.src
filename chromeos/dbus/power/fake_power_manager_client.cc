@@ -134,6 +134,7 @@ void FakePowerManagerClient::SetScreenBrightness(
     const power_manager::SetBacklightBrightnessRequest& request) {
   screen_brightness_percent_ = request.percent();
   requested_screen_brightness_percent_ = request.percent();
+  requested_screen_brightness_cause_ = request.cause();
 
   power_manager::BacklightBrightnessChange change;
   change.set_percent(request.percent());
@@ -171,6 +172,13 @@ void FakePowerManagerClient::SetAmbientLightSensorEnabled(bool enabled) {
       base::BindOnce(
           &FakePowerManagerClient::SendAmbientLightSensorEnabledChanged,
           weak_ptr_factory_.GetWeakPtr(), change));
+}
+
+void FakePowerManagerClient::GetAmbientLightSensorEnabled(
+    DBusMethodCallback<bool> callback) {
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), is_ambient_light_sensor_enabled_));
 }
 
 void FakePowerManagerClient::HasAmbientLightSensor(
@@ -213,6 +221,18 @@ void FakePowerManagerClient::SetKeyboardBrightness(
 }
 
 void FakePowerManagerClient::ToggleKeyboardBacklight() {}
+
+void FakePowerManagerClient::SetKeyboardAmbientLightSensorEnabled(
+    bool enabled) {
+  keyboard_ambient_light_sensor_enabled_ = enabled;
+}
+
+void FakePowerManagerClient::GetKeyboardAmbientLightSensorEnabled(
+    DBusMethodCallback<bool> callback) {
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback),
+                                keyboard_ambient_light_sensor_enabled_));
+}
 
 const std::optional<power_manager::PowerSupplyProperties>&
 FakePowerManagerClient::GetLastStatus() {

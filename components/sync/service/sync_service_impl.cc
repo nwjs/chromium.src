@@ -53,6 +53,7 @@
 #include "components/sync/service/sync_prefs_policy_handler.h"
 #include "components/sync/service/sync_service_utils.h"
 #include "components/sync/service/trusted_vault_histograms.h"
+#include "components/sync/service/trusted_vault_synthetic_field_trial.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
@@ -96,6 +97,7 @@ constexpr char kModelTypeReachedUpToDateHistogramPrefix[] =
 // Chrome being too old.
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+// LINT.IfChange(SyncInitialState)
 enum SyncInitialState {
   // Sync-the-feature can attempt to start up.
   kFeatureCanStart = 0,
@@ -117,6 +119,7 @@ enum SyncInitialState {
   kObsoleteNotAllowedByPlatform = 6,
   kMaxValue = kObsoleteNotAllowedByPlatform
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncInitialState)
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -262,6 +265,39 @@ SyncServiceImpl::SyncServiceImpl(InitParams init_params)
   if (identity_manager_) {
     identity_manager_->AddObserver(this);
   }
+
+  // Based on the information cached in preferences, it might be required to
+  // register a synthetic field trial group. This should be done as early as
+  // possible to avoid untagged metrics if they get logged before other events
+  // like sync engine initialization, which could take arbitrarily long (e.g.
+  // persistent auth error).
+  RegisterTrustedVaultSyntheticFieldTrialsIfNecessary();
+}
+
+void SyncServiceImpl::RegisterTrustedVaultSyntheticFieldTrialsIfNecessary() {
+  if (registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
+          .has_value()) {
+    // Registration function already invoked. It cannot be invoked twice, as
+    // runtime changes to the group assignment is not supported (e.g. signout).
+    return;
+  }
+
+  const sync_pb::TrustedVaultAutoUpgradeExperimentGroup proto =
+      sync_prefs_.GetCachedTrustedVaultAutoUpgradeExperimentGroup().value_or(
+          sync_pb::TrustedVaultAutoUpgradeExperimentGroup());
+
+  const TrustedVaultAutoUpgradeSyntheticFieldTrialGroup group =
+      TrustedVaultAutoUpgradeSyntheticFieldTrialGroup::FromProto(proto);
+
+  if (!group.is_valid()) {
+    // Broadcasting an invalid group isn't allowed, as it would otherwise use
+    // the only chance to invoke the registration function below, which may only
+    // be invoked once.
+    return;
+  }
+
+  registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_ = group;
+  sync_client_->RegisterTrustedVaultAutoUpgradeSyntheticFieldTrial(group);
 }
 
 SyncServiceImpl::~SyncServiceImpl() {
@@ -382,6 +418,16 @@ void SyncServiceImpl::Initialize() {
                          is_sync_feature_requested_for_metrics,
                          user_settings_->IsInitialSyncFeatureSetupComplete());
 
+  if (registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
+          .has_value() &&
+      base::FeatureList::IsEnabled(
+          syncer::kTrustedVaultAutoUpgradeSyntheticFieldTrial)) {
+    CHECK(registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
+              ->is_valid());
+    registered_trusted_vault_auto_upgrade_synthetic_field_trial_group_
+        ->LogValidationMetricsUponOnProfileLoad(GetAccountInfo().gaia);
+  }
+
   ModelTypeSet data_types_to_track =
       Intersection(GetRegisteredDataTypes(), ProtocolTypes());
   if (!data_types_to_track.empty()) {
@@ -463,6 +509,22 @@ void SyncServiceImpl::GetThrottledDataTypesForTest(
   engine_->GetThrottledDataTypesForTest(std::move(cb));
 }
 
+// static
+ShutdownReason SyncServiceImpl::ShutdownReasonForResetEngineReason(
+    ResetEngineReason reset_reason) {
+  switch (reset_reason) {
+    case ResetEngineReason::kShutdown:
+      return ShutdownReason::BROWSER_SHUTDOWN_AND_KEEP_DATA;
+    case ResetEngineReason::kCredentialsChanged:
+      return ShutdownReason::STOP_SYNC_AND_KEEP_DATA;
+    case ResetEngineReason::kUnrecoverableError:
+    case ResetEngineReason::kDisabledAccount:
+    case ResetEngineReason::kResetLocalData:
+    case ResetEngineReason::kStopAndClear:
+      return ShutdownReason::DISABLE_SYNC_AND_CLEAR_DATA;
+  }
+}
+
 void SyncServiceImpl::AccountStateChanged() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
@@ -498,8 +560,7 @@ void SyncServiceImpl::CredentialsChanged() {
       DVLOG(2) << "Notify observers on credentials changed";
       NotifyObservers();
     }
-    ResetEngine(ShutdownReason::STOP_SYNC_AND_KEEP_DATA,
-                ResetEngineReason::kCredentialsChanged);
+    ResetEngine(ResetEngineReason::kCredentialsChanged);
     return;
   }
 
@@ -639,8 +700,7 @@ void SyncServiceImpl::Shutdown() {
   // Ensure the DataTypeManager is destroyed before the engine, since it has a
   // pointer to the engine.
   std::unique_ptr<SyncEngine> engine =
-      ResetEngine(ShutdownReason::BROWSER_SHUTDOWN_AND_KEEP_DATA,
-                  ResetEngineReason::kShutdown);
+      ResetEngine(ResetEngineReason::kShutdown);
   data_type_manager_.reset();
   engine.reset();
 
@@ -666,9 +726,11 @@ void SyncServiceImpl::RecordReasonIfWaitingForUpdates(
 }
 
 std::unique_ptr<SyncEngine> SyncServiceImpl::ResetEngine(
-    ShutdownReason shutdown_reason,
     ResetEngineReason reset_reason) {
   CHECK(data_type_manager_);
+
+  const ShutdownReason shutdown_reason =
+      ShutdownReasonForResetEngineReason(reset_reason);
 
   if (!engine_) {
     // If the engine hasn't started or is already shut down when a DISABLE_SYNC
@@ -834,10 +896,21 @@ SyncService::TransportState SyncServiceImpl::GetTransportState() const {
   }
 
   if (!engine_) {
-    // Starting the engine is allowed but didn't happen. Either this was
-    // deferred, or the service is shutting down and there's no sense in
-    // restarting. For the second case, doesn't matter much what to return.
-    return TransportState::START_DEFERRED;
+    // Starting the engine is allowed but didn't happen. There are three
+    // possible scenarios:
+    // 1) Startup was deferred, in which case it can take noticeably long until
+    //  . the engine initializes. This case can be distinguished by checking if
+    //  . `deferring_first_start_since_` is set.
+    // 2) Startup is about to happen because SyncServiceImpl::TryStart() was
+    //  . invoked, but the posted task to run SyncServiceImpl::TryStartImpl()
+    //  . hasn't been processed yet.
+    // 3) The service is shutting down.
+    //
+    // This function reports TransportState::START_DEFERRED only for the first,
+    // which is the only real deferred case.
+    return deferring_first_start_since_.is_null()
+               ? TransportState::INITIALIZING
+               : TransportState::START_DEFERRED;
   }
 
   if (!engine_->IsInitialized() || !data_type_manager_) {
@@ -881,7 +954,7 @@ SyncService::UserActionableError SyncServiceImpl::GetUserActionableError()
     case GoogleServiceAuthError::USER_NOT_SIGNED_UP:
     case GoogleServiceAuthError::UNEXPECTED_SERVICE_RESPONSE:
       // Not shown to the user.
-      // TODO(crbug.com/1412320): It looks like desktop code in
+      // TODO(crbug.com/40890809): It looks like desktop code in
       // chrome/browser/sync/sync_ui_util.cc does display this to the user.
       break;
     // Conventional value for counting the states, never used.
@@ -953,8 +1026,7 @@ void SyncServiceImpl::OnUnrecoverableErrorImpl(
   // Shut the Sync machinery down. The existence of
   // |unrecoverable_error_reason_| and thus |DISABLE_REASON_UNRECOVERABLE_ERROR|
   // will prevent Sync from starting up again (even in transport-only mode).
-  ResetEngine(ShutdownReason::DISABLE_SYNC_AND_CLEAR_DATA,
-              ResetEngineReason::kUnrecoverableError);
+  ResetEngine(ResetEngineReason::kUnrecoverableError);
 }
 
 void SyncServiceImpl::DataTypePreconditionChanged(ModelType type) {
@@ -998,6 +1070,10 @@ void SyncServiceImpl::OnEngineInitialized(bool success,
       signin::GaiaIdHash::FromGaiaId(GetAccountInfo().gaia),
       user_settings_->IsUsingExplicitPassphrase());
 
+  // Cache trusted vault debug info into prefs, to make it synchronously
+  // available upon future profile startups.
+  CacheTrustedVaultDebugInfoToPrefsFromEngine();
+
   if (CanConfigureDataTypes(/*bypass_setup_in_progress_check=*/false)) {
     // Datatype downloads on restart are generally due to newly supported
     // datatypes (although it's also possible we're picking up where a failed
@@ -1023,8 +1099,17 @@ void SyncServiceImpl::OnEngineInitialized(bool success,
 
 void SyncServiceImpl::OnSyncCycleCompleted(const SyncCycleSnapshot& snapshot) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(engine_);
+  CHECK(engine_->IsInitialized());
 
   last_snapshot_ = snapshot;
+
+  // Cache trusted vault debug info into prefs, to make it synchronously
+  // available upon future profile startups. In most cases this will happen in
+  // OnEngineInitialized(), but it may also happen that the information was just
+  // populated server-side and downloaded, after (or long after) the engine is
+  // initialized.
+  CacheTrustedVaultDebugInfoToPrefsFromEngine();
 
   DVLOG(2) << "Notifying observers sync cycle completed";
   NotifySyncCycleCompleted();
@@ -1135,12 +1220,10 @@ void SyncServiceImpl::OnActionableProtocolError(
     case STOP_SYNC_FOR_DISABLED_ACCOUNT:
       // Sync disabled by domain admin. Stop syncing until next restart.
       sync_disabled_by_admin_ = true;
-      ResetEngine(ShutdownReason::DISABLE_SYNC_AND_CLEAR_DATA,
-                  ResetEngineReason::kDisabledAccount);
+      ResetEngine(ResetEngineReason::kDisabledAccount);
       break;
     case RESET_LOCAL_SYNC_DATA:
-      ResetEngine(ShutdownReason::DISABLE_SYNC_AND_CLEAR_DATA,
-                  ResetEngineReason::kResetLocalData);
+      ResetEngine(ResetEngineReason::kResetLocalData);
       break;
     case UNKNOWN_ACTION:
       NOTREACHED();
@@ -1187,7 +1270,7 @@ void SyncServiceImpl::OnConfigureDone(
   // We should never get in a state where we have no encrypted datatypes
   // enabled, and yet we still think we require a passphrase for decryption.
   DCHECK(!user_settings_->IsPassphraseRequiredForPreferredDataTypes() ||
-         user_settings_->IsEncryptedDatatypeEnabled());
+         user_settings_->IsEncryptedDatatypePreferred());
 
   DVLOG(2) << "Notify observers OnConfigureDone";
   NotifyObservers();
@@ -1232,7 +1315,7 @@ void SyncServiceImpl::CryptoRequiredUserActionChanged() {
 void SyncServiceImpl::MaybeRecordTrustedVaultHistograms() {
   if (should_record_trusted_vault_error_shown_on_startup_ &&
       crypto_.IsTrustedVaultKeyRequiredStateKnown() &&
-      user_settings_->IsEncryptedDatatypeEnabled()) {
+      user_settings_->IsEncryptedDatatypePreferred()) {
     // If the key-required state is known, the engine must exist.
     DCHECK(engine_);
 
@@ -1481,17 +1564,15 @@ ModelTypeSet SyncServiceImpl::GetActiveDataTypes() const {
 ModelTypeSet SyncServiceImpl::GetTypesWithPendingDownloadForInitialSync()
     const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(data_type_manager_);
 
   if (GetTransportState() == TransportState::INITIALIZING &&
-      engine_->GetBirthday().empty()) {
+      !sync_client_->GetSyncApiComponentFactory()
+           ->HasTransportDataIncludingFirstSync()) {
     // The engine is initializing for the very first sync (usually after
     // sign-in). In this case all types are reported as pending download,
     // optimistically assuming datatype preconditions will be met.
     return GetPreferredDataTypes();
-  }
-
-  if (!data_type_manager_) {
-    return ModelTypeSet();
   }
 
   return data_type_manager_->GetTypesWithPendingDownloadForInitialSync();
@@ -1544,11 +1625,13 @@ void SyncServiceImpl::ConfigureDataTypeManager(ConfigureReason reason) {
   // transport. These values are persisted to logs. Entries should not be
   // renumbered and numeric values should never be reused. Keep in sync with
   // SyncFeatureOrTransport in tools/metrics/histograms/metadata/sync/enums.xml.
+  // LINT.IfChange(SyncFeatureOrTransport)
   enum class ConfigureDataTypeManagerOption {
     kFeature = 0,
     kTransport = 1,
     kMaxValue = kTransport
   };
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncFeatureOrTransport)
   base::UmaHistogramEnumeration("Sync.ConfigureDataTypeManagerOption",
                                 use_transport_only_mode
                                     ? ConfigureDataTypeManagerOption::kTransport
@@ -2001,7 +2084,7 @@ SyncService::ModelTypeDownloadStatus SyncServiceImpl::GetDownloadStatusForImpl(
   CHECK(IsRealDataType(type));
 
   if (!IsLocalSyncEnabled()) {
-    // TODO(crbug.com/1425026): Verify whether it's actually necessary to check
+    // TODO(crbug.com/40260679): Verify whether it's actually necessary to check
     // IsActiveAccountInfoFullyLoaded() - can the engine actually start, and
     // data types become active, if that isn't true?
     if (!auth_manager_->IsActiveAccountInfoFullyLoaded()) {
@@ -2019,7 +2102,7 @@ SyncService::ModelTypeDownloadStatus SyncServiceImpl::GetDownloadStatusForImpl(
     }
   }
 
-  // TODO(crbug.com/1425026): check whether this works when local sync is
+  // TODO(crbug.com/40260679): check whether this works when local sync is
   // enabled.
   if (!GetDisableReasons().empty() || !GetPreferredDataTypes().Has(type)) {
     DVLOG(1)
@@ -2086,7 +2169,20 @@ SyncService::ModelTypeDownloadStatus SyncServiceImpl::GetDownloadStatusForImpl(
 }
 
 void SyncServiceImpl::OnPasswordSyncAllowedChanged() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   sync_prefs_.SetPasswordSyncAllowed(sync_client_->IsPasswordSyncAllowed());
+}
+
+void SyncServiceImpl::CacheTrustedVaultDebugInfoToPrefsFromEngine() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(engine_);
+  CHECK(engine_->IsInitialized());
+
+  sync_prefs_.SetCachedTrustedVaultAutoUpgradeExperimentGroup(
+      engine_->GetDetailedStatus()
+          .trusted_vault_debug_info.auto_upgrade_experiment_group());
+
+  RegisterTrustedVaultSyntheticFieldTrialsIfNecessary();
 }
 
 CoreAccountInfo SyncServiceImpl::GetAccountInfo() const {
@@ -2166,9 +2262,8 @@ void SyncServiceImpl::StopAndClear() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   ClearUnrecoverableError();
-  ResetEngine(ShutdownReason::DISABLE_SYNC_AND_CLEAR_DATA,
-              ResetEngineReason::kStopAndClear);
-  // Note: ResetEngine(DISABLE_SYNC_AND_CLEAR_DATA) does *not* clear prefs which
+  ResetEngine(ResetEngineReason::kStopAndClear);
+  // Note: ResetEngine(kStopAndClear) does *not* clear prefs which
   // are directly user-controlled such as the set of selected types here, so
   // that if the user ever chooses to enable Sync again, they start off with
   // their previous settings by default. We do however require going through
@@ -2182,8 +2277,9 @@ void SyncServiceImpl::StopAndClear() {
   sync_prefs_.ClearInitialSyncFeatureSetupComplete();
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
   sync_prefs_.ClearPassphrasePromptMutedProductVersion();
-  // The passphrase type is now undefined again.
+  // Cached information provided by SyncEngine must be cleared.
   sync_prefs_.ClearCachedPassphraseType();
+  sync_prefs_.ClearCachedTrustedVaultAutoUpgradeExperimentGroup();
   // If the migration didn't finish before StopAndClear() was called, mark it as
   // done so it doesn't trigger again if the user signs in later.
   sync_prefs_.MarkPartialSyncToSigninMigrationFullyDone();
@@ -2250,7 +2346,7 @@ void SyncServiceImpl::OverrideNetworkForTest(
   // callback in the ctor instead of adding it retroactively.
   // Note that ResetEngine() can't be used here, because it would caues the
   // engine to immediately restart.
-  // TODO(crbug.com/949504): Clean this up and inject required upon
+  // TODO(crbug.com/41451146): Clean this up and inject required upon
   // construction.
   bool restart = false;
   if (engine_) {

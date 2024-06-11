@@ -321,10 +321,9 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
 
   class TaskRunner final : public SingleThreadTaskRunner {
    public:
-    explicit TaskRunner(
-        scoped_refptr<GuardedTaskPoster> task_poster,
-        scoped_refptr<const AssociatedThreadId> associated_thread,
-        TaskType task_type);
+    explicit TaskRunner(scoped_refptr<GuardedTaskPoster> task_poster,
+                        scoped_refptr<AssociatedThreadId> associated_thread,
+                        TaskType task_type);
 
     bool PostDelayedTask(const Location& location,
                          OnceClosure callback,
@@ -357,7 +356,7 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
     ~TaskRunner() final;
 
     const scoped_refptr<GuardedTaskPoster> task_poster_;
-    const scoped_refptr<const AssociatedThreadId> associated_thread_;
+    const scoped_refptr<AssociatedThreadId> associated_thread_;
     const TaskType task_type_;
   };
 
@@ -400,7 +399,7 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
       return pending_high_res_tasks_;
     }
 
-    // TODO(crbug.com/1155905): we pass SequenceManager to be able to record
+    // TODO(crbug.com/40735653): we pass SequenceManager to be able to record
     // crash keys. Remove this parameter after chasing down this crash.
     void SweepCancelledTasks(SequenceManagerImpl* sequence_manager);
     Value::List AsValue(TimeTicks now) const;
@@ -453,7 +452,7 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
     //    kNormalPriority, this snapshots the next sequence number. The
     //    EnqueueOrder of any already queued task will compare less than this.
     //
-    // TODO(crbug.com/1249857): Change this to use `TaskOrder`.
+    // TODO(crbug.com/40791504): Change this to use `TaskOrder`.
     EnqueueOrder
         enqueue_order_at_which_we_became_unblocked_with_normal_priority;
     OnTaskStartedHandler on_task_started_handler;
@@ -557,7 +556,7 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
   const raw_ptr<SequenceManagerImpl, AcrossTasksDanglingUntriaged>
       sequence_manager_;
 
-  const scoped_refptr<const AssociatedThreadId> associated_thread_;
+  const scoped_refptr<AssociatedThreadId> associated_thread_;
 
   const scoped_refptr<GuardedTaskPoster> task_poster_;
 
@@ -601,11 +600,11 @@ class BASE_EXPORT TaskQueueImpl : public TaskQueue {
 
   MainThreadOnly main_thread_only_;
   MainThreadOnly& main_thread_only() {
-    DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
+    associated_thread_->AssertInSequenceWithCurrentThread();
     return main_thread_only_;
   }
   const MainThreadOnly& main_thread_only() const {
-    DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
+    associated_thread_->AssertInSequenceWithCurrentThread();
     return main_thread_only_;
   }
 

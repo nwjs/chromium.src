@@ -32,7 +32,6 @@
 #include "chrome/test/base/test_browser_window.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/prefs/testing_pref_service.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/test/browser_task_environment.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -296,6 +295,9 @@ class TestAppShim : public chrome::mojom::AppShim,
       RequestNotificationPermissionCallback callback) override {
     request_notification_permission_callback_.SetValue(std::move(callback));
   }
+  void BindChildHistogramFetcherFactory(
+      mojo::PendingReceiver<metrics::mojom::ChildHistogramFetcherFactory>
+          receiver) override {}
 
   // mac_notifications::mojom::MacNotificationProvider:
   void BindNotificationService(

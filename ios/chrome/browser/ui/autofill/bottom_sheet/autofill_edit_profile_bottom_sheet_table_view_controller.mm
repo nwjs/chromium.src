@@ -5,8 +5,12 @@
 #import "ios/chrome/browser/ui/autofill/bottom_sheet/autofill_edit_profile_bottom_sheet_table_view_controller.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/notreached.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_styler.h"
+#import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
+#import "ios/chrome/browser/ui/autofill/autofill_profile_edit_table_view_constants.h"
+#import "ios/chrome/browser/ui/autofill/bottom_sheet/bottom_sheet_constants.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -23,18 +27,19 @@ NSString* const kCustomMinimizedDetentIdentifier = @"customMinimizedDetent";
 // Custom detent identifier for when the bottom sheet is expanded.
 NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
+// Deafult height of the header/footer, used to speed the constraints.
+const CGFloat kDefaultHeaderFooterHeight = 10;
 }  // namespace
 
 @interface AutofillEditProfileBottomSheetTableViewController () <
-    UITextFieldDelegate>
+    UITextFieldDelegate> {
+  // Delegate for this view controller.
+  __weak id<AutofillEditProfileBottomSheetTableViewControllerDelegate>
+      _delegate;
 
-// TODO(crbug.com/1482269): Update via the consumer protocol.
-// Yes, if the edit is done for updating the profile.
-@property(nonatomic, assign) BOOL isEditForUpdate;
-
-// TODO(crbug.com/1482269): Update via the consumer protocol.
-// Yes, if the edit is shown for the migration prompt.
-@property(nonatomic, assign) BOOL migrationPrompt;
+  // Denotes the mode of the address save for the edit profile bottom sheet.
+  AutofillSaveProfilePromptMode _editSheetMode;
+}
 
 @end
 
@@ -42,16 +47,24 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 #pragma mark - Initialization
 
+- (instancetype)
+    initWithDelegate:
+        (id<AutofillEditProfileBottomSheetTableViewControllerDelegate>)delegate
+       editSheetMode:(AutofillSaveProfilePromptMode)editSheetMode {
+  self = [super initWithStyle:ChromeTableViewStyle()];
+  if (self) {
+    _delegate = delegate;
+    _editSheetMode = editSheetMode;
+  }
+  return self;
+}
+
 - (void)viewDidLoad {
   [super viewDidLoad];
 
   [self setUpBottomSheetPresentationController];
   [self setUpBottomSheetDetents];
 
-  self.view.backgroundColor = [UIColor colorNamed:kBackgroundColor];
-  self.styler.cellBackgroundColor = [UIColor colorNamed:kBackgroundColor];
-  self.tableView.sectionHeaderHeight = 0;
-  self.tableView.estimatedRowHeight = 56;
   [self.tableView
       setSeparatorInset:UIEdgeInsetsMake(0, kTableViewHorizontalSpacing, 0, 0)];
 
@@ -60,18 +73,25 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
       initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
                            target:self
                            action:@selector(handleCancelButton)];
+  cancelButton.accessibilityIdentifier = kEditProfileBottomSheetCancelButton;
 
   self.navigationItem.leftBarButtonItem = cancelButton;
   self.navigationController.navigationBar.prefersLargeTitles = NO;
-  if (self.migrationPrompt) {
-    [self setTitle:
+  switch (_editSheetMode) {
+    case AutofillSaveProfilePromptMode::kNewProfile:
+      [self setTitle:l10n_util::GetNSString(
+                         IDS_IOS_AUTOFILL_SAVE_ADDRESS_PROMPT_TITLE)];
+      break;
+    case AutofillSaveProfilePromptMode::kUpdateProfile:
+      [self setTitle:l10n_util::GetNSString(
+                         IDS_IOS_AUTOFILL_UPDATE_ADDRESS_PROMPT_TITLE)];
+      break;
+    case AutofillSaveProfilePromptMode::kMigrateProfile:
+      [self
+          setTitle:
               l10n_util::GetNSString(
                   IDS_IOS_AUTOFILL_ADDRESS_MIGRATION_TO_ACCOUNT_PROMPT_TITLE)];
-  } else {
-    [self setTitle:l10n_util::GetNSString(
-                       self.isEditForUpdate
-                           ? IDS_IOS_AUTOFILL_UPDATE_ADDRESS_PROMPT_TITLE
-                           : IDS_IOS_AUTOFILL_SAVE_ADDRESS_PROMPT_TITLE)];
+      break;
   }
 
   self.tableView.allowsSelectionDuringEditing = YES;
@@ -81,10 +101,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 - (void)loadModel {
   [super loadModel];
-  [self.handler setMigrationPrompt:self.migrationPrompt];
+  [self.handler
+      setMigrationPrompt:(_editSheetMode ==
+                          AutofillSaveProfilePromptMode::kMigrateProfile)];
   [self.handler loadModel];
   [self.handler
-      loadMessageAndButtonForModalIfSaveOrUpdate:self.isEditForUpdate];
+      loadMessageAndButtonForModalIfSaveOrUpdate:
+          (_editSheetMode == AutofillSaveProfilePromptMode::kUpdateProfile)];
 }
 
 - (void)expandBottomSheet {
@@ -132,12 +155,20 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   [self.handler didSelectRowAtIndexPath:indexPath];
 }
 
+- (UIView*)tableView:(UITableView*)tableView
+    viewForFooterInSection:(NSInteger)section {
+  UIView* view = [super tableView:tableView viewForFooterInSection:section];
+  [self.handler configureView:view forFooterInSection:section];
+  return view;
+}
+
 - (CGFloat)tableView:(UITableView*)tableView
     heightForHeaderInSection:(NSInteger)section {
-  if ([self.handler heightForHeaderShouldBeZeroInSection:section]) {
-    return 0;
+  if ([self.tableViewModel headerForSectionIndex:section]) {
+    return UITableViewAutomaticDimension;
   }
-  return [super tableView:tableView heightForHeaderInSection:section];
+
+  return kDefaultHeaderFooterHeight;
 }
 
 - (CGFloat)tableView:(UITableView*)tableView
@@ -145,13 +176,19 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   if ([self.handler heightForFooterShouldBeZeroInSection:section]) {
     return 0;
   }
-  return [super tableView:tableView heightForFooterInSection:section];
+
+  if ([self.tableViewModel footerForSectionIndex:section]) {
+    return UITableViewAutomaticDimension;
+  }
+
+  return kDefaultHeaderFooterHeight;
 }
 
 #pragma mark - Actions
 
 - (void)handleCancelButton {
-  // TODO(crbug.com/1482269): Implement.
+  CHECK(_delegate);
+  [_delegate didCancelBottomSheetView];
 }
 
 #pragma mark - UITextFieldDelegate

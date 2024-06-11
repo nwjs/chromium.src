@@ -612,7 +612,7 @@ interface CSSNumericValue : CSSStyleValue
     method to
     method toSum
     method type
-interface CSSPageRule : CSSRule
+interface CSSPageRule : CSSGroupingRule
     attribute @@toStringTag
     getter selectorText
     getter style
@@ -957,6 +957,11 @@ interface CSSVariableReferenceValue
     getter variable
     method constructor
     setter variable
+interface CSSViewTransitionRule : CSSRule
+    attribute @@toStringTag
+    getter navigation
+    getter types
+    method constructor
 interface Cache
     attribute @@toStringTag
     method add
@@ -1145,6 +1150,16 @@ interface CloseEvent : Event
     getter reason
     getter wasClean
     method constructor
+interface CloseWatcher : EventTarget
+    attribute @@toStringTag
+    getter oncancel
+    getter onclose
+    method close
+    method constructor
+    method destroy
+    method requestClose
+    setter oncancel
+    setter onclose
 interface Comment : CharacterData
     attribute @@toStringTag
     method constructor
@@ -1761,6 +1776,7 @@ interface Document : Node
     getter xmlVersion
     method adoptNode
     method append
+    method browsingTopics
     method captureEvents
     method caretRangeFromPoint
     method clear
@@ -2432,6 +2448,18 @@ interface FederatedCredential : Credential
     getter protocol
     getter provider
     method constructor
+interface Fence
+    attribute @@toStringTag
+    method constructor
+    method getNestedConfigs
+    method reportEvent
+    method setReportEventDataForAutomaticBeacons
+interface FencedFrameConfig
+    attribute @@toStringTag
+    getter height
+    getter width
+    method constructor
+    method setSharedStorageContext
 interface File : Blob
     attribute @@toStringTag
     getter lastModified
@@ -2915,6 +2943,7 @@ interface GamepadEvent : Event
     method constructor
 interface GamepadHapticActuator
     attribute @@toStringTag
+    getter effects
     getter type
     method constructor
     method playEffect
@@ -2935,11 +2964,13 @@ interface GeolocationCoordinates
     getter longitude
     getter speed
     method constructor
+    method toJSON
 interface GeolocationPosition
     attribute @@toStringTag
     getter coords
     getter timestamp
     method constructor
+    method toJSON
 interface GeolocationPositionError
     attribute @@toStringTag
     attribute PERMISSION_DENIED
@@ -3555,6 +3586,20 @@ interface HTMLEmbedElement : HTMLElement
     setter src
     setter type
     setter width
+interface HTMLFencedFrameElement : HTMLElement
+    static method canLoadOpaqueURL
+    attribute @@toStringTag
+    getter allow
+    getter config
+    getter height
+    getter sandbox
+    getter width
+    method constructor
+    setter allow
+    setter config
+    setter height
+    setter sandbox
+    setter width
 interface HTMLFieldSetElement : HTMLElement
     attribute @@toStringTag
     getter disabled
@@ -3723,6 +3768,7 @@ interface HTMLIFrameElement : HTMLElement
     getter allow
     getter allowFullscreen
     getter allowPaymentRequest
+    getter browsingTopics
     getter contentDocument
     getter contentWindow
     getter credentialless
@@ -3750,6 +3796,7 @@ interface HTMLIFrameElement : HTMLElement
     setter allow
     setter allowFullscreen
     setter allowPaymentRequest
+    setter browsingTopics
     setter credentialless
     setter csp
     setter frameBorder
@@ -4629,19 +4676,13 @@ interface HTMLVideoElement : HTMLMediaElement
     getter videoHeight
     getter videoWidth
     getter webkitDecodedFrameCount
-    getter webkitDisplayingFullscreen
     getter webkitDroppedFrameCount
-    getter webkitSupportsFullscreen
     getter width
     method cancelVideoFrameCallback
     method constructor
     method getVideoPlaybackQuality
     method requestPictureInPicture
     method requestVideoFrameCallback
-    method webkitEnterFullScreen
-    method webkitEnterFullscreen
-    method webkitExitFullScreen
-    method webkitExitFullscreen
     setter disablePictureInPicture
     setter height
     setter onenterpictureinpicture
@@ -6255,10 +6296,12 @@ interface OverconstrainedError : DOMException
     method constructor
 interface PageRevealEvent : Event
     attribute @@toStringTag
+    getter viewTransition
     method constructor
 interface PageSwapEvent : Event
     attribute @@toStringTag
     getter activation
+    getter viewTransition
     method constructor
 interface PageTransitionEvent : Event
     attribute @@toStringTag
@@ -8585,7 +8628,24 @@ interface ShadowRoot : DocumentFragment
     setter fullscreenElement
     setter innerHTML
     setter onslotchange
-    setter serializable
+interface SharedStorage
+    attribute @@toStringTag
+    getter worklet
+    method append
+    method clear
+    method constructor
+    method createWorklet
+    method delete
+    method get
+    method run
+    method selectURL
+    method set
+interface SharedStorageWorklet
+    attribute @@toStringTag
+    method addModule
+    method constructor
+    method run
+    method selectURL
 interface SharedWorker : EventTarget
     attribute @@toStringTag
     getter onerror
@@ -9067,6 +9127,7 @@ interface UIEvent : Event
 interface URL
     static method canParse
     static method createObjectURL
+    static method parse
     static method revokeObjectURL
     attribute @@toStringTag
     getter hash
@@ -9376,6 +9437,7 @@ interface VisualViewport : EventTarget
     getter offsetTop
     getter onresize
     getter onscroll
+    getter onscrollend
     getter pageLeft
     getter pageTop
     getter scale
@@ -9383,6 +9445,7 @@ interface VisualViewport : EventTarget
     method constructor
     setter onresize
     setter onscroll
+    setter onscrollend
 interface WGSLLanguageFeatures
     attribute @@toStringTag
     getter size
@@ -10214,23 +10277,26 @@ interface WebGLActiveInfo
     getter size
     getter type
     method constructor
-interface WebGLBuffer
+interface WebGLBuffer : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLContextEvent : Event
     attribute @@toStringTag
     getter statusMessage
     method constructor
-interface WebGLFramebuffer
+interface WebGLFramebuffer : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLProgram
+interface WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLQuery
+interface WebGLProgram : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLRenderbuffer
+interface WebGLQuery : WebGLObject
+    attribute @@toStringTag
+    method constructor
+interface WebGLRenderbuffer : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLRenderingContext
@@ -10680,10 +10746,10 @@ interface WebGLRenderingContext
     method viewport
     setter drawingBufferColorSpace
     setter unpackColorSpace
-interface WebGLSampler
+interface WebGLSampler : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLShader
+interface WebGLShader : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLShaderPrecisionFormat
@@ -10692,19 +10758,19 @@ interface WebGLShaderPrecisionFormat
     getter rangeMax
     getter rangeMin
     method constructor
-interface WebGLSync
+interface WebGLSync : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLTexture
+interface WebGLTexture : WebGLObject
     attribute @@toStringTag
     method constructor
-interface WebGLTransformFeedback
+interface WebGLTransformFeedback : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebGLUniformLocation
     attribute @@toStringTag
     method constructor
-interface WebGLVertexArrayObject
+interface WebGLVertexArrayObject : WebGLObject
     attribute @@toStringTag
     method constructor
 interface WebKitCSSMatrix : DOMMatrixReadOnly
@@ -11397,6 +11463,7 @@ interface webkitSpeechRecognitionEvent : Event
 interface webkitURL
     static method canParse
     static method createObjectURL
+    static method parse
     static method revokeObjectURL
     attribute @@toStringTag
     getter hash
@@ -11583,6 +11650,7 @@ namespace console
     getter documentPictureInPicture
     getter event
     getter external
+    getter fence
     getter frameElement
     getter frames
     getter history
@@ -11744,6 +11812,7 @@ namespace console
     getter scrollbars
     getter self
     getter sessionStorage
+    getter sharedStorage
     getter speechSynthesis
     getter status
     getter statusbar

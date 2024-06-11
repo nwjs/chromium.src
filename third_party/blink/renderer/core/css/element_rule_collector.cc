@@ -391,15 +391,9 @@ void ElementRuleCollector::AddElementStyleProperties(
   }
 }
 
-void ElementRuleCollector::AddTryStyleProperties(
-    const CSSPropertyValueSet* property_set) {
+void ElementRuleCollector::AddTryStyleProperties() {
+  const CSSPropertyValueSet* property_set = style_recalc_context_.try_set;
   if (!property_set) {
-    return;
-  }
-  if (!style_recalc_context_.is_interleaved_oof) {
-    // TODO(crbug.com/333608683): The anchor result cache is currently disabled
-    // for non-OOF recalcs to work around invalidation problems. See
-    // `ComputeAnchorEvaluator` in style_resolver_state.cc for more information.
     return;
   }
   auto link_match_type = static_cast<unsigned>(CSSSelector::kMatchAll);
@@ -411,15 +405,10 @@ void ElementRuleCollector::AddTryStyleProperties(
   result_.SetIsCacheable(false);
 }
 
-void ElementRuleCollector::AddTryTacticsStyleProperties(
-    const CSSPropertyValueSet* property_set) {
+void ElementRuleCollector::AddTryTacticsStyleProperties() {
+  const CSSPropertyValueSet* property_set =
+      style_recalc_context_.try_tactics_set;
   if (!property_set) {
-    return;
-  }
-  if (!style_recalc_context_.is_interleaved_oof) {
-    // TODO(crbug.com/333608683): The anchor result cache is currently disabled
-    // for non-OOF recalcs to work around invalidation problems. See
-    // `ComputeAnchorEvaluator` in style_resolver_state.cc for more information.
     return;
   }
   auto link_match_type = static_cast<unsigned>(CSSSelector::kMatchAll);
@@ -1024,10 +1013,10 @@ void ElementRuleCollector::CollectMatchingSlottedRules(
 
 void ElementRuleCollector::CollectMatchingPartPseudoRules(
     const MatchRequest& match_request,
-    PartNames& part_names,
+    PartNames* part_names,
     bool for_shadow_pseudo) {
   PartRequest request{part_names, for_shadow_pseudo};
-  SelectorChecker checker(&part_names, pseudo_style_request_, mode_,
+  SelectorChecker checker(part_names, pseudo_style_request_, mode_,
                           matching_ua_rules_);
 
   ContextWithStyleScopeFrame context(&context_.GetElement(), match_request,

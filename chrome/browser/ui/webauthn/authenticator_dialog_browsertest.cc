@@ -17,6 +17,7 @@
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
 #include "chrome/browser/webauthn/enclave_manager.h"
 #include "chrome/browser/webauthn/enclave_manager_factory.h"
+#include "chrome/browser/webauthn/webauthn_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/sync/base/features.h"
@@ -597,6 +598,7 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
             ->GetActiveWebContents()
             ->GetPrimaryMainFrame());
     model_->relying_party_id = "example.com";
+    model_->account_name = "example@gmail.com";
     controller_ =
         std::make_unique<AuthenticatorRequestDialogController>(model_.get());
 
@@ -629,6 +631,7 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
         device::AuthenticatorType::kPhone, "example.com", {4},
         device::PublicKeyCredentialUserEntity({2}, "elisa.beckett@ink-42.com",
                                               "Elisa Beckett"));
+    model_->user_entity = local_cred1.user;
 
     // Configure a phone from sync.
     std::vector<std::unique_ptr<device::cablev2::Pairing>> phones;
@@ -726,7 +729,6 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
     } else if (name == "touchid") {
-      model_->user_entity = local_cred1.user;
       transport_availability.request_type =
           device::FidoRequestType::kMakeCredential;
       transport_availability.make_credential_attachment =
@@ -754,6 +756,12 @@ class GPMPasskeysAuthenticatorDialogTest : public AuthenticatorDialogTest {
     } else if (name == "gpm_error") {
       controller_->SetCurrentStepForTesting(
           AuthenticatorRequestDialogModel::Step::kGPMError);
+    } else if (name == "gpm_connecting") {
+      controller_->SetCurrentStepForTesting(
+          AuthenticatorRequestDialogModel::Step::kGPMConnecting);
+    } else if (name == "gpm_confirm_incognito_create") {
+      controller_->SetCurrentStepForTesting(
+          AuthenticatorRequestDialogModel::Step::kGPMConfirmOffTheRecordCreate);
     } else {
       NOTREACHED();
     }
@@ -871,6 +879,16 @@ IN_PROC_BROWSER_TEST_F(GPMPasskeysAuthenticatorDialogTest, InvokeUi_gpm_error) {
   ShowAndVerifyUi();
 }
 
+IN_PROC_BROWSER_TEST_F(GPMPasskeysAuthenticatorDialogTest,
+                       InvokeUi_gpm_connecting) {
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_F(GPMPasskeysAuthenticatorDialogTest,
+                       InvokeUi_gpm_confirm_incognito_create) {
+  ShowAndVerifyUi();
+}
+
 #if BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(GPMPasskeysAuthenticatorDialogTest, InvokeUi_touchid) {
   if (__builtin_available(macos 12, *)) {
@@ -884,8 +902,7 @@ class AuthenticatorWindowTest : public InProcessBrowserTest {
  public:
   AuthenticatorWindowTest() {
     scoped_feature_list_.InitWithFeatures(
-        {trusted_vault::kSetClientEncryptionKeysJsApi,
-         device::kWebAuthnEnclaveAuthenticator},
+        {device::kWebAuthnEnclaveAuthenticator},
         /*disabled_features=*/{});
   }
 
@@ -900,9 +917,11 @@ class AuthenticatorWindowTest : public InProcessBrowserTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     InProcessBrowserTest::SetUpCommandLine(command_line);
     command_line->AppendSwitch(switches::kIgnoreCertificateErrors);
+    command_line->AppendSwitchASCII(switches::kGaiaUrl,
+                                    https_server_.base_url().spec());
     command_line->AppendSwitchASCII(
-        switches::kGaiaUrl,
-        https_server_.GetURL("accounts.google.com", "/").spec());
+        webauthn::switches::kGpmPinResetReauthUrlSwitch,
+        https_server_.GetURL("/encryption/pin/reset").spec());
   }
 
   void SetUpOnMainThread() override {
@@ -939,7 +958,7 @@ document.addEventListener('DOMContentLoaded', function() {
       new Map([["hw_protected", [{epoch: 1, key: new ArrayBuffer(32)}]]]));
 });
 </script></head><body><p>Test MagicArch</p></body></html>)");
-    } else if (path == "/embedded/xreauth/chrome") {
+    } else if (path == "/encryption/pin/reset") {
       response->set_code(net::HTTP_OK);
       response->set_content(R"(<html><head><title>Test Reauth</title>
 <script>
@@ -972,14 +991,14 @@ document.addEventListener('DOMContentLoaded', function() {
 class QuitBrowserWhenKeysStored : public EnclaveManager::Observer {
  public:
   explicit QuitBrowserWhenKeysStored(Browser* browser) : browser_(browser) {
-    EnclaveManagerFactory::GetForProfile(browser_->profile())
+    EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser_->profile())
         ->AddObserver(this);
   }
 
   // EnclaveManager::Observer
   void OnKeysStored() override {
     LOG(INFO) << "QuitBrowserWhenKeysStored::OnKeysStored";
-    EnclaveManagerFactory::GetForProfile(browser_->profile())
+    EnclaveManagerFactory::GetAsEnclaveManagerForProfile(browser_->profile())
         ->RemoveObserver(this);
     browser_ = nullptr;
 
@@ -1028,14 +1047,14 @@ class QuitBrowserWhenReauthTokenReceived
   raw_ptr<AuthenticatorRequestDialogModel> model_;
 };
 
-IN_PROC_BROWSER_TEST_F(AuthenticatorWindowTest, Reauth) {
+IN_PROC_BROWSER_TEST_F(AuthenticatorWindowTest, ReauthForPinReset) {
   QuitBrowserWhenReauthTokenReceived observer(model_.get());
 
   // This should open a pop-up to a GAIA reauth page. That page will be faked
   // by this test class and the fake will immediately complete with a token
   // with the value "RAPT". That will cause `QuitBrowserWhenReauthTokenReceived`
   // to close the browser and complete the test.
-  model_->SetStep(AuthenticatorRequestDialogModel::Step::kGPMReauthAccount);
+  model_->SetStep(AuthenticatorRequestDialogModel::Step::kGPMReauthForPinReset);
 
   RunUntilBrowserProcessQuits();
 }

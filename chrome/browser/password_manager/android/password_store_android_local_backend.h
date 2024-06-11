@@ -16,25 +16,26 @@ class ModelTypeControllerDelegate;
 namespace password_manager {
 
 class AffiliatedMatchHelper;
-class AffiliationsPrefetcher;
+class PasswordAffiliationSourceAdapter;
 
-// This class processes passwords only from an account.
+// This class processes passwords stored in local storage (not associated to any
+// account).
 class PasswordStoreAndroidLocalBackend : public PasswordStoreBackend,
                                          public PasswordStoreAndroidBackend {
  public:
   PasswordStoreAndroidLocalBackend(
       PrefService* prefs,
-      AffiliationsPrefetcher* affiliations_prefetcher);
+      PasswordAffiliationSourceAdapter& password_affiliation_adapter);
 
   // Only for testing.
   PasswordStoreAndroidLocalBackend(
       std::unique_ptr<PasswordStoreAndroidBackendBridgeHelper> bridge_helper,
       std::unique_ptr<PasswordManagerLifecycleHelper> lifecycle_helper,
       PrefService* prefs,
-      AffiliationsPrefetcher* affiliations_prefetcher);
+      PasswordAffiliationSourceAdapter& password_affiliation_adapter);
   ~PasswordStoreAndroidLocalBackend() override;
 
-  // PasswordStoreAndroidBackend implementation
+  // PasswordStoreBackend implementation.
   void InitBackend(AffiliatedMatchHelper* affiliated_match_helper,
                    RemoteChangesReceived remote_form_changes_received,
                    base::RepeatingClosure sync_enabled_or_disabled_cb,
@@ -57,15 +58,18 @@ class PasswordStoreAndroidLocalBackend : public PasswordStoreBackend,
                      PasswordChangesOrErrorReply callback) override;
   void UpdateLoginAsync(const PasswordForm& form,
                         PasswordChangesOrErrorReply callback) override;
-  void RemoveLoginAsync(const PasswordForm& form,
+  void RemoveLoginAsync(const base::Location& location,
+                        const PasswordForm& form,
                         PasswordChangesOrErrorReply callback) override;
   void RemoveLoginsByURLAndTimeAsync(
+      const base::Location& location,
       const base::RepeatingCallback<bool(const GURL&)>& url_filter,
       base::Time delete_begin,
       base::Time delete_end,
       base::OnceCallback<void(bool)> sync_completion,
       PasswordChangesOrErrorReply callback) override;
   void RemoveLoginsCreatedBetweenAsync(
+      const base::Location& location,
       base::Time delete_begin,
       base::Time delete_end,
       PasswordChangesOrErrorReply callback) override;

@@ -16,10 +16,6 @@
 #include "services/screen_ai/buildflags/buildflags.h"
 #include "ui/accessibility/ax_tree_manager.h"
 
-#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-#include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"
-#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-
 namespace content {
 
 class BrowserContext;
@@ -29,6 +25,7 @@ class BrowserContext;
 namespace ui {
 
 class AXTreeID;
+class AXNode;
 
 }  // namespace ui
 
@@ -48,6 +45,10 @@ class TestAXMediaAppUntrustedHandler : public AXMediaAppUntrustedHandler {
   void SetMediaAppForTesting(AXMediaApp* media_app) { media_app_ = media_app; }
   std::string GetDocumentTreeToStringForTesting() const;
   void EnablePendingSerializedUpdatesForTesting();
+
+  const ui::AXNode* GetDocumentRootNodeForTesting() const {
+    return document_.GetRoot();
+  }
 
   const ui::AXTreeID& GetDocumentTreeIDForTesting() const {
     return document_.GetTreeID();
@@ -78,10 +79,14 @@ class TestAXMediaAppUntrustedHandler : public AXMediaAppUntrustedHandler {
     delay_calling_ocr_next_dirty_page_ = enabled;
   }
 
+  void SetMinPagesPerBatchForTesting(size_t min_pages) {
+    min_pages_per_batch_ = min_pages;
+  }
+
+  void DisableStatusNodesForTesting() { has_landmark_node_ = false; }
+
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-  void SetScreenAIAnnotatorForTesting(
-      mojo::PendingRemote<screen_ai::mojom::ScreenAIAnnotator>
-          screen_ai_annotator);
+  void CreateFakeOpticalCharacterRecognizerForTesting(bool return_empty);
   void FlushForTesting();
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 

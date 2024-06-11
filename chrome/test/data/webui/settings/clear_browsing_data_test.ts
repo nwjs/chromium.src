@@ -9,10 +9,9 @@ import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min
 import type {ClearBrowsingDataResult, SettingsCheckboxElement, SettingsClearBrowsingDataDialogElement, SettingsHistoryDeletionDialogElement, SettingsPasswordsDeletionDialogElement} from 'chrome://settings/lazy_load.js';
 import {ClearBrowsingDataBrowserProxyImpl, TimePeriodExperiment, TimePeriod} from 'chrome://settings/lazy_load.js';
 import type {CrButtonElement, SettingsDropdownMenuElement} from 'chrome://settings/settings.js';
-import {loadTimeData, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
+import {loadTimeData, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
-import {isChildVisible, isVisible, eventToPromise} from 'chrome://webui-test/test_util.js';
+import {isChildVisible, isVisible, eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestClearBrowsingDataBrowserProxy} from './test_clear_browsing_data_browser_proxy.js';
 import {TestSyncBrowserProxy} from './test_sync_browser_proxy.js';
@@ -112,6 +111,46 @@ function getClearBrowsingDataPrefs() {
   };
 }
 
+// TODO(crbug.com/40283307): Used by the CbdExperiment test suites below. Remove
+// once crbug.com/40283307 completed.
+async function testCbdExperimentDualWritesPref(
+    element: SettingsClearBrowsingDataDialogElement, tabIndex: number,
+    userSelectedTimeFrame: number, prefName: string, inialPrefValue: number,
+    expectedDualWrittenPrefValue: number) {
+  // Ensure the test starts with a known pref state.
+  element.setPrefValue(prefName, inialPrefValue);
+
+  // The user selects the tab of interest.
+  element.$.tabs.selected = tabIndex;
+  await microtasksFinished();
+
+  // Select a datatype for deletion to enable the clear button.
+  const page = element.$.pages.selectedItem as HTMLElement;
+  const cookiesCheckbox =
+      page.querySelector<SettingsCheckboxElement>('.cookies-checkbox');
+  assertTrue(!!cookiesCheckbox);
+  cookiesCheckbox.$.checkbox.click();
+  await microtasksFinished();
+  const actionButton =
+      element.shadowRoot!.querySelector<CrButtonElement>('.action-button');
+  assertTrue(!!actionButton);
+  assertFalse(actionButton!.disabled);
+
+  // The user selects a time range value.
+  const dropdownMenu =
+      page.querySelector<SettingsDropdownMenuElement>('.time-range-select');
+  assertTrue(!!dropdownMenu);
+  const selectElement = dropdownMenu.shadowRoot!.querySelector('select');
+  assertTrue(!!selectElement);
+  selectElement.value = userSelectedTimeFrame.toString();
+  selectElement.dispatchEvent(new CustomEvent('change'));
+  await microtasksFinished();
+
+  // The correct time range value is dual written to the other pref.
+  actionButton.click();
+  assertEquals(expectedDualWrittenPrefValue, element.getPref(prefName).value);
+}
+
 suite('ClearBrowsingDataDesktop', function() {
   let testBrowserProxy: TestClearBrowsingDataBrowserProxy;
   let testSyncBrowserProxy: TestSyncBrowserProxy;
@@ -124,8 +163,10 @@ suite('ClearBrowsingDataDesktop', function() {
     SyncBrowserProxyImpl.setInstance(testSyncBrowserProxy);
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     // TODO(b/314968275): Add tests for when UNO Desktop is enabled.
-    loadTimeData.overrideValues(
-        {enableCbdTimeframeRequired: false, unoDesktopEnabled: false});
+    loadTimeData.overrideValues({
+      enableCbdTimeframeRequired: false,
+      unoDesktopEnabled: false,
+    });
     element = document.createElement('settings-clear-browsing-data-dialog');
     element.set('prefs', getClearBrowsingDataPrefs());
     document.body.appendChild(element);
@@ -140,7 +181,7 @@ suite('ClearBrowsingDataDesktop', function() {
   test('ClearBrowsingDataSyncAccountInfoDesktop', function() {
     // Not syncing: the footer is hidden.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: false,
+      signedInState: SignedInState.SIGNED_IN,
       hasError: false,
     });
     flush();
@@ -151,7 +192,7 @@ suite('ClearBrowsingDataDesktop', function() {
     // <if expr="not is_chromeos">
     // Syncing: the footer is shown, with the normal sync info.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: false,
     });
     flush();
@@ -164,7 +205,7 @@ suite('ClearBrowsingDataDesktop', function() {
 
     // Sync is paused.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: true,
       statusAction: StatusAction.REAUTHENTICATE,
     });
@@ -176,7 +217,7 @@ suite('ClearBrowsingDataDesktop', function() {
 
     // Sync passphrase error.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: true,
       statusAction: StatusAction.ENTER_PASSPHRASE,
     });
@@ -188,7 +229,7 @@ suite('ClearBrowsingDataDesktop', function() {
 
     // Other sync error.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: true,
       statusAction: StatusAction.NO_ACTION,
     });
@@ -204,7 +245,7 @@ suite('ClearBrowsingDataDesktop', function() {
   // <if expr="not is_chromeos">
   test('ClearBrowsingDataPauseSyncDesktop', function() {
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: false,
     });
     flush();
@@ -222,7 +263,7 @@ suite('ClearBrowsingDataDesktop', function() {
 
   test('ClearBrowsingDataStartSignInDesktop', function() {
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: true,
       statusAction: StatusAction.REAUTHENTICATE,
     });
@@ -241,7 +282,7 @@ suite('ClearBrowsingDataDesktop', function() {
 
   test('ClearBrowsingDataHandlePassphraseErrorDesktop', function() {
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: true,
       statusAction: StatusAction.ENTER_PASSPHRASE,
     });
@@ -307,7 +348,7 @@ suite('ClearBrowsingDataDesktop', function() {
   test('ClearBrowsingData_MenuOptions', async function() {
     // The user selects the tab of interest.
     element.$.tabs.selected = 0;
-    await element.$.tabs.updateComplete;
+    await microtasksFinished();
 
     const page = element.$.pages.selectedItem as HTMLElement;
     const dropdownMenu =
@@ -316,30 +357,65 @@ suite('ClearBrowsingDataDesktop', function() {
     assertTrue(!!dropdownMenu.menuOptions);
     assertTrue(dropdownMenu.menuOptions.length === 5);
 
-    // TODO(crbug.com/1487530): Remove once CbdTimeframeRequired finished.
+    // TODO(crbug.com/40283307): Remove once CbdTimeframeRequired finished.
     assertFalse(dropdownMenu.menuOptions.some(
         option =>
             option.name === loadTimeData.getString('clearPeriod15Minutes')));
   });
 
-  async function testCbdExperimentDropdown(
-      testBrowserProxy: TestClearBrowsingDataBrowserProxy, tabIndex: number) {
-    // This test requires recreation of the page (ClearBrowsingDataDialog) after
-    // defining loadTimeData to apply experiment changes after enabling the
-    // feature/flag.
-    testBrowserProxy.reset();
+  async function testUnsupportedTimePeriod(tabIndex: number, prefName: string) {
+    // The user selects the tab of interest.
+    element.$.tabs.selected = tabIndex;
+    await microtasksFinished();
+
+    const page = element.$.pages.selectedItem as HTMLElement;
+    const dropdownMenu =
+        page.querySelector<SettingsDropdownMenuElement>('.time-range-select');
+    assertTrue(!!dropdownMenu);
+    const selectElement = dropdownMenu.shadowRoot!.querySelector('select');
+    assertTrue(!!selectElement);
+
+    const unsupported_pref_value = 100;
+
+    element.setPrefValue(prefName, unsupported_pref_value);
+
+    await microtasksFinished();
+
+    // The unsupported value is replaced by the Default value.
+    assertEquals(TimePeriod.LAST_HOUR, element.getPref(prefName).value);
+    assertEquals(TimePeriod.LAST_HOUR.toString(), selectElement.value);
+  }
+
+  test('ClearBrowsingData_UnsupportedTimePeriod_Basic', function() {
+    return testUnsupportedTimePeriod(0, 'browser.clear_data.time_period_basic');
+  });
+
+  test('ClearBrowsingData_UnsupportedTimePeriod_Advanced', function() {
+    return testUnsupportedTimePeriod(1, 'browser.clear_data.time_period');
+  });
+});
+
+// TODO(crbug.com/40283307): Remove once CbdTimeframeRequired finished.
+suite('CbdTimeRangeExperiment_ExperimentOn', function() {
+  let testBrowserProxy: TestClearBrowsingDataBrowserProxy;
+  let element: SettingsClearBrowsingDataDialogElement;
+
+  setup(async function() {
+    testBrowserProxy = new TestClearBrowsingDataBrowserProxy();
+    ClearBrowsingDataBrowserProxyImpl.setInstance(testBrowserProxy);
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     loadTimeData.overrideValues({enableCbdTimeframeRequired: true});
     element = document.createElement('settings-clear-browsing-data-dialog');
     element.set('prefs', getClearBrowsingDataPrefs());
     document.body.appendChild(element);
     await testBrowserProxy.whenCalled('initialize');
-    assertEquals(1, testBrowserProxy.getCallCount('initialize'));
-    await flushTasks();
+    assertTrue(element.$.clearBrowsingDataDialog.open);
+  });
 
+  async function testTimeRangeDropdownRequiresSelection(tabIndex: number) {
     // The user selects the tab of interest.
     element.$.tabs.selected = tabIndex;
-    await element.$.tabs.updateComplete;
+    await microtasksFinished();
 
     // The dropdown menu contains the "not selected" and "15 min" options on
     // top.
@@ -370,7 +446,7 @@ suite('ClearBrowsingDataDesktop', function() {
         page.querySelector<SettingsCheckboxElement>('.cookies-checkbox');
     assertTrue(!!cookiesCheckbox);
     cookiesCheckbox.$.checkbox.click();
-    await cookiesCheckbox.$.checkbox.updateComplete;
+    await microtasksFinished();
     const actionButton =
         element.shadowRoot!.querySelector<CrButtonElement>('.action-button');
     assertTrue(!!actionButton);
@@ -389,49 +465,114 @@ suite('ClearBrowsingDataDesktop', function() {
     // dropdown-error state.
     dropdownMenu.$.dropdownMenu.value = TimePeriod.LAST_DAY.toString();
     dropdownMenu.$.dropdownMenu.dispatchEvent(new CustomEvent('change'));
-    await waitAfterNextRender(dropdownMenu);
+    await microtasksFinished();
     assertFalse(dropdownMenu.classList.contains('dropdown-error'));
   }
 
-  // TODO(crbug.com/1487530): Remove once CbdTimeframeRequired finished.
   test('ClearBrowsingData_CbdTimeframeRequired_Basic', function() {
-    return testCbdExperimentDropdown(testBrowserProxy, /*tabIndex*/ 0);
+    return testTimeRangeDropdownRequiresSelection(/*tabIndex*/ 0);
   });
 
-  // TODO(crbug.com/1487530): Remove once CbdTimeframeRequired finished.
   test('ClearBrowsingData_CbdTimeframeRequired_Advanced', function() {
-    return testCbdExperimentDropdown(testBrowserProxy, /*tabIndex*/ 1);
+    return testTimeRangeDropdownRequiresSelection(/*tabIndex*/ 1);
   });
 
-  async function testUnsupportedTimePeriod(tabIndex: number, prefName: string) {
-    // The user selects the tab of interest.
-    element.$.tabs.selected = tabIndex;
-    await element.$.tabs.updateComplete;
-
-    const page = element.$.pages.selectedItem as HTMLElement;
-    const dropdownMenu =
-        page.querySelector<SettingsDropdownMenuElement>('.time-range-select');
-    assertTrue(!!dropdownMenu);
-
-    const unsupported_pref_value = 100;
-
-    element.setPrefValue(prefName, unsupported_pref_value);
-
-    await waitAfterNextRender(dropdownMenu);
-
-    // Assert unsupported value in Advanced tab is replaced by the Default value
-    // (Last hour).
-    assertEquals(TimePeriod.LAST_HOUR, element.getPref(prefName).value);
-    assertEquals(
-        TimePeriod.LAST_HOUR.toString(), dropdownMenu.getSelectedValue());
-  }
-
-  test('ClearBrowsingData_UnsupportedTimePeriod_Basic', function() {
-    return testUnsupportedTimePeriod(0, 'browser.clear_data.time_period_basic');
+  test('DualWritePrefs_BasicDualWriteSelection', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 0,
+        /*userSelectedTimeFrame*/ TimePeriodExperiment.LAST_DAY,
+        /*prefName*/ 'browser.clear_data.time_period_basic',
+        /*inialPrefValue*/ TimePeriod.LAST_WEEK,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.LAST_DAY);
   });
 
-  test('ClearBrowsingData_UnsupportedTimePeriod_Advanced', function() {
-    return testUnsupportedTimePeriod(1, 'browser.clear_data.time_period');
+  test('DualWritePrefs_BasicDualWrite1h', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 0,
+        /*userSelectedTimeFrame*/ TimePeriodExperiment.LAST_15_MINUTES,
+        /*prefName*/ 'browser.clear_data.time_period_basic',
+        /*inialPrefValue*/ TimePeriod.LAST_WEEK,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.LAST_HOUR);
+  });
+
+  test('DualWritePrefs_AdvancedDualWriteSelection', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 1,
+        /*userSelectedTimeFrame*/ TimePeriodExperiment.LAST_DAY,
+        /*prefName*/ 'browser.clear_data.time_period',
+        /*inialPrefValue*/ TimePeriod.LAST_WEEK,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.LAST_DAY);
+  });
+
+  test('DualWritePrefs_AdvancedDualWrite1h', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 1,
+        /*userSelectedTimeFrame*/ TimePeriodExperiment.LAST_15_MINUTES,
+        /*prefName*/ 'browser.clear_data.time_period',
+        /*inialPrefValue*/ TimePeriod.LAST_WEEK,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.LAST_HOUR);
+  });
+});
+
+// TODO(crbug.com/40283307): Remove once CbdTimeframeRequired finished.
+suite('CbdTimeRangeExperiment_ExperimentOff', function() {
+  let testBrowserProxy: TestClearBrowsingDataBrowserProxy;
+  let element: SettingsClearBrowsingDataDialogElement;
+
+  setup(async function() {
+    testBrowserProxy = new TestClearBrowsingDataBrowserProxy();
+    ClearBrowsingDataBrowserProxyImpl.setInstance(testBrowserProxy);
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    loadTimeData.overrideValues({enableCbdTimeframeRequired: false});
+    element = document.createElement('settings-clear-browsing-data-dialog');
+    element.set('prefs', getClearBrowsingDataPrefs());
+    document.body.appendChild(element);
+    await testBrowserProxy.whenCalled('initialize');
+    assertTrue(element.$.clearBrowsingDataDialog.open);
+  });
+
+  test('DualWritePrefs_BasicDualWrite', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 0,
+        /*userSelectedTimeFrame*/ TimePeriod.LAST_DAY,
+        /*prefName*/ 'browser.clear_data.time_period_v2_basic',
+        /*inialPrefValue*/ TimePeriodExperiment.LAST_WEEK,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.LAST_DAY);
+  });
+
+  test('DualWritePrefs_BasicDontDualWrite', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 0,
+        /*userSelectedTimeFrame*/ TimePeriod.LAST_DAY,
+        /*prefName*/ 'browser.clear_data.time_period_v2_basic',
+        /*inialPrefValue*/ TimePeriodExperiment.NOT_SELECTED,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.NOT_SELECTED);
+  });
+
+  test('DualWritePrefs_AdvancedDualWrite', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 1,
+        /*userSelectedTimeFrame*/ TimePeriod.LAST_DAY,
+        /*prefName*/ 'browser.clear_data.time_period_v2',
+        /*inialPrefValue*/ TimePeriodExperiment.LAST_WEEK,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.LAST_DAY);
+  });
+
+  test('DualWritePrefs_AdvancedDontDualWrite', function() {
+    return testCbdExperimentDualWritesPref(
+        /*element*/ element,
+        /*tabIndex*/ 1,
+        /*userSelectedTimeFrame*/ TimePeriod.LAST_DAY,
+        /*prefName*/ 'browser.clear_data.time_period_v2',
+        /*inialPrefValue*/ TimePeriodExperiment.NOT_SELECTED,
+        /*expectedDualWrittenPrefValue*/ TimePeriodExperiment.NOT_SELECTED);
   });
 });
 
@@ -458,7 +599,7 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     assertTrue(element.$.clearBrowsingDataDialog.open);
     // The user selects the tab of interest.
     element.$.tabs.selected = tabIndex;
-    await element.$.tabs.updateComplete;
+    await microtasksFinished();
 
     const page = element.$.pages.selectedItem as HTMLElement;
     const dropdownMenu =
@@ -467,28 +608,28 @@ suite('ClearBrowsingDataAllPlatforms', function() {
 
     // Ensure the test starts with a known pref and dropdown value.
     element.setPrefValue(prefName, TimePeriod.LAST_DAY);
-    await waitAfterNextRender(dropdownMenu);
+    await microtasksFinished();
     assertEquals(
         TimePeriod.LAST_DAY.toString(), dropdownMenu.getSelectedValue());
 
-    // Changing the dropdown selection does persist its value to the pref.
+    // Changing the dropdown selection does not persist its value to the pref.
     dropdownMenu.$.dropdownMenu.value = TimePeriod.LAST_WEEK.toString();
     dropdownMenu.$.dropdownMenu.dispatchEvent(new CustomEvent('change'));
-    await waitAfterNextRender(dropdownMenu);
-    assertEquals(TimePeriod.LAST_WEEK, element.getPref(prefName).value);
+    await microtasksFinished();
+    assertEquals(TimePeriod.LAST_DAY, element.getPref(prefName).value);
 
     // Select a datatype for deletion to enable the clear button.
-    assertTrue(!!element.$.cookiesCheckbox);
     element.$.cookiesCheckbox.$.checkbox.click();
-    await element.$.cookiesCheckbox.$.checkbox.updateComplete;
-    assertTrue(!!element.$.cookiesCheckboxBasic);
     element.$.cookiesCheckboxBasic.$.checkbox.click();
-    await element.$.cookiesCheckboxBasic.$.checkbox.updateComplete;
-    // Confirming the deletion sends the time range for clearing.
+    await microtasksFinished();
+    // Confirming the deletion persists the dropdown selection to the pref and
+    // sends the time range for clearing.
     const actionButton =
         element.shadowRoot!.querySelector<CrButtonElement>('.action-button');
     assertTrue(!!actionButton);
     actionButton.click();
+    await microtasksFinished();
+    assertEquals(TimePeriod.LAST_WEEK, element.getPref(prefName).value);
     const args = await testBrowserProxy.whenCalled('clearBrowsingData');
     const timeRange = args[1];
     assertEquals(TimePeriod.LAST_WEEK, timeRange);
@@ -496,12 +637,18 @@ suite('ClearBrowsingDataAllPlatforms', function() {
 
   test('dropdownSelectionPersisted_Basic', function() {
     return assertDropdownSelectionPersisted(
-        /*tabIndex*/ 0, 'browser.clear_data.time_period_basic');
+        /*tabIndex*/ 0,
+        loadTimeData.getBoolean('enableCbdTimeframeRequired') ?
+            'browser.clear_data.time_period_v2_basic' :
+            'browser.clear_data.time_period_basic');
   });
 
   test('dropdownSelectionPersisted_Advanced', function() {
     return assertDropdownSelectionPersisted(
-        /*tabIndex*/ 1, 'browser.clear_data.time_period');
+        /*tabIndex*/ 1,
+        loadTimeData.getBoolean('enableCbdTimeframeRequired') ?
+            'browser.clear_data.time_period_v2' :
+            'browser.clear_data.time_period');
   });
 
   test('tabSelection', async function() {
@@ -509,7 +656,14 @@ suite('ClearBrowsingDataAllPlatforms', function() {
 
     // Ensure the test starts with a known pref state and tab selection.
     element.setPrefValue('browser.last_clear_browsing_data_tab', 0);
-    await waitAfterNextRender(element);
+    // TODO(crbug.com/40283307): Selecting a time period to enable deletion is
+    // only required during the crbug.com/40283307 experiment. Remove it once
+    // the experiment completed.
+    element.setPrefValue(
+        'browser.clear_data.time_period', TimePeriodExperiment.LAST_DAY);
+    element.setPrefValue(
+        'browser.clear_data.time_period_v2', TimePeriodExperiment.LAST_DAY);
+    await microtasksFinished();
     assertEquals(
         0, element.getPref('browser.last_clear_browsing_data_tab').value);
     assertTrue(isChildVisible(element, '#basic-tab'));
@@ -517,15 +671,22 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     // Changing the tab selection changes the visible tab, but does not persist
     // the tab selection to the pref.
     element.$.tabs.selected = 1;
-    await element.$.tabs.updateComplete;
+    await microtasksFinished();
     assertEquals(
         0, element.getPref('browser.last_clear_browsing_data_tab').value);
     assertTrue(isChildVisible(element, '#advanced-tab'));
 
     // Select a datatype for deletion to enable the clear button.
-    assertTrue(!!element.$.cookiesCheckbox);
     element.$.cookiesCheckbox.$.checkbox.click();
-    await element.$.cookiesCheckbox.$.checkbox.updateComplete;
+    // TODO(crbug.com/40283307): Selecting a time period to enable deletion is
+    // only required during the crbug.com/40283307 experiment. Remove it once
+    // the experiment completed.
+    element.setPrefValue(
+        'browser.clear_data.time_period', TimePeriodExperiment.LAST_DAY);
+    element.setPrefValue(
+        'browser.clear_data.time_period_v2', TimePeriodExperiment.LAST_DAY);
+    await microtasksFinished();
+
     // Confirming the deletion persists the tab selection to the pref.
     const actionButton =
         element.shadowRoot!.querySelector<CrButtonElement>('.action-button');
@@ -548,9 +709,16 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     assertTrue(!!spinner);
 
     // Select a datatype for deletion to enable the clear button.
-    assertTrue(!!element.$.cookiesCheckboxBasic);
     element.$.cookiesCheckboxBasic.$.checkbox.click();
-    await element.$.cookiesCheckboxBasic.$.checkbox.updateComplete;
+    // TODO(crbug.com/40283307): Selecting a time period to enable deletion is
+    // only required during the crbug.com/40283307 experiment. Remove it once
+    // the experiment completed.
+    element.setPrefValue(
+        'browser.clear_data.time_period_basic', TimePeriodExperiment.LAST_DAY);
+    element.setPrefValue(
+        'browser.clear_data.time_period_v2_basic',
+        TimePeriodExperiment.LAST_DAY);
+    await microtasksFinished();
 
     assertFalse(cancelButton.disabled);
     assertFalse(actionButton.disabled);
@@ -593,21 +761,20 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     const actionButton =
         element.shadowRoot!.querySelector<CrButtonElement>('.action-button');
     assertTrue(!!actionButton);
-    assertTrue(!!element.$.cookiesCheckboxBasic);
     // Initially the button is disabled because all checkboxes are off.
     assertTrue(actionButton.disabled);
     // The button gets enabled if any checkbox is selected.
     element.$.cookiesCheckboxBasic.$.checkbox.click();
-    await element.$.cookiesCheckboxBasic.$.checkbox.updateComplete;
+    await microtasksFinished();
     assertTrue(element.$.cookiesCheckboxBasic.checked);
     assertFalse(actionButton.disabled);
     // Switching to advanced disables the button.
     element.$.tabs.selected = 1;
-    await element.$.tabs.updateComplete;
+    await microtasksFinished();
     assertTrue(actionButton.disabled);
     // Switching back enables it again.
     element.$.tabs.selected = 0;
-    await element.$.tabs.updateComplete;
+    await microtasksFinished();
     assertFalse(actionButton.disabled);
   });
 
@@ -618,9 +785,16 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     assertTrue(!!actionButton);
 
     // Select a datatype for deletion to enable the clear button.
-    assertTrue(!!element.$.cookiesCheckboxBasic);
     element.$.cookiesCheckboxBasic.$.checkbox.click();
-    await element.$.cookiesCheckboxBasic.$.checkbox.updateComplete;
+    // TODO(crbug.com/40283307): Selecting a time period to enable deletion is
+    // only required during the crbug.com/40283307 experiment. Remove it once
+    // the experiment completed.
+    element.setPrefValue(
+        'browser.clear_data.time_period_basic', TimePeriodExperiment.LAST_DAY);
+    element.setPrefValue(
+        'browser.clear_data.time_period_v2_basic',
+        TimePeriodExperiment.LAST_DAY);
+    await microtasksFinished();
     assertFalse(actionButton.disabled);
 
     const promiseResolver = new PromiseResolver<ClearBrowsingDataResult>();
@@ -674,7 +848,15 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     const cookieCheckbox = element.$.cookiesCheckboxBasic;
     assertTrue(!!cookieCheckbox);
     cookieCheckbox.$.checkbox.click();
-    await cookieCheckbox.$.checkbox.updateComplete;
+    // TODO(crbug.com/40283307): Selecting a time period to enable deletion is
+    // only required during the crbug.com/40283307 experiment. Remove it once
+    // the experiment completed.
+    element.setPrefValue(
+        'browser.clear_data.time_period_basic', TimePeriodExperiment.LAST_DAY);
+    element.setPrefValue(
+        'browser.clear_data.time_period_v2_basic',
+        TimePeriodExperiment.LAST_DAY);
+    await microtasksFinished();
     assertFalse(actionButton.disabled);
 
     const promiseResolver = new PromiseResolver<ClearBrowsingDataResult>();
@@ -725,7 +907,15 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     const cookieCheckbox = element.$.cookiesCheckboxBasic;
     assertTrue(!!cookieCheckbox);
     cookieCheckbox.$.checkbox.click();
-    await cookieCheckbox.$.checkbox.updateComplete;
+    // TODO(crbug.com/40283307): Selecting a time period to enable deletion is
+    // only required during the crbug.com/40283307 experiment. Remove it once
+    // the experiment completed.
+    element.setPrefValue(
+        'browser.clear_data.time_period_basic', TimePeriodExperiment.LAST_DAY);
+    element.setPrefValue(
+        'browser.clear_data.time_period_v2_basic',
+        TimePeriodExperiment.LAST_DAY);
+    await microtasksFinished();
     assertFalse(actionButton.disabled);
 
     const promiseResolver = new PromiseResolver<ClearBrowsingDataResult>();
@@ -795,7 +985,42 @@ suite('ClearBrowsingDataAllPlatforms', function() {
     assertFalse(element.$.clearBrowsingDataDialog.open);
   });
 
-  test('Counters', function() {
+  async function testDropdownResetsCounters(tabIndex: number) {
+    testBrowserProxy.reset();
+
+    // Select the right tab.
+    assertTrue(element.$.clearBrowsingDataDialog.open);
+    element.$.tabs.selected = tabIndex;
+    await microtasksFinished();
+
+    // Wait for the dropdown to render, so that we can select an option.
+    const page = element.$.pages.selectedItem as HTMLElement;
+    const dropdownMenu =
+        page.querySelector<SettingsDropdownMenuElement>('.time-range-select');
+    assertTrue(!!dropdownMenu);
+    await microtasksFinished();
+
+    // Select a non-default option.
+    const selectedOption = TimePeriod.LAST_WEEK;
+    dropdownMenu.$.dropdownMenu.value = selectedOption.toString();
+    dropdownMenu.$.dropdownMenu.dispatchEvent(new CustomEvent('change'));
+    await microtasksFinished();
+
+    // The proxy should request re-calculation for this option.
+    const args = await testBrowserProxy.whenCalled('restartCounters');
+    assertEquals(args[0] /* isBasic */ ? 0 : 1, tabIndex);
+    assertEquals(args[1], selectedOption);
+  }
+
+  test('DropdownResetsCounters_Basic', async function() {
+    await testDropdownResetsCounters(0 /* tabIndex */);
+  });
+
+  test('DropdownResetsCounters_Advanced', async function() {
+    await testDropdownResetsCounters(1 /* tabIndex */);
+  });
+
+  test('CountersUpdateText', function() {
     assertTrue(element.$.clearBrowsingDataDialog.open);
 
     const checkbox = element.shadowRoot!.querySelector<SettingsCheckboxElement>(
@@ -816,7 +1041,7 @@ suite('ClearBrowsingDataAllPlatforms', function() {
 
     // Not syncing.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: false,
+      signedInState: SignedInState.SIGNED_IN,
       hasError: false,
     });
     flush();
@@ -825,7 +1050,7 @@ suite('ClearBrowsingDataAllPlatforms', function() {
 
     // Syncing.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: false,
     });
     flush();
@@ -834,7 +1059,7 @@ suite('ClearBrowsingDataAllPlatforms', function() {
 
     // Sync passphrase error.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: true,
       statusAction: StatusAction.ENTER_PASSPHRASE,
     });
@@ -844,7 +1069,7 @@ suite('ClearBrowsingDataAllPlatforms', function() {
 
     // Other sync error.
     webUIListenerCallback('sync-status-changed', {
-      signedIn: true,
+      signedInState: SignedInState.SYNCING,
       hasError: true,
       statusAction: StatusAction.NO_ACTION,
     });

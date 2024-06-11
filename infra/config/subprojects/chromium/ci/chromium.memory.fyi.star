@@ -4,7 +4,7 @@
 """Definitions of builders in the chromium.memory.fyi builder group."""
 
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "os", "reclient", "siso")
+load("//lib/builders.star", "cpu", "os", "reclient")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -23,11 +23,7 @@ ci.defaults.set(
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
-    siso_project = siso.project.DEFAULT_TRUSTED,
     siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
 
@@ -35,7 +31,7 @@ consoles.console_view(
     name = "chromium.memory.fyi",
 )
 
-# TODO(crbug.com/1442587): Remove this builder after burning down failures
+# TODO(crbug.com/40267022): Remove this builder after burning down failures
 # found when we now post-process stdout.
 ci.builder(
     name = "linux-exp-msan-fyi-rel",
@@ -79,7 +75,7 @@ ci.builder(
     reclient_jobs = reclient.jobs.DEFAULT,
 )
 
-# TODO(crbug.com/1394755): Remove this builder after burning down failures
+# TODO(crbug.com/40248746): Remove this builder after burning down failures
 # and measuring performance to see if we can roll UBSan into ASan.
 ci.builder(
     name = "linux-ubsan-fyi-rel",
@@ -116,7 +112,7 @@ ci.builder(
     reclient_jobs = reclient.jobs.DEFAULT,
 )
 
-# TODO(crbug.com/1320449): Remove this builder after burning down failures
+# TODO(crbug.com/40223516): Remove this builder after burning down failures
 # and measuring performance to see if we can roll LSan into ASan.
 ci.builder(
     name = "mac-lsan-fyi-rel",
@@ -143,11 +139,13 @@ ci.builder(
             "dcheck_always_on",
             "release_builder",
             "reclient",
+            "x64",
         ],
     ),
     builderless = 1,
     cores = None,
     os = os.MAC_ANY,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "mac|lsan",
         short_name = "lsan",

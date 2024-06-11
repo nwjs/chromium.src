@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/time/time.h"
+#include "base/uuid.h"
 #include "components/commerce/core/proto/product_category.pb.h"
 #include "url/gurl.h"
 
@@ -16,30 +17,22 @@ namespace commerce {
 // Data structure to store information about an existing group
 // of similar products.
 struct ProductGroup {
-  ProductGroup(const std::string& group_id, const std::string& title);
+  ProductGroup(const base::Uuid& uuid,
+               const std::vector<GURL>& urls,
+               base::Time update_time);
   ~ProductGroup();
 
-  ProductGroup(const ProductGroup&) = delete;
-  ProductGroup& operator=(const ProductGroup&) = delete;
+  ProductGroup(const ProductGroup&);
+  ProductGroup& operator=(const ProductGroup&);
 
   // Unique ID to identify the product group.
-  std::string group_id;
-
-  // Title of the product group.
-  std::string title;
-
-  // The timestamp of when the product group is created.
-  base::Time creation_time;
-
-  // The timestamp of when the product group is last updated.
-  base::Time update_time;
+  base::Uuid uuid;
 
   // A set storing URLs of products that are currently in the group.
   std::set<GURL> member_products;
 
-  // A set storing URLs of products that are open and comparable to the
-  // product group, but is not currently in the group.
-  std::set<GURL> candidate_products;
+  // The time this group was last updated.
+  base::Time update_time;
 
   // Category infos of this group.
   std::vector<CategoryData> categories;

@@ -166,17 +166,18 @@ VideoCaptureController::BufferContext::CloneBufferHandle() {
     // VideoCaptureBufferPool which, among other use cases, provides decoder
     // output buffers.
     //
-    // TODO(crbug.com/793446): BroadcastingReceiver::BufferContext also defines
-    // CloneBufferHandle and independently decides on handle permissions. The
-    // permissions should be coordinated between these two classes.
+    // TODO(crbug.com/40553989): BroadcastingReceiver::BufferContext also
+    // defines CloneBufferHandle and independently decides on handle
+    // permissions. The permissions should be coordinated between these two
+    // classes.
     return media::mojom::VideoBufferHandle::NewUnsafeShmemRegion(
         buffer_handle_->get_unsafe_shmem_region().Duplicate());
   } else if (buffer_handle_->is_read_only_shmem_region()) {
     return media::mojom::VideoBufferHandle::NewReadOnlyShmemRegion(
         buffer_handle_->get_read_only_shmem_region().Duplicate());
-  } else if (buffer_handle_->is_mailbox_handles()) {
-    return media::mojom::VideoBufferHandle::NewMailboxHandles(
-        buffer_handle_->get_mailbox_handles()->Clone());
+  } else if (buffer_handle_->is_shared_image_handles()) {
+    return media::mojom::VideoBufferHandle::NewSharedImageHandles(
+        buffer_handle_->get_shared_image_handles()->Clone());
   } else if (buffer_handle_->is_gpu_memory_buffer_handle()) {
     return media::mojom::VideoBufferHandle::NewGpuMemoryBufferHandle(
         buffer_handle_->get_gpu_memory_buffer_handle().Clone());

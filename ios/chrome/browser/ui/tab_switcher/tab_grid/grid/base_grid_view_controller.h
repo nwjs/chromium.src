@@ -55,13 +55,17 @@ class WebStateID;
 - (void)gridViewController:(BaseGridViewController*)gridViewController
        didRemoveItemWIthID:(web::WebStateID)itemID;
 
-// Tells the delegate that the grid view controller cells will begin dragging.
-- (void)gridViewControllerDragSessionWillBegin:
+// Tells the delegate that the `gridViewController` will begin dragging a tab.
+- (void)gridViewControllerDragSessionWillBeginForTab:
     (BaseGridViewController*)gridViewController;
-// Tells the delegate that the grid view controller cells did end dragging.
+// Tells the delegate that the `gridViewController` will begin dragging a tab
+// group.
+- (void)gridViewControllerDragSessionWillBeginForTabGroup:
+    (BaseGridViewController*)gridViewController;
+// Tells the delegate that the `gridViewController` cells did end dragging.
 - (void)gridViewControllerDragSessionDidEnd:
     (BaseGridViewController*)gridViewController;
-// Tells the delegate that the grid view controller did scroll.
+// Tells the delegate that the `gridViewController` did scroll.
 - (void)gridViewControllerScrollViewDidScroll:
     (BaseGridViewController*)gridViewController;
 
@@ -83,6 +87,11 @@ class WebStateID;
 // settings (in TabGridModeInactive).
 - (void)didTapInactiveTabsSettingsLinkInGridViewController:
     (BaseGridViewController*)gridViewController;
+
+// Tells the delegate that the item with `itemID` has been long pressed to
+// request the context menu.
+- (void)gridViewController:(BaseGridViewController*)gridViewController
+    didRequestContextMenuForItemWithID:(web::WebStateID)itemID;
 
 @end
 

@@ -26,7 +26,6 @@ import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
-import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import type {SettingsRadioGroupElement} from '../controls/settings_radio_group.js';
@@ -39,7 +38,6 @@ import {routes} from '../route.js';
 import type {Route} from '../router.js';
 import {RouteObserverMixin, Router} from '../router.js';
 import {ContentSetting, ContentSettingsTypes, CookieControlsMode} from '../site_settings/constants.js';
-import {CookiePrimarySetting} from '../site_settings/site_settings_prefs_browser_proxy.js';
 
 import {getTemplate} from './cookies_page.html.js';
 
@@ -78,14 +76,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
         type: String,
         notify: true,
         value: '',
-      },
-
-      /**
-       * Primary cookie control states for use in bindings.
-       */
-      cookiePrimarySettingEnum_: {
-        type: Object,
-        value: CookiePrimarySetting,
       },
 
       /** Cookie control modes for use in bindings. */
@@ -218,11 +208,6 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
     Router.getInstance().navigateTo(routes.SITE_SETTINGS_ALL);
   }
 
-  private onIpProtectionLearnMoreClicked_() {
-    OpenWindowProxyImpl.getInstance().openUrl(
-        loadTimeData.getString('ipProtectionLearnMoreUrl'));
-  }
-
   private onGeneratedPrefsUpdated_() {
     // If the default cookie content setting is managed, the exception lists
     // should be disabled. `profile.cookie_controls_mode` doesn't control the
@@ -254,7 +239,7 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
   }
 
   private onCookieControlsModeChanged_() {
-    // TODO(crbug.com/1378703): Use this.$.primarySettingGroup after the feature
+    // TODO(crbug.com/40244046): Use this.$.primarySettingGroup after the feature
     // is launched and element isn't in dom-if anymore.
     const primarySettingGroup: SettingsRadioGroupElement =
         this.shadowRoot!.querySelector('#primarySettingGroup')!;
@@ -307,7 +292,7 @@ export class SettingsCookiesPageElement extends SettingsCookiesPageElementBase {
     this.metricsBrowserProxy_.recordAction(
         'Settings.PrivacySandbox.OpenedFromCookiesPageToast');
     this.$.toast.hide();
-    // TODO(crbug/1159942): Replace this with an ordinary OpenWindowProxy call.
+    // TODO(crbug.com/40162029): Replace this with an ordinary OpenWindowProxy call.
     this.shadowRoot!.querySelector<HTMLAnchorElement>(
                         '#privacySandboxLink')!.click();
   }

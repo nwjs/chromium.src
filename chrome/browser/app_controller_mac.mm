@@ -17,6 +17,7 @@
 #include "base/auto_reset.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/containers/flat_map.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -61,6 +62,7 @@
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
+#include "chrome/browser/shortcuts/chrome_webloc_file.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -71,7 +73,6 @@
 #include "chrome/browser/ui/browser_mac.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
-#import "chrome/browser/ui/cocoa/apps/app_shim_menu_controller_mac.h"
 #include "chrome/browser/ui/cocoa/apps/quit_with_apps_controller_mac.h"
 #import "chrome/browser/ui/cocoa/bookmarks/bookmark_menu_bridge.h"
 #import "chrome/browser/ui/cocoa/confirm_quit.h"
@@ -373,7 +374,7 @@ void FocusWindowSetOnCurrentSpace(const std::set<gfx::NativeWindow>& windows) {
 base::FilePath GetStartupProfilePathMac() {
   // This profile path is used to open URLs passed in application:openURLs: and
   // should not default to Guest when the profile picker is shown.
-  // TODO(https://crbug.com/1155158): Remove the ignore_profile_picker parameter
+  // TODO(crbug.com/40159795): Remove the ignore_profile_picker parameter
   // once the picker supports opening URLs.
   StartupProfilePathInfo profile_path_info = GetStartupProfilePath(
       /*cur_dir=*/base::FilePath(), *base::CommandLine::ForCurrentProcess(),
@@ -383,12 +384,84 @@ base::FilePath GetStartupProfilePathMac() {
   return profile_path_info.path;
 }
 
+void OpenUrlsInBrowserWithProfileName(const std::vector<GURL>& urls,
+                                      const base::FilePath& profile_name) {
+  g_browser_process->profile_manager()->LoadProfile(
+      profile_name, /*incognito=*/false,
+      base::BindOnce(
+          [](const std::vector<GURL>& urls, Profile* profile) {
+            if (profile) {
+              OpenUrlsInBrowserWithProfile(urls, profile);
+            } else {
+              app_controller_mac::RunInLastProfileSafely(
+                  base::BindOnce(&OpenUrlsInBrowserWithProfile, urls),
+                  app_controller_mac::kShowProfilePickerOnFailure);
+            }
+          },
+          urls));
+}
+
 // Open the urls in the last used browser. Loads the profile asynchronously if
 // needed.
 void OpenUrlsInBrowser(const std::vector<GURL>& urls) {
-  app_controller_mac::RunInLastProfileSafely(
-      base::BindOnce(&OpenUrlsInBrowserWithProfile, urls),
-      app_controller_mac::kShowProfilePickerOnFailure);
+  if (base::FeatureList::IsEnabled(features::kShortcutsNotApps)) {
+    std::vector<GURL> regular_urls;
+    std::vector<base::FilePath> shortcuts;
+
+    for (const auto& url : urls) {
+      base::FilePath path;
+      if (net::FileURLToFilePath(url, &path) &&
+          path.Extension() == shortcuts::ChromeWeblocFile::kFileExtension) {
+        shortcuts.push_back(path);
+      } else {
+        regular_urls.push_back(url);
+      }
+    }
+
+    if (!shortcuts.empty()) {
+      // Parse/read the shortcut files on the thread pool to avoid blocking the
+      // UI thread.
+      base::ThreadPool::PostTaskAndReplyWithResult(
+          FROM_HERE,
+          {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+           base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
+          base::BindOnce(
+              [](const std::vector<base::FilePath>& shortcuts) {
+                base::flat_map<base::FilePath, std::vector<GURL>>
+                    profile_url_map;
+                for (const auto& path : shortcuts) {
+                  auto shortcut =
+                      shortcuts::ChromeWeblocFile::LoadFromFile(path);
+                  if (!shortcut.has_value()) {
+                    // TODO: Consider opening the original file URL?
+                    continue;
+                  }
+                  profile_url_map[shortcut->profile_path_name().path()]
+                      .push_back(shortcut->target_url());
+                }
+                return profile_url_map;
+              },
+              std::move(shortcuts)),
+          base::BindOnce(
+              [](const base::flat_map<base::FilePath, std::vector<GURL>>
+                     profile_url_map) {
+                for (const auto& [profile, urls_for_profile] :
+                     profile_url_map) {
+                  OpenUrlsInBrowserWithProfileName(urls_for_profile, profile);
+                }
+              }));
+    }
+
+    if (!regular_urls.empty()) {
+      app_controller_mac::RunInLastProfileSafely(
+          base::BindOnce(&OpenUrlsInBrowserWithProfile, regular_urls),
+          app_controller_mac::kShowProfilePickerOnFailure);
+    }
+  } else {
+    app_controller_mac::RunInLastProfileSafely(
+        base::BindOnce(&OpenUrlsInBrowserWithProfile, urls),
+        app_controller_mac::kShowProfilePickerOnFailure);
+  }
 }
 
 }  // namespace
@@ -402,7 +475,7 @@ Profile* GetLastProfileMac() {
 
   base::FilePath profile_path = GetStartupProfilePathMac();
   // ProfileManager::GetProfile() is blocking if the profile was not loaded yet.
-  // TODO(https://crbug.com/1176734): Change this code to return nullptr when
+  // TODO(crbug.com/40054768): Change this code to return nullptr when
   // the profile is not loaded, and update all callers to handle this case.
   base::ScopedAllowBlocking allow_blocking;
   return profile_manager->GetProfile(profile_path);
@@ -588,9 +661,6 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
       _profileBookmarkMenuBridgeMap;
 
   std::unique_ptr<HistoryMenuBridge> _historyMenuBridge;
-
-  // Controller that manages main menu items for packaged apps.
-  AppShimMenuController* __strong _appShimMenuController;
 
   // The profile menu, which appears right before the Help menu. It is only
   // available when multiple profiles is enabled.
@@ -918,7 +988,6 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
   _profileAttributesStorageObserver.reset();
   [self unregisterEventHandlers];
-  _appShimMenuController = nil;
   _profileBookmarkMenuBridgeMap.clear();
 }
 
@@ -1081,10 +1150,6 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
       KeepAliveOrigin::APP_CONTROLLER, KeepAliveRestartOption::DISABLED);
 
   [self setUpdateCheckInterval];
-
-  // Start managing the menu for app windows. This needs to be done here because
-  // main menu item titles are not yet initialized in awakeFromNib.
-  [self initAppShimMenuController];
 
   // If enabled, keep Chrome alive when apps are open instead of quitting all
   // apps.
@@ -1634,7 +1699,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
         ProfilePicker::EntryPoint::kNewSessionOnExistingProcess));
   } else {
     // Asynchronously load profile first if needed.
-    // TODO(crbug.com/1426857): Replace CreateBrowser by LaunchBrowserStartup
+    // TODO(crbug.com/40261514): Replace CreateBrowser by LaunchBrowserStartup
     app_controller_mac::RunInLastProfileSafely(
         base::BindOnce(base::IgnoreResult(&CreateBrowser)),
         app_controller_mac::kShowProfilePickerOnFailure);
@@ -1742,7 +1807,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
 // Returns null if Chrome is not ready or there is no ProfileManager.
 // DEPRECATED: use lastProfileIfLoaded instead.
-// TODO(https://crbug.com/1176734): May be blocking, migrate all callers to
+// TODO(crbug.com/40054768): May be blocking, migrate all callers to
 // |-lastProfileIfLoaded|.
 - (Profile*)lastProfile {
   Profile* lastLoadedProfile = [self lastProfileIfLoaded];
@@ -1894,11 +1959,6 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
 - (TabMenuBridge*)tabMenuBridge {
   return _tabMenuBridge.get();
-}
-
-- (void)initAppShimMenuController {
-  if (!_appShimMenuController)
-    _appShimMenuController = [[AppShimMenuController alloc] init];
 }
 
 - (void)setLastProfile:(Profile*)profile {

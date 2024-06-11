@@ -58,14 +58,21 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_button_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
+#include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html/html_hr_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
+#include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/html_summary_element.h"
 #include "third_party/blink/renderer/core/html/html_table_cell_element.h"
 #include "third_party/blink/renderer/core/html/html_table_element.h"
 #include "third_party/blink/renderer/core/html/image_document.h"
+#include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
@@ -102,6 +109,7 @@
 #include "third_party/blink/renderer/core/layout/list/layout_outside_list_marker.h"
 #include "third_party/blink/renderer/core/layout/mathml/layout_mathml_block.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
+#include "third_party/blink/renderer/core/layout/svg/svg_layout_info.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_caption.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_cell.h"
@@ -223,36 +231,6 @@ bool HasClipPathPaintWorklet(Node* node) {
          ElementAnimations::CompositedPaintStatus::kComposited;
 }
 
-// If there's a composited clip path animation, and it doesn't have a cached
-// value for CompositedClipPathStatus, that means we need to regenerate the
-// paint properties, as the composited clip path status is calculated then. See
-// HasCompositeClipPathAnimation in clip_path_clipper.cc
-bool ShouldRefreshPaintPropertiesForClipPath(Node* node,
-                                             const ComputedStyle* style) {
-  if (!RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled()) {
-    return false;
-  }
-
-  // We don't care what the composited clip path status is if there's no
-  // composited clip path animation.
-  if (!style->HasCurrentClipPathAnimation()) {
-    return false;
-  }
-
-  Element* element = DynamicTo<Element>(node);
-  if (!element) {
-    return false;
-  }
-
-  ElementAnimations* element_animations = element->GetElementAnimations();
-  if (!element_animations) {
-    return false;
-  }
-
-  return element_animations->CompositedClipPathStatus() ==
-         ElementAnimations::CompositedPaintStatus::kNeedsRepaintOrNoAnimation;
-}
-
 StyleDifference AdjustForCompositableAnimationPaint(
     const ComputedStyle* old_style,
     const ComputedStyle* new_style,
@@ -260,32 +238,9 @@ StyleDifference AdjustForCompositableAnimationPaint(
     StyleDifference diff) {
   DCHECK(new_style);
 
-  // Background color changes that are triggered by animations on the compositor
-  // thread can skip paint invalidation.
-  bool had_background_color_animation =
-      old_style ? old_style->HasCurrentBackgroundColorAnimation() : false;
-
-  bool has_background_color_animation =
-      new_style->HasCurrentBackgroundColorAnimation();
-  // If animation status changed, we need a paint invalidation regardless of
-  // whether the background color changed.
-  if (RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
-      (had_background_color_animation != has_background_color_animation))
-    diff.SetNeedsNormalPaintInvalidation();
-
   bool skip_background_color_paint_invalidation =
       !diff.BackgroundColorChanged() || HasNativeBackgroundPainter(node);
   if (!skip_background_color_paint_invalidation)
-    diff.SetNeedsNormalPaintInvalidation();
-
-  bool had_clip_path_animation =
-      old_style ? old_style->HasCurrentClipPathAnimation() : false;
-
-  bool has_clip_path_animation = new_style->HasCurrentClipPathAnimation();
-  // If animation status changed, we need a paint invalidation regardless of
-  // whether the background color changed.
-  if (RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled() &&
-      (had_clip_path_animation != has_clip_path_animation))
     diff.SetNeedsNormalPaintInvalidation();
 
   bool skip_clip_path_paint_invalidation =
@@ -549,6 +504,11 @@ bool LayoutObject::IsInlineRubyText() const {
 bool LayoutObject::IsHR() const {
   NOT_DESTROYED();
   return IsA<HTMLHRElement>(GetNode());
+}
+
+bool LayoutObject::IsButtonOrInputButton() const {
+  NOT_DESTROYED();
+  return IsInputButton() || IsA<HTMLButtonElement>(GetNode());
 }
 
 bool LayoutObject::IsInputButton() const {
@@ -1221,15 +1181,30 @@ PaintLayer* LayoutObject::PaintingLayer(int max_depth) const {
     return object.Parent();
   };
   int depth = 0;
+  const LayoutObject* outermost = nullptr;
   for (const LayoutObject* current = this; current;
-       current = FindContainer(*current)) {
+       outermost = current, current = FindContainer(*current)) {
     if (max_depth != -1 && ++depth > max_depth) {
-      break;
+      return nullptr;
     }
     if (current->HasLayer() &&
         To<LayoutBoxModelObject>(current)->Layer()->IsSelfPaintingLayer())
       return To<LayoutBoxModelObject>(current)->Layer();
   }
+
+  if (const auto* box = DynamicTo<LayoutBox>(outermost)) {
+    if (box->PhysicalFragmentCount()) {
+      // Only actual page content is attached to the layout tree. Page boxes and
+      // margin boxes are not, since they are not part of the DOM. Return the
+      // LayoutView paint layer for such objects.
+      const PhysicalBoxFragment& fragment = *box->GetPhysicalFragment(0);
+      if (fragment.GetBoxType() == PhysicalFragment::kPageContainer ||
+          fragment.GetBoxType() == PhysicalFragment::kPageBorderBox) {
+        return box->View()->Layer();
+      }
+    }
+  }
+
   // TODO(crbug.com/365897): we should get rid of detached layout subtrees, at
   // which point this code should not be reached.
   return nullptr;
@@ -2761,8 +2736,6 @@ void LayoutObject::SetStyle(const ComputedStyle* style,
     UpdateImageObservers(old_style, style_.Get());
   }
 
-  CheckCounterChanges(old_style, style_.Get());
-
   bool does_not_need_layout_or_paint_invalidation = !parent_;
 
   StyleDidChange(diff, old_style);
@@ -2838,8 +2811,7 @@ void LayoutObject::SetStyle(const ComputedStyle* style,
   // Clip Path animations need a property update when they're composited, as it
   // changes between mask based and path based clip.
   if ((diff.NeedsNormalPaintInvalidation() && old_style &&
-       !old_style->ClipPathDataEquivalent(*style_)) ||
-      ShouldRefreshPaintPropertiesForClipPath(GetNode(), style_)) {
+       !old_style->ClipPathDataEquivalent(*style_))) {
     SetNeedsPaintPropertyUpdate();
     PaintingLayer()->SetNeedsCompositingInputsUpdate();
   }
@@ -3372,23 +3344,6 @@ void LayoutObject::UpdateShapeImage(const ShapeValue* old_shape_value,
   }
 }
 
-void LayoutObject::CheckCounterChanges(const ComputedStyle* old_style,
-                                       const ComputedStyle* new_style) {
-  NOT_DESTROYED();
-  DCHECK(new_style);
-  if (old_style) {
-    if (old_style->CounterDirectivesEqual(*new_style)) {
-      return;
-    }
-  } else {
-    if (!new_style->GetCounterDirectives()) {
-      return;
-    }
-  }
-  LayoutCounter::LayoutObjectStyleChanged(*this, old_style, *new_style);
-  View()->SetNeedsMarkerOrCounterUpdate();
-}
-
 PhysicalRect LayoutObject::ViewRect() const {
   NOT_DESTROYED();
   return View()->ViewRect();
@@ -3787,15 +3742,6 @@ void LayoutObject::WillBeDestroyed() {
 
   Remove();
 
-  // If this layoutObject had a parent, remove should have destroyed any
-  // counters attached to this layoutObject and marked the affected other
-  // counters for reevaluation. This apparently redundant check is here for the
-  // case when this layoutObject had no parent at the time remove() was called.
-
-  if (HasCounterNodeMap()) {
-    LayoutCounter::DestroyCounterNodes(*this);
-  }
-
   // Remove the handler if node had touch-action set. Handlers are not added
   // for text nodes so don't try removing for one too. Need to check if
   // m_style is null in cases of partial construction. Any handler we added
@@ -3930,11 +3876,6 @@ void LayoutObject::WillBeRemovedFromTree() {
     Parent()->DirtyLinesFromChangedChild(this);
 
   RemoveFromLayoutFlowThread();
-
-  // Update cached boundaries in SVG layoutObjects if a child is removed.
-  if (Parent()->IsSVG()) {
-    Parent()->SetNeedsBoundariesUpdate();
-  }
 
   if (bitfields_.IsScrollAnchorObject()) {
     // Clear the bit first so that anchor.clear() doesn't recurse into
@@ -4576,12 +4517,9 @@ bool LayoutObject::CanUpdateSelectionOnRootLineBoxes() const {
   return containing_block ? !containing_block->NeedsLayout() : false;
 }
 
-void LayoutObject::SetNeedsBoundariesUpdate() {
+SVGLayoutResult LayoutObject::UpdateSVGLayout(const SVGLayoutInfo&) {
   NOT_DESTROYED();
-  DCHECK(!GetDocument().InvalidationDisallowed());
-  DeprecatedInvalidateIntersectionObserverCachedRects();
-  if (LayoutObject* layout_object = Parent())
-    layout_object->SetNeedsBoundariesUpdate();
+  NOTREACHED_NORETURN();
 }
 
 gfx::RectF LayoutObject::ObjectBoundingBox() const {
@@ -5191,7 +5129,7 @@ void LayoutObject::InvalidateSubtreePositionTry(bool mark_style_dirty) {
         // fallback styles.
         node->SetNeedsStyleRecalc(kLocalStyleChange,
                                   StyleChangeReasonForTracing::Create(
-                                      style_change_reason::kStyleSheetChange));
+                                      style_change_reason::kPositionTryChange));
       }
     }
   }

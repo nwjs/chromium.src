@@ -7,7 +7,11 @@
 #include <algorithm>
 
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/memory/ptr_util.h"
+#include "base/numerics/safe_conversions.h"
+#include "media/base/media_client.h"
 #include "media/base/timestamp_constants.h"
 
 namespace media {
@@ -23,6 +27,14 @@ scoped_refptr<StreamParserBuffer> StreamParserBuffer::CopyFrom(
     bool is_key_frame,
     Type type,
     TrackId track_id) {
+  if (auto* media_client = GetMediaClient()) {
+    if (auto* alloc = media_client->GetMediaAllocator()) {
+      auto data_span = UNSAFE_BUFFERS(
+          base::span(data, base::checked_cast<size_t>(data_size)));
+      return StreamParserBuffer::FromExternalMemory(
+          alloc->CopyFrom(data_span), is_key_frame, type, track_id);
+    }
+  }
   return base::WrapRefCounted(
       new StreamParserBuffer(data, data_size, is_key_frame, type, track_id));
 }
@@ -65,7 +77,11 @@ StreamParserBuffer::StreamParserBuffer(const uint8_t* data,
                                        bool is_key_frame,
                                        Type type,
                                        TrackId track_id)
-    : DecoderBuffer(data, data_size),
+    : DecoderBuffer(
+          // TODO(crbug.com/40284755): Convert `StreamBufferParser` to
+          // `size_t` and `base::span`.
+          UNSAFE_BUFFERS(
+              base::span(data, base::checked_cast<size_t>(data_size)))),
       decode_timestamp_(kNoDecodeTimestamp),
       config_id_(kInvalidConfigId),
       type_(type),

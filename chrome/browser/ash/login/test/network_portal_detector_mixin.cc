@@ -35,22 +35,6 @@ std::string StatusToState(NetworkPortalDetectorMixin::NetworkStatus status) {
   }
 }
 
-// TODO(b/331264838): Remove once CaptivePortalStatus is eliminated.
-NetworkPortalDetector::CaptivePortalStatus CaptivePortalStatusForNetworkStatus(
-    NetworkPortalDetectorMixin::NetworkStatus status) {
-  using NetworkStatus = NetworkPortalDetectorMixin::NetworkStatus;
-  switch (status) {
-    case NetworkStatus::kUnknown:
-      return NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_UNKNOWN;
-    case NetworkStatus::kOffline:
-      return NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_OFFLINE;
-    case NetworkStatus::kOnline:
-      return NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_ONLINE;
-    case NetworkStatus::kPortal:
-      return NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL;
-  }
-}
-
 }  // namespace
 
 NetworkPortalDetectorMixin::NetworkPortalDetectorMixin(
@@ -83,15 +67,6 @@ void NetworkPortalDetectorMixin::SimulateDefaultNetworkState(
       default_network_guid.compare(0, 4, "wifi") == 0 ? shill::kTypeWifi
                                                       : shill::kTypeEthernet;
 
-  int response_code;
-  if (status == NetworkStatus::kOnline) {
-    response_code = 204;
-  } else if (status == NetworkStatus::kPortal) {
-    response_code = 200;
-  } else {
-    response_code = -1;
-  }
-
   if (NetworkHandler::IsInitialized()) {
     const NetworkState* default_network =
         NetworkHandler::Get()->network_state_handler()->DefaultNetwork();
@@ -106,10 +81,6 @@ void NetworkPortalDetectorMixin::SimulateDefaultNetworkState(
       base::RunLoop().RunUntilIdle();
     }
   }
-
-  network_portal_detector_->SetDetectionResultsForTesting(
-      default_network_guid, CaptivePortalStatusForNetworkStatus(status),
-      response_code);
 }
 
 void NetworkPortalDetectorMixin::SetUpOnMainThread() {

@@ -244,6 +244,10 @@ bool BrowserParamsProxy::IsFlossAvailabilityCheckNeeded() const {
   return BrowserInitParams::Get()->is_floss_availability_check_needed;
 }
 
+bool BrowserParamsProxy::IsLLPrivacyAvailable() const {
+  return BrowserInitParams::Get()->is_llprivacy_available;
+}
+
 bool BrowserParamsProxy::IsCurrentUserDeviceOwner() const {
   if (IsLaunchedWithPostLoginParams()) {
     return BrowserPostLoginParams::Get()->is_current_user_device_owner;
@@ -364,6 +368,11 @@ bool BrowserParamsProxy::IsFileSystemProviderCloudFileSystemEnabled() const {
       ->is_file_system_provider_cloud_file_system_enabled;
 }
 
+bool BrowserParamsProxy::IsFileSystemProviderContentCacheEnabled() const {
+  return BrowserInitParams::Get()
+      ->is_file_system_provider_content_cache_enabled;
+}
+
 bool BrowserParamsProxy::IsOrcaEnabled() const {
   return BrowserInitParams::Get()->is_orca_enabled;
 }
@@ -390,6 +399,10 @@ bool BrowserParamsProxy::IsMahiSupportedWithCorrectFeatureKey() const {
         ->is_mahi_supported_with_correct_feature_key;
   }
   return BrowserInitParams::Get()->is_mahi_supported_with_correct_feature_key;
+}
+
+bool BrowserParamsProxy::IsOrcaInternationalizeEnabled() const {
+  return BrowserInitParams::Get()->is_orca_internationalize_enabled;
 }
 
 }  // namespace chromeos

@@ -31,7 +31,6 @@
 <translation id="1620510694547887537">Camera</translation>
 <translation id="1633720957382884102">Related sites</translation>
 <translation id="1644574205037202324">History</translation>
-<translation id="1647582022260550163">Are you sure that you want to reset permissions, and clear cookies and site data?</translation>
 <translation id="1652197001188145583">When on, sites can ask to use NFC devices. When off, sites can't use NFC devices.</translation>
 <translation id="1660204651932907780">Allow sites to play sound (recommended)</translation>
 <translation id="1677097821151855053">Cookies and other site data are used to remember you, for example, to sign you in or to personalise ads. To manage cookies for all sites, see <ph name="BEGIN_LINK" />Settings<ph name="END_LINK" />.</translation>
@@ -69,7 +68,6 @@
 <translation id="2241587408274973373">New tab page cards</translation>
 <translation id="2241634353105152135">Just once</translation>
 <translation id="2253414712144136228"><ph name="NAME_OF_LIST_ITEM" /> Remove</translation>
-<translation id="2253989982043948086">{NUM_SELECTED,plural, =1{1 site blocked}other{# sites blocked}}</translation>
 <translation id="228293613124499805">Most sites that you visit probably save data to your device, often to improve your experience by saving your preferences or information that you share with the site. We recommend keeping this setting on.</translation>
 <translation id="2289270750774289114">Ask when a site wants to discover nearby Bluetooth devices (recommended)</translation>
 <translation id="2315043854645842844">Client side certificate selection is not supported by the operating system.</translation>
@@ -123,7 +121,6 @@
 <translation id="3008272652534848354">Reset permissions</translation>
 <translation id="301521992641321250">Automatically blocked</translation>
 <translation id="3069226013421428034">Allow third-party sign-in for a specific site.</translation>
-<translation id="3082992102194421695">{COUNT,plural, =1{Expires tomorrow}other{Expires in # days}}</translation>
 <translation id="310297983047869047">Previous slide</translation>
 <translation id="3109724472072898302">Collapsed</translation>
 <translation id="3114012059975132928">Video player</translation>
@@ -135,6 +132,7 @@
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> stored data</translation>
 <translation id="321187648315454507">To let <ph name="APP_NAME" /> send you notifications, also turn on notifications in <ph name="BEGIN_LINK" />Android settings<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Microphone</translation>
+<translation id="3232293466644486101">Delete browsing data…</translation>
 <translation id="3242646949159196181">When on, sites can play sound. When off, sites can't play sound.</translation>
 <translation id="3277252321222022663">Allow sites to access sensors (recommended)</translation>
 <translation id="3285500645985761267">Allow related sites to see your activity in the group</translation>
@@ -198,6 +196,7 @@
 <translation id="4278390842282768270">Allowed</translation>
 <translation id="429312253194641664">A site is playing media</translation>
 <translation id="42981349822642051">Expand</translation>
+<translation id="4336219115486912529">{COUNT,plural, =1{Expires tomorrow}other{Expires in # days}}</translation>
 <translation id="4336566011000459927">Chrome will limit cookies again today</translation>
 <translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Your last tab</translation>
 <translation id="4338831206024587507">All sites under <ph name="DOMAIN" /></translation>
@@ -305,9 +304,11 @@
 <translation id="6015775454662021376">Control this site's access to your device</translation>
 <translation id="6040143037577758943">Close</translation>
 <translation id="6042308850641462728">More</translation>
+<translation id="6060464773477604108"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> Your last tab</translation>
 <translation id="6064125863973209585">Completed downloads</translation>
 <translation id="6071501408666570960">You may be signed out of this site</translation>
 <translation id="6120483543004435978">When on, sites can ask to know when you're actively using your device. When off, sites can't know when you're actively using your device.</translation>
+<translation id="6140839633433422817">Are you sure that you want to reset permissions and delete cookies and site data?</translation>
 <translation id="6165508094623778733">Learn more</translation>
 <translation id="6171020522141473435">When on, sites can ask to use Bluetooth devices. When off, sites can't use Bluetooth devices.</translation>
 <translation id="6177111841848151710">Blocked for current search engine</translation>
@@ -341,6 +342,7 @@
 <translation id="6545864417968258051">Bluetooth scanning</translation>
 <translation id="6552800053856095716">{PERMISSIONS_SUMMARY_BLOCKED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> and <ph name="NUM_MORE" /> more blocked}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> and <ph name="NUM_MORE" /> more blocked}}</translation>
 <translation id="6554732001434021288">Last visited <ph name="NUM_DAYS" /> days ago</translation>
+<translation id="656065428026159829">See more</translation>
 <translation id="6561560012278703671">Use quieter messaging (blocks notification prompts from interrupting you)</translation>
 <translation id="6593061639179217415">Desktop site</translation>
 <translation id="6608650720463149374"><ph name="GIGABYTES" /> GB</translation>
@@ -401,7 +403,6 @@
 <translation id="7561196759112975576">Always</translation>
 <translation id="757524316907819857">Block sites from playing protected content</translation>
 <translation id="7594634374516752650">Connected to a Bluetooth device</translation>
-<translation id="7641339528570811325">Clear browsing data…</translation>
 <translation id="7649070708921625228">Help</translation>
 <translation id="7658239707568436148">Cancel</translation>
 <translation id="7667547420449112975">The Wonderful Wizard of Oz</translation>
@@ -425,6 +426,7 @@
 <translation id="7986741934819883144">Select a contact</translation>
 <translation id="7990211076305263060">When on, sites can ask to use your microphone. When off, sites can't use your microphone.</translation>
 <translation id="8007176423574883786">Turned off for this device</translation>
+<translation id="8009579582995973057"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> From <ph name="FROM_DEVICE" /></translation>
 <translation id="802154636333426148">Download failed</translation>
 <translation id="8042586301629853791">Sort by:</translation>
 <translation id="8067883171444229417">Play video</translation>
@@ -479,7 +481,6 @@
 <translation id="8721719390026067591">When on, sites can ask to look for Bluetooth devices. When off, sites can't look for Bluetooth devices.</translation>
 <translation id="8725066075913043281">Try again</translation>
 <translation id="8730621377337864115">Done</translation>
-<translation id="8736193154595564524">{NUM_SELECTED,plural, =1{1 site allowed}other{# sites allowed}}</translation>
 <translation id="8751914237388039244">Select an image</translation>
 <translation id="8800034312320686233">Site not working?</translation>
 <translation id="8801436777607969138">Block JavaScript for a specific site.</translation>

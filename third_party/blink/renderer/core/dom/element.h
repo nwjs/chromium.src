@@ -57,7 +57,6 @@
 #include "third_party/blink/renderer/platform/region_capture_crop_id.h"
 #include "third_party/blink/renderer/platform/restriction_target_id.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
-#include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string_table.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
@@ -101,6 +100,7 @@ class HTMLElement;
 class HTMLTemplateElement;
 class Image;
 class InputDeviceCapabilities;
+class KURL;
 class Locale;
 class MutableCSSPropertyValueSet;
 class NamedNodeMap;
@@ -1577,7 +1577,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
     // The HighlightData from the old style can be re-used.
     kReuse,
     // The HighlightData contains relative units and may need recalc.
-    kRelativeUnits,
+    kOriginatingDependent,
     // Highlights must be calculated in full.
     kFull,
   };
@@ -1721,7 +1721,7 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   bool ChildTypeAllowed(NodeType) const final;
 
   // Returns the attribute's index or `kNotFound` if not found.
-  wtf_size_t FindAttributeIndex(const QualifiedName&);
+  wtf_size_t FindAttributeIndex(const QualifiedName&) const;
 
   void SetAttributeInternal(wtf_size_t index,
                             const QualifiedName&,
@@ -1760,6 +1760,8 @@ class CORE_EXPORT Element : public ContainerNode, public Animatable {
   std::pair<wtf_size_t, const QualifiedName> LookupAttributeQNameHinted(
       AtomicString name,
       WTF::AtomicStringTable::WeakResult hint) const;
+  wtf_size_t ValidateAttributeIndex(wtf_size_t index,
+                                    const QualifiedName& qname) const;
 
   void CancelSelectionAfterLayout();
   virtual int DefaultTabIndex() const;
@@ -1891,8 +1893,7 @@ inline bool Element::FastHasAttribute(const QualifiedName& name) const {
   DCHECK(FastAttributeLookupAllowed(name))
       << TagQName().ToString().Utf8() << "/@" << name.ToString().Utf8();
 #endif
-  return HasElementData() &&
-         GetElementData()->Attributes().FindIndex(name) != kNotFound;
+  return HasElementData() && GetElementData()->Attributes().Find(name);
 }
 
 inline const AtomicString& Element::FastGetAttribute(
@@ -1964,7 +1965,7 @@ inline const SpaceSplitString& Element::ClassNames() const {
 }
 
 inline bool Element::HasClassName(const AtomicString& class_name) const {
-  return HasClass() && ClassNames().Contains(class_name);
+  return HasElementData() && GetElementData()->ClassNames().Contains(class_name);
 }
 
 inline bool Element::HasID() const {

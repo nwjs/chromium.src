@@ -16,8 +16,9 @@ enum class TabsSectionHeaderType {
                   // shown.
   kAnimatingOut,  // The previous header is being animated out. This adds a
                   // 0.1pt high empty header.
-                  // TODO(crbug.com/1504153): Remove once the button is a cell
+                  // TODO(crbug.com/40944664): Remove once the button is a cell
                   // and not a header.
+  kTabGroup,      // Tab Group information header is shown.
 };
 
 // A collection view compositional layout that displays items in a grid.

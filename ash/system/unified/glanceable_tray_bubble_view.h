@@ -36,8 +36,10 @@ struct GlanceablesClassroomAssignment;
 
 // The bubble associated with the `GlanceableTrayBubble`. This bubble is the
 // container for the child `tasks` and `classroom` glanceables.
-class GlanceableTrayBubbleView : public TrayBubbleView,
-                                 public ScreenLayoutObserver {
+class GlanceableTrayBubbleView
+    : public TrayBubbleView,
+      public ScreenLayoutObserver,
+      public GlanceablesTimeManagementBubbleView::Observer {
   METADATA_HEADER(GlanceableTrayBubbleView, TrayBubbleView)
 
  public:
@@ -64,6 +66,11 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
   // ScreenLayoutObserver:
   void OnDisplayConfigurationChanged() override;
 
+  // GlanceablesTimeManagementBubbleView::Observer:
+  void OnExpandStateChanged(
+      GlanceablesTimeManagementBubbleView::Context context,
+      bool is_expanded) override;
+
  private:
   // Creates classroom student view if needed (if the corresponding
   // role is active).
@@ -76,9 +83,6 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
   void UpdateTaskLists(bool fetch_success,
                        const ui::ListModel<api::TaskList>* task_lists);
 
-  void OnGlanceablesContainerPreferredSizeChanged();
-  void OnGlanceablesContainerHeightChanged(int height_delta);
-
   // Adjusts the order of the views in the focus list under
   // GlanceableTrayBubbleView.
   void AdjustChildrenFocusOrder();
@@ -86,11 +90,6 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
   // Sets the preferred size of `calendar_view_`. This is called during
   // initialization and when the screen height changes.
   void SetCalendarPreferredSize() const;
-
-  // For GlanceablesV2CalendarView: clips the `scroll_view_` height based on
-  // `screen_max_height` and `calendar_view_` height. This is called during
-  // initialization and when the `calendar_view_` height changes.
-  void ClipScrollViewHeight(int screen_max_height) const;
 
   // Creates `time_management_container_view_` if needed.
   void MaybeCreateTimeManagementContainer();
@@ -102,13 +101,14 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
       std::vector<std::unique_ptr<GlanceablesClassroomAssignment>> assignments)
       const;
 
+  // Updates `time_management_container_view_` layout according to the number of
+  // its children.
+  void UpdateTimeManagementContainerLayout();
+
   const raw_ptr<Shelf> shelf_;
 
   // Whether the bubble view has been initialized.
   bool initialized_ = false;
-
-  // A scrollable view which contains the individual glanceables.
-  raw_ptr<views::ScrollView> scroll_view_ = nullptr;
 
   // Container view for the tasks and classroom glanceables. Owned by this view.
   raw_ptr<views::FlexLayoutView> time_management_container_view_ = nullptr;
@@ -129,6 +129,11 @@ class GlanceableTrayBubbleView : public TrayBubbleView,
   raw_ptr<CalendarView> calendar_view_ = nullptr;
 
   base::CallbackListSubscription on_contents_scrolled_subscription_;
+
+  base::ScopedMultiSourceObservation<
+      GlanceablesTimeManagementBubbleView,
+      GlanceablesTimeManagementBubbleView::Observer>
+      time_management_view_observation_{this};
 
   base::WeakPtrFactory<GlanceableTrayBubbleView> weak_ptr_factory_{this};
 };

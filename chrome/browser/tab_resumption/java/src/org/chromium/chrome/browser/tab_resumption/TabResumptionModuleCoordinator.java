@@ -10,9 +10,10 @@ import androidx.annotation.NonNull;
 
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate;
 import org.chromium.chrome.browser.magic_stack.ModuleProvider;
+import org.chromium.chrome.browser.tab_resumption.TabResumptionDataProvider.TabResumptionDataProviderFactory;
 import org.chromium.chrome.browser.tab_resumption.TabResumptionModuleUtils.SuggestionClickCallbacks;
-import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
@@ -23,21 +24,22 @@ import org.chromium.url.GURL;
 public class TabResumptionModuleCoordinator implements ModuleProvider {
     protected final Context mContext;
     protected final ModuleDelegate mModuleDelegate;
-    protected final TabResumptionDataProvider mDataProvider;
+    protected final TabResumptionDataProviderFactory mDataProviderFactory;
     protected final UrlImageProvider mUrlImageProvider;
     protected final PropertyModel mModel;
-    protected final TabResumptionModuleMediator mMediator;
+
+    protected TabResumptionDataProvider mDataProvider;
+    protected TabResumptionModuleMediator mMediator;
 
     public TabResumptionModuleCoordinator(
             @NonNull Context context,
             @NonNull ModuleDelegate moduleDelegate,
-            @NonNull TabResumptionDataProvider dataProvider,
+            @NonNull TabResumptionDataProviderFactory dataProviderFactory,
             @NonNull UrlImageProvider urlImageProvider,
-            @NonNull TabListFaviconProvider faviconProvider,
             @NonNull ThumbnailProvider thumbnailProvider) {
         mContext = context;
         mModuleDelegate = moduleDelegate;
-        mDataProvider = dataProvider;
+        mDataProviderFactory = dataProviderFactory;
         mUrlImageProvider = urlImageProvider;
         mModel = new PropertyModel(TabResumptionModuleProperties.ALL_KEYS);
         SuggestionClickCallbacks wrappedClickCallbacks =
@@ -54,27 +56,34 @@ public class TabResumptionModuleCoordinator implements ModuleProvider {
                 };
         mMediator =
                 new TabResumptionModuleMediator(
-                        mContext,
-                        mModuleDelegate,
-                        mModel,
-                        mDataProvider,
-                        mUrlImageProvider,
-                        faviconProvider,
-                        thumbnailProvider,
-                        wrappedClickCallbacks);
-        mDataProvider.setStatusChangedCallback(this::showModule);
+                        /* context= */ mContext,
+                        /* moduleDelegate= */ mModuleDelegate,
+                        /* model= */ mModel,
+                        /* urlImageProvider= */ mUrlImageProvider,
+                        /* thumbnailProvider= */ thumbnailProvider,
+                        /* statusChangedCallback= */ this::showModule,
+                        /* seeMoreLinkClickCallback= */ this::onSeeMoreClicked,
+                        /* suggestionClickCallbacks= */ wrappedClickCallbacks);
+        mMediator.startSession(mDataProviderFactory.make());
     }
 
     public void destroy() {
-        mDataProvider.setStatusChangedCallback(null);
+        mMediator.endSession();
         mMediator.destroy();
         mUrlImageProvider.destroy();
-        mDataProvider.destroy();
     }
 
-    /** Show tab resumption module. */
+    /** Shows tab resumption module. */
     @Override
     public void showModule() {
+        mMediator.loadModule();
+    }
+
+    /** Loads the Mediator with new Data Provider, and re-shows tab resumption module. */
+    @Override
+    public void updateModule() {
+        mMediator.endSession();
+        mMediator.startSession(mDataProviderFactory.make());
         mMediator.loadModule();
     }
 
@@ -95,4 +104,8 @@ public class TabResumptionModuleCoordinator implements ModuleProvider {
 
     @Override
     public void onContextMenuCreated() {}
+
+    private void onSeeMoreClicked() {
+        mModuleDelegate.onUrlClicked(new GURL(UrlConstants.RECENT_TABS_URL), getModuleType());
+    }
 }

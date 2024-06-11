@@ -133,11 +133,6 @@ class HidDetectionScreenTester extends ScreenElementApi {
     this.nextButton = new PolymerElementApi(this, '#hid-continue-button');
   }
 
-  // Must be called to enable the next button
-  emulateDevicesConnected(): void {
-    chrome.send('OobeTestApi.emulateDevicesForTesting');
-  }
-
   touchscreenDetected(): boolean {
     // Touchscreen entire row is only visible when touchscreen is detected.
     const touchscreenRow =
@@ -1151,13 +1146,27 @@ class PasswordFactorSuccessScreenTester extends ScreenElementApi {
 }
 
 class GaiaInfoScreenTester extends ScreenElementApi {
+  private manualCredentialsButton: PolymerElementApi;
+
   constructor() {
     super('gaia-info');
     this.nextButton = new PolymerElementApi(this, '#nextButton');
+    this.manualCredentialsButton = new PolymerElementApi(this, '#manualButton');
   }
 
   override shouldSkip(): boolean {
     return loadTimeData.getBoolean('testapi_shouldSkipGaiaInfoScreen');
+  }
+
+  isOobeQuickStartEnabled(): boolean {
+    return loadTimeData.getBoolean('testapi_isOobeQuickStartEnabled');
+  }
+
+  /**
+   * Select option to manually enter Google credentials.
+   */
+  selectManualCredentials(): void {
+    this.manualCredentialsButton.click();
   }
 }
 

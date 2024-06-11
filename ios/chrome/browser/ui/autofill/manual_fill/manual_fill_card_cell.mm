@@ -8,8 +8,10 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "components/autofill/core/browser/data_model/credit_card.h"
+#import "components/autofill/core/browser/payments/autofill_payments_feature_availability.h"
 #import "components/autofill/core/browser/payments/payments_service_url.h"
 #import "components/autofill/core/common/autofill_payments_features.h"
+#import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/net/model/crurl.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -25,6 +27,7 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/text_view_util.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
 
@@ -43,6 +46,9 @@ using base::SysNSStringToUTF8;
 // The credit card for this item.
 @property(nonatomic, readonly) ManualFillCreditCard* card;
 
+// The UIActions that should be available from the cell's overflow menu button.
+@property(nonatomic, strong) NSArray<UIAction*>* menuActions;
+
 @end
 
 @implementation ManualFillCardItem
@@ -50,12 +56,14 @@ using base::SysNSStringToUTF8;
 - (instancetype)initWithCreditCard:(ManualFillCreditCard*)card
                    contentInjector:
                        (id<ManualFillContentInjector>)contentInjector
-                navigationDelegate:(id<CardListDelegate>)navigationDelegate {
+                navigationDelegate:(id<CardListDelegate>)navigationDelegate
+                       menuActions:(NSArray<UIAction*>*)menuActions {
   self = [super initWithType:kItemTypeEnumZero];
   if (self) {
     _contentInjector = contentInjector;
     _navigationDelegate = navigationDelegate;
     _card = card;
+    _menuActions = menuActions;
     self.cellClass = [ManualFillCardCell class];
   }
   return self;
@@ -66,7 +74,8 @@ using base::SysNSStringToUTF8;
   [super configureCell:cell withStyler:styler];
   [cell setUpWithCreditCard:self.card
             contentInjector:self.contentInjector
-         navigationDelegate:self.navigationDelegate];
+         navigationDelegate:self.navigationDelegate
+                menuActions:self.menuActions];
 }
 
 @end
@@ -77,11 +86,18 @@ using base::SysNSStringToUTF8;
 @property(nonatomic, strong)
     NSMutableArray<NSLayoutConstraint*>* dynamicConstraints;
 
+// The view displayed at the top the cell containing the card icon, the card
+// label and an overflow menu button.
+@property(nonatomic, strong) UIView* headerView;
+
 // The label with bank name and network.
 @property(nonatomic, strong) UILabel* cardLabel;
 
 // The credit card icon.
 @property(nonatomic, strong) UIImageView* cardIcon;
+
+// The menu button displayed in the cell's header.
+@property(nonatomic, strong) UIButton* overflowMenuButton;
 
 // The text view with instructions for how to use virtual cards.
 @property(nonatomic, strong) UITextView* virtualCardInstructionTextView;
@@ -118,6 +134,16 @@ using base::SysNSStringToUTF8;
 
 // Layout guide for the cell's content.
 @property(nonatomic, strong) UILayoutGuide* layoutGuide;
+
+// Separator line. Used to delimit the header from the rest of the cell.
+@property(nonatomic, strong) UIView* headerSeparator;
+
+// Separator line. Used to delimit the virtual card instruction text view from
+// the rest of the cell.
+@property(nonatomic, strong) UIView* virtualCardInstructionsSeparator;
+
+// Button to autofill the current form with the card's data.
+@property(nonatomic, strong) UIButton* autofillFormButton;
 
 @end
 
@@ -161,7 +187,8 @@ using base::SysNSStringToUTF8;
 
 - (void)setUpWithCreditCard:(ManualFillCreditCard*)card
             contentInjector:(id<ManualFillContentInjector>)contentInjector
-         navigationDelegate:(id<CardListDelegate>)navigationDelegate {
+         navigationDelegate:(id<CardListDelegate>)navigationDelegate
+                menuActions:(NSArray<UIAction*>*)menuActions {
   if (!self.dynamicConstraints) {
     self.dynamicConstraints = [[NSMutableArray alloc] init];
   }
@@ -174,7 +201,7 @@ using base::SysNSStringToUTF8;
   self.navigationDelegate = navigationDelegate;
   self.card = card;
 
-  [self populateViewsWithCardData:card];
+  [self populateViewsWithCardData:card menuActions:menuActions];
   [self verticallyArrangeViews:card];
 }
 
@@ -182,16 +209,29 @@ using base::SysNSStringToUTF8;
 
 // Creates and sets up the view hierarchy.
 - (void)createViewHierarchy {
-  self.layoutGuide = AddLayoutGuideToContentView(self.contentView);
+  self.layoutGuide =
+      AddLayoutGuideToContentView(self.contentView, /*cell_has_header=*/YES);
 
   self.selectionStyle = UITableViewCellSelectionStyleNone;
 
   // Create the UIViews, add them to the contentView.
   self.cardLabel = CreateLabel();
-  [self.contentView addSubview:self.cardLabel];
   self.cardIcon = [[UIImageView alloc] init];
   self.cardIcon.translatesAutoresizingMaskIntoConstraints = NO;
-  [self.contentView addSubview:self.cardIcon];
+  [self.cardIcon setContentHuggingPriority:UILayoutPriorityDefaultHigh
+                                   forAxis:UILayoutConstraintAxisHorizontal];
+  self.overflowMenuButton = CreateOverflowMenuButton();
+  self.headerView =
+      CreateHeaderView(self.cardIcon, self.cardLabel, self.overflowMenuButton);
+  [self.contentView addSubview:self.headerView];
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    self.headerSeparator = CreateGraySeparatorForContainer(self.contentView);
+  } else {
+    // This separator is used to delimit this cell from the others.
+    CreateGraySeparatorForContainer(self.contentView);
+  }
+
   UILabel* expirationDateSeparatorLabel;
 
   // If Virtual Cards are enabled, create UIViews with the labeled chips,
@@ -203,6 +243,9 @@ using base::SysNSStringToUTF8;
     self.virtualCardInstructionTextView =
         [self createVirtualCardInstructionTextView];
     [self.contentView addSubview:self.virtualCardInstructionTextView];
+    self.virtualCardInstructionsSeparator =
+        CreateGraySeparatorForContainer(self.contentView);
+
     self.cardNumberLabeledChip = [[ManualFillLabeledChip alloc]
         initSingleChipWithTarget:self
                         selector:@selector(userDidTapCardNumber:)];
@@ -236,21 +279,23 @@ using base::SysNSStringToUTF8;
     [self.contentView addSubview:self.cardholderButton];
   }
 
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    self.autofillFormButton = CreateAutofillFormButton();
+    [self.contentView addSubview:self.autofillFormButton];
+    [self.autofillFormButton addTarget:self
+                                action:@selector(onAutofillFormButtonTapped)
+                      forControlEvents:UIControlEventTouchUpInside];
+  }
+
   [self horizontallyArrangeViews:expirationDateSeparatorLabel];
 }
 
 // Horizontally positions the UIViews.
 - (void)horizontallyArrangeViews:(UILabel*)expirationDateSeparatorLabel {
-  CreateGraySeparatorForContainer(self.contentView);
-
   NSMutableArray<NSLayoutConstraint*>* staticConstraints =
       [[NSMutableArray alloc] init];
-  AppendHorizontalConstraintsForViews(
-      staticConstraints, @[ self.cardIcon, self.cardLabel ], self.layoutGuide);
-  [NSLayoutConstraint activateConstraints:@[
-    [self.cardIcon.centerYAnchor
-        constraintEqualToAnchor:self.cardLabel.centerYAnchor]
-  ]];
+  AppendHorizontalConstraintsForViews(staticConstraints, @[ self.headerView ],
+                                      self.layoutGuide);
 
   // If Virtual Cards are enabled, position the labeled chips, else position the
   // regular buttons.
@@ -293,6 +338,11 @@ using base::SysNSStringToUTF8;
         AppendConstraintsHorizontalEqualOrSmallerThanGuide);
   }
 
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    AppendHorizontalConstraintsForViews(
+        staticConstraints, @[ self.autofillFormButton ], self.layoutGuide);
+  }
+
   // Without this set, Voice Over will read the content vertically instead of
   // horizontally.
   self.contentView.shouldGroupAccessibilityChildren = YES;
@@ -301,8 +351,16 @@ using base::SysNSStringToUTF8;
 }
 
 // Adds the data from the ManualFillCreditCard to the corresponding UIViews.
-- (void)populateViewsWithCardData:(ManualFillCreditCard*)card {
+- (void)populateViewsWithCardData:(ManualFillCreditCard*)card
+                      menuActions:(NSArray<UIAction*>*)menuActions {
   self.cardIcon.image = NativeImage(card.issuerNetworkIconID);
+
+  if (menuActions && menuActions.count) {
+    self.overflowMenuButton.menu = [UIMenu menuWithChildren:menuActions];
+    self.overflowMenuButton.hidden = NO;
+  } else {
+    self.overflowMenuButton.hidden = YES;
+  }
 
   // If Virtual Cards are enabled set text for labeled chips, else set text for
   // buttons.
@@ -365,9 +423,15 @@ using base::SysNSStringToUTF8;
   // Holds the views whose leading anchor is constrained relative to the cell's
   // leading anchor.
   std::vector<ManualFillCellView> verticalLeadViews;
-  AddViewToVerticalLeadViews(self.cardLabel,
+  AddViewToVerticalLeadViews(self.headerView,
                              ManualFillCellView::ElementType::kOther,
                              verticalLeadViews);
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    AddViewToVerticalLeadViews(
+        self.headerSeparator, ManualFillCellView::ElementType::kHeaderSeparator,
+        verticalLeadViews);
+  }
 
   // Holds the chip buttons related to the card that are vertical leads.
   NSMutableArray<UIView*>* cardInfoGroupVerticalLeadChips =
@@ -379,12 +443,21 @@ using base::SysNSStringToUTF8;
           autofill::features::kAutofillEnableVirtualCards)) {
     // Virtual card instruction.
     if (card.recordType == kVirtualCard) {
-      AddViewToVerticalLeadViews(self.virtualCardInstructionTextView,
-                                 ManualFillCellView::ElementType::kOther,
-                                 verticalLeadViews);
+      AddViewToVerticalLeadViews(
+          self.virtualCardInstructionTextView,
+          ManualFillCellView::ElementType::kVirtualCardInstructions,
+          verticalLeadViews);
+      if (IsKeyboardAccessoryUpgradeEnabled()) {
+        AddViewToVerticalLeadViews(
+            self.virtualCardInstructionsSeparator,
+            ManualFillCellView::ElementType::kVirtualCardInstructionsSeparator,
+            verticalLeadViews);
+        self.virtualCardInstructionsSeparator.hidden = NO;
+      }
       self.virtualCardInstructionTextView.hidden = NO;
     } else {
       self.virtualCardInstructionTextView.hidden = YES;
+      self.virtualCardInstructionsSeparator.hidden = YES;
     }
 
     // Card number labeled chip button.
@@ -419,6 +492,12 @@ using base::SysNSStringToUTF8;
 
   AddChipGroupsToVerticalLeadViews(@[ cardInfoGroupVerticalLeadChips ],
                                    verticalLeadViews);
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    AddViewToVerticalLeadViews(self.autofillFormButton,
+                               ManualFillCellView::ElementType::kOther,
+                               verticalLeadViews);
+  }
 
   // Set and activate constraints.
   AppendVerticalConstraintsSpacingForViews(self.dynamicConstraints,
@@ -506,6 +585,29 @@ using base::SysNSStringToUTF8;
                                passwordField:NO
                                requiresHTTPS:NO];
   }
+}
+
+// Called the "Autofill Form" button is tapped. Fills the current form with the
+// card's data.
+- (void)onAutofillFormButtonTapped {
+  autofill::SuggestionType popupItemId =
+      autofill::VirtualCardFeatureEnabled() &&
+              [self.card recordType] == kVirtualCard
+          ? autofill::SuggestionType::kVirtualCreditCardEntry
+          : autofill::SuggestionType::kCreditCardEntry;
+  FormSuggestion* suggestion =
+      [FormSuggestion suggestionWithValue:nil
+                               minorValue:nil
+                       displayDescription:nil
+                                     icon:nil
+                              popupItemId:popupItemId
+                        backendIdentifier:[self.card GUID]
+                           requiresReauth:NO
+               acceptanceA11yAnnouncement:
+                   base::SysUTF16ToNSString(l10n_util::GetStringUTF16(
+                       IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_FORM))];
+
+  [self.contentInjector autofillFormWithSuggestion:suggestion];
 }
 
 - (const char*)createMetricsAction:(NSString*)selectedChip {

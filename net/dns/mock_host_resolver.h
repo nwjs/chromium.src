@@ -287,6 +287,11 @@ class MockHostResolverBase
       const NetworkAnonymizationKey& network_anonymization_key,
       const NetLogWithSource& net_log,
       const std::optional<ResolveHostParameters>& optional_parameters) override;
+  std::unique_ptr<ServiceEndpointRequest> CreateServiceEndpointRequest(
+      Host host,
+      NetworkAnonymizationKey network_anonymization_key,
+      NetLogWithSource net_log,
+      ResolveHostParameters parameters) override;
   std::unique_ptr<ProbeRequest> CreateDohProbeRequest() override;
   std::unique_ptr<MdnsListener> CreateMdnsListener(
       const HostPortPair& host,
@@ -602,7 +607,7 @@ class RuleBasedHostResolverProc : public HostResolverProc {
               int* os_error) override;
 
   struct Rule {
-    // TODO(https://crbug.com/1298106) Deduplicate this enum's definition.
+    // TODO(crbug.com/40822747) Deduplicate this enum's definition.
     enum ResolverType {
       kResolverTypeFail,
       kResolverTypeFailTimeout,
@@ -697,6 +702,11 @@ class HangingHostResolver : public HostResolver {
       const NetworkAnonymizationKey& network_anonymization_key,
       const NetLogWithSource& net_log,
       const std::optional<ResolveHostParameters>& optional_parameters) override;
+  std::unique_ptr<ServiceEndpointRequest> CreateServiceEndpointRequest(
+      Host host,
+      NetworkAnonymizationKey network_anonymization_key,
+      NetLogWithSource net_log,
+      ResolveHostParameters parameters) override;
 
   std::unique_ptr<ProbeRequest> CreateDohProbeRequest() override;
 

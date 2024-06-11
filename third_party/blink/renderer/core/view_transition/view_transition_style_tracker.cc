@@ -429,21 +429,18 @@ class ViewTransitionStyleTracker::ImageWrapperPseudoElement
 
 ViewTransitionStyleTracker::ViewTransitionStyleTracker(
     Document& document,
-    const viz::TransitionId& transition_id)
+    const blink::ViewTransitionToken& transition_token)
     : document_(document),
-      transition_id_(transition_id),
-      device_pixel_ratio_(DevicePixelRatioFromDocument(document)) {
-  CHECK(!transition_id.is_empty());
-}
+      transition_token_(transition_token),
+      device_pixel_ratio_(DevicePixelRatioFromDocument(document)) {}
 
 ViewTransitionStyleTracker::ViewTransitionStyleTracker(
     Document& document,
     ViewTransitionState transition_state)
     : document_(document),
       state_(State::kCaptured),
-      transition_id_(transition_state.transition_id),
+      transition_token_(transition_state.transition_token),
       deserialized_(true) {
-  CHECK(!transition_id_.is_empty());
   auto* supplement = ViewTransitionSupplement::FromIfExists(document);
   CHECK(supplement);
   supplement->InitializeResourceIdSequence(
@@ -603,11 +600,12 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSS() {
             DocumentLifecycle::kCompositingInputsClean);
 
   AddTransitionElementsFromCSSRecursive(
-      document_->GetLayoutView()->PaintingLayer());
+      document_->GetLayoutView()->PaintingLayer(), document_.Get());
 }
 
 void ViewTransitionStyleTracker::AddTransitionElementsFromCSSRecursive(
-    PaintLayer* root) {
+    PaintLayer* root,
+    const TreeScope* tree_scope) {
   // We want to call AddTransitionElements in the order in which
   // PaintLayerPaintOrderIterator would cause us to paint the elements.
   // Specifically, parents are added before their children, and lower z-index
@@ -623,18 +621,23 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSSRecursive(
   auto& root_object = root->GetLayoutObject();
   auto& root_style = root_object.StyleRef();
   if (root_style.ViewTransitionName() && !root_object.IsFragmented()) {
-    DCHECK(root_object.GetNode());
-    DCHECK(root_object.GetNode()->IsElementNode());
-    AddTransitionElement(DynamicTo<Element>(root_object.GetNode()),
-                         root_style.ViewTransitionName());
+    auto* node = root_object.GetNode();
+    DCHECK(node);
+    DCHECK(node->IsElementNode());
+    if (node->GetTreeScope() == tree_scope) {
+      AddTransitionElement(DynamicTo<Element>(node),
+                           root_style.ViewTransitionName());
+    }
   }
 
   if (root_object.ChildPaintBlockedByDisplayLock())
     return;
 
+  // Even if tree scopes don't match, we process children since light slotted
+  // children can have outer tree scope.
   PaintLayerPaintOrderIterator child_iterator(root, kAllChildren);
   while (auto* child = child_iterator.Next()) {
-    AddTransitionElementsFromCSSRecursive(child);
+    AddTransitionElementsFromCSSRecursive(child, tree_scope);
   }
 }
 
@@ -816,9 +819,7 @@ void ViewTransitionStyleTracker::CaptureResolved() {
     auto& element_data = entry.value;
 
     element_data->target_element = nullptr;
-    element_data->effect_node = nullptr;
   }
-  root_effect_node_ = nullptr;
   is_root_transitioning_ = false;
 }
 
@@ -986,15 +987,14 @@ void ViewTransitionStyleTracker::EndTransition() {
     page->Animator().SetHasViewTransition(false);
 }
 
-void ViewTransitionStyleTracker::UpdateElementIndicesAndSnapshotId(
-    Element* element,
-    ViewTransitionElementId& index,
-    viz::ViewTransitionElementResourceId& resource_id) const {
-  DCHECK(element);
+viz::ViewTransitionElementResourceId ViewTransitionStyleTracker::GetSnapshotId(
+    const Element& element) const {
+  viz::ViewTransitionElementResourceId resource_id;
 
   for (const auto& entry : element_data_map_) {
+    // This loop is based on the assumption that an element can have multiple
+    // names. But this concept is not supported by the web API.
     if (entry.value->target_element == element) {
-      index.AddIndex(entry.value->element_index);
       const auto& snapshot_id = HasLiveNewContent()
                                     ? entry.value->new_snapshot_id
                                     : entry.value->old_snapshot_id;
@@ -1003,7 +1003,8 @@ void ViewTransitionStyleTracker::UpdateElementIndicesAndSnapshotId(
         resource_id = snapshot_id;
     }
   }
-  DCHECK(resource_id.IsValid());
+
+  return resource_id;
 }
 
 PseudoElement* ViewTransitionStyleTracker::CreatePseudoElement(
@@ -1350,64 +1351,6 @@ bool ViewTransitionStyleTracker::HasActiveAnimations() const {
   return !!ViewTransitionUtils::FindPseudoIf(*document_, pseudo_has_animation);
 }
 
-PaintPropertyChangeType ViewTransitionStyleTracker::UpdateEffect(
-    const Element& element,
-    EffectPaintPropertyNode::State state,
-    const EffectPaintPropertyNodeOrAlias& current_effect) {
-  for (auto& entry : element_data_map_) {
-    auto& element_data = entry.value;
-    if (element_data->target_element != &element) {
-      continue;
-    }
-
-    if (!element_data->effect_node) {
-      element_data->effect_node =
-          EffectPaintPropertyNode::Create(current_effect, std::move(state));
-#if DCHECK_IS_ON()
-      element_data->effect_node->SetDebugName(element.DebugName() +
-                                              "ViewTransition");
-#endif
-      return PaintPropertyChangeType::kNodeAddedOrRemoved;
-    }
-    return element_data->effect_node->Update(current_effect, std::move(state),
-                                             {});
-  }
-  NOTREACHED();
-  return PaintPropertyChangeType::kUnchanged;
-}
-
-PaintPropertyChangeType ViewTransitionStyleTracker::UpdateRootEffect(
-    EffectPaintPropertyNode::State state,
-    const EffectPaintPropertyNodeOrAlias& current_effect) {
-  if (!root_effect_node_) {
-    root_effect_node_ =
-        EffectPaintPropertyNode::Create(current_effect, std::move(state));
-#if DCHECK_IS_ON()
-    root_effect_node_->SetDebugName("ViewTransition");
-#endif
-    return PaintPropertyChangeType::kNodeAddedOrRemoved;
-  }
-  return root_effect_node_->Update(current_effect, std::move(state), {});
-}
-
-const EffectPaintPropertyNode* ViewTransitionStyleTracker::GetEffect(
-    const Element& element) const {
-  for (auto& entry : element_data_map_) {
-    auto& element_data = entry.value;
-    if (element_data->target_element != &element) {
-      continue;
-    }
-    return element_data->effect_node.get();
-  }
-  NOTREACHED();
-  return nullptr;
-}
-
-const EffectPaintPropertyNode* ViewTransitionStyleTracker::GetRootEffect()
-    const {
-  return root_effect_node_.get();
-}
-
 PaintPropertyChangeType ViewTransitionStyleTracker::UpdateCaptureClip(
     const Element& element,
     const ClipPaintPropertyNodeOrAlias* current_clip,
@@ -1651,7 +1594,7 @@ ViewTransitionState ViewTransitionStyleTracker::GetViewTransitionState() const {
   }
 
   // Preserve the transition id for the new document.
-  transition_state.transition_id = transition_id_;
+  transition_state.transition_token = transition_token_;
 
   // To ensure the any new resources generated by the new document don't
   // collide in id with this document's resources, pass the next sequence id so
@@ -1704,8 +1647,9 @@ void ViewTransitionStyleTracker::InvalidateStyle() {
   ViewTransitionUtils::ForEachTransitionPseudo(*document_, invalidate_style);
 
   // Invalidate layout view compositing properties.
-  if (auto* layout_view = document_->GetLayoutView())
+  if (auto* layout_view = document_->GetLayoutView()) {
     layout_view->SetNeedsPaintPropertyUpdate();
+  }
 
   for (auto& entry : element_data_map_) {
     if (!entry.value->target_element ||
@@ -2034,7 +1978,7 @@ ViewTransitionStyleTracker::GenerateResourceId() const {
   CHECK(!state_extracted_);
   auto* supplement = ViewTransitionSupplement::FromIfExists(*document_);
   CHECK(supplement);
-  return supplement->GenerateResourceId(transition_id_);
+  return supplement->GenerateResourceId(transition_token_);
 }
 
 void ViewTransitionStyleTracker::SnapBrowserControlsToFullyShown() {

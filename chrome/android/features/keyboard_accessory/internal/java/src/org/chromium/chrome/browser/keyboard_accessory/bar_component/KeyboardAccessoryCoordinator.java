@@ -39,6 +39,8 @@ import org.chromium.ui.modelutil.ListModel;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.RecyclerViewAdapter;
 
+import java.util.List;
+
 /**
  * Creates and owns all elements which are part of the keyboard accessory component. It's part of
  * the controller but will mainly forward events (like adding a tab, or showing the accessory) to
@@ -246,14 +248,15 @@ public class KeyboardAccessoryCoordinator {
     }
 
     /**
-     * Registers a Provider.Observer to the given Provider. The
-     * new observer will render chips into the accessory bar for every new suggestion and call the
-     * given {@link AutofillDelegate} when the user interacts with a chip.
-     * @param provider A {@link Provider<AutofillSuggestion[]>}.
+     * Registers a Provider.Observer to the given Provider. The new observer will render chips into
+     * the accessory bar for every new suggestion and call the given {@link AutofillDelegate} when
+     * the user interacts with a chip.
+     *
+     * @param provider A {@link Provider<List<AutofillSuggestion>>}.
      * @param delegate A {@link AutofillDelegate}.
      */
     public void registerAutofillProvider(
-            Provider<AutofillSuggestion[]> provider, AutofillDelegate delegate) {
+            Provider<List<AutofillSuggestion>> provider, AutofillDelegate delegate) {
         provider.addObserver(mMediator.createAutofillSuggestionsObserver(delegate));
     }
 
@@ -294,9 +297,10 @@ public class KeyboardAccessoryCoordinator {
     /**
      * Returns the visibility of the the accessory. The returned property reflects the latest change
      * while the view might still be in progress of being updated accordingly.
+     *
      * @return True if the accessory should be visible, false otherwise.
      */
-    // TODO(crbug/1385400): Hide because it's only used in tests.
+    // TODO(crbug.com/40879203): Hide because it's only used in tests.
     public boolean isShown() {
         return mMediator.isShown();
     }

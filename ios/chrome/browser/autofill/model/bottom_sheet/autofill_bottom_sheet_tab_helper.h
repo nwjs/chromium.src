@@ -80,7 +80,9 @@ class AutofillBottomSheetTabHelper
       autofill::VirtualCardEnrollmentCallbacks callbacks);
 
   // Send a command to show the bottom sheet to edit an address.
-  void ShowEditAddressBottomSheet(const autofill::AutofillProfile* profile);
+  // The address to be shown/worked upon in this bottom sheet is fetched via the
+  // `AutofillSaveUpdateAddressProfileDelegateIOS` delegate.
+  void ShowEditAddressBottomSheet();
 
   // Handler for JavaScript messages. Dispatch to more specific handler.
   void OnFormMessageReceived(const web::ScriptMessage& message);
@@ -139,10 +141,6 @@ class AutofillBottomSheetTabHelper
   // This value is moved and should only be retrieved once per bottom sheet.
   autofill::VirtualCardEnrollmentCallbacks GetVirtualCardEnrollmentCallbacks();
 
-  std::unique_ptr<autofill::AutofillProfile> address_profile_for_edit() {
-    return std::move(address_profile_for_edit_);
-  }
-
  private:
   friend class web::WebStateUserData<AutofillBottomSheetTabHelper>;
 
@@ -177,7 +175,7 @@ class AutofillBottomSheetTabHelper
   // The WebState with which this object is associated.
   const raw_ptr<web::WebState> web_state_;
 
-  // TODO(crbug.com/1441921): Remove once this class uses FormGlobalIds.
+  // TODO(crbug.com/40266699): Remove once this class uses FormGlobalIds.
   base::ScopedObservation<web::WebFramesManager,
                           web::WebFramesManager::Observer>
       frames_manager_observation_{this};
@@ -187,12 +185,12 @@ class AutofillBottomSheetTabHelper
       autofill_manager_observations_{this};
 
   // List of password bottom sheet related renderer ids, mapped to a frame id.
-  // TODO(crbug.com/1441921): Maybe migrate to FieldGlobalIds.
+  // TODO(crbug.com/40266699): Maybe migrate to FieldGlobalIds.
   std::map<std::string, std::set<autofill::FieldRendererId>>
       registered_password_renderer_ids_;
 
   // List of payments bottom sheet related renderer ids, mapped to a frame id.
-  // TODO(crbug.com/1441921): Migrate to FieldGlobalIds.
+  // TODO(crbug.com/40266699): Migrate to FieldGlobalIds.
   std::map<std::string, std::set<autofill::FieldRendererId>>
       registered_payments_renderer_ids_;
 
@@ -212,9 +210,6 @@ class AutofillBottomSheetTabHelper
   // Callbacks to be run when the virtual card enrollment bottom sheet UI has
   // completed.
   autofill::VirtualCardEnrollmentCallbacks virtual_card_enrollment_callbacks_;
-
-  // Address Profile that is to be/being edited via the bottom sheet.
-  std::unique_ptr<autofill::AutofillProfile> address_profile_for_edit_;
 
   WEB_STATE_USER_DATA_KEY_DECL();
 };

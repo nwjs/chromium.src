@@ -10,6 +10,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/ash/extended_updates/extended_updates.mojom.h"
 #include "chrome/browser/ui/webui/ash/extended_updates/extended_updates_page_handler.h"
+#include "chrome/browser/ui/webui/ash/login/oobe_ui.h"
 #include "chrome/browser/ui/webui/webui_util.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
@@ -27,6 +28,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/chromeos/devicetype_utils.h"
 #include "ui/web_dialogs/web_dialog_ui.h"
+#include "ui/webui/color_change_listener/color_change_handler.h"
 
 namespace ash::extended_updates {
 
@@ -37,27 +39,39 @@ ExtendedUpdatesUI::ExtendedUpdatesUI(content::WebUI* web_ui)
 
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"dialogHeading", IDS_EXTENDED_UPDATES_DIALOG_DIALOG_HEADING},
+      {"dialogDescriptionP1",
+       IDS_EXTENDED_UPDATES_DIALOG_DIALOG_DESCRIPTION_P1},
       {"cancelButton", IDS_EXTENDED_UPDATES_DIALOG_CANCEL_BUTTON},
       {"enableButton", IDS_EXTENDED_UPDATES_DIALOG_ENABLE_BUTTON},
+      {"androidDescription", IDS_EXTENDED_UPDATES_DIALOG_ANDROID_DESCRIPTION},
+      {"androidAppsListDescriptionSingular",
+       IDS_EXTENDED_UPDATES_DIALOG_ANDROID_APPS_LIST_DESCRIPTION_SINGULAR},
+      {"androidAppsListDescriptionPlural",
+       IDS_EXTENDED_UPDATES_DIALOG_ANDROID_APPS_LIST_DESCRIPTION_PLURAL},
+      {"androidAppsListNote",
+       IDS_EXTENDED_UPDATES_DIALOG_ANDROID_APPS_LIST_NOTE},
+      {"securityDescription", IDS_EXTENDED_UPDATES_DIALOG_SECURITY_DESCRIPTION},
       {"popupTitle", IDS_EXTENDED_UPDATES_DIALOG_POPUP_TITLE},
-      {"popupDescription", IDS_EXTENDED_UPDATES_DIALOG_POPUP_DESCRIPTION},
       {"popupConfirmButton", IDS_EXTENDED_UPDATES_DIALOG_POPUP_CONFIRM_BUTTON},
   };
   source->AddLocalizedStrings(kLocalizedStrings);
 
-  source->AddString("dialogDescriptionP1",
-                    l10n_util::GetStringFUTF16(
-                        IDS_EXTENDED_UPDATES_DIALOG_DIALOG_DESCRIPTION_P1,
-                        ui::GetChromeOSDeviceName()));
   source->AddString("dialogDescriptionP2",
                     l10n_util::GetStringFUTF16(
                         IDS_EXTENDED_UPDATES_DIALOG_DIALOG_DESCRIPTION_P2,
                         chrome::kDeviceExtendedUpdatesLearnMoreURL));
+  source->AddString(
+      "popupDescription",
+      l10n_util::GetStringFUTF16(IDS_EXTENDED_UPDATES_DIALOG_POPUP_DESCRIPTION,
+                                 ui::GetChromeOSDeviceName()));
 
   webui::SetupWebUIDataSource(
       source,
       base::make_span(kExtendedUpdatesResources, kExtendedUpdatesResourcesSize),
       IDR_EXTENDED_UPDATES_EXTENDED_UPDATES_HTML);
+
+  // For OOBE Adaptive Dialog.
+  OobeUI::AddOobeComponents(source);
 
   ash::EnableTrustedTypesCSP(source);
 }
@@ -71,6 +85,12 @@ void ExtendedUpdatesUI::BindInterface(
         receiver) {
   page_factory_receiver_.reset();
   page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void ExtendedUpdatesUI::BindInterface(
+    mojo::PendingReceiver<color_change_listener::mojom::PageHandler> receiver) {
+  color_provider_handler_ = std::make_unique<ui::ColorChangeHandler>(
+      web_ui()->GetWebContents(), std::move(receiver));
 }
 
 void ExtendedUpdatesUI::CreatePageHandler(

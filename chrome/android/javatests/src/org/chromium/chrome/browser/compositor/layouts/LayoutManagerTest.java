@@ -90,7 +90,6 @@ import java.util.concurrent.TimeoutException;
 
 /** Unit tests for {@link org.chromium.chrome.browser.compositor.layouts.LayoutManagerChrome} */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@EnableFeatures(ChromeFeatureList.DEFER_TAB_SWITCHER_LAYOUT_CREATION)
 public class LayoutManagerTest implements MockTabModelDelegate {
     private static final String TAG = "LayoutManagerTest";
 
@@ -112,6 +111,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
     private TabModelSelector mTabModelSelector;
     private Supplier<StartSurface> mStartSurfaceSupplier;
     private OneshotSupplierImpl<TabSwitcher> mTabSwitcherSupplier;
+    private Supplier<TabModelSelector> mTabModelSelectorSupplier;
     private LayoutManagerChrome mManager;
     private LayoutManagerChromePhone mManagerPhone;
 
@@ -233,6 +233,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                         container,
                         mStartSurfaceSupplier,
                         mTabSwitcherSupplier,
+                        mTabModelSelectorSupplier,
                         mBrowserControlsStateProvider,
                         tabContentManagerSupplier,
                         () -> mTopUiThemeColorProvider,
@@ -407,7 +408,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         showTabSwitcherLayout();
     }
 
-    // TODO(crbug.com/1108496): Update the test to use assertThat for better failure message.
+    // TODO(crbug.com/40141330): Update the test to use assertThat for better failure message.
     @Test
     @MediumTest
     public void testLayoutObserverNotification_ShowAndHide_ToolbarSwipe() throws TimeoutException {
@@ -489,7 +490,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
         // initialization. Because LayoutManager does not explicitly hide the old layout when a new
         // layout is forced to show, the callCount for |finishedShowingCallback|,
         // |startedHidingCallback|, and |finishedHidingCallback| are still 0.
-        // TODO(crbug.com/1108496): update the callCount when LayoutManager explicitly hide the old
+        // TODO(crbug.com/40141330): update the callCount when LayoutManager explicitly hide the old
         // layout.
         startedShowingCallback.waitForCallback(1);
         Assert.assertEquals(LayoutType.TAB_SWITCHER, startedShowingCallback.layoutType);
@@ -673,6 +674,7 @@ public class LayoutManagerTest implements MockTabModelDelegate {
                 });
 
         mStartSurfaceSupplier = () -> mStartSurface;
+        mTabModelSelectorSupplier = () -> mTabModelSelector;
     }
 
     @After

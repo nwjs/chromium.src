@@ -76,7 +76,7 @@ public class TabSwitcherCoordinator
                 TabSwitcher.TabListDelegate,
                 TabSwitcherResetHandler,
                 TabGridItemTouchHelperCallback.OnLongPressTabItemEventListener {
-    // TODO(crbug.com/982018): Rename 'COMPONENT_NAME' so as to add different metrics for carousel
+    // TODO(crbug.com/40635216): Rename 'COMPONENT_NAME' so as to add different metrics for carousel
     // tab switcher.
     static final String COMPONENT_NAME = "GridTabSwitcher";
     private final Activity mActivity;
@@ -107,7 +107,7 @@ public class TabSwitcherCoordinator
     private final @NonNull BottomSheetController mBottomSheetController;
 
     /**
-     * TODO(crbug.com/1227656): Refactor this to pass a supplier instead to ensure we re-use the
+     * TODO(crbug.com/40056462): Refactor this to pass a supplier instead to ensure we re-use the
      * same instance of {@link IncognitoReauthManager} across the codebase.
      */
     private IncognitoReauthManager mIncognitoReauthManager;
@@ -235,6 +235,7 @@ public class TabSwitcherCoordinator
                             mode,
                             activity,
                             mBrowserControlsStateProvider,
+                            modalDialogManager,
                             currentTabModelFilterSupplier,
                             () -> tabModelSelector.getModel(false),
                             mMultiThumbnailCardProvider,
@@ -242,7 +243,7 @@ public class TabSwitcherCoordinator
                             true,
                             mMediator,
                             null,
-                            TabProperties.UiType.CLOSABLE,
+                            TabProperties.TabActionState.CLOSABLE,
                             null,
                             this::getMessageManager,
                             container,
@@ -330,6 +331,7 @@ public class TabSwitcherCoordinator
     private void initTabGridDialogCoordinator() {
         var currentTabModelFilterSupplier =
                 mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilterSupplier();
+
         mTabGridDialogCoordinator =
                 new TabGridDialogCoordinator(
                         mActivity,
@@ -345,7 +347,8 @@ public class TabSwitcherCoordinator
                         TabSwitcherCoordinator.this::getTabGridDialogAnimationSourceView,
                         mGridDialogScrimCoordinator,
                         mTabListCoordinator.getTabGroupTitleEditor(),
-                        mRootView);
+                        mRootView,
+                        /* actionConfirmationManager= */ null);
     }
 
     private ScrimCoordinator createScrimCoordinator() {
@@ -452,11 +455,6 @@ public class TabSwitcherCoordinator
     }
 
     @Override
-    public void refreshTabList() {
-        mMediator.refreshTabList();
-    }
-
-    @Override
     public int getTabListTopOffset() {
         return mTabListCoordinator.getTabListTopOffset();
     }
@@ -473,7 +471,7 @@ public class TabSwitcherCoordinator
 
     @Override
     public void requestFocusOnCurrentTab() {
-        // TODO(crbug.com/1447564): Ideally, this shouldn't be called directly and instead mediator
+        // TODO(crbug.com/40269022): Ideally, this shouldn't be called directly and instead mediator
         // should listen for |requestFocusOnCurrentTab| signal implicitly and apply changes. This
         // would require refactoring TabSwitcher.TabListDelegate and its implementation.
         mMediator.requestAccessibilityFocusOnCurrentTab();
@@ -555,10 +553,9 @@ public class TabSwitcherCoordinator
         RecordUserAction.record("TabMultiSelectV2.OpenLongPressInGrid");
     }
 
-
     private View getTabGridDialogAnimationSourceView(int tabId) {
         int index = mTabListCoordinator.getTabIndexFromTabId(tabId);
-        // TODO(crbug.com/999372): This is band-aid fix that will show basic fade-in/fade-out
+        // TODO(crbug.com/41479135): This is band-aid fix that will show basic fade-in/fade-out
         // animation when we cannot find the animation source view holder. This is happening due to
         // current group id in TabGridDialog can not be indexed in TabListModel, which should never
         // happen. Remove this when figure out the actual cause.

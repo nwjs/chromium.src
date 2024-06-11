@@ -22,6 +22,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.library_loader.LibraryLoader;
@@ -40,7 +41,6 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcherProvider
 import org.chromium.chrome.browser.metrics.SimpleStartupForegroundSessionDetector;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcherImpl;
-import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.features.start_surface.StartSurfaceConfiguration;
 import org.chromium.components.browser_ui.share.ShareHelper;
@@ -171,7 +171,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
     protected void performPreInflationStartup() {
         mIsTablet = DeviceFormFactor.isNonMultiDisplayContextOnTablet(this);
         mHadWarmStart = LibraryLoader.getInstance().isInitialized();
-        // TODO(https://crbug.com/948745): Dispatch in #preInflationStartup instead so that
+        // TODO(crbug.com/40621278): Dispatch in #preInflationStartup instead so that
         // subclass's #performPreInflationStartup has executed before observers are notified.
         mLifecycleDispatcher.dispatchPreInflationStartup();
     }
@@ -247,11 +247,15 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
             String url = IntentHandler.getUrlFromIntent(intent);
             if (url == null) return;
             // Blocking pre-connect for all off-the-record profiles.
-            if (!IntentHandler.hasAnyIncognitoExtra(intent.getExtras())) {
-                WarmupManager.getInstance()
-                        .maybePreconnectUrlAndSubResources(
-                                ProfileManager.getLastUsedRegularProfile(), url);
-            }
+            if (IntentHandler.hasAnyIncognitoExtra(intent.getExtras())) return;
+            assert getProfileProviderSupplier().hasValue();
+            getProfileProviderSupplier()
+                    .runSyncOrOnAvailable(
+                            (profileProvider) -> {
+                                WarmupManager.getInstance()
+                                        .maybePreconnectUrlAndSubResources(
+                                                profileProvider.getOriginalProfile(), url);
+                            });
         } finally {
             TraceEvent.end("maybePreconnect");
         }
@@ -691,7 +695,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
 
     /** Return a supplier for the ProfileProvider. */
     public OneshotSupplier<ProfileProvider> getProfileProviderSupplier() {
-        // TODO(crbug/1464647): Convert to a thrown exception if no asserts are discovered.
+        // TODO(crbug.com/40275690): Convert to a thrown exception if no asserts are discovered.
         assert mProfileProviderSupplier != null;
         return mProfileProviderSupplier;
     }
@@ -747,7 +751,7 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
 
         mLifecycleDispatcher.dispatchOnRecreate();
 
-        // TODO(https://crbug.com/1252526): Remove stack trace logging once root cause of bug is
+        // TODO(crbug.com/40793204): Remove stack trace logging once root cause of bug is
         // identified & fixed.
         // Piggybacking for multi-instance bug crbug.com/1484026.
         Log.i(TAG_MULTI_INSTANCE, "Tracing recreate().");
@@ -880,9 +884,11 @@ public abstract class AsyncInitializationActivity extends ChromeBaseAppCompatAct
     public static void interceptMoveTaskToBackForTesting() {
         sInterceptMoveTaskToBackForTesting = true;
         sBackInterceptedForTesting = false;
+        ResettersForTesting.register(() -> sInterceptMoveTaskToBackForTesting = false);
     }
 
     public static boolean wasMoveTaskToBackInterceptedForTesting() {
+        assert sInterceptMoveTaskToBackForTesting;
         return sBackInterceptedForTesting;
     }
 

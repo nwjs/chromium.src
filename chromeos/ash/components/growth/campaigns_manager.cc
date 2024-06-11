@@ -20,6 +20,7 @@
 #include "base/time/time.h"
 #include "chromeos/ash/components/growth/campaigns_constants.h"
 #include "chromeos/ash/components/growth/campaigns_matcher.h"
+#include "chromeos/ash/components/growth/campaigns_model.h"
 #include "chromeos/ash/components/growth/growth_metrics.h"
 #include "components/prefs/pref_service.h"
 
@@ -42,7 +43,8 @@ std::optional<base::Value::Dict> ParseCampaignsFile(
     const std::string& campaigns_data) {
   std::optional<base::Value> value(base::JSONReader::Read(campaigns_data));
   if (!value || !value->is_dict()) {
-    LOG(ERROR) << "Failed to parse campaigns file: " << campaigns_data;
+    LOG(ERROR) << "Failed to parse campaigns file.";
+    VLOG(2) << "Malformed campaigns file: " << campaigns_data;
     RecordCampaignsManagerError(CampaignsManagerError::kCampaignsParsingFail);
     return std::nullopt;
   }
@@ -203,8 +205,16 @@ void CampaignsManager::SetOpenedApp(const std::string& app_id) {
   }
 }
 
+void CampaignsManager::SetTrigger(TriggeringType trigger_type) {
+  matcher_.SetTrigger(trigger_type);
+}
+
 void CampaignsManager::SetActiveUrl(const GURL& url) {
   matcher_.SetActiveUrl(url);
+}
+
+void CampaignsManager::SetIsUserOwner(bool is_user_owner) {
+  matcher_.SetIsUserOwner(is_user_owner);
 }
 
 void CampaignsManager::PerformAction(int campaign_id, const Action* action) {
@@ -276,11 +286,19 @@ void CampaignsManager::OnCampaignsComponentLoaded(
     OnCampaignsLoaded(std::move(load_callback), /*campaigns=*/std::nullopt);
     return;
   }
-  // Read the campaigns file from component mounted path.
+
+  if (!oobe_complete_time_for_test_.is_null()) {
+    OnOobeTimestampLoaded(std::move(load_callback), path,
+                          oobe_complete_time_for_test_);
+    return;
+  }
+
   base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock()}, base::BindOnce(&ReadCampaignsFile, *path),
-      base::BindOnce(&CampaignsManager::OnCampaignsLoaded,
-                     weak_factory_.GetWeakPtr(), std::move(load_callback)));
+      FROM_HERE, {base::MayBlock()},
+      base::BindOnce(&GetOobeTimestampBackground),
+      base::BindOnce(&CampaignsManager::OnOobeTimestampLoaded,
+                     weak_factory_.GetWeakPtr(), std::move(load_callback),
+                     path));
 }
 
 void CampaignsManager::OnCampaignsLoaded(
@@ -295,23 +313,25 @@ void CampaignsManager::OnCampaignsLoaded(
   }
 
   // Load campaigns into `CampaignMatcher` for selecting campaigns.
-  matcher_.SetCampaigns(&campaigns_);
-
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE, {base::MayBlock()},
-      base::BindOnce(&GetOobeTimestampBackground),
-      base::BindOnce(&CampaignsManager::OnOobeTimestampLoaded,
-                     weak_factory_.GetWeakPtr(), std::move(load_callback)));
-}
-
-void CampaignsManager::OnOobeTimestampLoaded(base::OnceClosure load_callback,
-                                             base::Time oobe_time) {
-  matcher_.SetOobeCompleteTime(oobe_time);
+  matcher_.FilterAndSetCampaigns(&campaigns_);
 
   campaigns_loaded_ = true;
 
   std::move(load_callback).Run();
   NotifyCampaignsLoaded();
+}
+
+void CampaignsManager::OnOobeTimestampLoaded(
+    base::OnceClosure load_callback,
+    const std::optional<const base::FilePath>& path,
+    base::Time oobe_time) {
+  matcher_.SetOobeCompleteTime(oobe_time);
+
+  // Read the campaigns file from component mounted path.
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()}, base::BindOnce(&ReadCampaignsFile, *path),
+      base::BindOnce(&CampaignsManager::OnCampaignsLoaded,
+                     weak_factory_.GetWeakPtr(), std::move(load_callback)));
 }
 
 void CampaignsManager::NotifyCampaignsLoaded() {
@@ -321,7 +341,12 @@ void CampaignsManager::NotifyCampaignsLoaded() {
 }
 
 void CampaignsManager::SetOobeCompleteTimeForTesting(base::Time time) {
-  matcher_.SetOobeCompleteTime(time);
+  oobe_complete_time_for_test_ = time;
+}
+
+const Campaigns* CampaignsManager::GetCampaignsBySlotForTesting(
+    Slot slot) const {
+  return GetCampaignsBySlot(&campaigns_, slot);
 }
 
 void CampaignsManager::RegisterTrialForCampaign(

@@ -316,7 +316,6 @@ class TestMediaStreamDispatcherHost
       const std::optional<base::UnguessableToken>& session_id,
       blink::mojom::MediaStreamType type,
       bool is_secure) override {}
-  void OnStreamStarted(const std::string& label) override {}
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   void SendWheel(const base::UnguessableToken& device_id,
@@ -633,7 +632,7 @@ class MediaStreamManagerTest : public ::testing::Test {
       const std::string& label,
       blink::mojom::StreamDevicesSetPtr stream_devices_set,
       bool pan_tilt_zoom_allowed) {
-    // TODO(crbug.com/1300883): Generalize to multiple streams.
+    // TODO(crbug.com/40216442): Generalize to multiple streams.
     DCHECK_EQ(stream_devices_set->stream_devices.size(), 1u);
     if (request_audio && audio_share) {
       ASSERT_TRUE(
@@ -2007,7 +2006,7 @@ TEST_P(MediaStreamManagerCapturedSurfaceControlActionTest,
 // This test is currently disabled because the code that ensures that Captured
 // Surface Control APIs are disallowed for self-capture has not yet been
 // authored.
-// TODO(crbug.com/1511754): Enable this test.
+// TODO(crbug.com/41484336): Enable this test.
 TEST_P(MediaStreamManagerCapturedSurfaceControlActionTest,
        DISABLED_FailsIfSelfCapture) {
   SCOPED_TRACE("FailsIfSelfCapture");
@@ -2018,7 +2017,7 @@ TEST_P(MediaStreamManagerCapturedSurfaceControlActionTest,
   SimulateGetDisplayMedia(gdm_rfhid, captured_wc_id);
 
   RunTestedAction(gdm_rfhid);
-  // TODO(crbug.com/1512926): Use a dedicated error.
+  // TODO(crbug.com/41485502): Use a dedicated error.
   EXPECT_EQ(result_, CapturedSurfaceControlResult::kUnknownError);
 }
 
@@ -2036,7 +2035,7 @@ TEST_P(MediaStreamManagerCapturedSurfaceControlActionTest,
   SimulateGetDisplayMedia(gdm_rfhid, captured_wc_id);
 
   RunTestedAction(gdm_rfhid);
-  // TODO(crbug.com/1512926): Use a dedicated error.
+  // TODO(crbug.com/41485502): Use a dedicated error.
   EXPECT_EQ(result_, CapturedSurfaceControlResult::kUnknownError);
 }
 
@@ -2054,7 +2053,7 @@ TEST_P(MediaStreamManagerCapturedSurfaceControlActionTest,
   SimulateGetDisplayMedia(gdm_rfhid, captured_wc_id);
 
   RunTestedAction(gdm_rfhid);
-  // TODO(crbug.com/1512926): Use a dedicated error.
+  // TODO(crbug.com/41485502): Use a dedicated error.
   EXPECT_EQ(result_, CapturedSurfaceControlResult::kUnknownError);
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)

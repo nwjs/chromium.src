@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/android/jni_string.h"
+#include "base/android/token_android.h"
 #include "base/uuid.h"
 #include "components/saved_tab_groups/android/tab_group_sync_conversions_utils.h"
 #include "components/saved_tab_groups/jni_headers/TabGroupSyncConversionsBridge_jni.h"
@@ -18,6 +19,7 @@
 using base::android::ConvertUTF16ToJavaString;
 using base::android::JavaParamRef;
 using base::android::ScopedJavaLocalRef;
+using base::android::TokenAndroid;
 
 namespace tab_groups {
 namespace {
@@ -50,7 +52,8 @@ ScopedJavaLocalRef<jobject> JNI_TabGroupSyncConversionsBridge_createGroup(
     JNIEnv* env,
     const SavedTabGroup& group) {
   auto j_sync_id = UuidToJavaString(env, group.saved_guid());
-  auto j_local_id = ToJavaTabGroupId(group.local_group_id());
+  auto j_local_id = TabGroupSyncConversionsBridge::ToJavaTabGroupId(
+      env, group.local_group_id());
   return Java_TabGroupSyncConversionsBridge_createGroup(
       env, j_sync_id, j_local_id, ConvertUTF16ToJavaString(env, group.title()),
       static_cast<int32_t>(group.color()),
@@ -71,6 +74,25 @@ ScopedJavaLocalRef<jobject> TabGroupSyncConversionsBridge::CreateGroup(
   }
 
   return j_tab_group;
+}
+
+// static
+LocalTabGroupID TabGroupSyncConversionsBridge::FromJavaTabGroupId(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& j_group_id) {
+  auto j_token =
+      Java_TabGroupSyncConversionsBridge_getNativeTabGroupId(env, j_group_id);
+  return TokenAndroid::FromJavaToken(env, j_token);
+}
+
+// static
+ScopedJavaLocalRef<jobject> TabGroupSyncConversionsBridge::ToJavaTabGroupId(
+    JNIEnv* env,
+    const std::optional<LocalTabGroupID>& group_id) {
+  return group_id.has_value()
+             ? Java_TabGroupSyncConversionsBridge_createJavaTabGroupId(
+                   env, TokenAndroid::Create(env, group_id.value()))
+             : ScopedJavaLocalRef<jobject>();
 }
 
 }  // namespace tab_groups

@@ -121,7 +121,8 @@ void FencedFrame::Navigate(
         owner_render_frame_host_->frame_tree_node()->GetFencedFrameProperties(
             FencedFramePropertiesNodeSource::kFrameTreeRoot);
     if (embedder_fenced_frame_properties.has_value() &&
-        embedder_fenced_frame_properties->has_disabled_untrusted_network()) {
+        embedder_fenced_frame_properties
+            ->HasDisabledNetworkForCurrentFrameTree()) {
       owner_render_frame_host_->AddMessageToConsole(
           blink::mojom::ConsoleMessageLevel::kError,
           "Embedder-initiated navigations of fenced frames are not allowed "
@@ -199,7 +200,7 @@ RenderFrameHostImpl* FencedFrame::GetProspectiveOuterDocument() {
 }
 
 FrameTree* FencedFrame::LoadingTree() {
-  // TODO(crbug.com/1232528): Consider and fix the case when fenced frames are
+  // TODO(crbug.com/40191159): Consider and fix the case when fenced frames are
   // being prerendered.
   return web_contents_->LoadingTree();
 }
@@ -243,7 +244,7 @@ FencedFrame::InitInnerFrameTreeAndReturnProxyToOuterFrameTree(
   // See `RenderFrameHostImpl::CreateRenderFrame`.
   frame_tree_->root()->SetPendingFramePolicy(frame_policy);
 
-  // TODO(crbug.com/1199679): This should be moved to FrameTree::Init.
+  // TODO(crbug.com/40177940): This should be moved to FrameTree::Init.
   web_contents_->NotifySwappedFromRenderManager(
       /*old_frame=*/nullptr,
       frame_tree_->root()->render_manager()->current_frame_host());
@@ -262,7 +263,7 @@ FencedFrame::InitInnerFrameTreeAndReturnProxyToOuterFrameTree(
       inner_root->current_frame_host()
           ->browsing_context_state()
           ->CreateOuterDelegateProxy(
-              owner_render_frame_host_->GetSiteInstance(), inner_root,
+              owner_render_frame_host_->GetSiteInstance()->group(), inner_root,
               frame_token);
 
   proxy_host->BindRemoteFrameInterfaces(
@@ -342,7 +343,7 @@ void FencedFrame::DidChangeFramePolicy(const blink::FramePolicy& frame_policy) {
   // Observe that the sandbox flags sent from the renderer are currently
   // ignored. The `sandbox` attribute on `HTMLFencedFrameElement` may only
   // cause embedder-initiated navigations to fail for now---in the renderer.
-  // TODO(crbug.com/1347953): Handle sandbox flags for fenced frames properly
+  // TODO(crbug.com/40233168): Handle sandbox flags for fenced frames properly
   // in the browser, allowing us to use non-fixed sets of sandbox flags.
   inner_root->SetPendingFramePolicy(blink::FramePolicy(
       current_frame_policy.sandbox_flags, frame_policy.container_policy,

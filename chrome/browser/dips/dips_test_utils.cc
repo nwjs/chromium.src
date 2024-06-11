@@ -164,8 +164,10 @@ void FrameCookieAccessObserver::OnCookiesAccessed(
 }
 
 RedirectChainObserver::RedirectChainObserver(DIPSService* service,
-                                             GURL final_url)
-    : final_url_(std::move(final_url)) {
+                                             GURL final_url,
+                                             size_t expected_match_count)
+    : final_url_(std::move(final_url)),
+      expected_match_count_(expected_match_count) {
   obs_.Observe(service);
 }
 
@@ -174,7 +176,8 @@ RedirectChainObserver::~RedirectChainObserver() = default;
 void RedirectChainObserver::OnChainHandled(
     const DIPSRedirectChainInfoPtr& chain) {
   handle_call_count++;
-  if (chain->final_url == final_url_) {
+  if (chain->final_url.url == final_url_ &&
+      ++match_count_ == expected_match_count_) {
     run_loop_.Quit();
   }
 }
@@ -306,4 +309,8 @@ void SimulateMouseClickAndWait(WebContents* web_contents) {
   content::SimulateMouseClick(web_contents, 0,
                               blink::WebMouseEvent::Button::kLeft);
   observer.Wait();
+}
+
+UrlAndSourceId MakeUrlAndId(std::string_view url) {
+  return UrlAndSourceId(GURL(url), ukm::AssignNewSourceId());
 }

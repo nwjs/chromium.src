@@ -14,6 +14,7 @@
 #include "ash/picker/picker_clipboard_provider.h"
 #include "ash/picker/search/picker_category_search.h"
 #include "ash/picker/search/picker_date_search.h"
+#include "ash/picker/search/picker_editor_search.h"
 #include "ash/picker/search/picker_math_search.h"
 #include "ash/picker/search/picker_search_source.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
@@ -113,6 +114,24 @@ PickerSearchRequest::PickerSearchRequest(
     // Category results are currently synchronous.
     HandleCategorySearchResults(
         PickerCategorySearch(available_categories, query));
+
+    if (base::Contains(available_categories, PickerCategory::kEditorWrite)) {
+      // Editor results are currently synchronous.
+      editor_search_start_ = base::TimeTicks::Now();
+      HandleEditorSearchResults(
+          PickerSearchSource::kEditorWrite,
+          PickerEditorSearch(PickerSearchResult::EditorData::Mode::kWrite,
+                             query));
+    }
+
+    if (base::Contains(available_categories, PickerCategory::kEditorRewrite)) {
+      // Editor results are currently synchronous.
+      editor_search_start_ = base::TimeTicks::Now();
+      HandleEditorSearchResults(
+          PickerSearchSource::kEditorRewrite,
+          PickerEditorSearch(PickerSearchResult::EditorData::Mode::kRewrite,
+                             query));
+    }
   }
 }
 
@@ -311,6 +330,25 @@ void PickerSearchRequest::HandleClipboardSearchResults(
 
   // Clipboard results are never truncated.
   HandleSearchSourceResults(PickerSearchSource::kClipboard, std::move(results),
+                            /*has_more_results=*/false);
+}
+
+void PickerSearchRequest::HandleEditorSearchResults(
+    PickerSearchSource source,
+    std::optional<PickerSearchResult> result) {
+  if (editor_search_start_.has_value()) {
+    base::TimeDelta elapsed = base::TimeTicks::Now() - *editor_search_start_;
+    base::UmaHistogramTimes("Ash.Picker.Search.EditorProvider.QueryTime",
+                            elapsed);
+  }
+
+  std::vector<PickerSearchResult> results;
+  if (result.has_value()) {
+    results.push_back(std::move(*result));
+  }
+
+  // Editor results are never truncated.
+  HandleSearchSourceResults(source, std::move(results),
                             /*has_more_results=*/false);
 }
 

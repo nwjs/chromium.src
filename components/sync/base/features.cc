@@ -115,12 +115,7 @@ BASE_FEATURE(kEnablePreferencesAccountStorage,
 
 BASE_FEATURE(kSyncPollImmediatelyOnEveryStartup,
              "SyncPollImmediatelyOnEveryStartup2",
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(IS_WIN)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
              base::FEATURE_DISABLED_BY_DEFAULT
-#endif
 );
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -208,15 +203,9 @@ BASE_FEATURE(kSyncSchedulerUseWallClockTimer,
              "SyncSchedulerUseWallClockTimer",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kSyncShowIdentityErrorsForSignedInUsers,
-             "SyncShowIdentityErrorsForSignedInUsers",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
-
-BASE_FEATURE(kSyncRememberCustomPassphraseAfterSignout,
-             "SyncRememberCustomPassphraseAfterSignout",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kTrustedVaultAutoUpgradeSyntheticFieldTrial,
+             "TrustedVaultAutoUpgradeSyntheticFieldTrial",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kWebApkBackupAndRestoreBackend,

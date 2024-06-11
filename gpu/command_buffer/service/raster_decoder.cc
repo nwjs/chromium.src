@@ -7,12 +7,15 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "base/atomic_sequence_num.h"
+#include "base/command_line.h"
 #include "base/containers/flat_map.h"
 #include "base/debug/crash_logging.h"
 #include "base/functional/bind.h"
@@ -49,7 +52,6 @@
 #include "gpu/command_buffer/service/gl_utils.h"
 #include "gpu/command_buffer/service/gpu_tracer.h"
 #include "gpu/command_buffer/service/logger.h"
-#include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/query_manager.h"
 #include "gpu/command_buffer/service/raster_cmd_validation.h"
 #include "gpu/command_buffer/service/service_font_manager.h"
@@ -83,6 +85,7 @@
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/graphite/Context.h"
 #include "third_party/skia/include/private/chromium/GrPromiseImageTexture.h"
+#include "third_party/skia/include/utils/SkNoDrawCanvas.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/geometry/skia_conversions.h"
@@ -109,10 +112,6 @@
 #if BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS_ASH)
 #include "gpu/command_buffer/service/drm_modifiers_filter_dawn.h"
 #endif  // BUILDFLAG(SKIA_USE_DAWN) && BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if !BUILDFLAG(IS_ANDROID)
-#include "gpu/command_buffer/service/abstract_texture.h"
-#endif  // !BUIDLFLAG(IS_ANDROID)
 
 // Local versions of the SET_GL_ERROR macros
 #define LOCAL_SET_GL_ERROR(error, function_name, msg) \
@@ -520,21 +519,11 @@ class RasterDecoderImpl final : public RasterDecoder,
                           const volatile void* buffer,
                           int num_entries,
                           int* entries_processed) override;
-  base::StringPiece GetLogPrefix() override;
+  std::string_view GetLogPrefix() override;
 
   gles2::ContextGroup* GetContextGroup() override;
   gles2::ErrorState* GetErrorState() override;
-#if !BUILDFLAG(IS_ANDROID)
-  std::unique_ptr<gles2::AbstractTexture> CreateAbstractTexture(
-      GLenum target,
-      GLenum internal_format,
-      GLsizei width,
-      GLsizei height,
-      GLsizei depth,
-      GLint border,
-      GLenum format,
-      GLenum type) override;
-#endif
+
   bool IsCompressedTextureFormat(unsigned format) override;
   bool ClearLevel(gles2::Texture* texture,
                   unsigned target,
@@ -889,6 +878,7 @@ class RasterDecoderImpl final : public RasterDecoder,
   std::vector<GrBackendSemaphore> end_semaphores_;
   std::unique_ptr<cc::ServicePaintCache> paint_cache_;
 
+  std::unique_ptr<SkNoDrawCanvas> no_draw_canvas_;
   raw_ptr<SkCanvas> raster_canvas_ = nullptr;
   std::vector<SkDiscardableHandleId> locked_handles_;
 
@@ -974,7 +964,7 @@ gles2::Outputter* RasterDecoder::outputter() const {
   return outputter_;
 }
 
-base::StringPiece RasterDecoder::GetLogPrefix() {
+std::string_view RasterDecoder::GetLogPrefix() {
   return GetLogger()->GetLogPrefix();
 }
 
@@ -1015,6 +1005,10 @@ RasterDecoderImpl::RasterDecoderImpl(
       is_raw_draw_enabled_(features::IsUsingRawDraw()) {
   DCHECK(shared_context_state_);
   shared_context_state_->AddContextLostObserver(this);
+  const base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
+  if (cmdline->HasSwitch(switches::kDisableGLDrawingForTests)) {
+    no_draw_canvas_ = std::make_unique<SkNoDrawCanvas>(0, 0);
+  }
 }
 
 RasterDecoderImpl::~RasterDecoderImpl() {
@@ -1586,7 +1580,7 @@ void RasterDecoderImpl::ExitCommandProcessingEarly() {
   commands_to_process_ = 0;
 }
 
-base::StringPiece RasterDecoderImpl::GetLogPrefix() {
+std::string_view RasterDecoderImpl::GetLogPrefix() {
   return logger_.GetLogPrefix();
 }
 
@@ -1597,20 +1591,6 @@ gles2::ContextGroup* RasterDecoderImpl::GetContextGroup() {
 gles2::ErrorState* RasterDecoderImpl::GetErrorState() {
   return error_state_.get();
 }
-
-#if !BUILDFLAG(IS_ANDROID)
-std::unique_ptr<gles2::AbstractTexture>
-RasterDecoderImpl::CreateAbstractTexture(GLenum target,
-                                         GLenum internal_format,
-                                         GLsizei width,
-                                         GLsizei height,
-                                         GLsizei depth,
-                                         GLint border,
-                                         GLenum format,
-                                         GLenum type) {
-  return nullptr;
-}
-#endif
 
 bool RasterDecoderImpl::IsCompressedTextureFormat(unsigned format) {
   return feature_info()->validators()->compressed_texture_format.IsValid(
@@ -1922,7 +1902,7 @@ error::Error RasterDecoderImpl::HandleSetActiveURLCHROMIUM(
   if (!url_str)
     return error::kInvalidArguments;
 
-  GURL url(base::StringPiece(url_str, size));
+  GURL url(std::string_view(url_str, size));
   client()->SetActiveURL(std::move(url));
   return error::kNoError;
 }
@@ -2693,7 +2673,7 @@ void RasterDecoderImpl::DoReadbackYUVImagePixelsINTERNAL(
     }
   }
 
-  // TODO(crbug.com/1023262): Use COMMANDS_COMPLETED query for async readback.
+  // TODO(crbug.com/40106956): Use COMMANDS_COMPLETED query for async readback.
   DoFinish();
 
   // The call above will sync up gpu and CPU, resulting in callback being run
@@ -2977,7 +2957,12 @@ void RasterDecoderImpl::DoBeginRasterCHROMIUM(GLfloat r,
     DCHECK(result);
   }
 
-  raster_canvas_ = sk_surface_->getCanvas();
+  if (no_draw_canvas_) {
+    no_draw_canvas_->resetCanvas(sk_surface_->width(), sk_surface_->height());
+    raster_canvas_ = no_draw_canvas_.get();
+  } else {
+    raster_canvas_ = sk_surface_->getCanvas();
+  }
 
   paint_op_shared_image_provider_ = std::make_unique<SharedImageProviderImpl>(
       &shared_image_representation_factory_, shared_context_state_, sk_surface_,
@@ -3031,8 +3016,8 @@ void RasterDecoderImpl::DoRasterCHROMIUM(GLuint raster_shm_id,
 
   if (font_shm_size > 0) {
     // Deserialize fonts before raster.
-    volatile char* font_buffer_memory =
-        GetSharedMemoryAs<char*>(font_shm_id, font_shm_offset, font_shm_size);
+    volatile uint8_t* font_buffer_memory = GetSharedMemoryAs<uint8_t*>(
+        font_shm_id, font_shm_offset, font_shm_size);
     if (!font_buffer_memory) {
       LOCAL_SET_GL_ERROR(GL_INVALID_VALUE, "glRasterCHROMIUM",
                          "Can not read font buffer.");

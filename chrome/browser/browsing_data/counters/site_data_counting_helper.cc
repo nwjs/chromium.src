@@ -68,7 +68,7 @@ void SiteDataCountingHelper::CountAndDestroySelfWhenFinished() {
   if (quota_manager) {
     // Count storage keys with filesystem, websql, indexeddb, serviceworkers,
     // cachestorage, and medialicense using quota manager.
-    // TODO(crbug.com/1434517): For now, media licenses are part of the quota
+    // TODO(crbug.com/40264778): For now, media licenses are part of the quota
     // management system, but when dis-integrated, remove media license logic
     // from quota logic.
     auto buckets_callback =
@@ -94,11 +94,12 @@ void SiteDataCountingHelper::CountAndDestroySelfWhenFinished() {
         &SiteDataCountingHelper::GetLocalStorageUsageInfoCallback,
         base::Unretained(this), special_storage_policy);
     dom_storage->GetLocalStorageUsage(std::move(local_callback));
-    // TODO(772337): Enable session storage counting when deletion is fixed.
+    // TODO(crbug.com/41348517): Enable session storage counting when deletion
+    // is fixed.
   }
 
-// TODO(1454512): Add CdmStorageManager logic to count origins, and add test
-// to browsing_data_remover_browsertest.cc to test counting logic.
+// TODO(crbug.com/40272342): Add CdmStorageManager logic to count origins, and
+// add test to browsing_data_remover_browsertest.cc to test counting logic.
 #if BUILDFLAG(IS_ANDROID)
   // Count origins with media licenses on Android.
   tasks_ += 1;

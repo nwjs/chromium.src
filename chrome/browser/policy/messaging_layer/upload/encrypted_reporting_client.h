@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_POLICY_MESSAGING_LAYER_UPLOAD_ENCRYPTED_REPORTING_CLIENT_H_
 #define CHROME_BROWSER_POLICY_MESSAGING_LAYER_UPLOAD_ENCRYPTED_REPORTING_CLIENT_H_
 
+#include <list>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "base/thread_annotations.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
+#include "chrome/browser/policy/messaging_layer/util/upload_declarations.h"
 #include "chrome/browser/policy/messaging_layer/util/upload_response_parser.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
@@ -121,6 +123,7 @@ class EncryptedReportingClient {
                     int config_file_version,
                     std::vector<EncryptedRecord> records,
                     ScopedReservation scoped_reservation,
+                    UploadEnqueuedCallback enqueued_cb,
                     ResponseCallback callback);
 
   // Test-only method that resets collected uploads state.
@@ -152,8 +155,7 @@ class EncryptedReportingClient {
   // `payload_result` (`nullopt` if there was an error). Calls `callback` once
   // the job has been responded or if an error has been detected, and releases
   // `scoped_reservation`.
-  static void CreateUploadJob(
-      base::WeakPtr<EncryptedReportingClient> self,
+  void CreateUploadJob(
       Priority priority,
       int64_t generation_id,
       policy::EncryptedReportingJobConfiguration::UploadResponseCallback
@@ -165,19 +167,17 @@ class EncryptedReportingClient {
       uint64_t events_to_send);
 
   // Callback for encrypted report upload requests.
-  static void OnReportUploadCompleted(
-      base::WeakPtr<EncryptedReportingClient> self,
-      Priority priority,
-      int64_t generation_id,
-      ScopedReservation scoped_reservation,
-      std::optional<int> request_payload_size,
-      base::WeakPtr<PayloadSizePerHourUmaReporter>
-          payload_size_per_hour_uma_reporter,
-      ResponseCallback callback,
-      policy::DeviceManagementService::Job* job,
-      policy::DeviceManagementStatus status,
-      int response_code,
-      std::optional<base::Value::Dict> response);
+  void OnReportUploadCompleted(Priority priority,
+                               int64_t generation_id,
+                               ScopedReservation scoped_reservation,
+                               std::optional<int> request_payload_size,
+                               base::WeakPtr<PayloadSizePerHourUmaReporter>
+                                   payload_size_per_hour_uma_reporter,
+                               ResponseCallback callback,
+                               policy::DeviceManagementService::Job* job,
+                               policy::DeviceManagementStatus status,
+                               int response_code,
+                               std::optional<base::Value::Dict> response);
 
   // Checks the new job against the history, determines how soon the upload will
   // be allowed. Returns positive value if not allowed, and 0 or negative

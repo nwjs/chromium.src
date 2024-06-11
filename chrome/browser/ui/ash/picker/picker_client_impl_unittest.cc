@@ -12,15 +12,18 @@
 #include "ash/picker/picker_controller.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/drivefs_test_support.h"
 #include "chrome/browser/ash/fileapi/recent_model.h"
 #include "chrome/browser/ash/fileapi/recent_model_factory.h"
 #include "chrome/browser/ash/fileapi/test/fake_recent_source.h"
+#include "chrome/browser/ash/input_method/editor_mediator_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/ui/webui/ash/mako/mako_bubble_coordinator.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -28,6 +31,7 @@
 #include "chromeos/ash/components/disks/disk_mount_manager.h"
 #include "chromeos/ash/components/disks/fake_disk_mount_manager.h"
 #include "chromeos/ash/components/drivefs/fake_drivefs.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/history/core/browser/history_database_params.h"
@@ -38,6 +42,11 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/ime/ash/ime_bridge.h"
+#include "ui/base/ime/ash/input_method_ash.h"
+#include "ui/base/ime/fake_text_input_client.h"
+#include "ui/display/screen.h"
+#include "ui/display/test/test_screen.h"
 
 namespace {
 
@@ -202,7 +211,11 @@ class PickerClientImplTest : public BrowserWithTestWindowTest {
         {drive::DriveIntegrationServiceFactory::GetInstance(),
          base::BindRepeating(&BuildTestDriveIntegrationService,
                              temp_dir_.GetPath(),
-                             std::ref(fake_drivefs_helper_))}};
+                             std::ref(fake_drivefs_helper_))},
+        {ash::input_method::EditorMediatorFactory::GetInstance(),
+         base::BindRepeating(
+             &ash::input_method::EditorMediatorFactory::BuildInstanceFor,
+             /*country_code=*/"us")}};
   }
 
   void LogIn(const std::string& email) override {
@@ -274,6 +287,25 @@ TEST_F(PickerClientImplTest, StartCrosSearch) {
 
   client.StartCrosSearch(
       u"foo", /*category=*/std::nullopt,
+      base::BindRepeating(&MockSearchResultsCallback::Call,
+                          base::Unretained(&mock_search_callback)));
+
+  ASSERT_TRUE(test_done.Wait());
+}
+
+TEST_F(PickerClientImplTest, IgnoresWhatYouTypedResults) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  base::test::TestFuture<void> test_done;
+
+  NiceMock<MockSearchResultsCallback> mock_search_callback;
+  EXPECT_CALL(mock_search_callback, Call(_, _)).Times(AnyNumber());
+  EXPECT_CALL(mock_search_callback,
+              Call(ash::AppListSearchResultType::kOmnibox, IsEmpty()))
+      .WillOnce([&]() { test_done.SetValue(); });
+
+  client.StartCrosSearch(
+      u"a.com", /*category=*/std::nullopt,
       base::BindRepeating(&MockSearchResultsCallback::Call,
                           base::Unretained(&mock_search_callback)));
 
@@ -447,6 +479,119 @@ TEST_F(PickerClientImplTest, GetSuggestedLinkResultsReturnsLinks) {
           VariantWith<ash::PickerSearchResult::BrowsingHistoryData>(
               Field("url", &ash::PickerSearchResult::BrowsingHistoryData::url,
                     GURL("http://foo.com/history"))))}));
+}
+
+class PickerClientImplEditorTest : public PickerClientImplTest {
+ public:
+  ash::input_method::EditorMediator& GetEditorMediator(Profile* profile) {
+    return *ash::input_method::EditorMediatorFactory::GetForProfile(profile);
+  }
+
+  ui::InputMethod& ime() { return ime_; }
+
+ protected:
+  void SetUp() override {
+    PickerClientImplTest::SetUp();
+
+    ash::IMEBridge::Get()->SetInputContextHandler(&ime_);
+  }
+
+  void TearDown() override {
+    PickerClientImplTest::TearDown();
+
+    ash::IMEBridge::Get()->SetInputContextHandler(nullptr);
+  }
+
+ private:
+  ash::InputMethodAsh ime_{nullptr};
+};
+
+TEST_F(PickerClientImplEditorTest,
+       CacheEditorContextReturnsNullCallbackWhenEditorFlagDisabled) {
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  GetEditorMediator(profile()).OverrideEditorModeForTesting(
+      ash::input_method::EditorMode::kBlocked);
+
+  EXPECT_TRUE(client.CacheEditorContext().is_null());
+}
+
+TEST_F(PickerClientImplEditorTest,
+       CacheEditorContextReturnsNullCallbackWhenBlocked) {
+  base::test::ScopedFeatureList features(chromeos::features::kOrcaDogfood);
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  GetEditorMediator(profile()).OverrideEditorModeForTesting(
+      ash::input_method::EditorMode::kBlocked);
+
+  EXPECT_TRUE(client.CacheEditorContext().is_null());
+}
+
+TEST_F(PickerClientImplEditorTest,
+       CacheEditorContextReturnsCallbackWhenNotBlocked) {
+  base::test::ScopedFeatureList features(chromeos::features::kOrcaDogfood);
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  GetEditorMediator(profile()).OverrideEditorModeForTesting(
+      ash::input_method::EditorMode::kConsentNeeded);
+
+  EXPECT_FALSE(client.CacheEditorContext().is_null());
+}
+
+TEST_F(PickerClientImplEditorTest, CacheEditorContextCachesCaretBounds) {
+  base::test::ScopedFeatureList features(chromeos::features::kOrcaDogfood);
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  GetEditorMediator(profile()).OverrideEditorModeForTesting(
+      ash::input_method::EditorMode::kConsentNeeded);
+  ui::FakeTextInputClient text_input_client(
+      &ime(), {
+                  .type = ui::TEXT_INPUT_TYPE_TEXT,
+                  .caret_bounds = gfx::Rect(1, 2, 3, 4),
+              });
+  text_input_client.Focus();
+
+  client.CacheEditorContext();
+
+  EXPECT_EQ(GetEditorMediator(profile())
+                .mako_bubble_coordinator_for_testing()
+                .context_caret_bounds_for_testing(),
+            gfx::Rect(1, 2, 3, 4));
+}
+
+TEST_F(PickerClientImplEditorTest, GetSuggestedEditorResults) {
+  base::test::ScopedFeatureList features(chromeos::features::kOrcaDogfood);
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  GetEditorMediator(profile()).OverrideEditorModeForTesting(
+      ash::input_method::EditorMode::kRewrite);
+  ui::FakeTextInputClient text_input_client(&ime(),
+                                            {.type = ui::TEXT_INPUT_TYPE_TEXT});
+  text_input_client.Focus();
+
+  base::test::TestFuture<std::vector<ash::PickerSearchResult>> future;
+  client.GetSuggestedEditorResults(future.GetCallback());
+
+  EXPECT_TRUE(future.Wait());
+  // TODO: b/331286774 - Add expectation for the suggested editor results once
+  // EditorServiceConnector is injectable.
+}
+
+TEST_F(PickerClientImplEditorTest,
+       GetSuggestedEditorResultsReturnsNothingWhenBlocked) {
+  base::test::ScopedFeatureList features(chromeos::features::kOrcaDogfood);
+  ash::PickerController controller;
+  PickerClientImpl client(&controller, user_manager());
+  GetEditorMediator(profile()).OverrideEditorModeForTesting(
+      ash::input_method::EditorMode::kBlocked);
+  ui::FakeTextInputClient text_input_client(&ime(),
+                                            {.type = ui::TEXT_INPUT_TYPE_TEXT});
+  text_input_client.Focus();
+
+  base::test::TestFuture<std::vector<ash::PickerSearchResult>> future;
+  client.GetSuggestedEditorResults(future.GetCallback());
+
+  EXPECT_THAT(future.Get(), IsEmpty());
 }
 
 // TODO: b/325540366 - Add PickerClientImpl tests.

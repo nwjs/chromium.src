@@ -29,6 +29,7 @@
 
 
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/trace_event/typed_macros.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/metrics/public/cpp/mojo_ukm_recorder.h"
@@ -487,6 +488,7 @@ void WorkerGlobalScope::WorkerScriptFetchFinished(
     Script& worker_script,
     std::optional<v8_inspector::V8StackTraceId> stack_id) {
   DCHECK(IsContextThread());
+  TRACE_EVENT("blink.worker", "WorkerGlobalScope::WorkerScriptFetchFinished");
 
   DCHECK_NE(ScriptEvalState::kEvaluated, script_eval_state_);
   DCHECK(!worker_script_);
@@ -523,6 +525,7 @@ void WorkerGlobalScope::RunWorkerScript() {
 
   DCHECK(worker_script_);
   DCHECK_EQ(script_eval_state_, ScriptEvalState::kReadyToEvaluate);
+  TRACE_EVENT("blink.worker", "WorkerGlobalScope::RunWorkerScript");
 
   WorkerThreadDebugger* debugger =
       WorkerThreadDebugger::From(GetThread()->GetIsolate());
@@ -584,6 +587,8 @@ void WorkerGlobalScope::RunWorkerScript() {
     debugger->ExternalAsyncTaskFinished(*stack_id_);
 
   script_eval_state_ = ScriptEvalState::kEvaluated;
+  TRACE_EVENT_NESTABLE_ASYNC_END0("blink.worker", "WorkerGlobalScope setup",
+                                  TRACE_ID_LOCAL(this));
 }
 
 void WorkerGlobalScope::ReceiveMessage(BlinkTransferableMessage message) {
@@ -663,6 +668,9 @@ WorkerGlobalScope::WorkerGlobalScope(
           std::move(creation_params->top_level_frame_security_origin)) {
   // Workers should always maintain the default world of an isolate.
   CHECK(creation_params->is_default_world_of_isolate);
+  TRACE_EVENT("blink.worker", "WorkerGlobalScope::WorkerGlobalScope");
+  TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("blink.worker", "WorkerGlobalScope setup",
+                                    TRACE_ID_LOCAL(this));
 
   InstanceCounters::IncrementCounter(
       InstanceCounters::kWorkerGlobalScopeCounter);

@@ -44,12 +44,13 @@ void OnDisconnect(ScriptPromiseResolver<IDLUndefined>* resolver,
 }  // namespace
 
 IdentityCredential* IdentityCredential::Create(const String& token,
-                                               bool is_auto_selected) {
-  if (RuntimeEnabledFeatures::FedCmAutoSelectedFlagEnabled()) {
-    return MakeGarbageCollected<IdentityCredential>(token, is_auto_selected);
-  } else {
-    return MakeGarbageCollected<IdentityCredential>(token);
+                                               bool is_auto_selected,
+                                               const String& config_url) {
+  if (!RuntimeEnabledFeatures::FedCmAutoSelectedFlagEnabled()) {
+    is_auto_selected = false;
   }
+  return MakeGarbageCollected<IdentityCredential>(token, is_auto_selected,
+                                                  config_url);
 }
 
 bool IdentityCredential::IsRejectingPromiseDueToCSP(
@@ -86,10 +87,12 @@ bool IdentityCredential::IsRejectingPromiseDueToCSP(
 }
 
 IdentityCredential::IdentityCredential(const String& token,
-                                       bool is_auto_selected)
+                                       bool is_auto_selected,
+                                       const String& config_url)
     : Credential(/* id = */ "", kIdentityCredentialType),
       token_(token),
-      is_auto_selected_(is_auto_selected) {}
+      is_auto_selected_(is_auto_selected),
+      config_url_(config_url) {}
 
 bool IdentityCredential::IsIdentityCredential() const {
   return true;
@@ -118,7 +121,7 @@ ScriptPromise<IDLUndefined> IdentityCredential::disconnect(
           mojom::blink::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
     resolver->RejectWithDOMException(
         DOMExceptionCode::kNotAllowedError,
-        "The 'identity-credentials-get` feature is not enabled in this "
+        "The 'identity-credentials-get' feature is not enabled in this "
         "document.");
     return promise;
   }

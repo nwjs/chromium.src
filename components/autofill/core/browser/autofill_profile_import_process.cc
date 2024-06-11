@@ -6,6 +6,7 @@
 
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/autofill/core/browser/address_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -28,7 +29,8 @@ using UserDecision = AutofillClient::AddressPromptUserDecision;
 // country of `profile` was guessed incorrectly. It does so by checking whether
 // any of the `existing_profiles` becomes mergeable after removing the country
 // of `profile`.
-// Comparisons are done using `comparator`.
+// Comparisons are done using `comparator`. Note that for two countries to be
+// mergeable, they must share the same address model.
 bool ShouldCountryApproximationBeRemoved(
     const AutofillProfile& profile,
     const std::vector<AutofillProfile*>& existing_profiles,
@@ -103,8 +105,8 @@ void ProfileImportProcess::DetermineProfileImportType() {
   // We don't offer an import if `observed_profile_` is a duplicate of an
   // existing profile.
   const std::vector<AutofillProfile*> existing_profiles =
-      personal_data_manager_->GetProfiles(
-          PersonalDataManager::ProfileOrder::kMostRecentlyUsedFirstDesc);
+      personal_data_manager_->address_data_manager().GetProfiles(
+          AddressDataManager::ProfileOrder::kMostRecentlyUsedFirstDesc);
 
   // If we have reason to believe that the country was complemented incorrectly,
   // remove it.
@@ -294,7 +296,8 @@ void ProfileImportProcess::ApplyImport() {
 
   // Apply silent updates.
   for (const AutofillProfile& updated_profile : silently_updated_profiles_) {
-    personal_data_manager_->UpdateProfile(updated_profile);
+    personal_data_manager_->address_data_manager().UpdateProfile(
+        updated_profile);
   }
 
   if (!confirmed_import_candidate_.has_value()) {
@@ -304,11 +307,14 @@ void ProfileImportProcess::ApplyImport() {
   // Confirming an import candidate corresponds to either a new/update profile
   // or a migration prompt.
   if (is_migration()) {
-    personal_data_manager_->MigrateProfileToAccount(confirmed_profile);
+    personal_data_manager_->address_data_manager().MigrateProfileToAccount(
+        confirmed_profile);
   } else if (is_confirmable_update()) {
-    personal_data_manager_->UpdateProfile(confirmed_profile);
+    personal_data_manager_->address_data_manager().UpdateProfile(
+        confirmed_profile);
   } else {
-    personal_data_manager_->AddProfile(confirmed_profile);
+    personal_data_manager_->address_data_manager().AddProfile(
+        confirmed_profile);
   }
 }
 

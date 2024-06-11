@@ -178,8 +178,8 @@ std::optional<std::vector<liburlpattern::Part>> ParsePatternInitField(
 
   StringUTF8Adaptor utf8(value);
   auto parse_result = liburlpattern::Parse(
-      absl::string_view(utf8.data(), utf8.size()),
-      [](absl::string_view input) { return std::string(input); });
+      utf8.AsStringView(),
+      [](std::string_view input) { return std::string(input); });
 
   if (parse_result.ok()) {
     std::vector<liburlpattern::Part> part_list;
@@ -2322,7 +2322,8 @@ std::optional<RGBA32> ManifestParser::ParseDarkColorOverride(
       continue;
     }
 
-    auto tokens = CSSTokenizer(media_query.value()).TokenizeToEOF();
+    CSSTokenizer tokenizer(media_query.value());
+    auto tokens = tokenizer.TokenizeToEOF();
     CSSParserTokenRange range(tokens);
     while (!range.AtEnd()) {
       if (range.Peek().GetType() == kIdentToken &&

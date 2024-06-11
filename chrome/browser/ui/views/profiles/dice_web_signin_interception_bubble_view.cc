@@ -142,8 +142,7 @@ void RecordChromeSigninInterceptResult(base::TimeTicks start_time,
 
 // New changes only in Full design.
 bool ShouldUseFullDesign() {
-  return switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-      switches::ExplicitBrowserSigninPhase::kFull);
+  return switches::IsExplicitBrowserSigninUIOnDesktopEnabled();
 }
 
 void RecordDismissReason(
@@ -412,8 +411,8 @@ void DiceWebSigninInterceptionBubbleView::ApplyAvatarButtonEffects() {
   AvatarToolbarButton* button = GetAvatarToolbarButton(*browser_);
   // Avatar text behavior
   if (ShouldUseFullDesign() || IsChromeSignin()) {
-    // Adapt the identity pill, show the appropriate intercept text and disable
-    // the button as long as the buble is opened.
+    // Adapt the identity pill, show the appropriate intercept text and
+    // highlight the button as long as the text is shown.
     hide_avatar_text_callback_ =
         button->ShowExplicitText(InterceptionTypeToIdentityPillText(
             bubble_parameters_.interception_type));
@@ -436,6 +435,7 @@ void DiceWebSigninInterceptionBubbleView::ClearAvatarButtonEffects() {
   // Changes done in this method should also be reflected in the method that
   // applies the effects `ApplyAvatarButtonEffects()`.
 
+  AvatarToolbarButton* button = GetAvatarToolbarButton(*browser_);
   // Avatar text behavior
   if (ShouldUseFullDesign() || IsChromeSignin()) {
     hide_avatar_text_callback_.RunAndReset();
@@ -444,7 +444,7 @@ void DiceWebSigninInterceptionBubbleView::ClearAvatarButtonEffects() {
   if (ShouldUseFullDesign()) {
     reset_avatar_button_action_callback_.RunAndReset();
   } else if (IsChromeSignin()) {
-    GetAvatarToolbarButton(*browser_)->SetButtonActionDisabled(false);
+    button->SetButtonActionDisabled(false);
   }
 }
 

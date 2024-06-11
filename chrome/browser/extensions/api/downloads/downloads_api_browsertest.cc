@@ -2008,8 +2008,16 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 }
 
 // Test that we disallow certain headers case-insensitively.
+// TODO(crbug.com/335421977): Flaky on "Linux ChromiumOS MSan Tests"
+#if (BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER))
+#define MAYBE_DownloadExtensionTest_Download_UnsafeHeaders \
+  DISABLED_DownloadExtensionTest_Download_UnsafeHeaders
+#else
+#define MAYBE_DownloadExtensionTest_Download_UnsafeHeaders \
+  DownloadExtensionTest_Download_UnsafeHeaders
+#endif
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
-                       DownloadExtensionTest_Download_UnsafeHeaders) {
+                       MAYBE_DownloadExtensionTest_Download_UnsafeHeaders) {
   LoadExtension("downloads_split");
   ASSERT_TRUE(StartEmbeddedTestServer());
   GoOnTheRecord();
@@ -4337,7 +4345,7 @@ IN_PROC_BROWSER_TEST_F(
         current_browser(),
         // This code used to use a mock class that no longer works, due to the
         // NetworkService shipping.
-        // TODO(https://crbug.com/700382): Fix or delete this test.
+        // TODO(crbug.com/41306723): Fix or delete this test.
         GURL(), WindowOpenDisposition::CURRENT_TAB,
         ui_test_utils::BROWSER_TEST_NO_WAIT);
     observer->WaitForFinished();
@@ -4378,7 +4386,7 @@ IN_PROC_BROWSER_TEST_F(
       current_browser(),
       // This code used to use a mock class that no longer works, due to the
       // NetworkService shipping.
-      // TODO(https://crbug.com/700382): Fix or delete this test.
+      // TODO(crbug.com/41306723): Fix or delete this test.
       GURL(), WindowOpenDisposition::NEW_BACKGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 

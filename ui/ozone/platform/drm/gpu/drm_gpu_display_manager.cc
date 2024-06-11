@@ -5,9 +5,8 @@
 #include "ui/ozone/platform/drm/gpu/drm_gpu_display_manager.h"
 
 #include <stddef.h>
-#include <cstring>
-#include <vector>
 
+#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -21,6 +20,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/trace_event/trace_event.h"
 #include "ui/display/display_features.h"
 #include "ui/display/types/display_mode.h"
 #include "ui/display/types/display_snapshot.h"
@@ -30,6 +30,7 @@
 #include "ui/ozone/platform/drm/gpu/drm_device_manager.h"
 #include "ui/ozone/platform/drm/gpu/drm_display.h"
 #include "ui/ozone/platform/drm/gpu/drm_gpu_util.h"
+#include "ui/ozone/platform/drm/gpu/hardware_display_controller.h"
 #include "ui/ozone/platform/drm/gpu/screen_manager.h"
 
 namespace ui {
@@ -156,10 +157,10 @@ std::string ConfigRequestToString(
                    << ": potentially invalid display ID: " << config.id;
     }
 
-    signature +=
-        base::NumberToString(config.id) + ":" + config.origin.ToString() + ":" +
-        (config.mode.has_value() ? (*config.mode)->ToString() : "Disabled") +
-        ":" + (config.enable_vrr ? "vrr" : "no_vrr") + ";";
+    signature += base::NumberToString(config.id) + ":" +
+                 config.origin.ToString() + ":" +
+                 (config.mode ? config.mode->ToString() : "Disabled") + ":" +
+                 (config.enable_vrr ? "vrr" : "no_vrr") + ";";
   }
   if (signature.empty()) {
     LOG(WARNING) << __func__ << ": empty return value with request of size: "
@@ -433,8 +434,8 @@ bool DrmGpuDisplayManager::ConfigureDisplays(
       std::unique_ptr<drmModeModeInfo> mode_ptr =
           config.mode ? std::make_unique<drmModeModeInfo>() : nullptr;
       if (config.mode) {
-        if (!FindModeForDisplay(mode_ptr.get(), *config.mode.value(),
-                                display->modes(), displays_)) {
+        if (!FindModeForDisplay(mode_ptr.get(), *config.mode, display->modes(),
+                                displays_)) {
           return false;
         }
       }
@@ -605,17 +606,36 @@ bool DrmGpuDisplayManager::SetPrivacyScreen(int64_t display_id, bool enabled) {
 
 std::optional<std::vector<float>> DrmGpuDisplayManager::GetSeamlessRefreshRates(
     int64_t display_id) const {
+  TRACE_EVENT1("drm", "DrmGpuDisplayManager::GetSeamlessRefreshRates",
+               "display_id", display_id);
+
   DrmDisplay* display = FindDisplay(display_id);
   if (!display) {
     LOG(WARNING) << __func__ << ": there is no display with ID " << display_id;
     return std::nullopt;
   }
 
-  // TODO(b/323362145): Only include modes that can be switched to seamlessly
-  // and support contiguity logic.
+  HardwareDisplayController* controller =
+      screen_manager_->GetDisplayController(display->drm(), display->crtc());
+  if (!controller) {
+    LOG(ERROR) << "Could not find HardwareDisplayController for display_id: "
+               << display_id;
+    return std::nullopt;
+  }
+
+  // TODO: b/323362145: Support continuity logic.
+  const gfx::Size current_mode_size = controller->GetModeSize();
   std::vector<float> range;
   for (const drmModeModeInfo& mode : display->modes()) {
-    range.push_back(ModeRefreshRate(mode));
+    if (ui::ModeSize(mode) != current_mode_size) {
+      continue;
+    }
+
+    // Do a test commit to check if this mode can be configured without
+    // a modeset.
+    if (controller->TestSeamlessRefreshRate(display->crtc(), mode)) {
+      range.push_back(ModeRefreshRate(mode));
+    }
   }
   return range;
 }
@@ -802,7 +822,7 @@ bool DrmGpuDisplayManager::UpdateDisplaysWithNewCrtcs(
   for (const auto& [drm, config_list] : drm_device_to_configs) {
     ConnectorCrtcMap current_connector_to_crtc_pairings;
     ConnectorCrtcMap new_connector_to_crtc_pairings;
-    for (const auto& config_param : controllers_to_configure) {
+    for (const auto& config_param : config_list) {
       const uint32_t connector_id = config_param.connector;
       DrmDisplay* display = FindDisplayByConnectorId(connector_id);
       if (!display) {

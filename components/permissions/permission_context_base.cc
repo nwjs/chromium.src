@@ -402,23 +402,8 @@ content::PermissionResult
 PermissionContextBase::UpdatePermissionStatusWithDeviceStatus(
     content::PermissionResult result,
     const GURL& requesting_origin,
-    const GURL& embedding_origin) const {
-  const bool has_device_permission =
-      PermissionsClient::Get()->HasDevicePermission(content_settings_type());
-  const bool should_notify_observers =
-      last_has_device_permission_result_.has_value() &&
-      has_device_permission != last_has_device_permission_result_;
-
-  // We need to update |last_has_device_permission_result_| before calling
-  // |OnContentSettingChanged| to avoid causing a re-entrancy issue since the
-  // |OnContentSettingChanged| will likely end up calling |GetPermissionStatus|.
-  last_has_device_permission_result_ = has_device_permission;
-
-  if (should_notify_observers) {
-    NotifyObservers(ContentSettingsPattern::Wildcard(),
-                    ContentSettingsPattern::Wildcard(),
-                    ContentSettingsTypeSet(content_settings_type()));
-  }
+    const GURL& embedding_origin) {
+  MaybeUpdatePermissionStatusWithDeviceStatus();
 
   // If the site content setting is ASK/BLOCKED the device-level permission
   // won't affect it.
@@ -427,7 +412,7 @@ PermissionContextBase::UpdatePermissionStatusWithDeviceStatus(
   }
 
   // If the device-level permission is granted, it has no effect on the result.
-  if (has_device_permission) {
+  if (last_has_device_permission_result_.value()) {
     return result;
   }
 
@@ -452,6 +437,10 @@ void PermissionContextBase::ResetPermission(const GURL& requesting_origin,
       ->SetContentSettingDefaultScope(requesting_origin, embedding_origin,
                                       content_settings_type_,
                                       CONTENT_SETTING_DEFAULT);
+}
+
+bool PermissionContextBase::AlwaysIncludeDeviceStatus() const {
+  return false;
 }
 
 bool PermissionContextBase::IsPermissionKillSwitchOn() const {
@@ -588,6 +577,25 @@ void PermissionContextBase::RemoveObserver(
   }
 }
 
+void PermissionContextBase::MaybeUpdatePermissionStatusWithDeviceStatus() {
+  const bool has_device_permission =
+      PermissionsClient::Get()->HasDevicePermission(content_settings_type());
+  const bool should_notify_observers =
+      last_has_device_permission_result_.has_value() &&
+      has_device_permission != last_has_device_permission_result_;
+
+  // We need to update |last_has_device_permission_result_| before calling
+  // |OnContentSettingChanged| to avoid causing a re-entrancy issue since the
+  // |OnContentSettingChanged| will likely end up calling |GetPermissionStatus|.
+  last_has_device_permission_result_ = has_device_permission;
+
+  if (should_notify_observers) {
+    NotifyObservers(ContentSettingsPattern::Wildcard(),
+                    ContentSettingsPattern::Wildcard(),
+                    ContentSettingsTypeSet(content_settings_type()));
+  }
+}
+
 void PermissionContextBase::NotifyPermissionSet(
     const PermissionRequestID& id,
     const GURL& requesting_origin,
@@ -641,21 +649,25 @@ void PermissionContextBase::UpdateContentSetting(const GURL& requesting_origin,
       is_one_time ? content_settings::mojom::SessionModel::ONE_TIME
                   : content_settings::mojom::SessionModel::DURABLE);
 
-#if !BUILDFLAG(IS_ANDROID)
-  // The Permissions module in Safety check will revoke permissions after
-  // a finite amount of time if the permission can be revoked.
-  if (content_settings::CanBeAutoRevoked(content_settings_type_,
-                                         content_setting, is_one_time)) {
-    // For #2, by definition, that should be all of them. If that changes in
-    // the future, consider whether revocation for such permission makes
-    // sense, and/or change this to an early return so that we don't
-    // unnecessarily record timestamps where we don't need them.
-    constraints.set_track_last_visit_for_autoexpiration(true);
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          features::kRecordPermissionExpirationTimestamps)) {
+#endif  // BUILDFLAG(IS_ANDROID)
+    // The Permissions module in Safety check will revoke permissions after
+    // a finite amount of time if the permission can be revoked.
+    if (content_settings::CanBeAutoRevoked(content_settings_type_,
+                                           content_setting, is_one_time)) {
+      // For #2, by definition, that should be all of them. If that changes in
+      // the future, consider whether revocation for such permission makes
+      // sense, and/or change this to an early return so that we don't
+      // unnecessarily record timestamps where we don't need them.
+      constraints.set_track_last_visit_for_autoexpiration(true);
+    }
+#if BUILDFLAG(IS_ANDROID)
   }
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_ANDROID)
 
-  if (base::FeatureList::IsEnabled(permissions::features::kOneTimePermission) &&
-      is_one_time) {
+  if (is_one_time) {
     if (base::FeatureList::IsEnabled(
             content_settings::features::kActiveContentSettingExpiry)) {
       constraints.set_lifetime(kOneTimePermissionMaximumLifetime);

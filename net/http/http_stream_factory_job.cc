@@ -154,11 +154,6 @@ HttpStreamFactory::Job::Job(
   // `HttpNetworkTransaction`, which consumes additional fields.
   DCHECK(!proxy_info_.is_empty());
 
-  // QUIC can only be spoken to servers, never to proxies.
-  if (alternative_protocol == kProtoQUIC) {
-    DCHECK(proxy_info_.is_direct());
-  }
-
   // The Job is forced to use QUIC without a designated version, try the
   // preferred QUIC version that is supported by default.
   if (quic_version_ == quic::ParsedQuicVersion::Unsupported() &&
@@ -329,11 +324,13 @@ bool HttpStreamFactory::Job::HasAvailableQuicSession() const {
   bool require_dns_https_alpn =
       (job_type_ == DNS_ALPN_H3) || (job_type_ == PRECONNECT_DNS_ALPN_H3);
 
-  return quic_request_.CanUseExistingSession(
-      origin_url_, proxy_info_.proxy_chain(), request_info_.privacy_mode,
-      SessionUsage::kDestination, request_info_.socket_tag,
-      request_info_.network_anonymization_key, request_info_.secure_dns_policy,
-      require_dns_https_alpn, destination_);
+  QuicSessionKey quic_session_key(
+      HostPortPair::FromURL(origin_url_), request_info_.privacy_mode,
+      proxy_info_.proxy_chain(), SessionUsage::kDestination,
+      request_info_.socket_tag, request_info_.network_anonymization_key,
+      request_info_.secure_dns_policy, require_dns_https_alpn);
+  return session_->quic_session_pool()->CanUseExistingSession(quic_session_key,
+                                                              destination_);
 }
 
 bool HttpStreamFactory::Job::TargettedSocketGroupHasActiveSocket() const {
@@ -385,7 +382,7 @@ bool HttpStreamFactory::Job::UsingHttpProxyWithoutTunnel() const {
 bool HttpStreamFactory::Job::OriginToForceQuicOn(
     const QuicParams& quic_params,
     const url::SchemeHostPort& destination) {
-  // TODO(crbug.com/1206799): Consider converting `origins_to_force_quic_on` to
+  // TODO(crbug.com/40181080): Consider converting `origins_to_force_quic_on` to
   // use url::SchemeHostPort.
   return (
       base::Contains(quic_params.origins_to_force_quic_on, HostPortPair()) ||
@@ -415,51 +412,6 @@ bool HttpStreamFactory::Job::ShouldForceQuic(
                              destination) &&
          base::EqualsCaseInsensitiveASCII(destination.scheme(),
                                           url::kHttpsScheme);
-}
-
-// static
-SpdySessionKey HttpStreamFactory::Job::GetSpdySessionKey(
-    const ProxyChain& proxy_chain,
-    const GURL& origin_url,
-    const StreamRequestInfo& request_info) {
-  // In the case that we'll be sending a GET request to the proxy, look for a
-  // HTTP/2 proxy session *to* the proxy, instead of to the origin server. The
-  // way HTTP over HTTPS proxies work is that the ConnectJob makes a SpdyProxy,
-  // and then the HttpStreamFactory detects it when it's added to the
-  // SpdySession pool, and uses it directly (completely ignoring the result of
-  // the ConnectJob, and in fact cancelling it). So we need to create the same
-  // key used by the HttpProxyConnectJob for the last proxy in the chain.
-  if (IsGetToProxy(proxy_chain, origin_url)) {
-    // For this to work as expected, the whole chain should be HTTPS.
-    for (const auto& proxy_server : proxy_chain.proxy_servers()) {
-      CHECK(proxy_server.is_https());
-    }
-    auto [last_proxy_partial_chain, last_proxy_server] =
-        proxy_chain.SplitLast();
-    const auto& last_proxy_host_port_pair = last_proxy_server.host_port_pair();
-    // Note that `disable_cert_network_fetches` must be true for proxies to
-    // avoid deadlock. See comment on
-    // `SSLConfig::disable_cert_verification_network_fetches`.
-    return SpdySessionKey(
-        last_proxy_host_port_pair, PRIVACY_MODE_DISABLED,
-        last_proxy_partial_chain, SessionUsage::kProxy, request_info.socket_tag,
-        request_info.network_anonymization_key, request_info.secure_dns_policy,
-        /*disable_cert_network_fetches=*/true);
-  }
-  return SpdySessionKey(
-      HostPortPair::FromURL(origin_url), request_info.privacy_mode, proxy_chain,
-      SessionUsage::kDestination, request_info.socket_tag,
-      request_info.network_anonymization_key, request_info.secure_dns_policy,
-      request_info.load_flags & LOAD_DISABLE_CERT_NETWORK_FETCHES);
-}
-
-// static
-bool HttpStreamFactory::Job::IsGetToProxy(const ProxyChain& proxy_chain,
-                                          const GURL& origin_url) {
-  // Sending proxied GET requests to the last proxy server in the chain is no
-  // longer supported for QUIC.
-  return proxy_chain.is_get_to_proxy_allowed() &&
-         proxy_chain.Last().is_https() && origin_url.SchemeIs(url::kHttpScheme);
 }
 
 bool HttpStreamFactory::Job::CanUseExistingSpdySession() const {

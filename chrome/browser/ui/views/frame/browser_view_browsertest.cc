@@ -54,6 +54,7 @@
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
 #include "base/callback_list.h"
 #include "base/functional/bind.h"
+#include "chrome/browser/enterprise/watermark/watermark_view.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/safe_browsing/chrome_enterprise_url_lookup_service_factory.h"
 #include "chrome/browser/ui/browser_navigator.h"
@@ -90,7 +91,7 @@ class BrowserViewTest : public InProcessBrowserTest {
   SidePanel* side_panel() { return browser_view()->unified_side_panel(); }
 
   views::View* side_panel_rounded_corner() {
-    return browser_view()->GetSidePanelRoundedCorner();
+    return browser_view()->GetSidePanelRoundedCornerForTesting();
   }
 
   void OpenDevToolsWindow(bool docked) {

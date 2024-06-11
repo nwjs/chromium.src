@@ -6,6 +6,7 @@
 
 #include <inttypes.h>
 #include <stddef.h>
+
 #include <atomic>
 #include <compare>
 #include <list>
@@ -60,7 +61,6 @@
 #include "components/services/storage/privileged/mojom/indexed_db_internals_types.mojom.h"
 #include "components/services/storage/public/mojom/blob_storage_context.mojom-shared.h"
 #include "components/services/storage/public/mojom/blob_storage_context.mojom.h"
-#include "content/browser/indexed_db/features.h"
 #include "content/browser/indexed_db/file_path_util.h"
 #include "content/browser/indexed_db/file_stream_reader_to_data_pipe.h"
 #include "content/browser/indexed_db/indexed_db_active_blob_registry.h"
@@ -84,6 +84,7 @@
 #include "content/browser/indexed_db/indexed_db_transaction.h"
 #include "content/browser/indexed_db/list_set.h"
 #include "content/browser/indexed_db/mock_browsertest_indexed_db_class_factory.h"
+#include "content/public/common/content_features.h"
 #include "env_chromium.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
@@ -799,19 +800,16 @@ void IndexedDBBucketContext::RunTasks() {
 void IndexedDBBucketContext::AddReceiver(
     mojo::PendingRemote<storage::mojom::IndexedDBClientStateChecker>
         client_state_checker_remote,
-    base::UnguessableToken client_token,
     mojo::PendingReceiver<blink::mojom::IDBFactory> pending_receiver) {
   // When `on_ready_for_destruction` is non-null, `this` hasn't requested its
   // own destruction. When it is null, this is to be torn down and has to bounce
   // the AddReceiver request back to the delegate.
   if (delegate().on_ready_for_destruction) {
-    receivers_.Add(
-        this, std::move(pending_receiver),
-        ReceiverContext(std::move(client_state_checker_remote), client_token));
+    receivers_.Add(this, std::move(pending_receiver),
+                   ReceiverContext(std::move(client_state_checker_remote)));
   } else {
     CHECK(base::FeatureList::IsEnabled(features::kIndexedDBShardBackingStores));
     delegate().on_receiver_bounced.Run(std::move(client_state_checker_remote),
-                                       client_token,
                                        std::move(pending_receiver));
   }
 }
@@ -878,7 +876,7 @@ void IndexedDBBucketContext::Open(
   connection->was_cold_open = was_cold_open;
   connection->data_loss_info = data_loss_info;
   ReceiverContext& client = receivers_.current_context();
-  connection->client_token = client.client_token;
+  connection->client_id = receivers_.current_receiver();
   // Null in unit tests.
   if (client.client_state_checker_remote) {
     mojo::PendingRemote<storage::mojom::IndexedDBClientStateChecker>
@@ -991,9 +989,8 @@ void IndexedDBBucketContext::DeleteDatabase(
   }
 }
 
-void IndexedDBBucketContext::FillInMetadata(
-    storage::mojom::IdbBucketMetadataPtr info,
-    base::OnceCallback<void(storage::mojom::IdbBucketMetadataPtr)> result) {
+storage::mojom::IdbBucketMetadataPtr IndexedDBBucketContext::FillInMetadata(
+    storage::mojom::IdbBucketMetadataPtr info) {
   // TODO(jsbell): Sort by name?
   std::vector<storage::mojom::IdbDatabaseMetadataPtr> database_list;
 
@@ -1075,7 +1072,7 @@ void IndexedDBBucketContext::FillInMetadata(
     database_list.push_back(std::move(db_info));
   }
   info->databases = std::move(database_list);
-  std::move(result).Run(std::move(info));
+  return info;
 }
 
 IndexedDBBucketContext* IndexedDBBucketContext::GetReferenceForTesting() {
@@ -1743,10 +1740,8 @@ void IndexedDBBucketContext::OnReceiverDisconnected() {
 
 IndexedDBBucketContext::ReceiverContext::ReceiverContext(
     mojo::PendingRemote<storage::mojom::IndexedDBClientStateChecker>
-        client_state_checker,
-    base::UnguessableToken client_token)
-    : client_state_checker_remote(std::move(client_state_checker)),
-      client_token(client_token) {}
+        client_state_checker)
+    : client_state_checker_remote(std::move(client_state_checker)) {}
 
 IndexedDBBucketContext::ReceiverContext::ReceiverContext(
     IndexedDBBucketContext::ReceiverContext&&) noexcept = default;

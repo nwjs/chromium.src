@@ -17,7 +17,8 @@ import {historyClustersDescriptor} from './history_clusters/module.js';
 import type {ModuleDescriptor} from './module_descriptor.js';
 import {ModuleRegistry} from './module_registry.js';
 import {photosDescriptor} from './photos/module.js';
-import {googleCalendarDescriptor} from './v2/calendar/module.js';
+import {googleCalendarDescriptor} from './v2/calendar/google_calendar_module.js';
+import {outlookCalendarDescriptor} from './v2/calendar/outlook_calendar_module.js';
 // <if expr="not is_official_build">
 import {dummyV2Descriptor} from './v2/dummy/module.js';
 // </if>
@@ -43,6 +44,7 @@ if (loadTimeData.getBoolean('mostRelevantTabResumptionEnabled')) {
   descriptors.push(tabResumptionDescriptor);
 }
 descriptors.push(googleCalendarDescriptor);
+descriptors.push(outlookCalendarDescriptor);
 
 // <if expr="not is_official_build">
 if (modulesRedesignedEnabled) {

@@ -101,8 +101,6 @@ constexpr std::array<uint8_t, 12> kNonce = {0x60, 0x3e, 0x87, 0x69, 0xa3, 0x55,
 
 constexpr base::TimeDelta kResponseTimeout = base::Seconds(60);
 
-constexpr char kGaiaTransferResultName[] = "QuickStart.GaiaTransferResult";
-
 const char kDeviceNameKey[] = "deviceName";
 // Device name values
 const char kChromebook[] = "Chromebook";
@@ -180,12 +178,16 @@ class ConnectionTest : public testing::Test {
   }
 
   void MarkConnectionAuthenticated(
-      Connection::AuthenticationMethod auth_method =
-          Connection::AuthenticationMethod::kQR) {
+      QuickStartMetrics::AuthenticationMethod auth_method =
+          QuickStartMetrics::AuthenticationMethod::kQRCode) {
+    histogram_tester_.ExpectBucketCount("QuickStart.AuthenticationMethod",
+                                        auth_method, 0);
     ASSERT_FALSE(ran_connection_authenticated_callback_);
     connection_->MarkConnectionAuthenticated(auth_method);
     ASSERT_TRUE(ran_connection_authenticated_callback_);
     ASSERT_TRUE(authenticated_connection_);
+    histogram_tester_.ExpectBucketCount("QuickStart.AuthenticationMethod",
+                                        auth_method, 1);
   }
 
   void VerifyAssertionInfo(std::optional<FidoAssertionInfo> assertion_info) {
@@ -472,6 +474,19 @@ TEST_F(ConnectionTest, RequestWifiCredentials) {
       /*error_code=*/std::nullopt);
 }
 
+TEST_F(ConnectionTest, RequestWifiCredentialsEmptyResponse) {
+  MarkConnectionAuthenticated();
+  base::test::TestFuture<std::optional<mojom::WifiCredentials>> future;
+  authenticated_connection_->RequestWifiCredentials(future.GetCallback());
+  fake_nearby_connection_->InvokeEmptyReadCallback();
+  EXPECT_FALSE(future.Get().has_value());
+
+  // RunUntilIdle() is used to exercise the fix for the crash reported in
+  // b/339757376. There is no callback to hook into in this scenario.
+  base::RunLoop().RunUntilIdle();
+  ASSERT_FALSE(fake_quick_start_decoder_->has_decode_been_called());
+}
+
 TEST_F(ConnectionTest, RequestWifiCredentialsReturnsEmptyOnFailure) {
   MarkConnectionAuthenticated();
   fake_quick_start_decoder_->SetDecoderError(
@@ -617,7 +632,6 @@ TEST_F(ConnectionTest, RequestAccountTransferAssertion) {
   EXPECT_EQ(expected_credential_id, assertion_info_->credential_id);
   EXPECT_EQ(auth_data, assertion_info_->authenticator_data);
   EXPECT_EQ(signature, assertion_info_->signature);
-  histogram_tester_.ExpectBucketCount(kGaiaTransferResultName, true, 1);
 }
 
 TEST_F(ConnectionTest, RequestAccountTransferAssertion_UnexpectedMessage) {
@@ -798,11 +812,11 @@ TEST_F(ConnectionTest, TestClose) {
   ASSERT_EQ(connection_under_test->GetState(), Connection::State::kOpen);
 
   connection_under_test->Close(
-      TargetDeviceConnectionBroker::ConnectionClosedReason::kComplete);
+      TargetDeviceConnectionBroker::ConnectionClosedReason::kUserAborted);
 
   ASSERT_TRUE(future.IsReady());
   ASSERT_EQ(future.Get(),
-            TargetDeviceConnectionBroker::ConnectionClosedReason::kComplete);
+            TargetDeviceConnectionBroker::ConnectionClosedReason::kUserAborted);
   ASSERT_EQ(connection_under_test->GetState(), Connection::State::kClosed);
 }
 
@@ -1099,7 +1113,7 @@ TEST_F(ConnectionTest, NoResponseAfterClose) {
   EXPECT_FALSE(future.IsReady());
 
   connection_->Close(
-      TargetDeviceConnectionBroker::ConnectionClosedReason::kComplete);
+      TargetDeviceConnectionBroker::ConnectionClosedReason::kUserAborted);
   EXPECT_EQ(connection_->GetState(), Connection::State::kClosed);
   EXPECT_FALSE(future.IsReady());
 }

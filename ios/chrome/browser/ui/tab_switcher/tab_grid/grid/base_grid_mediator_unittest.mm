@@ -195,7 +195,7 @@ TEST_P(BaseGridMediatorTest, SelectItemCommand) {
   // Previous selected index is 1.
   web::WebStateID identifier =
       browser_->GetWebStateList()->GetWebStateAt(2)->GetUniqueIdentifier();
-  [mediator_ selectItemWithID:identifier pinned:NO];
+  [mediator_ selectItemWithID:identifier pinned:NO isFirstActionOnTabGrid:NO];
   EXPECT_EQ(2, browser_->GetWebStateList()->active_index());
   EXPECT_EQ(identifier, consumer_.selectedItemID);
 }
@@ -218,18 +218,20 @@ TEST_P(BaseGridMediatorTest, SelectPinnedItemCommand) {
   ASSERT_EQ(1, browser_->GetWebStateList()->active_index());
   ASSERT_EQ(identifier_1, consumer_.selectedItemID);
 
-  [mediator_ selectItemWithID:identifier_0 pinned:YES];
+  [mediator_ selectItemWithID:identifier_0
+                       pinned:YES
+       isFirstActionOnTabGrid:NO];
 
   EXPECT_EQ(0, browser_->GetWebStateList()->active_index());
   EXPECT_EQ(identifier_0, consumer_.selectedItemID);
 
-  [mediator_ selectItemWithID:identifier_2 pinned:NO];
+  [mediator_ selectItemWithID:identifier_2 pinned:NO isFirstActionOnTabGrid:NO];
 
   EXPECT_EQ(2, browser_->GetWebStateList()->active_index());
   EXPECT_EQ(identifier_2, consumer_.selectedItemID);
 
   // Selecting the pinned one with pinned = NO fails.
-  [mediator_ selectItemWithID:identifier_0 pinned:NO];
+  [mediator_ selectItemWithID:identifier_0 pinned:NO isFirstActionOnTabGrid:NO];
 
   EXPECT_EQ(2, browser_->GetWebStateList()->active_index());
   EXPECT_EQ(identifier_2, consumer_.selectedItemID);
@@ -378,7 +380,8 @@ TEST_P(BaseGridMediatorWithPriceDropIndicatorsTest,
       browser_->GetWebStateList()->GetWebStateAt(2);
   // No need to set a null price drop - it will be null by default.
   [mediator_ selectItemWithID:web_state_to_select->GetUniqueIdentifier()
-                       pinned:NO];
+                       pinned:NO
+       isFirstActionOnTabGrid:NO];
   EXPECT_EQ(1, user_action_tester_.GetActionCount(kHasNoPriceDropUserAction));
   EXPECT_EQ(0, user_action_tester_.GetActionCount(kHasPriceDropUserAction));
 }
@@ -390,7 +393,8 @@ TEST_P(BaseGridMediatorWithPriceDropIndicatorsTest,
   // Add a fake price drop.
   SetFakePriceDrop(web_state_to_select);
   [mediator_ selectItemWithID:web_state_to_select->GetUniqueIdentifier()
-                       pinned:NO];
+                       pinned:NO
+       isFirstActionOnTabGrid:NO];
   EXPECT_EQ(1, user_action_tester_.GetActionCount(kHasPriceDropUserAction));
   EXPECT_EQ(0, user_action_tester_.GetActionCount(kHasNoPriceDropUserAction));
 }
@@ -494,7 +498,8 @@ TEST_P(BaseGridMediatorTest, NoToolbarUpdateNotSelected) {
 // should be presented, the others would be disabled.
 TEST_P(BaseGridMediatorTest, NTPSelectedWithoutGroup) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({kTabGroupsInGrid, kTabGroupsIPad}, {});
+  scoped_feature_list.InitWithFeatures(
+      {kTabGroupsInGrid, kTabGroupsIPad, kModernTabStrip}, {});
 
   ASSERT_EQ(3UL, consumer_.items.size());
   browser_->GetWebStateList()->InsertWebState(
@@ -552,7 +557,8 @@ TEST_P(BaseGridMediatorTest, NTPSelectedWithoutGroup) {
 // Tests selecting a tab with one existing group.
 TEST_P(BaseGridMediatorTest, SelectedTabWithGroup) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({kTabGroupsInGrid, kTabGroupsIPad}, {});
+  scoped_feature_list.InitWithFeatures(
+      {kTabGroupsInGrid, kTabGroupsIPad, kModernTabStrip}, {});
 
   EXPECT_EQ(3UL, consumer_.items.size());
 
@@ -616,7 +622,8 @@ TEST_P(BaseGridMediatorTest, SelectedTabWithGroup) {
 // Tests selecting a tab and a group with one existing group.
 TEST_P(BaseGridMediatorTest, SelectedTabAndGroupWithGroup) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({kTabGroupsInGrid, kTabGroupsIPad}, {});
+  scoped_feature_list.InitWithFeatures(
+      {kTabGroupsInGrid, kTabGroupsIPad, kModernTabStrip}, {});
 
   EXPECT_EQ(3UL, consumer_.items.size());
 
@@ -680,25 +687,6 @@ TEST_P(BaseGridMediatorTest, SelectedTabAndGroupWithGroup) {
   EXPECT_NSEQ(@"My group", groups.children[0].title);
 }
 
-// Tests that adding a tab to a group is working.
-TEST_P(BaseGridMediatorTest, AddTabToGroup) {
-  WebStateList* web_state_list = browser_->GetWebStateList();
-
-  web_state_list->CreateGroup({1}, {});
-  const TabGroup* group = web_state_list->GetGroupOfWebStateAt(1);
-
-  EXPECT_EQ(3UL, consumer_.items.size());
-  EXPECT_EQ(3, web_state_list->count());
-  EXPECT_NE(nullptr, group);
-
-  [mediator_ addTabToGroup:group];
-
-  EXPECT_EQ(3UL, consumer_.items.size());
-  EXPECT_EQ(4, web_state_list->count());
-  EXPECT_EQ(2, group->range().count());
-  EXPECT_EQ(group, web_state_list->GetGroupOfWebStateAt(2));
-}
-
 // Tests that ungrouping a group is working.
 TEST_P(BaseGridMediatorTest, UngroupGroup) {
   WebStateList* web_state_list = browser_->GetWebStateList();
@@ -717,6 +705,45 @@ TEST_P(BaseGridMediatorTest, UngroupGroup) {
   EXPECT_EQ(3, web_state_list->count());
   EXPECT_EQ(0UL, web_state_list->GetGroups().size());
   EXPECT_EQ(nullptr, web_state_list->GetGroupOfWebStateAt(1));
+}
+
+// Tests that closing the last tab of a selected group clears the selection.
+TEST_P(BaseGridMediatorTest, CloseSelectedGroup) {
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  web_state_list->CreateGroup({1}, {});
+  const TabGroup* group = web_state_list->GetGroupOfWebStateAt(1);
+  [mediator_ switchToMode:TabGridModeSelection];
+  [mediator_
+      addToSelectionItemID:[GridItemIdentifier groupIdentifier:group
+                                              withWebStateList:web_state_list]];
+  EXPECT_EQ(1UL, [mediator_ allSelectedDragItems].count);
+
+  browser_->GetWebStateList()->CloseWebStateAt(1,
+                                               WebStateList::CLOSE_USER_ACTION);
+
+  EXPECT_EQ(0UL, [mediator_ allSelectedDragItems].count);
+}
+
+// Tests that closing the last tab of a selected group in a batch operation
+// clears the selection.
+TEST_P(BaseGridMediatorTest, CloseSelectedGroupInBatch) {
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  web_state_list->CreateGroup({1}, {});
+  const TabGroup* group = web_state_list->GetGroupOfWebStateAt(1);
+  [mediator_ switchToMode:TabGridModeSelection];
+  [mediator_
+      addToSelectionItemID:[GridItemIdentifier groupIdentifier:group
+                                              withWebStateList:web_state_list]];
+  EXPECT_EQ(1UL, [mediator_ allSelectedDragItems].count);
+
+  {
+    WebStateList::ScopedBatchOperation lock =
+        browser_->GetWebStateList()->StartBatchOperation();
+    browser_->GetWebStateList()->CloseWebStateAt(
+        1, WebStateList::CLOSE_USER_ACTION);
+  }
+
+  EXPECT_EQ(0UL, [mediator_ allSelectedDragItems].count);
 }
 
 INSTANTIATE_TEST_SUITE_P(

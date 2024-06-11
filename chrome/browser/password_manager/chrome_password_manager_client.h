@@ -147,7 +147,7 @@ class ChromePasswordManagerClient
 
   bool ShowKeyboardReplacingSurface(
       password_manager::PasswordManagerDriver* driver,
-      const password_manager::SubmissionReadinessParams& submission_readiness,
+      const password_manager::PasswordFillingParams& password_filling_params,
       bool is_webauthn_form) override;
 #endif
 
@@ -351,8 +351,6 @@ class ChromePasswordManagerClient
 #if BUILDFLAG(IS_ANDROID)
   PasswordAccessoryController* GetOrCreatePasswordAccessory();
 
-  TouchToFillController* GetOrCreateTouchToFillController();
-
   password_manager::CredentialCache* GetCredentialCacheForTesting() {
     return &credential_cache_;
   }
@@ -364,6 +362,10 @@ class ChromePasswordManagerClient
 
  private:
   friend class content::WebContentsUserData<ChromePasswordManagerClient>;
+
+#if BUILDFLAG(IS_ANDROID)
+  TouchToFillController* GetOrCreateTouchToFillController();
+#endif
 
   // content::WebContentsObserver overrides.
   void PrimaryPageChanged(content::Page& page) override;
@@ -503,7 +505,7 @@ class ChromePasswordManagerClient
 
 #if BUILDFLAG(IS_ANDROID)
   // Username filled by Touch To Fill and the timestamp. Used to collect
-  // metrics. TODO(crbug.com/1299394): Remove after the launch.
+  // metrics. TODO(crbug.com/40215916): Remove after the launch.
   std::optional<std::pair<std::u16string, base::Time>>
       username_filled_by_touch_to_fill_ = std::nullopt;
 

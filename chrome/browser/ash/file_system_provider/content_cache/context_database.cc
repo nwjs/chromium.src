@@ -4,7 +4,14 @@
 
 #include "chrome/browser/ash/file_system_provider/content_cache/context_database.h"
 
+#include <memory>
+#include <optional>
+#include <sstream>
+
 #include "base/sequence_checker.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/string_util.h"
 #include "sql/statement.h"
 #include "sql/transaction.h"
 
@@ -35,6 +42,11 @@ static constexpr char kSelectItemByIdSql[] =
     "SELECT fsp_path, version_tag, accessed_time FROM items WHERE id=? LIMIT 1";
 // clang-format on
 
+static constexpr char kSelectAllItemsSql[] =
+    // clang-format off
+    "SELECT id, fsp_path, version_tag, accessed_time FROM items";
+// clang-format on
+
 static constexpr char kUpdateAccessedTimeByIdSql[] =
     // clang-format off
     "UPDATE items SET accessed_time = ? WHERE id = ?";
@@ -55,6 +67,15 @@ constexpr int ContextDatabase::kCurrentVersionNumber = 1;
 // The oldest version that is still compatible with `kCurrentVersionNumber`.
 constexpr int ContextDatabase::kCompatibleVersionNumber = 1;
 
+ContextDatabase::Item::Item(int64_t id,
+                            const std::string& fsp_path,
+                            const std::string& version_tag,
+                            base::Time accessed_time)
+    : id(id),
+      fsp_path(fsp_path),
+      version_tag(version_tag),
+      accessed_time(accessed_time) {}
+
 bool ContextDatabase::Initialize() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   db_.set_histogram_tag("FSPContextDatabase");
@@ -72,7 +93,7 @@ bool ContextDatabase::Initialize() {
     LOG(ERROR) << "In memory database initialization failed";
     return false;
   } else if (!db_path_.empty() && !db_.Open(db_path_)) {
-    LOG(ERROR) << "Initialization of '" << db_path_.value() << "' failed";
+    LOG(ERROR) << "Initialization of '" << db_path_ << "' failed";
     Raze();
     return false;
   }
@@ -127,18 +148,19 @@ bool ContextDatabase::AddItem(const base::FilePath& fsp_path,
   return true;
 }
 
-bool ContextDatabase::GetItemById(int64_t item_id, Item& item) {
+std::unique_ptr<std::optional<ContextDatabase::Item>>
+ContextDatabase::GetItemById(int64_t item_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (item_id < 0) {
-    return false;
+    return nullptr;
   }
 
   std::unique_ptr<sql::Statement> statement = std::make_unique<sql::Statement>(
       db_.GetCachedStatement(SQL_FROM_HERE, kSelectItemByIdSql));
   if (!statement) {
     LOG(ERROR) << "Couldn't create SQL statement";
-    return false;
+    return nullptr;
   }
 
   statement->BindInt64(0, item_id);
@@ -146,19 +168,18 @@ bool ContextDatabase::GetItemById(int64_t item_id, Item& item) {
     // In the event the `Step()` failed, this could simply mean there is no item
     // for the `item_id`. `Succeeded` will return true in this case.
     if (statement->Succeeded()) {
-      item.item_exists = false;
-      return true;
+      return std::make_unique<std::optional<Item>>(std::nullopt);
     }
     LOG(ERROR) << "Couldn't execute statement";
-    return false;
+    return nullptr;
   }
 
-  item.fsp_path = base::FilePath(statement->ColumnString(0));
-  item.version_tag = statement->ColumnString(1);
-  item.accessed_time =
-      base::Time::FromMillisecondsSinceUnixEpoch(statement->ColumnInt64(2));
-
-  return true;
+  return std::make_unique<std::optional<ContextDatabase::Item>>(Item(
+      item_id,
+      /*fsp_path=*/statement->ColumnString(0),
+      /*version_tag=*/statement->ColumnString(1),
+      /*accessed_time=*/
+      base::Time::FromMillisecondsSinceUnixEpoch(statement->ColumnInt64(2))));
 }
 
 bool ContextDatabase::UpdateAccessedTime(int64_t item_id,
@@ -175,6 +196,60 @@ bool ContextDatabase::UpdateAccessedTime(int64_t item_id,
   statement->BindInt64(0, new_accessed_time.InMillisecondsSinceUnixEpoch());
   statement->BindInt64(1, item_id);
   return statement->Run();
+}
+
+ContextDatabase::IdToItemMap ContextDatabase::GetAllItems() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  std::unique_ptr<sql::Statement> statement = std::make_unique<sql::Statement>(
+      db_.GetCachedStatement(SQL_FROM_HERE, kSelectAllItemsSql));
+  if (!statement) {
+    LOG(ERROR) << "Couldn't create SQL statement";
+    return {};
+  }
+
+  std::map<int64_t, Item> items;
+  while (statement->Step()) {
+    items.try_emplace(
+        statement->ColumnInt64(0), statement->ColumnInt64(0),
+        statement->ColumnString(1), statement->ColumnString(2),
+        base::Time::FromMillisecondsSinceUnixEpoch(statement->ColumnInt64(3)));
+  }
+
+  if (!statement->Succeeded()) {
+    return {};
+  }
+
+  return items;
+}
+
+bool ContextDatabase::RemoveItemsByIds(std::vector<int64_t> item_ids) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  std::stringstream delete_in_clause;
+  for (size_t i = 0; i < item_ids.size(); i++) {
+    delete_in_clause << base::NumberToString(item_ids.at(i));
+    if (i < item_ids.size() - 1) {
+      delete_in_clause << "','";
+    }
+  }
+
+  const std::string remove_items_by_id_sql = base::StrCat(
+      {"DELETE FROM items WHERE id IN ('", delete_in_clause.str(), "')"});
+  CHECK(db_.IsSQLValid(remove_items_by_id_sql.c_str()));
+
+  std::unique_ptr<sql::Statement> statement = std::make_unique<sql::Statement>(
+      db_.GetCachedStatement(SQL_FROM_HERE, remove_items_by_id_sql.c_str()));
+  if (!statement) {
+    LOG(ERROR) << "Couldn't create SQL statement";
+    return {};
+  }
+
+  return statement->Run();
+}
+
+base::WeakPtr<ContextDatabase> ContextDatabase::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 bool ContextDatabase::Raze() {

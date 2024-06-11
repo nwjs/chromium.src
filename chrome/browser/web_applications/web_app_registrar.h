@@ -80,7 +80,7 @@ class WebAppRegistrar : public ProfileManagerObserver {
 
   const WebApp* GetAppById(const webapps::AppId& app_id) const;
 
-  // TODO(https://crbug.com/1182363): should be removed when id is introduced to
+  // TODO(crbug.com/40170773): should be removed when id is introduced to
   // manifest.
   const WebApp* GetAppByStartUrl(const GURL& start_url) const;
   std::vector<webapps::AppId> GetAppsFromSyncAndPendingInstallation() const;
@@ -246,7 +246,7 @@ class WebAppRegistrar : public ProfileManagerObserver {
   // Returns the start_url with launch_query_params appended to the end if any.
   GURL GetAppLaunchUrl(const webapps::AppId& app_id) const;
 
-  // TODO(crbug.com/1469482): Replace uses of this with GetAppScope().
+  // TODO(crbug.com/40277513): Replace uses of this with GetAppScope().
   std::optional<GURL> GetAppScopeInternal(const webapps::AppId& app_id) const;
 
   DisplayMode GetAppDisplayMode(const webapps::AppId& app_id) const;
@@ -596,13 +596,6 @@ class WebAppRegistrar : public ProfileManagerObserver {
   // is a subset of GetAppsIncludingStubs().
   AppSet GetApps() const;
 
-#if BUILDFLAG(IS_CHROMEOS)
-  // Set (or replace existing) temporary experimental overrides for
-  // UserDisplayMode. `overrides` maps app IDs to their overridden value.
-  void SetUserDisplayModeOverridesForExperiment(
-      base::flat_map<webapps::AppId, mojom::UserDisplayMode> overrides);
-#endif
-
   // Returns a dict with debug values for each app in the registry, including
   // registrar-evaluated effective fields.
   base::Value AsDebugValue() const;
@@ -632,14 +625,6 @@ class WebAppRegistrar : public ProfileManagerObserver {
   bool ShouldCaptureLinksConsiderOverlappingScopes(
       const webapps::AppId& app_id);
 
-#if BUILDFLAG(IS_CHROMEOS)
-  // Returns if a given app_id is considered as a shortcut in Chrome OS
-  // platform. In Chrome OS, we treated more web apps as app and force them to
-  // be opened in standalone windows, and the checking criteria is more
-  // complicated and documented in go/shortstand-prd#bookmark=id.mbe9ojau9umf.
-  bool IsShortcutAppChromeOs(const webapps::AppId& app_id) const;
-#endif
-
   // Count a number of all apps which are installed by the user but not locally
   // installed (aka installed via sync).
   int CountUserInstalledNotLocallyInstalledApps() const;
@@ -660,9 +645,6 @@ class WebAppRegistrar : public ProfileManagerObserver {
 #if DCHECK_IS_ON()
   size_t mutations_count_ = 0;
 #endif
-
-  base::flat_map<webapps::AppId, mojom::UserDisplayMode>
-      user_display_mode_overrides_for_experiment_;
 
   // Keeps a record of in-memory (non-persistent) Storage Partitions created by
   // Isolated Web Apps' Controlled Frames. This table will expire on browser

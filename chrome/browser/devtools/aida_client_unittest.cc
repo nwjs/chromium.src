@@ -54,8 +54,6 @@ class AidaClientTest : public testing::Test {
         kEmail, signin::ConsentLevel::kSync);
     AccountCapabilitiesTestMutator mutator(&account_info.capabilities);
     mutator.set_can_use_devtools_generative_ai_features(true);
-    mutator.set_can_use_edu_features(false);
-    mutator.set_is_subject_to_enterprise_policies(false);
     signin::UpdateAccountInfoForAccount(identity_test_env_->identity_manager(),
                                         account_info);
     task_environment_.RunUntilIdle();
@@ -201,7 +199,7 @@ TEST_F(AidaClientTest, Succeeds) {
           std::string() /*id_token*/, signin::ScopeSet{kScope});
   run_loop.Run();
 
-  EXPECT_EQ(kEndpointUrl, delegate.url_);
+  EXPECT_EQ(kEndpointUrlWithPath, delegate.url_);
 }
 
 TEST_F(AidaClientTest, ReusesOAuthToken) {

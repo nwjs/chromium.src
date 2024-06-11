@@ -16,9 +16,9 @@
       {
         "args": [
           "--gtest_filter=WebRtc*",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/chromium.webrtc.fyi.android.tests.dbg.content_browsertests.filter",
           "--gs-results-bucket=chromium-result-details",
-          "--recover-devices",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/chromium.webrtc.fyi.android.tests.dbg.content_browsertests.filter"
+          "--recover-devices"
         ],
         "merge": {
           "args": [
@@ -77,9 +77,9 @@
       {
         "args": [
           "--gtest_filter=WebRtc*",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/chromium.webrtc.fyi.android.tests.dbg.content_browsertests.filter",
           "--gs-results-bucket=chromium-result-details",
-          "--recover-devices",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/chromium.webrtc.fyi.android.tests.dbg.content_browsertests.filter"
+          "--recover-devices"
         ],
         "merge": {
           "args": [
@@ -313,7 +313,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
-            "os": "Mac-13"
+            "os": "Mac-13|Mac-14"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -333,7 +333,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
-            "os": "Mac-13"
+            "os": "Mac-13|Mac-14"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -351,7 +351,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
-            "os": "Mac-13"
+            "os": "Mac-13|Mac-14"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -371,7 +371,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
-            "os": "Mac-13"
+            "os": "Mac-13|Mac-14"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -392,7 +392,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
-            "os": "Mac-13"
+            "os": "Mac-13|Mac-14"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -410,7 +410,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
-            "os": "Mac-13"
+            "os": "Mac-13|Mac-14"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -428,7 +428,7 @@
         "swarming": {
           "dimensions": {
             "cpu": "x86-64",
-            "os": "Mac-13"
+            "os": "Mac-13|Mac-14"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -626,12 +626,12 @@
           },
           "named_caches": [
             {
-              "name": "xcode_ios_15c500b",
-              "path": "Xcode.app"
-            },
-            {
               "name": "runtime_ios_16_4",
               "path": "Runtime-ios-16.4"
+            },
+            {
+              "name": "xcode_ios_15c500b",
+              "path": "Xcode.app"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -674,12 +674,12 @@
           },
           "named_caches": [
             {
-              "name": "xcode_ios_15c500b",
-              "path": "Xcode.app"
-            },
-            {
               "name": "runtime_ios_17_4",
               "path": "Runtime-ios-17.4"
+            },
+            {
+              "name": "xcode_ios_15c500b",
+              "path": "Xcode.app"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -722,12 +722,12 @@
           },
           "named_caches": [
             {
-              "name": "xcode_ios_15c500b",
-              "path": "Xcode.app"
-            },
-            {
               "name": "runtime_ios_16_4",
               "path": "Runtime-ios-16.4"
+            },
+            {
+              "name": "xcode_ios_15c500b",
+              "path": "Xcode.app"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -770,12 +770,12 @@
           },
           "named_caches": [
             {
-              "name": "xcode_ios_15c500b",
-              "path": "Xcode.app"
-            },
-            {
               "name": "runtime_ios_17_4",
               "path": "Runtime-ios-17.4"
+            },
+            {
+              "name": "xcode_ios_15c500b",
+              "path": "Xcode.app"
             }
           ],
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"

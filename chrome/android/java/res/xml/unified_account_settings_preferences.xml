@@ -9,6 +9,10 @@ found in the LICENSE file.
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <org.chromium.chrome.browser.sync.settings.IdentityErrorCardPreference
+        android:key="identity_error_card"
+        app:isPreferenceVisible="false"/>
+
     <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
         android:key="sync_history_and_tabs"
         android:title="@string/sync_history_and_tabs"
@@ -45,12 +49,12 @@ found in the LICENSE file.
         android:persistent="false"/>
 
     <org.chromium.components.browser_ui.settings.ChromeBasePreference
-        android:key="data_types_switches_summary"
-        android:summary="@string/data_types_switches_summary"/>
+        android:key="account_section_footer"
+        android:summary="@string/account_section_footer"/>
 
     <PreferenceCategory
-        android:key="control_your_data_category"
-        android:title="@string/prefs_control_your_data"/>
+        android:key="account_advanced_header"
+        android:title="@string/account_advanced_header"/>
 
     <org.chromium.components.browser_ui.settings.ChromeBasePreference
         android:key="google_activity_controls"
@@ -65,5 +69,13 @@ found in the LICENSE file.
         android:key="sync_review_data"
         android:title="@string/signin_review_data_title"
         android:summary="@string/signin_review_data_summary"/>
+
+    <org.chromium.components.browser_ui.settings.ChromeBasePreference
+        android:key="manage_your_google_account"
+        android:title="@string/manage_your_google_account"/>
+
+    <org.chromium.components.browser_ui.settings.ChromeBasePreference
+        android:key="manage_accounts_on_this_device"
+        android:title="@string/manage_accounts_on_this_device"/>
 
 </PreferenceScreen>

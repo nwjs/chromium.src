@@ -111,9 +111,6 @@ class MEDIA_GPU_EXPORT V4L2StatelessVideoDecoder
   // the |decoder_| member variable.
   bool CreateDecoder(VideoCodecProfile profile, VideoColorSpace color_space);
 
-  // Trampoline the preparation of a resolution change to the client.
-  void PrepareChangeResolution();
-
   // Continue with the resolution change after allowing the teardown of the
   // queues to occur.
   void ContinueApplyResolutionChange();
@@ -126,9 +123,9 @@ class MEDIA_GPU_EXPORT V4L2StatelessVideoDecoder
   // Callbacks used to handle buffers that have been dequeued.
   void DequeueBuffers(bool success);
 
-  // Callback for frame destructor observer that will enqueue the output
-  // buffer after it is done being used.
-  void EnqueueDecodedOutputBufferByFrameID(uint64_t frame_id);
+  // Callback for frame destructor observer that will return the output
+  // buffer back to the queue for future use.
+  void ReturnDecodedOutputBuffer(uint64_t frame_id);
 
   // Empty out the |decode_request_queue_| and |display_queue_|.
   void ClearPendingRequests(DecoderStatus status);

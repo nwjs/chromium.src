@@ -24,11 +24,11 @@ ProductSpecificationsService::GetSyncControllerDelegate() {
   return bridge_->change_processor()->GetControllerDelegate();
 }
 
-const std::vector<const ProductSpecificationsSet>
+const std::vector<ProductSpecificationsSet>
 ProductSpecificationsService::GetAllProductSpecifications() {
-  std::vector<const ProductSpecificationsSet> product_specifications;
+  std::vector<ProductSpecificationsSet> product_specifications;
   for (auto& entry : bridge_->entries()) {
-    std::vector<const GURL> urls;
+    std::vector<GURL> urls;
     for (auto& data : entry.second.data()) {
       urls.emplace_back(data.url());
     }
@@ -40,10 +40,22 @@ ProductSpecificationsService::GetAllProductSpecifications() {
   return product_specifications;
 }
 
-const std::optional<const ProductSpecificationsSet>
+const std::optional<ProductSpecificationsSet>
+ProductSpecificationsService::GetSetByUuid(const base::Uuid& uuid) {
+  // TODO(b:337263623): Consider centralizing ID logic for product
+  //                    specifications.
+  auto it = bridge_->entries().find(uuid.AsLowercaseString());
+  if (it == bridge_->entries().end()) {
+    return std::nullopt;
+  }
+
+  return ProductSpecificationsSet::FromProto(it->second);
+}
+
+const std::optional<ProductSpecificationsSet>
 ProductSpecificationsService::AddProductSpecificationsSet(
     const std::string& name,
-    const std::vector<const GURL>& urls) {
+    const std::vector<GURL>& urls) {
   // TODO(crbug.com/332545064) add for a product specification set being added.
   std::optional<sync_pb::CompareSpecifics> specifics =
       bridge_->AddProductSpecifications(name, urls);
@@ -53,18 +65,59 @@ ProductSpecificationsService::AddProductSpecificationsSet(
   return std::optional(ProductSpecificationsSet::FromProto(specifics.value()));
 }
 
+std::optional<ProductSpecificationsSet> ProductSpecificationsService::SetUrls(
+    const base::Uuid& uuid,
+    const std::vector<GURL>& urls) {
+  std::optional<ProductSpecificationsSet> product_specs_set =
+      GetSetByUuid(uuid);
+  if (!product_specs_set.has_value()) {
+    return std::nullopt;
+  }
+
+  product_specs_set->urls_.clear();
+  for (const auto& url : urls) {
+    product_specs_set->urls_.push_back(url);
+  }
+
+  std::optional<sync_pb::CompareSpecifics> updated_specifics =
+      bridge_->UpdateProductSpecificationsSet(product_specs_set.value());
+  if (!updated_specifics.has_value()) {
+    return std::nullopt;
+  }
+  return ProductSpecificationsSet::FromProto(updated_specifics.value());
+}
+
+std::optional<ProductSpecificationsSet> ProductSpecificationsService::SetName(
+    const base::Uuid& uuid,
+    const std::string& name) {
+  std::optional<ProductSpecificationsSet> product_specs_set =
+      GetSetByUuid(uuid);
+  if (!product_specs_set.has_value()) {
+    return std::nullopt;
+  }
+
+  product_specs_set->name_ = name;
+
+  std::optional<sync_pb::CompareSpecifics> updated_specifics =
+      bridge_->UpdateProductSpecificationsSet(product_specs_set.value());
+  if (!updated_specifics.has_value()) {
+    return std::nullopt;
+  }
+  return ProductSpecificationsSet::FromProto(updated_specifics.value());
+}
+
 void ProductSpecificationsService::DeleteProductSpecificationsSet(
     const std::string& uuid) {
   bridge_->DeleteProductSpecificationsSet(uuid);
 }
 
 void ProductSpecificationsService::AddObserver(
-    const commerce::ProductSpecificationsSet::Observer* observer) {
+    commerce::ProductSpecificationsSet::Observer* observer) {
   bridge_->AddObserver(observer);
 }
 
 void ProductSpecificationsService::RemoveObserver(
-    const commerce::ProductSpecificationsSet::Observer* observer) {
+    commerce::ProductSpecificationsSet::Observer* observer) {
   bridge_->RemoveObserver(observer);
 }
 

@@ -900,6 +900,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     case syncer::UserSelectableType::kSavedTabGroups:
     case syncer::UserSelectableType::kSharedTabGroupData:
     case syncer::UserSelectableType::kCompare:
+    case syncer::UserSelectableType::kCookies:
       NOTREACHED();
       break;
   }
@@ -1079,7 +1080,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
 
 - (void)onChromeAccountManagerServiceShutdown:
     (ChromeAccountManagerService*)accountManagerService {
-  // TODO(crbug.com/1489595): Remove `[self disconnect]`.
+  // TODO(crbug.com/40284086): Remove `[self disconnect]`.
   [self disconnect];
 }
 

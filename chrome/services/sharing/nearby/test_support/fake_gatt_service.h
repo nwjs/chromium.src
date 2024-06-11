@@ -27,6 +27,7 @@ class FakeGattService : public mojom::GattService {
       const device::BluetoothGattCharacteristic::Permissions& permission,
       const device::BluetoothGattCharacteristic::Properties& property,
       CreateCharacteristicCallback callback) override;
+  void Register(RegisterCallback callback) override;
 
   void SetObserver(mojo::PendingRemote<mojom::GattServiceObserver> observer);
 
@@ -42,6 +43,8 @@ class FakeGattService : public mojom::GattService {
     on_destroyed_callback_ = std::move(callback);
   }
 
+  void SetShouldRegisterSucceed(bool should_register_succeed);
+
  private:
   void OnLocalCharacteristicReadResponse(
       ValueCallback callback,
@@ -51,6 +54,7 @@ class FakeGattService : public mojom::GattService {
   mojo::Remote<mojom::GattServiceObserver> observer_remote_;
   bool set_create_characteristic_result_ = false;
   base::OnceClosure on_destroyed_callback_;
+  bool should_register_succeed_ = false;
   mojo::Receiver<mojom::GattService> gatt_server_{this};
 };
 

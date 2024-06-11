@@ -969,7 +969,7 @@ bool WebAXObjectProxy::IsIgnored() {
   if (!UpdateLayout()) {
     return false;
   }
-  return accessibility_object_.AccessibilityIsIgnored();
+  return accessibility_object_.IsIgnored();
 }
 
 v8::Local<v8::Object> WebAXObjectProxy::ActiveDescendant() {
@@ -1721,7 +1721,7 @@ int WebAXObjectProxy::ScrollY() {
 
 std::string WebAXObjectProxy::ToString() {
   UpdateLayout();
-  return accessibility_object_.ToString().Utf8();
+  return accessibility_object_.ToString(/*verbose*/ false).Utf8();
 }
 
 float WebAXObjectProxy::BoundsX() {

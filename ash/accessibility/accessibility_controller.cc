@@ -15,7 +15,6 @@
 #include "ash/accessibility/accessibility_notification_controller.h"
 #include "ash/accessibility/accessibility_observer.h"
 #include "ash/accessibility/autoclick/autoclick_controller.h"
-#include "ash/accessibility/dictation_nudge_controller.h"
 #include "ash/accessibility/mouse_keys/mouse_keys_controller.h"
 #include "ash/accessibility/sticky_keys/sticky_keys_controller.h"
 #include "ash/accessibility/switch_access/point_scan_controller.h"
@@ -55,6 +54,8 @@
 #include "ash/system/power/backlights_forced_off_setter.h"
 #include "ash/system/power/power_status.h"
 #include "ash/system/power/scoped_backlights_forced_off.h"
+#include "ash/system/unified/unified_system_tray.h"
+#include "ash/system/unified/unified_system_tray_bubble.h"
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -259,7 +260,6 @@ constexpr const char* const kCopiedOnSigninAccessibilityPrefs[]{
     prefs::kAccessibilityMonoAudioEnabled,
     prefs::kAccessibilityReducedAnimationsEnabled,
     prefs::kAccessibilityMouseKeysEnabled,
-    prefs::kAccessibilityMouseKeysShortcutToPauseEnabled,
     prefs::kAccessibilityMouseKeysDisableInTextFields,
     prefs::kAccessibilityMouseKeysAcceleration,
     prefs::kAccessibilityMouseKeysMaxSpeed,
@@ -1261,8 +1261,6 @@ void AccessibilityController::RegisterProfilePrefs(
 
   // TODO(b/259372916): Enable sync for Mouse Keys settings before launch.
   registry->RegisterBooleanPref(
-      prefs::kAccessibilityMouseKeysShortcutToPauseEnabled, true);
-  registry->RegisterBooleanPref(
       prefs::kAccessibilityMouseKeysDisableInTextFields, true);
   registry->RegisterDoublePref(prefs::kAccessibilityMouseKeysAcceleration,
                                MouseKeysController::kDefaultAcceleration);
@@ -1449,7 +1447,6 @@ void AccessibilityController::Shutdown() {
   Shell::Get()->session_controller()->RemoveObserver(this);
 
   // Clean up any child windows and widgets that might be animating out.
-  dictation_nudge_controller_.reset();
   dictation_bubble_controller_.reset();
 
   for (auto& observer : observers_) {
@@ -1709,15 +1706,11 @@ bool AccessibilityController::IsEnterpriseIconVisibleForLargeCursor() {
 
 bool AccessibilityController::IsLiveCaptionSettingVisibleInTray() {
   return captions::IsLiveCaptionFeatureSupported() &&
-         base::FeatureList::IsEnabled(
-             media::kLiveCaptionSystemWideOnChromeOS) &&
          live_caption().IsVisibleInTray();
 }
 
 bool AccessibilityController::IsEnterpriseIconVisibleForLiveCaption() {
   return captions::IsLiveCaptionFeatureSupported() &&
-         base::FeatureList::IsEnabled(
-             media::kLiveCaptionSystemWideOnChromeOS) &&
          live_caption().IsEnterpriseIconVisible();
 }
 
@@ -2102,24 +2095,14 @@ void AccessibilityController::OnDictationKeyboardDialogDismissed() {
 void AccessibilityController::ShowDictationLanguageUpgradedNudge(
     const std::string& dictation_locale,
     const std::string& application_locale) {
-  if (features::IsSystemNudgeMigrationEnabled()) {
-    const std::u16string language_name = l10n_util::GetDisplayNameForLocale(
-        dictation_locale, application_locale, /*is_for_ui=*/true);
-    const std::u16string body_text = l10n_util::GetStringFUTF16(
-        IDS_ASH_DICTATION_LANGUAGE_SUPPORTED_OFFLINE_NUDGE, language_name);
+  const std::u16string language_name = l10n_util::GetDisplayNameForLocale(
+      dictation_locale, application_locale, /*is_for_ui=*/true);
+  const std::u16string body_text = l10n_util::GetStringFUTF16(
+      IDS_ASH_DICTATION_LANGUAGE_SUPPORTED_OFFLINE_NUDGE, language_name);
 
-    AnchoredNudgeData nudge_data(kDictationLanguageUpgradedNudgeId,
-                                 NudgeCatalogName::kDictation, body_text);
-
-    AnchoredNudgeManager::Get()->Show(nudge_data);
-    return;
-  }
-
-  // TODO(b:259352600): Move dictation_nudge_controller_ into
-  // accessibility_notification_controller.
-  dictation_nudge_controller_ = std::make_unique<DictationNudgeController>(
-      dictation_locale, application_locale);
-  dictation_nudge_controller_->ShowNudge();
+  AnchoredNudgeData nudge_data(kDictationLanguageUpgradedNudgeId,
+                               NudgeCatalogName::kDictation, body_text);
+  AnchoredNudgeManager::Get()->Show(nudge_data);
 }
 
 void AccessibilityController::SilenceSpokenFeedback() {
@@ -2332,6 +2315,11 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
           base::Unretained(this)));
   if (::features::IsAccessibilityMouseKeysEnabled()) {
     pref_change_registrar_->Add(
+        prefs::kAccessibilityMouseKeysDisableInTextFields,
+        base::BindRepeating(&AccessibilityController::
+                                UpdateMouseKeysDisableInTextFieldsFromPref,
+                            base::Unretained(this)));
+    pref_change_registrar_->Add(
         prefs::kAccessibilityMouseKeysAcceleration,
         base::BindRepeating(
             &AccessibilityController::UpdateMouseKeysAccelerationFromPref,
@@ -2440,6 +2428,7 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
   UpdateAutoclickMovementThresholdFromPref();
   UpdateAutoclickMenuPositionFromPref();
   if (::features::IsAccessibilityMouseKeysEnabled()) {
+    UpdateMouseKeysDisableInTextFieldsFromPref();
     UpdateMouseKeysAccelerationFromPref();
     UpdateMouseKeysMaxSpeedFromPref();
     UpdateMouseKeysDominantHandFromPref();
@@ -2522,6 +2511,13 @@ void AccessibilityController::UpdateAutoclickMovementThresholdFromPref() {
 void AccessibilityController::UpdateAutoclickMenuPositionFromPref() {
   Shell::Get()->autoclick_controller()->SetMenuPosition(
       GetAutoclickMenuPosition());
+}
+
+void AccessibilityController::UpdateMouseKeysDisableInTextFieldsFromPref() {
+  DCHECK(active_user_prefs_);
+  bool value = active_user_prefs_->GetBoolean(
+      prefs::kAccessibilityMouseKeysDisableInTextFields);
+  Shell::Get()->mouse_keys_controller()->set_disable_in_text_fields(value);
 }
 
 void AccessibilityController::UpdateMouseKeysAccelerationFromPref() {
@@ -2698,15 +2694,34 @@ void AccessibilityController::UpdateCaretBlinkIntervalFromPrefs() const {
   }
   base::TimeDelta caret_blink_interval = base::Milliseconds(
       active_user_prefs_->GetInteger(prefs::kAccessibilityCaretBlinkInterval));
+  bool notify_dark = false;
+  bool notify_web = false;
+  bool notify_native = false;
   auto* native_theme_dark = ui::NativeTheme::GetInstanceForDarkUI();
-  native_theme_dark->set_caret_blink_interval(caret_blink_interval);
-  native_theme_dark->NotifyOnNativeThemeUpdated();
+  if (native_theme_dark->GetCaretBlinkInterval() != caret_blink_interval) {
+    notify_dark = true;
+    native_theme_dark->set_caret_blink_interval(caret_blink_interval);
+  }
   auto* native_theme_web = ui::NativeTheme::GetInstanceForWeb();
-  native_theme_web->set_caret_blink_interval(caret_blink_interval);
-  native_theme_web->NotifyOnNativeThemeUpdated();
+  if (native_theme_web->GetCaretBlinkInterval() != caret_blink_interval) {
+    notify_web = true;
+    native_theme_web->set_caret_blink_interval(caret_blink_interval);
+  }
   auto* native_theme = ui::NativeTheme::GetInstanceForNativeUi();
-  native_theme->set_caret_blink_interval(caret_blink_interval);
-  native_theme->NotifyOnNativeThemeUpdated();
+  if (native_theme->GetCaretBlinkInterval() != caret_blink_interval) {
+    notify_native = true;
+    native_theme->set_caret_blink_interval(caret_blink_interval);
+  }
+  // Avoid unnecessary notifications.
+  if (notify_dark) {
+    native_theme_dark->NotifyOnNativeThemeUpdated();
+  }
+  if (notify_web) {
+    native_theme_web->NotifyOnNativeThemeUpdated();
+  }
+  if (notify_native) {
+    native_theme->NotifyOnNativeThemeUpdated();
+  }
 }
 
 void AccessibilityController::UpdateAccessibilityHighlightingFromPrefs() {
@@ -2950,6 +2965,31 @@ void AccessibilityController::SetVirtualKeyboardVisible(bool is_visible) {
   }
 }
 
+void AccessibilityController::PerformAccessibilityAction() {
+  // TODO(b/335456364): Add UMA.
+  aura::Window* target_root = Shell::GetRootWindowForNewWindows();
+  StatusAreaWidget* status_area_widget =
+      RootWindowController::ForWindow(target_root)->GetStatusAreaWidget();
+  if (!status_area_widget) {
+    // TODO(b/335456364): Support Kiosk mode.
+  }
+
+  UnifiedSystemTray* tray = status_area_widget->unified_system_tray();
+  if (tray->IsBubbleShown()) {
+    if (tray->bubble()
+            ->unified_system_tray_controller()
+            ->showing_accessibility_detailed_view()) {
+      tray->CloseBubble();
+      return;
+    }
+  } else {
+    tray->ShowBubble();
+  }
+  tray->bubble()
+      ->unified_system_tray_controller()
+      ->ShowAccessibilityDetailedView();
+}
+
 void AccessibilityController::PerformAcceleratorAction(
     AcceleratorAction accelerator_action) {
   AcceleratorController::Get()->PerformActionIfEnabled(accelerator_action,
@@ -3079,7 +3119,6 @@ void AccessibilityController::UpdateFeatureFromPref(FeatureType feature) {
               std::make_unique<DictationBubbleController>();
         }
       } else {
-        dictation_nudge_controller_.reset();
         dictation_bubble_controller_.reset();
       }
       break;

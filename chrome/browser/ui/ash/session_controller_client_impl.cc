@@ -48,7 +48,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
-#include "components/user_manager/multi_user/multi_user_sign_in_policy_controller.h"
+#include "components/user_manager/multi_user/multi_user_sign_in_policy.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_manager_pref_names.h"
 #include "components/user_manager/user_type.h"
@@ -357,11 +357,6 @@ bool SessionControllerClientImpl::IsEligibleForSeaPen(
   return ash::personalization_app::IsEligibleForSeaPen(user_profile);
 }
 
-bool SessionControllerClientImpl::IsEnterpriseManaged() const {
-  const auto* user_manager = UserManager::Get();
-  return user_manager && user_manager->IsEnterpriseManaged();
-}
-
 std::optional<int> SessionControllerClientImpl::GetExistingUsersCount() const {
   const auto* user_manager = UserManager::Get();
   return !user_manager ? std::nullopt
@@ -454,8 +449,7 @@ SessionControllerClientImpl::GetAddUserSessionPolicy() {
   if (user_manager->GetUsersAllowedForMultiProfile().empty())
     return ash::AddUserSessionPolicy::ERROR_NO_ELIGIBLE_USERS;
 
-  if (user_manager->GetMultiUserSignInPolicyController()
-          ->GetPrimaryUserPolicy() ==
+  if (user_manager::GetMultiUserSignInPolicy(user_manager->GetPrimaryUser()) ==
       user_manager::MultiUserSignInPolicy::kNotAllowed) {
     return ash::AddUserSessionPolicy::ERROR_NOT_ALLOWED_PRIMARY_USER;
   }

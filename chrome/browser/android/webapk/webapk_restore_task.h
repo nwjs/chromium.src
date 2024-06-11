@@ -8,15 +8,14 @@
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/types/pass_key.h"
-#include "components/sync/protocol/web_apk_specifics.pb.h"
 #include "components/webapps/browser/android/add_to_homescreen_data_fetcher.h"
 #include "components/webapps/browser/android/shortcut_info.h"
+#include "components/webapps/common/web_app_id.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 class Profile;
 
 namespace webapps {
-class WebAppUrlLoader;
 enum class InstallableStatusCode;
 enum class WebAppUrlLoaderResult;
 enum class WebApkInstallResult;
@@ -27,13 +26,35 @@ namespace webapk {
 class WebApkRestoreManager;
 class WebApkRestoreWebContentsManager;
 
+struct WebApkRestoreData {
+  WebApkRestoreData() = delete;
+  explicit WebApkRestoreData(
+      webapps::AppId app_id,
+      std::unique_ptr<webapps::ShortcutInfo> shortcut_info,
+      base::Time);
+  ~WebApkRestoreData();
+  WebApkRestoreData(WebApkRestoreData&& other);
+  WebApkRestoreData(const WebApkRestoreData&) = delete;
+  WebApkRestoreData& operator=(const WebApkRestoreData&) = delete;
+
+  webapps::AppId app_id;
+  // Fallback shortcut info
+  std::unique_ptr<webapps::ShortcutInfo> shortcut_info;
+  // Time when this WebApk was last used or installed
+  base::Time last_used_time;
+};
+
 // Task for installing previously synced WebAPK on new devices. Each instance
 // represents a WebAPK to be install.
 class WebApkRestoreTask : public webapps::AddToHomescreenDataFetcher::Observer {
  public:
-  explicit WebApkRestoreTask(base::PassKey<WebApkRestoreManager>,
-                             Profile* profile,
-                             const sync_pb::WebApkSpecifics& webapk_specifics);
+  explicit WebApkRestoreTask(
+      base::PassKey<WebApkRestoreManager>,
+      Profile* profile,
+      WebApkRestoreWebContentsManager* web_contents_manager,
+      std::unique_ptr<webapps::ShortcutInfo> fallback_info,
+      base::Time last_used_time);
+
   WebApkRestoreTask(const WebApkRestoreTask&) = delete;
   WebApkRestoreTask& operator=(const WebApkRestoreTask&) = delete;
   ~WebApkRestoreTask() override;
@@ -41,10 +62,32 @@ class WebApkRestoreTask : public webapps::AddToHomescreenDataFetcher::Observer {
   using CompleteCallback =
       base::OnceCallback<void(const GURL&, webapps::WebApkInstallResult)>;
 
-  virtual void Start(WebApkRestoreWebContentsManager* web_contents_manager,
-                     CompleteCallback complete_callback);
+  // LINT.IfChange(WebApkRestoreFallbackReason)
+  enum class FallbackReason {
+    kNone = 0,
+    kLoadUrl = 1,
+    kManifestIdMismatch = 2,
+    kNotWebApkCompatible = 3,
+    kMaxValue = kNotWebApkCompatible,
+  };
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/web_apk/enums.xml:WebApkRestoreFallbackReason)
+
+  virtual void Start(CompleteCallback complete_callback);
+
+  void DownloadIcon(base::OnceClosure fetch_icon_callback);
+
+  GURL manifest_id() const;
+  std::u16string app_name() const;
+  const SkBitmap& app_icon() const { return app_icon_; }
+  base::Time last_used_time() const { return last_used_time_; }
 
  private:
+  void OnIconDownloaded(base::OnceClosure fetch_icon_callback,
+                        const SkBitmap& bitmap);
+  void OnIconCreated(base::OnceClosure fetch_icon_callback,
+                     const SkBitmap& bitmap,
+                     bool is_generated);
+
   void OnWebAppUrlLoaded(webapps::WebAppUrlLoaderResult result);
 
   // AddToHomescreenDataFetcher::Observer:
@@ -57,20 +100,24 @@ class WebApkRestoreTask : public webapps::AddToHomescreenDataFetcher::Observer {
                        webapps::AddToHomescreenParams::AppType app_type,
                        webapps::InstallableStatusCode status_code) override;
 
-  void OnFinishedInstall(webapps::WebApkInstallResult result,
-                         bool relax_updates,
-                         const std::string& webapk_package_name);
+  std::unique_ptr<webapps::ShortcutInfo> UpdateFetchedInfoWithFallbackInfo(
+      const webapps::ShortcutInfo& fetched_info);
+
+  void Install(const webapps::ShortcutInfo& restore_info,
+               const SkBitmap& display_icon,
+               FallbackReason fallback_reason);
+  void OnFinishedInstall(bool is_fallback, webapps::WebApkInstallResult result);
 
   raw_ptr<Profile> profile_;
   base::WeakPtr<WebApkRestoreWebContentsManager> web_contents_manager_;
 
   CompleteCallback complete_callback_;
 
-  std::unique_ptr<webapps::WebAppUrlLoader> url_loader_;
-  std::unique_ptr<webapps::AddToHomescreenDataFetcher> data_fetcher_;
-
-  const GURL manifest_id_;
   std::unique_ptr<webapps::ShortcutInfo> fallback_info_;
+  SkBitmap app_icon_;
+  base::Time last_used_time_;
+
+  std::unique_ptr<webapps::AddToHomescreenDataFetcher> data_fetcher_;
 
   base::WeakPtrFactory<WebApkRestoreTask> weak_factory_{this};
 };

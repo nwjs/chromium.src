@@ -51,7 +51,6 @@
 #include "components/omnibox/browser/omnibox_client.h"
 #include "components/omnibox/browser/omnibox_controller.h"
 #include "components/omnibox/browser/omnibox_edit_model.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/common/omnibox_features.h"
@@ -615,12 +614,7 @@ void OmniboxViewViews::UpdateSchemeStyle(const gfx::Range& range) {
 void OmniboxViewViews::OnThemeChanged() {
   views::Textfield::OnThemeChanged();
 
-  bool gm3_text_color_enabled =
-      omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-          omnibox::kOmniboxSteadyStateTextColor);
-
-  set_placeholder_text_color(GetColorProvider()->GetColor(
-      gm3_text_color_enabled ? kColorOmniboxText : kColorOmniboxTextDimmed));
+  set_placeholder_text_color(GetColorProvider()->GetColor(kColorOmniboxText));
   SetSelectionBackgroundColor(
       GetColorProvider()->GetColor(kColorOmniboxSelectionBackground));
   SetSelectionTextColor(
@@ -1480,6 +1474,12 @@ std::u16string OmniboxViewViews::GetSelectionClipboardText() const {
 }
 
 void OmniboxViewViews::DoInsertChar(char16_t ch) {
+  // Note: Using `Textfield::GetText()` instead of the `OmniboxView`
+  // implementation because the latter makes full string copies of the former.
+  if (model()->MaybeAccelerateKeywordSelection(Textfield::GetText(), ch)) {
+    return;
+  }
+
   // When the fakebox is focused, ignore whitespace input because if the
   // fakebox is hidden and there's only whitespace in the omnibox, it's
   // difficult for the user to see that the focus moved to the omnibox.
@@ -1875,7 +1875,7 @@ void OmniboxViewViews::OnCompositingStarted(ui::Compositor* compositor,
     latency_histogram_state_ = COMPOSITING_STARTED;
 }
 
-void OmniboxViewViews::OnCompositingEnded(ui::Compositor* compositor) {
+void OmniboxViewViews::OnCompositingAckDeprecated(ui::Compositor* compositor) {
   if (latency_histogram_state_ == COMPOSITING_STARTED) {
     DCHECK(!insert_char_time_.is_null());
     UMA_HISTOGRAM_TIMES("Omnibox.CharTypedToRepaintLatency",

@@ -23,7 +23,7 @@
 #import "base/time/time.h"
 #import "base/timer/timer.h"
 #import "base/values.h"
-#import "components/autofill/core/browser/ui/popup_item_ids.h"
+#import "components/autofill/core/browser/ui/suggestion_type.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/core/common/form_data.h"
 #import "components/autofill/core/common/password_form_fill_data.h"
@@ -132,7 +132,7 @@ constexpr int kNotifyAutoSigninDuration = 3;  // seconds
 
 // Hides auto sign-in notification. Removes the view from superview and destroys
 // the controller.
-// TODO(crbug.com/435048): Animate disappearance.
+// TODO(crbug.com/40394758): Animate disappearance.
 - (void)hideAutosigninNotification;
 
 @end
@@ -314,7 +314,7 @@ constexpr int kNotifyAutoSigninDuration = 3;  // seconds
 }
 
 // Shows auto sign-in notification and schedules hiding it after 3 seconds.
-// TODO(crbug.com/435048): Animate appearance.
+// TODO(crbug.com/40394758): Animate appearance.
 - (void)showAutosigninNotification:(std::unique_ptr<PasswordForm>)formSignedIn {
   if (!_webState) {
     return;
@@ -515,7 +515,7 @@ constexpr int kNotifyAutoSigninDuration = 3;  // seconds
 - (void)sharedPasswordController:(SharedPasswordController*)controller
              didAcceptSuggestion:(FormSuggestion*)suggestion {
   if (suggestion.popupItemId ==
-      autofill::PopupItemId::kAllSavedPasswordsEntry) {
+      autofill::SuggestionType::kAllSavedPasswordsEntry) {
     // Navigate to the settings list.
     [self.delegate displaySavedPasswordList];
   }

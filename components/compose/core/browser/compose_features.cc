@@ -4,6 +4,8 @@
 
 #include "components/compose/core/browser/compose_features.h"
 
+#include "base/feature_list.h"
+
 namespace compose::features {
 
 // Note: Compose is enabled by default because it requires settings UI enabling.
@@ -25,7 +27,7 @@ BASE_FEATURE(kComposeEligible,
              "ComposeEligible",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableComposeNudge,
+BASE_FEATURE(kEnableComposeSavedStateNudge,
              "ComposeNudge",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -36,6 +38,10 @@ BASE_FEATURE(kEnableComposeProactiveNudge,
 BASE_FEATURE(kEnableComposeSavedStateNotification,
              "EnableComposeSavedStateNotification",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnableComposeNudgeAtCursor,
+             "EnableComposeNudgeAtCursor",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableComposeLanguageBypass,
              "ComposeLanguageBypass",
@@ -73,4 +79,7 @@ BASE_FEATURE(kEnableNudgeForUnspecifiedHint,
              "ComposeEnableNudgeForUnspecifiedHint",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kEnableAdditionalTextMetrics,
+             "EnableAdditionalTextMetrics",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 }  // namespace compose::features

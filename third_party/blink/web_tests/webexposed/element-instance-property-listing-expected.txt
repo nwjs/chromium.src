@@ -594,7 +594,6 @@ html element fencedframe
     property allow
     property config
     property height
-    property onfencedtreeclick
     property sandbox
     property width
 html element fieldset
@@ -1625,6 +1624,8 @@ svg element a
     property getCTM
     property getScreenCTM
     property href
+    property interestAction
+    property interestTargetElement
     property nearestViewportElement
     property requiredExtensions
     property systemLanguage

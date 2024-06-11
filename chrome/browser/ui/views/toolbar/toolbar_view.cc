@@ -68,6 +68,7 @@
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/performance_controls/battery_saver_button.h"
+#include "chrome/browser/ui/views/performance_controls/performance_intervention_button.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_toolbar_icon_view.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_toolbar_container.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -230,6 +231,8 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
   SetID(VIEW_ID_TOOLBAR);
 
   container_view_ = AddChildView(std::make_unique<ContainerView>());
+
+  SetAccessibleRole(ax::mojom::Role::kToolbar);
 
   if (display_mode_ == DisplayMode::NORMAL) {
     container_view_->SetBackground(
@@ -436,6 +439,12 @@ void ToolbarView::Init() {
           performance_manager::features::kPerformanceControlsSidePanel)) {
     battery_saver_button_ = container_view_->AddChildView(
         std::make_unique<BatterySaverButton>(browser_view_));
+  }
+
+  if (base::FeatureList::IsEnabled(
+          performance_manager::features::kPerformanceIntervention)) {
+    performance_intervention_button_ = container_view_->AddChildView(
+        std::make_unique<PerformanceInterventionButton>());
   }
 
   if (cast)
@@ -733,7 +742,8 @@ bool ToolbarView::GetAcceleratorForCommandId(
 ////////////////////////////////////////////////////////////////////////////////
 // ToolbarView, views::View overrides:
 
-gfx::Size ToolbarView::CalculatePreferredSize() const {
+gfx::Size ToolbarView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   gfx::Size size;
   switch (display_mode_) {
     case DisplayMode::CUSTOM_TAB:
@@ -748,7 +758,7 @@ gfx::Size ToolbarView::CalculatePreferredSize() const {
       // the toolbar to report an unreasonable height (see crbug.com/985909), we
       // cap the height at the size of known child views (location bar and back
       // button) plus margins.
-      // TODO(crbug.com/1033627): Figure out why the height reports incorrectly
+      // TODO(crbug.com/40663413): Figure out why the height reports incorrectly
       // on some installations.
       if (layout_manager_ && location_bar_->GetVisible()) {
         const int max_height =
@@ -777,7 +787,7 @@ gfx::Size ToolbarView::GetMinimumSize() const {
       // the toolbar to report an unreasonable height (see crbug.com/985909), we
       // cap the height at the size of known child views (location bar and back
       // button) plus margins.
-      // TODO(crbug.com/1033627): Figure out why the height reports incorrectly
+      // TODO(crbug.com/40663413): Figure out why the height reports incorrectly
       // on some installations.
       if (layout_manager_ && location_bar_->GetVisible()) {
         const int max_height =
@@ -1109,8 +1119,8 @@ void ToolbarView::UpdateTypeAndSeverity(
 
   if (base::FeatureList::IsEnabled(features::kDefaultBrowserPromptRefresh) &&
       DefaultBrowserPromptManager::GetInstance()->get_show_app_menu_prompt()) {
-    // Log whether the default chip was shown when it otherwise should be to
-    // understand the percent of time it is pre-empted.
+    // Anytime the default chip is eligible to be shown, log whether the prompt
+    // was actually shown. This helps us understand how often it is pre-empted.
     base::UmaHistogramBoolean(
         "DefaultBrowser.AppMenu.DefaultChipShown",
         type_and_severity.type ==

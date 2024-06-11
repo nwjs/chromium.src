@@ -40,11 +40,12 @@ enum ContentSetting {
 // Range-checked conversion of an int to a ContentSetting, for use when reading
 // prefs off disk.
 ContentSetting IntToContentSetting(int content_setting);
+
 struct ContentSettingPatternSource {
   ContentSettingPatternSource(const ContentSettingsPattern& primary_pattern,
                               const ContentSettingsPattern& secondary_patttern,
                               base::Value setting_value,
-                              const std::string& source,
+                              content_settings::mojom::ProviderType provider,
                               bool incognito,
                               content_settings::RuleMetaData metadata =
                                   content_settings::RuleMetaData());
@@ -62,7 +63,8 @@ struct ContentSettingPatternSource {
   ContentSettingsPattern secondary_pattern;
   base::Value setting_value;
   content_settings::RuleMetaData metadata;
-  std::string source;
+  content_settings::mojom::ProviderType source =
+      content_settings::mojom::ProviderType::kNone;
   bool incognito;
 };
 
@@ -98,26 +100,28 @@ struct RendererContentSettingRules {
 
 namespace content_settings {
 
+using ProviderType = mojom::ProviderType;
+
 // Enum containing the various source for content settings. Settings can be
 // set by policy, extension, the user or by the custodian of a supervised user.
 // Certain (internal) origins are allowlisted. For these origins the source is
-// |SETTING_SOURCE_ALLOWLIST|.
-enum SettingSource {
-  SETTING_SOURCE_NONE,
-  SETTING_SOURCE_POLICY,
-  SETTING_SOURCE_EXTENSION,
-  SETTING_SOURCE_USER,
-  SETTING_SOURCE_ALLOWLIST,
-  SETTING_SOURCE_SUPERVISED,
-  SETTING_SOURCE_INSTALLED_WEBAPP,
-  SETTING_SOURCE_TPCD_GRANT,
+// |SettingSource::kAllowList|.
+enum class SettingSource {
+  kNone,
+  kPolicy,
+  kExtension,
+  kUser,
+  kAllowList,
+  kSupervised,
+  kInstalledWebApp,
+  kTpcdGrant,
 };
 
 // |SettingInfo| provides meta data for content setting values. |source|
 // contains the source of a value. |primary_pattern| and |secondary_pattern|
 // contains the patterns of the appling rule.
 struct SettingInfo {
-  SettingSource source = SETTING_SOURCE_NONE;
+  SettingSource source = SettingSource::kNone;
   ContentSettingsPattern primary_pattern;
   ContentSettingsPattern secondary_pattern;
   RuleMetaData metadata;
@@ -134,6 +138,31 @@ struct SettingInfo {
   }
 };
 
+// Returns the SettingSource associated with the given ProviderType.
+constexpr SettingSource GetSettingSourceFromProviderType(
+    ProviderType provider_type) {
+  switch (provider_type) {
+    case ProviderType::kWebuiAllowlistProvider:
+      return SettingSource::kAllowList;
+    case ProviderType::kPolicyProvider:
+      return SettingSource::kPolicy;
+    case ProviderType::kSupervisedProvider:
+      return SettingSource::kSupervised;
+    case ProviderType::kCustomExtensionProvider:
+      return SettingSource::kExtension;
+    case ProviderType::kInstalledWebappProvider:
+      return SettingSource::kInstalledWebApp;
+    case ProviderType::kNotificationAndroidProvider:
+    case ProviderType::kOneTimePermissionProvider:
+    case ProviderType::kPrefProvider:
+    case ProviderType::kDefaultProvider:
+    case ProviderType::kProviderForTests:
+    case ProviderType::kOtherProviderForTests:
+      return SettingSource::kUser;
+    case content_settings::ProviderType::kNone:
+      return SettingSource::kNone;
+  }
+}
 }  // namespace content_settings
 
 #endif  // COMPONENTS_CONTENT_SETTINGS_CORE_COMMON_CONTENT_SETTINGS_H_

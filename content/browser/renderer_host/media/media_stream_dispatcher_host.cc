@@ -133,7 +133,7 @@ WrapApplySubCaptureTarget(
           // Intentionally avoid returning. Instead, continue execution and
           // invoke the callback. If the callback were allowed to "drop" that
           // would trigger a DCHECK in the mojom pipe.
-          // TODO(crbug.com/1299008): Avoid the necessity for this.
+          // TODO(crbug.com/40823292): Avoid the necessity for this.
         }
         std::move(callback).Run(result);
       },
@@ -145,7 +145,7 @@ bool AllowedStreamTypeCombination(
     blink::mojom::MediaStreamType audio_stream_type,
     blink::mojom::MediaStreamType video_stream_type) {
   switch (audio_stream_type) {
-    // TODO(crbug.com/1288237): Disallow video_stream_type == NO_SERVICE when
+    // TODO(crbug.com/40211480): Disallow video_stream_type == NO_SERVICE when
     // {video=false} is no longer allowed.
     case blink::mojom::MediaStreamType::NO_SERVICE:
       return blink::IsVideoInputMediaType(video_stream_type) ||
@@ -241,7 +241,7 @@ MediaStreamDispatcherHost::MediaStreamDispatcherHost(
           base::BindRepeating(&GetMediaDeviceSaltAndOrigin)) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  // TODO(crbug.com/1265369): Register focus_callback only when needed.
+  // TODO(crbug.com/40203744): Register focus_callback only when needed.
   base::RepeatingClosure focus_callback =
       base::BindRepeating(&MediaStreamDispatcherHost::OnWebContentsFocused,
                           weak_factory_.GetWeakPtr());
@@ -659,18 +659,6 @@ void MediaStreamDispatcherHost::SetCapturingLinkSecured(
       session_id.value_or(base::UnguessableToken()), type, is_secure);
 }
 
-void MediaStreamDispatcherHost::OnStreamStarted(const std::string& label) {
-  DCHECK_CURRENTLY_ON(BrowserThread::IO);
-
-  if (base::FeatureList::IsEnabled(
-          blink::features::kStartMediaStreamCaptureIndicatorInBrowser)) {
-    ReceivedBadMessage(render_frame_host_id_.child_id,
-                       bad_message::MSDH_ON_STREAM_STARTED_DISALLOWED);
-    return;
-  }
-  media_stream_manager_->OnStreamStarted(label);
-}
-
 void MediaStreamDispatcherHost::KeepDeviceAliveForTransfer(
     const base::UnguessableToken& session_id,
     const base::UnguessableToken& transfer_id,
@@ -715,7 +703,7 @@ void MediaStreamDispatcherHost::ApplySubCaptureTarget(
   // Namely, cropping and restricting are currently only allowed
   // for self-capture, so the sub_capture_target has to be associated with the
   // top-level WebContents belonging to this very tab.
-  // TODO(crbug.com/1299008): Switch away from the free function version
+  // TODO(crbug.com/40823292): Switch away from the free function version
   // when SelfOwnedReceiver properly supports this.
   GetUIThreadTaskRunner({})->PostTaskAndReplyWithResult(
       FROM_HERE,
@@ -813,7 +801,7 @@ void MediaStreamDispatcherHost::GetOpenDevice(
         blink::mojom::MediaStreamRequestResult::NOT_SUPPORTED, nullptr);
     return;
   }
-  // TODO(https://crbug.com/1288839): Decide whether we need to have another
+  // TODO(crbug.com/40058526): Decide whether we need to have another
   // mojo method, called by the first renderer to say "I'm going to be
   // transferring this track, allow the receiving renderer to call GetOpenDevice
   // on it", and whether we can/need to specific the destination renderer/frame

@@ -116,7 +116,7 @@ std::string GetCacheKey(const GURL& resource_url,
   if (net::HttpCache::IsSplitCacheEnabled() &&
       base::FeatureList::IsEnabled(
           net::features::kSplitCodeCacheByNetworkIsolationKey)) {
-    // TODO(https://crbug.com/1346188):  Transient NIKs return nullopt when
+    // TODO(crbug.com/40232395):  Transient NIKs return nullopt when
     // their ToCacheKeyString() method is invoked, as they generally shouldn't
     // be written to disk. This code is currently reached for transient NIKs,
     // which needs to be fixed.
@@ -472,8 +472,8 @@ void GeneratedCodeCache::WriteEntry(const GURL& url,
 
     // Make a copy of the data before hashing. A compromised renderer could
     // change shared memory before we can compute the hash and write the data.
-    // TODO(1135729) Eliminate this copy when the shared memory can't be written
-    // by the sender.
+    // TODO(crbug.com/40151989) Eliminate this copy when the shared memory can't
+    // be written by the sender.
     mojo_base::BigBuffer copy({data.data(), data.size()});
     if (copy.size() != data.size())
       return;

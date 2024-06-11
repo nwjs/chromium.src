@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_ASH_LOGIN_SAML_LOCKSCREEN_REAUTH_DIALOG_TEST_HELPER_H_
 
 #include <optional>
+#include <string>
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ash/login/test/js_checker.h"
@@ -17,7 +18,6 @@ class WebContents;
 namespace ash {
 
 class LockScreenStartReauthDialog;
-class LockScreenStartReauthUI;
 class LockScreenReauthHandler;
 class LockScreenNetworkDialog;
 class LockScreenNetworkUI;
@@ -38,6 +38,11 @@ class LockScreenReauthDialogTestHelper {
   // the operation fails.
   static std::optional<LockScreenReauthDialogTestHelper>
   StartSamlAndWaitForIdpPageLoad();
+
+  // Initialize and return (if successful) an instance of
+  // `LockScreenReauthDialogTestHelper` for an already shown online
+  // re-authentication dialog.
+  static std::optional<LockScreenReauthDialogTestHelper> InitForShownDialog();
 
   ~LockScreenReauthDialogTestHelper();
 
@@ -145,10 +150,8 @@ class LockScreenReauthDialogTestHelper {
   test::JSChecker SigninFrameJS();
 
  private:
-  // Instantiate using the static function `ShowDialogAndWait`.
+  // Instantiate using public static factory methods.
   LockScreenReauthDialogTestHelper();
-
-  bool ShowDialogAndWaitImpl();
 
   void WaitForAuthenticatorToLoad();
   void WaitForReauthDialogToLoad();
@@ -160,8 +163,6 @@ class LockScreenReauthDialogTestHelper {
   // Main Dialog
   raw_ptr<LockScreenStartReauthDialog, AcrossTasksDanglingUntriaged>
       reauth_dialog_ = nullptr;
-  raw_ptr<LockScreenStartReauthUI, AcrossTasksDanglingUntriaged>
-      reauth_webui_controller_ = nullptr;
   raw_ptr<LockScreenReauthHandler, AcrossTasksDanglingUntriaged> main_handler_ =
       nullptr;
 

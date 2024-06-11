@@ -48,9 +48,13 @@ namespace gfx {
 class Size;
 }  // namespace gfx
 
-namespace ui::mojom {
+namespace ui {
+struct AXUpdatesAndEvents;
+struct AXLocationChanges;
+namespace mojom {
 enum class VirtualKeyboardMode;
-}  // namespace ui::mojom
+}  // namespace mojom
+}  // namespace ui
 
 namespace network::mojom {
 class SharedDictionaryAccessDetails;
@@ -67,8 +71,6 @@ class RenderViewHost;
 class RenderWidgetHost;
 class Page;
 class WebContents;
-struct AXEventNotificationDetails;
-struct AXLocationChangeNotificationDetails;
 struct CookieAccessDetails;
 struct EntryChangedDetails;
 struct FocusedNodeDetails;
@@ -506,6 +508,14 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
       NavigationHandle* navigation_handle,
       const network::mojom::SharedDictionaryAccessDetails& details) {}
 
+  // Called when the renderer requests access to storage.
+  // Observers will be notified about the type of storage access requested
+  // as well as whether access was blocked or not.
+  virtual void NotifyStorageAccessed(
+      RenderFrameHost* render_frame_host,
+      blink::mojom::StorageTypeAccessed storage_type,
+      bool blocked) {}
+
   // This method is invoked when a new non-pending navigation entry is created.
   // This corresponds to one NavigationController entry being created
   // (in the case of new navigations) or renavigated to (for back/forward
@@ -768,9 +778,9 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
   // from a render frame, but only when the accessibility mode has the
   // ui::AXMode::kWebContents flag set.
   virtual void AccessibilityEventReceived(
-      const AXEventNotificationDetails& details) {}
+      const ui::AXUpdatesAndEvents& details) {}
   virtual void AccessibilityLocationChangesReceived(
-      const std::vector<AXLocationChangeNotificationDetails>& details) {}
+      const std::vector<ui::AXLocationChanges>& details) {}
 
   // Invoked when theme color is changed.
   virtual void DidChangeThemeColor() {}
@@ -908,6 +918,9 @@ class CONTENT_EXPORT WebContentsObserver : public base::CheckedObserver {
 
   // Called when WebContents received a request to lock the pointer.
   virtual void PointerLockRequested() {}
+
+  // Called when WebContents received a request to vibrate the page.
+  virtual void VibrationRequested() {}
 
   WebContents* web_contents() const;
 

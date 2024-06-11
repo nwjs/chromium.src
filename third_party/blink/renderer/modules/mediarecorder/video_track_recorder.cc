@@ -518,6 +518,8 @@ void VideoTrackRecorderImpl::Encoder::StartFrameEncode(
   awaiting_first_frame_ = false;
 
   if (num_frames_in_encode_->count() > kMaxNumberOfFramesInEncode) {
+    LOCAL_HISTOGRAM_BOOLEAN("Media.MediaRecorder.DroppingFrameTooManyInEncode",
+                            true);
     DLOG(WARNING) << "Too many frames are queued up. Dropping this one.";
     return;
   }
@@ -528,6 +530,8 @@ void VideoTrackRecorderImpl::Encoder::StartFrameEncode(
       (video_frame->IsMappable() &&
        (video_frame->format() == media::PIXEL_FORMAT_I420 ||
         video_frame->format() == media::PIXEL_FORMAT_I420A));
+  auto timestamp = video_frame->metadata().capture_begin_time.value_or(
+      video_frame->metadata().reference_time.value_or(capture_timestamp));
   scoped_refptr<media::VideoFrame> frame = std::move(video_frame);
   // First, pixel format is converted to NV12, I420 or I420A.
   if (!is_format_supported) {
@@ -549,7 +553,7 @@ void VideoTrackRecorderImpl::Encoder::StartFrameEncode(
       WTF::BindOnce(&VideoTrackRecorderImpl::Counter::DecreaseCount,
                     num_frames_in_encode_->GetWeakPtr())));
   num_frames_in_encode_->IncreaseCount();
-  EncodeFrame(std::move(frame), capture_timestamp,
+  EncodeFrame(std::move(frame), timestamp,
               request_key_frame_for_testing_ || force_key_frame);
   request_key_frame_for_testing_ = false;
 }
@@ -664,12 +668,12 @@ VideoTrackRecorderImpl::Encoder::MaybeProvideEncodableFrame(
     if (libyuv::ConvertToI420(
             static_cast<uint8_t*>(pixmap.writable_addr()),
             pixmap.computeByteSize(),
-            frame->GetWritableVisibleData(media::VideoFrame::kYPlane),
-            frame->stride(media::VideoFrame::kYPlane),
-            frame->GetWritableVisibleData(media::VideoFrame::kUPlane),
-            frame->stride(media::VideoFrame::kUPlane),
-            frame->GetWritableVisibleData(media::VideoFrame::kVPlane),
-            frame->stride(media::VideoFrame::kVPlane), 0 /* crop_x */,
+            frame->GetWritableVisibleData(media::VideoFrame::Plane::kY),
+            frame->stride(media::VideoFrame::Plane::kY),
+            frame->GetWritableVisibleData(media::VideoFrame::Plane::kU),
+            frame->stride(media::VideoFrame::Plane::kU),
+            frame->GetWritableVisibleData(media::VideoFrame::Plane::kV),
+            frame->stride(media::VideoFrame::Plane::kV), 0 /* crop_x */,
             0 /* crop_y */, pixmap.width(), pixmap.height(),
             old_visible_size.width(), old_visible_size.height(),
             MediaVideoRotationToRotationMode(video_rotation),
@@ -682,8 +686,8 @@ VideoTrackRecorderImpl::Encoder::MaybeProvideEncodableFrame(
       libyuv::ARGBExtractAlpha(
           static_cast<uint8_t*>(pixmap.writable_addr()),
           static_cast<int>(pixmap.rowBytes()) /* stride */,
-          frame->GetWritableVisibleData(media::VideoFrame::kAPlane),
-          frame->stride(media::VideoFrame::kAPlane), pixmap.width(),
+          frame->GetWritableVisibleData(media::VideoFrame::Plane::kA),
+          frame->stride(media::VideoFrame::Plane::kA), pixmap.width(),
           pixmap.height());
     }
   }
@@ -703,8 +707,9 @@ VideoTrackRecorderImpl::Encoder::ConvertToI420ForSoftwareEncoder(
     scoped_refptr<media::VideoFrame> frame) {
   DCHECK_EQ(frame->format(), media::VideoPixelFormat::PIXEL_FORMAT_NV12);
 
-  if (frame->GetGpuMemoryBuffer())
+  if (frame->HasGpuMemoryBuffer()) {
     frame = media::ConvertToMemoryMappedFrame(frame);
+  }
   if (!frame)
     return nullptr;
 
@@ -713,12 +718,12 @@ VideoTrackRecorderImpl::Encoder::ConvertToI420ForSoftwareEncoder(
       frame->visible_rect(), frame->natural_size(), frame->timestamp());
   auto ret = libyuv::NV12ToI420(
       frame->data(0), frame->stride(0), frame->data(1), frame->stride(1),
-      i420_frame->writable_data(media::VideoFrame::kYPlane),
-      i420_frame->stride(media::VideoFrame::kYPlane),
-      i420_frame->writable_data(media::VideoFrame::kUPlane),
-      i420_frame->stride(media::VideoFrame::kUPlane),
-      i420_frame->writable_data(media::VideoFrame::kVPlane),
-      i420_frame->stride(media::VideoFrame::kVPlane),
+      i420_frame->writable_data(media::VideoFrame::Plane::kY),
+      i420_frame->stride(media::VideoFrame::Plane::kY),
+      i420_frame->writable_data(media::VideoFrame::Plane::kU),
+      i420_frame->stride(media::VideoFrame::Plane::kU),
+      i420_frame->writable_data(media::VideoFrame::Plane::kV),
+      i420_frame->stride(media::VideoFrame::Plane::kV),
       frame->coded_size().width(), frame->coded_size().height());
   if (ret)
     return frame;

@@ -535,6 +535,10 @@ void TabStripSceneLayer::PutGroupIndicatorLayer(
   DecorationTitle* title_layer =
       layer_title_cache->GetGroupTitleLayer(id, incognito);
   if (title_layer) {
+    // Ensure we're using the updated title bitmap prior to accessing/updating
+    // any properties.
+    title_layer->SetUIResourceIds();
+
     float title_y = (height - title_layer->size().height()) / 2.f;
     title_layer->setOpacity(1.0f);
     title_layer->setBounds(gfx::Size(width - (title_text_padding * 2), height));
@@ -545,7 +549,8 @@ void TabStripSceneLayer::PutGroupIndicatorLayer(
       title_indicator_layer->ReplaceChild(
           title_indicator_layer->children()[0].get(), title_layer->layer());
     }
-    title_layer->SetUIResourceIds();
+  } else {
+    title_indicator_layer->RemoveAllChildren();
   }
 
   // Set bottom indicator properties.

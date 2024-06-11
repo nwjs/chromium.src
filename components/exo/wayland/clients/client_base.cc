@@ -102,11 +102,15 @@ const char kVulkanDebug[] = "vk-debug";
 // a clear color).
 const char kVulkanTexture[] = "vk-texture";
 
+// Specifies if client should run with a blitter.
+const char kVulkanBlitter[] = "vk-blitter";
+
 // Specifies if client should y-invert the dmabuf surfaces.
 const char kYInvert[] = "y-invert";
 
-// Specifies if client should use xdg or zxdg_v6 or rely on wl_shell.
-const char kXdg[] = "xdg";
+// Specifies if client should use the deprecated wl_shell instead of xdg or
+// zxdg_v6.
+const char kWlShell[] = "wl-shell";
 
 // In cases where we can't easily change the environment variables, such as tast
 // tests, this flag specifies the socket to pass to wl_display_connect.
@@ -172,6 +176,25 @@ uint32_t VulkanChooseGraphicsQueueFamily(VkPhysicalDevice device) {
   }
   return UINT32_MAX;
 }
+uint32_t VulkanChooseTransferQueueFamily(VkPhysicalDevice device) {
+  uint32_t properties_number = 0;
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &properties_number, nullptr);
+  std::vector<VkQueueFamilyProperties> properties(properties_number);
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &properties_number,
+                                           properties.data());
+
+  // Choose the first transfer queue that doesn't have graphics support.
+  for (uint32_t i = 0; i < properties_number; ++i) {
+    if ((properties[i].queueFlags & VK_QUEUE_TRANSFER_BIT) &&
+        !(properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+      DCHECK_GT(properties[i].queueCount, 0u);
+      return i;
+    }
+  }
+
+  LOG(ERROR) << "failed to get transfer queue";
+  return UINT32_MAX;
+}
 
 std::unique_ptr<ScopedVkInstance> CreateVkInstance(bool enable_vulkan_debug) {
   VkApplicationInfo application_info{
@@ -209,8 +232,10 @@ std::unique_ptr<ScopedVkInstance> CreateVkInstance(bool enable_vulkan_debug) {
   return vk_instance;
 }
 
-std::unique_ptr<ScopedVkDevice> CreateVkDevice(VkInstance vk_instance,
-                                               uint32_t* queue_family_index) {
+std::unique_ptr<ScopedVkDevice> CreateVkDevice(
+    VkInstance vk_instance,
+    uint32_t* queue_family_index,
+    uint32_t* transfer_queue_family_index) {
   uint32_t physical_devices_number = 1;
   VkPhysicalDevice physical_device;
   VkResult result = vkEnumeratePhysicalDevices(
@@ -219,23 +244,32 @@ std::unique_ptr<ScopedVkDevice> CreateVkDevice(VkInstance vk_instance,
       << "Failed to enumerate physical devices.";
 
   *queue_family_index = VulkanChooseGraphicsQueueFamily(physical_device);
+  *transfer_queue_family_index =
+      VulkanChooseTransferQueueFamily(physical_device);
   CHECK_NE(UINT32_MAX, *queue_family_index);
 
   float priority = 1.0f;
-  VkDeviceQueueCreateInfo device_queue_create_info{
-      .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-      .queueFamilyIndex = *queue_family_index,
-      .queueCount = 1,
-      .pQueuePriorities = &priority,
-  };
+  std::vector<VkDeviceQueueCreateInfo> queue_info{
+      {
+          .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+          .queueFamilyIndex = *queue_family_index,
+          .queueCount = 1,
+          .pQueuePriorities = &priority,
+      },
+      {
+          .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+          .queueFamilyIndex = *transfer_queue_family_index,
+          .queueCount = 1,
+          .pQueuePriorities = &priority,
+      }};
   const char* required_extensions[] = {
       "VK_KHR_external_memory_fd",
   };
   const char* validation_layers[] = {"VK_LAYER_KHRONOS_validation"};
   VkDeviceCreateInfo device_create_info{
       .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-      .queueCreateInfoCount = 1,
-      .pQueueCreateInfos = &device_queue_create_info,
+      .queueCreateInfoCount = 2,
+      .pQueueCreateInfos = queue_info.data(),
       .enabledLayerCount = 1,
       .ppEnabledLayerNames = validation_layers,
       .enabledExtensionCount = 1,
@@ -942,7 +976,7 @@ bool ClientBase::InitParams::FromCommandLine(
 
   y_invert = command_line.HasSwitch(switches::kYInvert);
 
-  use_xdg = command_line.HasSwitch(switches::kXdg);
+  use_wl_shell = command_line.HasSwitch(switches::kWlShell);
 
   if (command_line.HasSwitch(switches::kWaylandSocket))
     wayland_socket = command_line.GetSwitchValueASCII(switches::kWaylandSocket);
@@ -950,6 +984,7 @@ bool ClientBase::InitParams::FromCommandLine(
   enable_vulkan_debug = command_line.HasSwitch(switches::kVulkanDebug);
 
   use_vulkan_texture = command_line.HasSwitch(switches::kVulkanTexture);
+  use_vulkan_blitter = command_line.HasSwitch(switches::kVulkanBlitter);
 
   return true;
 }
@@ -996,6 +1031,8 @@ bool ClientBase::Init(const InitParams& params) {
   }
 
   base::flat_map<std::string, uint32_t> requested_versions;
+  requested_versions[xdg_wm_base_interface.name] =
+      XDG_SURFACE_CONFIGURE_SINCE_VERSION;
   requested_versions[zwp_linux_dmabuf_v1_interface.name] =
       params.linux_dmabuf_version;
   globals_.Init(display_.get(), std::move(requested_versions));
@@ -1120,15 +1157,21 @@ bool ClientBase::Init(const InitParams& params) {
       CHECK(ret) << "Failed to initialize VulkanImplementation";
       vk_instance_ = CreateVkInstance(params.enable_vulkan_debug);
       uint32_t queue_family_index = UINT32_MAX;
-      vk_device_ = CreateVkDevice(vk_instance_->get(), &queue_family_index);
+      uint32_t transfer_queue_family_index = UINT32_MAX;
+      vk_device_ = CreateVkDevice(vk_instance_->get(), &queue_family_index,
+                                  &transfer_queue_family_index);
       CHECK(gpu::GetVulkanFunctionPointers()->BindDeviceFunctionPointers(
           vk_device_->get(), VK_VERSION_1_0, gfx::ExtensionSet()));
       vk_render_pass_ = CreateVkRenderPass(vk_device_->get());
 
       vkGetDeviceQueue(vk_device_->get(), queue_family_index, 0, &vk_queue_);
+      vkGetDeviceQueue(vk_device_->get(), transfer_queue_family_index, 0,
+                       &vk_queue_transfer_);
 
       vk_command_pool_ =
           CreateVkCommandPool(vk_device_->get(), queue_family_index);
+      vk_command_pool_transfer_ =
+          CreateVkCommandPool(vk_device_->get(), transfer_queue_family_index);
 
       if (params.use_vulkan_texture) {
         // pipeline initialization
@@ -1235,7 +1278,7 @@ bool ClientBase::Init(const InitParams& params) {
     zwp_fullscreen_shell_v1_present_surface(globals_.fullscreen_shell.get(),
                                             surface_.get(), 0, nullptr);
 
-  } else if (!params.use_xdg) {
+  } else if (params.use_wl_shell) {
     if (!globals_.shell) {
       LOG(ERROR) << "Can't find shell interface";
       return false;

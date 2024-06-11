@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.tab_group_sync;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -23,6 +24,8 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.Token;
+import org.chromium.base.supplier.Supplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
@@ -31,12 +34,17 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.test.util.browser.tabmodel.MockTabModel;
+import org.chromium.components.prefs.PrefService;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
+
+import java.util.ArrayList;
 
 /** Unit tests for the {@link TabGroupSyncController}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class TabGroupSyncControllerUnitTest {
+    private static final Token TOKEN_1 = new Token(2, 3);
+
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     private @Mock TabModelSelector mTabModelSelector;
     private @Mock TabCreatorManager mTabCreatorManager;
@@ -44,6 +52,8 @@ public class TabGroupSyncControllerUnitTest {
     private @Mock Profile mProfile;
     private MockTabModel mTabModel;
     private @Mock TabGroupModelFilter mTabGroupModelFilter;
+    private @Mock PrefService mPrefService;
+    private @Mock Supplier<Boolean> mIsActiveWindowSupplier;
     private TabGroupSyncController mController;
 
     private @Captor ArgumentCaptor<TabModelSelectorObserver> mTabModelSelectorObserverCaptor;
@@ -62,7 +72,11 @@ public class TabGroupSyncControllerUnitTest {
                 .addObserver(mTabGroupSyncServiceObserverCaptor.capture());
         mController =
                 new TabGroupSyncController(
-                        mTabModelSelector, mTabCreatorManager, mTabGroupSyncService);
+                        mTabModelSelector,
+                        mTabCreatorManager,
+                        mTabGroupSyncService,
+                        mPrefService,
+                        mIsActiveWindowSupplier);
     }
 
     @After
@@ -73,9 +87,10 @@ public class TabGroupSyncControllerUnitTest {
     @Test
     public void testInitialization() {
         when(mTabModelSelector.isTabStateInitialized()).thenReturn(true);
-        when(mTabGroupSyncService.getAllGroupIds()).thenReturn(new String[0]);
+        when(mTabGroupSyncService.getDeletedGroupIds()).thenReturn(new ArrayList<>());
         mTabGroupSyncServiceObserverCaptor.getValue().onInitialized();
         mTabModelSelectorObserverCaptor.getValue().onTabStateInitialized();
-        verify(mTabGroupSyncService, times(2)).getAllGroupIds();
+        verify(mTabGroupSyncService, times(1)).addObserver(any());
+        verify(mTabGroupSyncService, times(2)).getDeletedGroupIds();
     }
 }

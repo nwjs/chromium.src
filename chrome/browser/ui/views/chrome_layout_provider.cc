@@ -9,7 +9,6 @@
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/base/ui_base_features.h"
@@ -79,10 +78,7 @@ gfx::Insets ChromeLayoutProvider::GetInsetsMetric(int metric) const {
     case INSETS_TOAST:
       return gfx::Insets::VH(0, kHarmonyLayoutUnit);
     case INSETS_OMNIBOX_PILL_BUTTON:
-      if ((base::FeatureList::IsEnabled(omnibox::kCr2023ActionChips) ||
-           features::GetChromeRefresh2023Level() ==
-               features::ChromeRefresh2023Level::kLevel2) &&
-          !touch_ui) {
+      if (!touch_ui) {
         return gfx::Insets::VH(4, 8);
       } else {
         return touch_ui
@@ -164,7 +160,7 @@ int ChromeLayoutProvider::GetDistanceMetric(int metric) const {
     case DISTANCE_BETWEEN_PRIMARY_AND_SECONDARY_LABELS_HORIZONTAL:
       return 24;
     case DISTANCE_OMNIBOX_CELL_VERTICAL_PADDING:
-      return OmniboxFieldTrial::IsCr23LayoutEnabled() ? 12 : 8;
+      return 12;
     case DISTANCE_OMNIBOX_TWO_LINE_CELL_VERTICAL_PADDING:
       return 4;
     case DISTANCE_SIDE_PANEL_HEADER_VECTOR_ICON_SIZE:

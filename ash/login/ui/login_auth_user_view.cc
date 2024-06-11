@@ -776,7 +776,7 @@ void LoginAuthUserView::SetAuthMethods(
   padding_below_password_view_->SetPreferredSize(GetPaddingBelowPasswordView());
 
   password_view_->SetPlaceholderText(GetPasswordViewPlaceholder());
-  password_view_->SetAccessibleName(l10n_util::GetStringFUTF16(
+  password_view_->SetAccessibleNameOnTextfield(l10n_util::GetStringFUTF16(
       IDS_ASH_LOGIN_POD_PASSWORD_FIELD_ACCESSIBLE_NAME, user_display_email));
 
   // Only the active auth user view has authentication methods. If that is the
@@ -892,7 +892,7 @@ void LoginAuthUserView::ApplyAnimationPostLayout(bool animate) {
 
     auto transition = std::make_unique<PinKeyboardAnimation>(
         current_state.has_pinpad /*grow*/, pin_view_->height(),
-        // TODO(https://crbug.com/955119): Implement proper animation.
+        // TODO(crbug.com/41454201): Implement proper animation.
         base::Milliseconds(login::kChangeUserAnimationDurationMs / 2.0f),
         gfx::Tween::FAST_OUT_SLOW_IN);
     auto* sequence = new ui::LayerAnimationSequence(std::move(transition));
@@ -1031,8 +1031,9 @@ base::WeakPtr<views::View> LoginAuthUserView::GetActiveInputView() {
   return password_view_ != nullptr ? password_view_->AsWeakPtr() : nullptr;
 }
 
-gfx::Size LoginAuthUserView::CalculatePreferredSize() const {
-  gfx::Size size = views::View::CalculatePreferredSize();
+gfx::Size LoginAuthUserView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  gfx::Size size = views::View::CalculatePreferredSize(available_size);
   // Make sure we are at least as big as the user view. If we do not do this
   // the view will be below minimum size when no auth methods are displayed.
   size.SetToMax(user_view_->GetPreferredSize());

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/feature_list.h"
 
 #include <stddef.h>
@@ -96,7 +101,7 @@ class EarlyFeatureAccessTracker {
 
  private:
   void Fail(const Feature* feature, bool with_feature_allow_list) {
-    // TODO(crbug.com/1358639): Enable this check on all platforms.
+    // TODO(crbug.com/40237050): Enable this check on all platforms.
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 #if !BUILDFLAG(IS_NACL)
     // Create a crash key with the name of the feature accessed too early, to
@@ -199,7 +204,7 @@ bool SplitIntoTwo(std::string_view text,
     *second = std::string(parts[1]);
   } else if (parts.size() > 2) {
     DLOG(ERROR) << "Only one '" << separator
-                << "' is allowed but got: " << *first;
+                << "' is allowed but got: " << text;
     return false;
   }
   *first = parts[0];
@@ -358,21 +363,21 @@ void FeatureList::InitFromSharedMemory(PersistentMemoryAllocator* allocator) {
 }
 
 bool FeatureList::IsFeatureOverridden(const std::string& feature_name) const {
-  return overrides_.count(feature_name);
+  return GetOverrideEntryByFeatureName(feature_name);
 }
 
 bool FeatureList::IsFeatureOverriddenFromCommandLine(
     const std::string& feature_name) const {
-  auto it = overrides_.find(feature_name);
-  return it != overrides_.end() && !it->second.overridden_by_field_trial;
+  const OverrideEntry* entry = GetOverrideEntryByFeatureName(feature_name);
+  return entry && !entry->overridden_by_field_trial;
 }
 
 bool FeatureList::IsFeatureOverriddenFromCommandLine(
     const std::string& feature_name,
     OverrideState state) const {
-  auto it = overrides_.find(feature_name);
-  return it != overrides_.end() && !it->second.overridden_by_field_trial &&
-         it->second.overridden_state == state;
+  const OverrideEntry* entry = GetOverrideEntryByFeatureName(feature_name);
+  return entry && !entry->overridden_by_field_trial &&
+         entry->overridden_state == state;
 }
 
 void FeatureList::AssociateReportingFieldTrial(
@@ -386,9 +391,10 @@ void FeatureList::AssociateReportingFieldTrial(
   // enforced server-side.
   OverrideEntry* entry = &overrides_.find(feature_name)->second;
   if (entry->field_trial) {
-    NOTREACHED() << "Feature " << feature_name
-                 << " already has trial: " << entry->field_trial->trial_name()
-                 << ", associating trial: " << field_trial->trial_name();
+    NOTREACHED_IN_MIGRATION()
+        << "Feature " << feature_name
+        << " already has trial: " << entry->field_trial->trial_name()
+        << ", associating trial: " << field_trial->trial_name();
     return;
   }
 
@@ -778,17 +784,16 @@ FeatureList::OverrideState FeatureList::GetOverrideStateByFeatureName(
   DCHECK(initialized_);
   DCHECK(IsValidFeatureOrFieldTrialName(feature_name)) << feature_name;
 
-  auto it = overrides_.find(feature_name);
-  if (it != overrides_.end()) {
-    const OverrideEntry& entry = it->second;
-
+  if (const OverrideEntry* entry =
+          GetOverrideEntryByFeatureName(feature_name)) {
     // Activate the corresponding field trial, if necessary.
-    if (entry.field_trial)
-      entry.field_trial->Activate();
+    if (entry->field_trial) {
+      entry->field_trial->Activate();
+    }
 
     // TODO(asvitkine) Expand this section as more support is added.
 
-    return entry.overridden_state;
+    return entry->overridden_state;
   }
   // Otherwise, report that we want to use the default state.
   return OVERRIDE_USE_DEFAULT;
@@ -803,7 +808,6 @@ FieldTrial* FeatureList::GetAssociatedFieldTrial(const Feature& feature) const {
 
 const base::FeatureList::OverrideEntry*
 FeatureList::GetOverrideEntryByFeatureName(std::string_view name) const {
-  DCHECK(initialized_);
   DCHECK(IsValidFeatureOrFieldTrialName(name)) << name;
 
   auto it = overrides_.find(name);
@@ -818,9 +822,7 @@ FieldTrial* FeatureList::GetAssociatedFieldTrialByFeatureName(
     std::string_view name) const {
   DCHECK(initialized_);
 
-  const base::FeatureList::OverrideEntry* entry =
-      GetOverrideEntryByFeatureName(name);
-  if (entry) {
+  if (const OverrideEntry* entry = GetOverrideEntryByFeatureName(name)) {
     return entry->field_trial;
   }
   return nullptr;
@@ -829,8 +831,9 @@ FieldTrial* FeatureList::GetAssociatedFieldTrialByFeatureName(
 bool FeatureList::HasAssociatedFieldTrialByFeatureName(
     std::string_view name) const {
   DCHECK(!initialized_);
-  auto entry = overrides_.find(name);
-  return entry != overrides_.end() && entry->second.field_trial != nullptr;
+
+  const OverrideEntry* entry = GetOverrideEntryByFeatureName(name);
+  return entry && entry->field_trial;
 }
 
 FieldTrial* FeatureList::GetEnabledFieldTrialByFeatureName(
@@ -849,7 +852,7 @@ FieldTrial* FeatureList::GetEnabledFieldTrialByFeatureName(
 std::unique_ptr<FeatureList::Accessor> FeatureList::ConstructAccessor() {
   if (initialized_) {
     // This function shouldn't be called after initialization.
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return nullptr;
   }
   // Use new and WrapUnique because we want to restrict access to the Accessor's

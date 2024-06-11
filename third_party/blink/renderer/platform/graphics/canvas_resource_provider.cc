@@ -12,6 +12,7 @@
 #include "base/functional/bind.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
@@ -1305,11 +1306,11 @@ BASE_FEATURE(kCanvas2DReclaimUnusedResources,
 // further by using metrics data from the field.
 const base::FeatureParam<int> kMaxRecordedOpKB(&kCanvas2DAutoFlushParams,
                                                "max_recorded_op_kb",
-                                               4 * 1024);
+                                               2 * 1024);
 
 const base::FeatureParam<int> kMaxPinnedImageKB(&kCanvas2DAutoFlushParams,
                                                 "max_pinned_image_kb",
-                                                64 * 1024);
+                                                32 * 1024);
 
 CanvasResourceProvider::CanvasResourceProvider(
     const ResourceProviderType& type,
@@ -1403,8 +1404,6 @@ bool CanvasResourceProvider::OverwriteImage(
     bool unpack_premultiply_alpha,
     const gpu::SyncToken& ready_sync_token,
     gpu::SyncToken& completion_sync_token) {
-  CHECK(shared_image_mailbox.IsSharedImage());
-
   gpu::raster::RasterInterface* raster = RasterInterface();
   if (!raster) {
     return false;

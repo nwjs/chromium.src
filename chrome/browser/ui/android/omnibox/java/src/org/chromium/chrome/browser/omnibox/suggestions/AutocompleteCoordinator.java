@@ -9,7 +9,6 @@ import android.os.Handler;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewStub;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -19,7 +18,6 @@ import androidx.core.view.ViewCompat;
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.supplier.ObservableSupplier;
-import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
@@ -54,6 +52,8 @@ import org.chromium.chrome.browser.util.KeyNavigationUtil;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.action.OmniboxActionDelegate;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
+import org.chromium.ui.AsyncViewProvider;
+import org.chromium.ui.AsyncViewStub;
 import org.chromium.ui.ViewProvider;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -72,16 +72,11 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
     private final @NonNull Callback<Profile> mProfileChangeCallback;
     private final @NonNull AutocompleteMediator mMediator;
     private final @NonNull Supplier<ModalDialogManager> mModalDialogManagerSupplier;
+    private final @NonNull OmniboxSuggestionsDropdownAdapter mAdapter;
+    private final @NonNull PreWarmingRecycledViewPool mRecycledViewPool;
     private @Nullable OmniboxSuggestionsDropdown mDropdown;
     private @NonNull ObserverList<OmniboxSuggestionsDropdownScrollListener> mScrollListenerList =
             new ObserverList<>();
-    private OmniboxSuggestionsDropdownAdapter mAdapter;
-    private Context mContext;
-    private boolean mUrlHasFocus;
-    private OneshotSupplierImpl<OmniboxSuggestionsDropdownAdapter> mAdapterSupplier =
-            new OneshotSupplierImpl<>();
-    private PreWarmingRecycledViewPool mRecycledViewPool;
-    private final boolean mForcePhoneStyleOmnibox;
 
     public AutocompleteCoordinator(
             @NonNull ViewGroup parent,
@@ -104,8 +99,6 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
         mParent = parent;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         Context context = parent.getContext();
-        mContext = context;
-        mForcePhoneStyleOmnibox = forcePhoneStyleOmnibox;
 
         PropertyModel listModel = new PropertyModel(SuggestionListProperties.ALL_KEYS);
         ModelList listItems = new ModelList();
@@ -149,7 +142,7 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
                 this::dropdownOverscrolledToTop);
 
         ViewProvider<SuggestionListViewHolder> viewProvider =
-                createViewProvider(context, listItems);
+                createViewProvider(context, listItems, forcePhoneStyleOmnibox);
         viewProvider.whenLoaded(
                 (holder) -> {
                     mDropdown = holder.dropdown;
@@ -183,28 +176,28 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
     }
 
     private ViewProvider<SuggestionListViewHolder> createViewProvider(
-            Context context, MVCListAdapter.ModelList modelList) {
+            Context context, MVCListAdapter.ModelList modelList, boolean forcePhoneStyleOmnibox) {
         return new ViewProvider<SuggestionListViewHolder>() {
+            private AsyncViewProvider<ViewGroup> mAsyncProvider;
             private List<Callback<SuggestionListViewHolder>> mCallbacks = new ArrayList<>();
             private SuggestionListViewHolder mHolder;
 
             @Override
             public void inflate() {
+                AsyncViewStub stub =
+                        mParent.getRootView().findViewById(R.id.omnibox_results_container_stub);
+                stub.setShouldInflateOnBackgroundThread(true);
+                mAsyncProvider = AsyncViewProvider.of(stub, R.id.omnibox_results_container);
+                mAsyncProvider.whenLoaded(this::onAsyncInflationComplete);
+                mAsyncProvider.inflate();
+            }
+
+            private void onAsyncInflationComplete(ViewGroup container) {
                 OmniboxSuggestionsDropdown dropdown =
                         new OmniboxSuggestionsDropdown(
-                                context, mRecycledViewPool, mForcePhoneStyleOmnibox);
+                                context, mRecycledViewPool, forcePhoneStyleOmnibox);
 
-                dropdown.getViewGroup().setClipToPadding(false);
                 dropdown.setAdapter(mAdapter);
-
-                ViewGroup container =
-                        (ViewGroup)
-                                ((ViewStub)
-                                                mParent.getRootView()
-                                                        .findViewById(
-                                                                R.id
-                                                                        .omnibox_results_container_stub))
-                                        .inflate();
 
                 mHolder = new SuggestionListViewHolder(container, dropdown);
                 for (int i = 0; i < mCallbacks.size(); i++) {
@@ -295,7 +288,6 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
 
     @Override
     public void onUrlFocusChange(boolean hasFocus) {
-        mUrlHasFocus = hasFocus;
         mMediator.onOmniboxSessionStateChange(hasFocus);
     }
 
@@ -390,6 +382,10 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
         boolean isShowingList = mDropdown != null && mDropdown.getViewGroup().isShown();
         boolean isAnyDirection = KeyNavigationUtil.isGoAnyDirection(event);
 
+        if (isShowingList && event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE) {
+            mMediator.finishInteraction();
+            return true;
+        }
         if (isShowingList && mMediator.getSuggestionCount() > 0 && isAnyDirection) {
             mMediator.allowPendingItemSelection();
         }
@@ -466,7 +462,6 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
     }
 
     public @NonNull ModalDialogManager getModalDialogManagerForTest() {
-        assert mModalDialogManagerSupplier.hasValue();
         return mModalDialogManagerSupplier.get();
     }
 

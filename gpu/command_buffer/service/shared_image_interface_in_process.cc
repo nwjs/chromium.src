@@ -27,9 +27,11 @@
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_preferences.h"
 #include "gpu/ipc/common/gpu_client_ids.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/gpu_fence.h"
 #include "ui/gl/gl_context.h"
+#include "ui/gl/gl_implementation.h"
 
 namespace gpu {
 
@@ -81,20 +83,29 @@ SharedImageInterfaceInProcess::SharedImageInterfaceInProcess(
     const GpuFeatureInfo& gpu_feature_info,
     gpu::SharedContextState* context_state,
     SharedImageManager* shared_image_manager,
-    bool is_for_display_compositor)
+    bool is_for_display_compositor,
+    OwnerThread owner_thread)
     : task_sequence_(task_sequence),
       command_buffer_id_(
           DisplayCompositorMemoryAndTaskControllerOnGpu::NextCommandBufferId()),
       shared_image_manager_(shared_image_manager),
-      sync_point_manager_(sync_point_manager) {
+      sync_point_manager_(sync_point_manager),
+      owner_thread_(owner_thread) {
   DETACH_FROM_SEQUENCE(gpu_sequence_checker_);
-  task_sequence_->ScheduleTask(
-      base::BindOnce(
-          &SharedImageInterfaceInProcess::SetUpOnGpu, base::Unretained(this),
-          std::make_unique<SetUpOnGpuParams>(
-              gpu_preferences, gpu_workarounds, gpu_feature_info, context_state,
-              shared_image_manager, is_for_display_compositor)),
-      {});
+
+  auto params = std::make_unique<SetUpOnGpuParams>(
+      gpu_preferences, gpu_workarounds, gpu_feature_info, context_state,
+      shared_image_manager, is_for_display_compositor);
+  if (owner_thread_ == OwnerThread::kCompositor) {
+    task_sequence_->ScheduleTask(
+        base::BindOnce(&SharedImageInterfaceInProcess::SetUpOnGpu,
+                       base::Unretained(this), std::move(params)),
+
+        {});
+  } else {
+    CHECK_EQ(owner_thread_, OwnerThread::kGpu);
+    SetUpOnGpu(std::move(params));
+  }
 }
 
 SharedImageInterfaceInProcess::~SharedImageInterfaceInProcess() {
@@ -102,10 +113,16 @@ SharedImageInterfaceInProcess::~SharedImageInterfaceInProcess() {
       base::WaitableEvent::ResetPolicy::MANUAL,
       base::WaitableEvent::InitialState::NOT_SIGNALED);
 
-  task_sequence_->ScheduleTask(
-      base::BindOnce(&SharedImageInterfaceInProcess::DestroyOnGpu,
-                     base::Unretained(this), &completion),
-      {});
+  if (owner_thread_ == OwnerThread::kCompositor) {
+    task_sequence_->ScheduleTask(
+        base::BindOnce(&SharedImageInterfaceInProcess::DestroyOnGpu,
+                       base::Unretained(this), &completion),
+        {});
+  } else {
+    CHECK_EQ(owner_thread_, OwnerThread::kGpu);
+    DestroyOnGpu(&completion);
+  }
+
   completion.Wait();
 }
 
@@ -182,6 +199,10 @@ void SharedImageInterfaceInProcess::DestroyOnGpu(
 }
 
 bool SharedImageInterfaceInProcess::MakeContextCurrent(bool needs_gl) {
+  if (gl::GetGLImplementation() == gl::kGLImplementationDisabled) {
+    return true;
+  }
+
   if (!context_state_)
     return false;
 
@@ -327,9 +348,19 @@ SharedImageInterfaceInProcess::CreateSharedImage(
         {});
   }
 
+  auto handle_info = GetGpuMemoryBufferHandleInfo(mailbox);
+  SharedImageInfo si_info_copy = si_info;
+
+  // Clear the external sampler prefs for shared memory case if it is set.
+  // https://issues.chromium.org/339546249.
+  if (si_info_copy.meta.format.PrefersExternalSampler() &&
+      (handle_info.handle.type ==
+       gfx::GpuMemoryBufferType::SHARED_MEMORY_BUFFER)) {
+    si_info_copy.meta.format.ClearPrefersExternalSampler();
+  }
   return base::MakeRefCounted<ClientSharedImage>(
-      mailbox, si_info.meta, GenUnverifiedSyncToken(),
-      GetGpuMemoryBufferHandleInfo(mailbox), holder_);
+      mailbox, si_info_copy.meta, GenUnverifiedSyncToken(),
+      std::move(handle_info), holder_);
 }
 
 void SharedImageInterfaceInProcess::CreateSharedImageWithBufferUsageOnGpuThread(
@@ -396,19 +427,9 @@ void SharedImageInterfaceInProcess::GetGpuMemoryBufferHandleInfoOnGpuThread(
     gfx::Size* size,
     gfx::BufferUsage* buffer_usage,
     base::WaitableEvent* completion) {
-  base::ScopedClosureRunner completion_runner(base::BindOnce(
-      [](base::WaitableEvent* completion) { completion->Signal(); },
-      completion));
+  absl::Cleanup completion_runner = [completion] { completion->Signal(); };
 
   DCHECK(shared_image_factory_);
-
-  if (!mailbox.IsSharedImage()) {
-    LOG(ERROR) << "SharedImageInterfaceInProcess: Trying to access a "
-                  "SharedImage with a "
-                  "non-SharedImage mailbox.";
-    return;
-  }
-
   // Note that we are not making |context_state_| current here as of now since
   // it is not needed to get the handle from the backings. Make context current
   // if we find that it is required.
@@ -735,11 +756,6 @@ void SharedImageInterfaceInProcess::DestroySharedImageOnGpuThread(
       !shared_image_factory_->DestroySharedImage(mailbox)) {
     context_state_->MarkContextLost();
   }
-}
-
-void SharedImageInterfaceInProcess::DestroyClientSharedImageOnGpuThread(
-    scoped_refptr<ClientSharedImage> client_shared_image) {
-  DestroySharedImageOnGpuThread(client_shared_image->mailbox());
 }
 
 void SharedImageInterfaceInProcess::WaitSyncTokenOnGpuThread(

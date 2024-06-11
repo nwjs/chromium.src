@@ -18,12 +18,15 @@ namespace ash {
 class PickerAssetFetcher;
 class PickerSearchResult;
 class PickerSearchResultsSection;
+class PickerSessionMetrics;
 
 // Delegate for `PickerView`.
 class ASH_EXPORT PickerViewDelegate {
  public:
   using SearchResultsCallback = base::RepeatingCallback<void(
       std::vector<PickerSearchResultsSection> results)>;
+  using SuggestedEditorResultsCallback =
+      base::OnceCallback<void(std::vector<PickerSearchResult> results)>;
 
   virtual ~PickerViewDelegate() {}
 
@@ -53,16 +56,26 @@ class ASH_EXPORT PickerViewDelegate {
   // the result is dropped silently.
   virtual void InsertResultOnNextFocus(const PickerSearchResult& result) = 0;
 
+  // Opens `result`. The exact behavior varies on the type of result.
+  virtual void OpenResult(const PickerSearchResult& result) = 0;
+
   // Shows the Emoji Picker with `category`.
-  virtual void ShowEmojiPicker(ui::EmojiPickerCategory category) = 0;
+  virtual void ShowEmojiPicker(ui::EmojiPickerCategory category,
+                               std::u16string_view query) = 0;
 
   // Shows the Editor.
-  virtual void ShowEditor() = 0;
+  virtual void ShowEditor(std::optional<std::string> preset_query_id,
+                          std::optional<std::string> freeform_text) = 0;
 
   // Sets the current caps lock state.
   virtual void SetCapsLockEnabled(bool enabled) = 0;
 
+  virtual void GetSuggestedEditorResults(
+      SuggestedEditorResultsCallback callback) = 0;
+
   virtual PickerAssetFetcher* GetAssetFetcher() = 0;
+
+  virtual PickerSessionMetrics& GetSessionMetrics() = 0;
 };
 
 }  // namespace ash

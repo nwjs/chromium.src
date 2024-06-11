@@ -36,7 +36,6 @@
 #include "base/dcheck_is_on.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
-#include "base/template_util.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/partition_allocator.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
@@ -1737,7 +1736,18 @@ operator=(std::initializer_list<T> elements) {
 template <typename T, wtf_size_t inlineCapacity, typename Allocator>
 template <typename U>
 bool Vector<T, inlineCapacity, Allocator>::Contains(const U& value) const {
-  return Find(value) != kNotFound;
+  // Do not reuse Find because the compiler will generate extra code to
+  // handle finding the kNotFound-th element in the array.  kNotFound is part
+  // of wtf_size_t, but not used as an index due to runtime restrictions.  See
+  // kNotFound.
+  const T* b = begin();
+  const T* e = end();
+  for (const T* iter = b; iter < e; ++iter) {
+    if (TypeOperations::CompareElement(*iter, value)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 template <typename T, wtf_size_t inlineCapacity, typename Allocator>
@@ -2372,23 +2382,6 @@ wtf_size_t EraseIf(Vector<T, inline_capacity, Allocator>& v, Pred pred) {
 }
 
 }  // namespace WTF
-
-namespace base {
-
-#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ <= 7
-// Workaround for g++7 and earlier family.
-// Due to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80654, without this
-// std::optional<WTF::Vector<T>> where T is non-copyable causes a compile
-// error. As we know it is not trivially copy constructible, explicitly declare
-// so.
-//
-// It completes the declaration in base/template_util.h that was provided
-// for std::vector
-template <typename T>
-struct is_trivially_copy_constructible<WTF::Vector<T>> : std::false_type {};
-#endif
-
-}  // namespace base
 
 using WTF::Vector;
 

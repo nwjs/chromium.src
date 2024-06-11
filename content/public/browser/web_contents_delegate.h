@@ -84,6 +84,10 @@ class Rect;
 class Size;
 }
 
+namespace ui {
+class Event;
+}
+
 namespace url {
 class Origin;
 }
@@ -203,12 +207,9 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual void UpdateTargetURL(WebContents* source,
                                const GURL& url) {}
 
-  // Notification that there was a mouse event, along with the type of event.
-  // If |motion| is true, this is a normal motion event. If |exited| is true,
-  // the pointer left the contents area.
-  virtual void ContentsMouseEvent(WebContents* source,
-                                  bool motion,
-                                  bool exited) {}
+  // Notification that a mouse `event` was dispatched to the WebContents's view.
+  virtual void ContentsMouseEvent(WebContents* source, const ui::Event& event) {
+  }
 
   // Request the delegate to change the zoom level of the current tab.
   virtual void ContentsZoomChange(bool zoom_in) {}
@@ -473,9 +474,7 @@ class CONTENT_EXPORT WebContentsDelegate {
 
   // Returns whether entering fullscreen with |EnterFullscreenModeForTab()| is
   // allowed.
-  virtual bool CanEnterFullscreenModeForTab(
-      RenderFrameHost* requesting_frame,
-      const blink::mojom::FullscreenOptions& options);
+  virtual bool CanEnterFullscreenModeForTab(RenderFrameHost* requesting_frame);
 
   // Called when the renderer puts a tab into fullscreen mode.
   // |requesting_frame| is the specific content frame requesting fullscreen.
@@ -742,7 +741,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // finishes asynchronously. If no window is present, or no update is
   // necessary, |callback| is run synchronously (immediately on the same stack).
   //
-  // TODO(crbug.com/1498140): This has no remaining call sites and can be
+  // TODO(crbug.com/40287334): This has no remaining call sites and can be
   // removed.
   virtual void UpdateInspectedWebContentsIfNecessary(
       WebContents* old_contents,

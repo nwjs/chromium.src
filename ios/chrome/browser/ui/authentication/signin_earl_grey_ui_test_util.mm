@@ -92,13 +92,15 @@ void MaybeTapSigninBottomSheetAndHistoryConfirmationDialog(
 @implementation SigninEarlGreyUI
 
 + (void)signinWithFakeIdentity:(FakeSystemIdentity*)fakeIdentity {
-  [self signinWithFakeIdentity:fakeIdentity enableSync:YES];
+  [self signinWithFakeIdentity:fakeIdentity enableHistorySync:NO];
 }
 
 + (void)signinWithFakeIdentity:(FakeSystemIdentity*)fakeIdentity
-                    enableSync:(BOOL)enableSync {
+             enableHistorySync:(BOOL)enableHistorySync {
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
-  if (!enableSync) {
+  // TODO(crbug.com/335592853): There's no good reason why the with-history vs
+  // without-history flows should be completely different, unify them.
+  if (!enableHistorySync) {
     [ChromeEarlGrey signInWithoutSyncWithIdentity:fakeIdentity];
     CloseManagedAccountDialogIfAny(fakeIdentity);
     ConditionBlock condition = ^bool {
@@ -206,7 +208,7 @@ void MaybeTapSigninBottomSheetAndHistoryConfirmationDialog(
           assertWithMatcher:grey_nil()];
       break;
     case SigninPromoViewModeSigninWithAccount:
-      // TODO(crbug.com/1210846): Determine when the SecondarySignInButton
+      // TODO(crbug.com/40182627): Determine when the SecondarySignInButton
       // should be present and assert that.
       break;
   }
@@ -264,6 +266,10 @@ void MaybeTapSigninBottomSheetAndHistoryConfirmationDialog(
 }
 
 + (void)tapPrimarySignInButtonInTabSwitcher {
+  GREYAssert(![ChromeEarlGrey isTabGroupSyncEnabled],
+             @"Recent Tabs is not available in Tab Grid when Tab Group Sync is "
+             @"enabled, so there is no way to sign-in from Tab Switcher.");
+
   [ChromeEarlGreyUI openTabGrid];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::
                                           TabGridOtherDevicesPanelButton()]

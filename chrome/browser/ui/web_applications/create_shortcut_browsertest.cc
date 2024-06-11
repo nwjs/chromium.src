@@ -22,11 +22,12 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/shortcuts/shortcut_icon_generator.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
-#include "chrome/browser/ui/web_applications/web_app_controller_browsertest.h"
+#include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom-shared.h"
 #include "chrome/browser/web_applications/test/web_app_test_observers.h"
@@ -68,7 +69,7 @@ std::string LoadExtension(Profile* profile, const base::FilePath& path) {
 
 namespace web_app {
 
-class CreateShortcutBrowserTest : public WebAppControllerBrowserTest {
+class CreateShortcutBrowserTest : public WebAppBrowserTestBase {
  public:
   webapps::AppId InstallShortcutAppForCurrentUrl(bool open_as_window = false) {
     SetAutoAcceptWebAppDialogForTesting(true, open_as_window);
@@ -181,7 +182,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
 // within an extension, then added it as a shortcut app.
 // Regression test for https://crbug.com/828233.
 //
-// TODO(crbug.com/1253234): Remove chrome-extension scheme for web apps.
+// TODO(crbug.com/40793595): Remove chrome-extension scheme for web apps.
 IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
                        ShouldShowCustomTabBarForExtensionPage) {
   // This involves the creation of a regular (non-app) extension with a popup
@@ -203,7 +204,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest,
 
   NavigateViaLinkClickToURLAndWait(browser(), popup_url);
 
-  // TODO(crbug.com/1253234): IDC_CREATE_SHORTCUT command must become disabled.
+  // TODO(crbug.com/40793595): IDC_CREATE_SHORTCUT command must become disabled.
   ASSERT_TRUE(chrome::IsCommandEnabled(browser(), IDC_CREATE_SHORTCUT));
 
   const webapps::AppId app_id = InstallShortcutAppForCurrentUrl();
@@ -324,7 +325,7 @@ IN_PROC_BROWSER_TEST_F(CreateShortcutBrowserTest, UseHostWhenTitleIsUrl) {
   // The letter for https://example.com should be the first letter of the host,
   // which is "E".
   SkBitmap generated_icon_bitmap =
-      GenerateBitmap(icon_size::k128, static_cast<char32_t>('E'));
+      shortcuts::GenerateBitmap(icon_size::k128, static_cast<char32_t>('E'));
   EXPECT_TRUE(gfx::BitmapsAreEqual(bitmap, generated_icon_bitmap));
 }
 

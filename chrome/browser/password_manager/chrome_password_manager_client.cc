@@ -46,6 +46,7 @@
 #include "chrome/browser/ui/passwords/passwords_client_ui_delegate.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
+#include "chrome/browser/ui/webauthn/authenticator_request_window.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
@@ -78,6 +79,7 @@
 #include "components/password_manager/core/browser/password_manager_setting.h"
 #include "components/password_manager/core/browser/password_manager_settings_service.h"
 #include "components/password_manager/core/browser/password_requirements_service.h"
+#include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/prefs/pref_service.h"
@@ -194,7 +196,7 @@ static const char kPasswordBreachEntryTrigger[] = "PASSWORD_ENTRY";
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-// TODO(crbug.com/1513384): Get rid of DeprecatedGetOriginAsURL().
+// TODO(crbug.com/41485955): Get rid of DeprecatedGetOriginAsURL().
 url::Origin URLToOrigin(GURL url) {
   return url::Origin::Create(url.DeprecatedGetOriginAsURL());
 }
@@ -358,6 +360,10 @@ void ChromePasswordManagerClient::FocusedInputChanged(
     autofill::FieldRendererId focused_field_id,
     autofill::mojom::FocusedFieldType focused_field_type) {
 #if BUILDFLAG(IS_ANDROID)
+  // Suppress keyboard accessory if password store is not available.
+  if (GetProfilePasswordStore() == nullptr) {
+    return;
+  }
   ManualFillingController::GetOrCreate(web_contents())
       ->NotifyFocusedInputChanged(focused_field_id, focused_field_type);
   GetOrCreatePasswordAccessory()->UpdateCredManReentryUi(focused_field_type);
@@ -437,8 +443,7 @@ void ChromePasswordManagerClient::ShowPasswordManagerErrorMessage(
 
 bool ChromePasswordManagerClient::ShowKeyboardReplacingSurface(
     password_manager::PasswordManagerDriver* driver,
-    const password_manager::SubmissionReadinessParams&
-        submission_readiness_params,
+    const password_manager::PasswordFillingParams& password_filling_params,
     bool is_webauthn_form) {
   if (base::FeatureList::IsEnabled(
           password_manager::features::kPasswordSuggestionBottomSheetV2) &&
@@ -453,7 +458,7 @@ bool ChromePasswordManagerClient::ShowKeyboardReplacingSurface(
   if (GetOrCreateCredManController()->Show(
           GetWebAuthnCredManDelegateForDriver(driver),
           std::make_unique<password_manager::PasswordCredentialFillerImpl>(
-              driver->AsWeakPtr(), submission_readiness_params),
+              driver->AsWeakPtr(), password_filling_params),
           content_driver->AsWeakPtrImpl(), is_webauthn_form)) {
     return true;
   }
@@ -466,11 +471,14 @@ bool ChromePasswordManagerClient::ShowKeyboardReplacingSurface(
   }
   auto filler =
       std::make_unique<password_manager::PasswordCredentialFillerImpl>(
-          driver->AsWeakPtr(), submission_readiness_params);
+          driver->AsWeakPtr(), password_filling_params);
+  const PasswordForm* form_to_fill = password_manager_.GetParsedObservedForm(
+      driver, password_filling_params.focused_field_renderer_id_);
   auto ttf_controller_autofill_delegate =
       std::make_unique<TouchToFillControllerAutofillDelegate>(
           this, GetDeviceAuthenticator(), webauthn_delegate->AsWeakPtr(),
-          std::move(filler),
+          std::move(filler), form_to_fill,
+          password_filling_params.focused_field_renderer_id_,
           TouchToFillControllerAutofillDelegate::ShowHybridOption(
               should_show_hybrid_option));
   return GetOrCreateTouchToFillController()->Show(
@@ -653,6 +661,7 @@ void ChromePasswordManagerClient::PasswordWasAutofilled(
 #endif
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   if (was_autofilled_on_pageload &&
+      !IsAuthenticatorRequestWindowUrl(GetLastCommittedURL()) &&
       password_manager_util::
           ShouldShowBiometricAuthenticationBeforeFillingPromo(this)) {
     PasswordsClientUIDelegateFromWebContents(web_contents())
@@ -906,7 +915,7 @@ void ChromePasswordManagerClient::AnnotateNavigationEntry(
 
 autofill::LanguageCode ChromePasswordManagerClient::GetPageLanguage() const {
 #if 0
-  // TODO(crbug.com/912597): iOS vs other platforms extracts language from
+  // TODO(crbug.com/41430413): iOS vs other platforms extracts language from
   // the top level frame vs whatever frame directly holds the form.
   auto* translate_manager =
       ChromeTranslateClient::GetManagerFromWebContents(web_contents());
@@ -1045,7 +1054,7 @@ void ChromePasswordManagerClient::NavigateToManagePasskeysPage(
 #endif
 
 bool ChromePasswordManagerClient::IsIsolationForPasswordSitesEnabled() const {
-  // TODO(crbug.com/862989): Move the following function (and the feature) to
+  // TODO(crbug.com/41401202): Move the following function (and the feature) to
   // the password component. Then remove IsIsolationForPasswordsSitesEnabled()
   // from the PasswordManagerClient interface.
   return site_isolation::SiteIsolationPolicy::
@@ -1210,7 +1219,7 @@ void ChromePasswordManagerClient::AutomaticGenerationAvailable(
   if (password_manager::features::kPasswordGenerationExperimentVariationParam
           .Get() ==
       password_manager::features::PasswordGenerationVariation::kNudgePassword) {
-    // TODO(crbug.com/1444051): Rewrite the AutomaticGenerationAvailable
+    // TODO(crbug.com/40267520): Rewrite the AutomaticGenerationAvailable
     // triggering instead of checking a boolean if the experiment is launched.
     if (ui_data.input_field_empty) {
       ShowPasswordGenerationPopup(PasswordGenerationType::kAutomatic, driver,
@@ -1323,7 +1332,7 @@ void ChromePasswordManagerClient::FrameWasScrolled() {
 }
 
 void ChromePasswordManagerClient::GenerationElementLostFocus() {
-  // TODO(crbug.com/968046): Look into removing this since FocusedInputChanged
+  // TODO(crbug.com/40629608): Look into removing this since FocusedInputChanged
   // seems to be a good replacement.
   if (popup_controller_)
     popup_controller_->GenerationElementLostFocus();
@@ -1374,7 +1383,7 @@ void ChromePasswordManagerClient::BindCredentialManager(
   // It looks like in order to remove this workaround, we probably just need to
   // make the CredentialManager mojo API rebind on the renderer side when the
   // next call is made, if it has become disconnected.
-  // TODO(https://crbug.com/1015358): Remove this workaround.
+  // TODO(crbug.com/40653684): Remove this workaround.
   content::BackForwardCache::DisableForRenderFrameHost(
       render_frame_host,
       back_forward_cache::DisabledReason(
@@ -1729,12 +1738,17 @@ void ChromePasswordManagerClient::ResetErrorMessageDelegate() {
 }
 
 void ChromePasswordManagerClient::TryToShowLocalPasswordMigrationWarning() {
+  password_manager::PasswordStoreInterface* profile_password_store =
+      GetProfilePasswordStore();
+  if (profile_password_store == nullptr) {
+    return;
+  }
   password_migration_warning_startup_launcher_ =
       std::make_unique<PasswordMigrationWarningStartupLauncher>(
           web_contents(), profile_,
           base::BindOnce(&local_password_migration::ShowWarning));
   password_migration_warning_startup_launcher_
-      ->MaybeFetchPasswordsAndShowWarning(GetProfilePasswordStore());
+      ->MaybeFetchPasswordsAndShowWarning(profile_password_store);
 }
 
 void ChromePasswordManagerClient::TryToShowPostPasswordMigrationSheet() {

@@ -8,6 +8,7 @@
 #import <LocalAuthenticationEmbeddedUI/LocalAuthenticationEmbeddedUI.h>
 
 #include "base/logging.h"
+#include "base/strings/sys_string_conversions.h"
 #include "base/timer/timer.h"
 #include "components/device_event_log/device_event_log.h"
 #include "content/public/browser/browser_thread.h"
@@ -25,17 +26,20 @@ constexpr int kWidth = 64;
 constexpr float kErrorAnimationLength = 1;
 
 // The seconds it takes for the Touch ID animation to finish when the challenge
-// succeeds.
-constexpr float kSuccessAnimationLength = 2.5;
+// succeeds. This is trimmed down so that we can overlap the enclave operation
+// with the animation.
+constexpr float kSuccessAnimationLength = 1.6;
 
 struct API_AVAILABLE(macos(12.0)) MacAuthenticationView::ObjCStorage {
   LAContext* __strong context;
   LAAuthenticationView* __strong auth_view;
 };
 
-MacAuthenticationView::MacAuthenticationView(Callback callback)
+MacAuthenticationView::MacAuthenticationView(Callback callback,
+                                             std::u16string touch_id_reason)
     : callback_(std::move(callback)),
-      storage_(std::make_unique<ObjCStorage>()) {
+      storage_(std::make_unique<ObjCStorage>()),
+      touch_id_reason_(std::move(touch_id_reason)) {
   storage_->context = [[LAContext alloc] init];
   storage_->auth_view =
       [[LAAuthenticationView alloc] initWithContext:storage_->context];
@@ -53,7 +57,8 @@ MacAuthenticationView::MacAuthenticationView(Callback callback)
 
 MacAuthenticationView::~MacAuthenticationView() = default;
 
-gfx::Size MacAuthenticationView::CalculatePreferredSize() const {
+gfx::Size MacAuthenticationView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   return gfx::Size(kWidth, kWidth);
 }
 
@@ -116,7 +121,7 @@ void MacAuthenticationView::OnPaint(gfx::Canvas* canvas) {
                        weak_factory_.GetWeakPtr());
     [storage_->context
          evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
-        localizedReason:@"NOT USED"
+        localizedReason:base::SysUTF16ToNSString(touch_id_reason_)
                   reply:^(BOOL success, NSError* error) {
                     if (error) {
                       FIDO_LOG(ERROR) << "Touch ID failed with error: "

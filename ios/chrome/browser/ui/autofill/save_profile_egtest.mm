@@ -15,6 +15,9 @@
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/autofill/autofill_app_interface.h"
+#import "ios/chrome/browser/ui/autofill/autofill_constants.h"
+#import "ios/chrome/browser/ui/autofill/bottom_sheet/bottom_sheet_constants.h"
+#import "ios/chrome/browser/ui/badges/badge_constants.h"
 #import "ios/chrome/browser/ui/infobars/banners/infobar_banner_constants.h"
 #import "ios/chrome/browser/ui/infobars/infobar_earl_grey_ui_test_util.h"
 #import "ios/chrome/browser/ui/infobars/modals/infobar_address_profile_modal_constants.h"
@@ -29,6 +32,7 @@
 #import "net/test/embedded_test_server/embedded_test_server.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "ui/base/l10n/l10n_util.h"
+#import "ui/strings/grit/ui_strings.h"
 
 using base::test::ios::kWaitForActionTimeout;
 
@@ -95,6 +99,38 @@ BOOL WaitForKeyboardToAppear() {
   return [waitForKeyboard waitWithTimeout:kWaitForActionTimeout.InSecondsF()];
 }
 
+// Matcher for a country entry with the given accessibility label.
+id<GREYMatcher> CountryEntry(NSString* label) {
+  return grey_allOf(chrome_test_util::ButtonWithAccessibilityLabel(label),
+                    grey_sufficientlyVisible(), nil);
+}
+
+// Matcher for the search bar.
+id<GREYMatcher> SearchBar() {
+  return grey_allOf(grey_accessibilityID(kAutofillCountrySelectionTableViewId),
+                    grey_sufficientlyVisible(), nil);
+}
+
+// Matcher for the search bar's cancel button.
+id<GREYMatcher> SearchBarCancelButton() {
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabelId(IDS_APP_CANCEL),
+      grey_kindOfClass([UIButton class]),
+      grey_ancestor(grey_kindOfClass([UISearchBar class])),
+      grey_sufficientlyVisible(), nil);
+}
+
+// Matcher for the search bar's scrim.
+id<GREYMatcher> SearchBarScrim() {
+  return grey_accessibilityID(kAutofillCountrySelectionSearchScrimId);
+}
+
+id<GREYMatcher> TextFieldWithLabel(NSString* textFieldLabel) {
+  return grey_allOf(grey_accessibilityID(
+                        [textFieldLabel stringByAppendingString:@"_textField"]),
+                    grey_kindOfClass([UITextField class]), nil);
+}
+
 }  // namespace
 
 @interface SaveProfileEGTest : ChromeTestCase
@@ -113,8 +149,9 @@ BOOL WaitForKeyboardToAppear() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
 
-  if ([self isRunningTest:@selector
-            (DISABLED_testUserData_LocalEditViaBottomSheet)]) {
+  if ([self isRunningTest:@selector(testUserData_LocalEditViaBottomSheet)] ||
+      [self
+          isRunningTest:@selector(testUserData_LocalHideBottomSheetOnCancel)]) {
     config.features_enabled.push_back(
         kAutofillDynamicallyLoadsFieldsForAddressInput);
   }
@@ -215,7 +252,7 @@ BOOL WaitForKeyboardToAppear() {
   WaitForKeyboardToAppear();
 
   // Populate the email field.
-  // TODO(crbug.com/1454516): This should use grey_typeText when fixed.
+  // TODO(crbug.com/40916974): This should use grey_typeText when fixed.
   for (int i = 0; kEmail[i] != '\0'; ++i) {
     NSString* letter = base::SysUTF8ToNSString(std::string(1, kEmail[i]));
     if (kEmail[i] == '@') {
@@ -375,10 +412,7 @@ BOOL WaitForKeyboardToAppear() {
 
 // Tests that the user can edit a field in the edit via in the save address
 // flow.
-// TODO(crbug.com/1482269): Re-enable the test when the save functionality is
-// implemented. Currently, the test appears flaky beacuse after a certain number
-// of tries, the save prompt is not presented if no action is taken on it.
-- (void)DISABLED_testUserData_LocalEditViaBottomSheet {
+- (void)testUserData_LocalEditViaBottomSheet {
   // Fill and submit the form.
   [self fillPresidentProfileAndShowSaveModal];
 
@@ -386,13 +420,77 @@ BOOL WaitForKeyboardToAppear() {
   [[EarlGrey selectElementWithMatcher:ModalEditButtonMatcher()]
       performAction:grey_tap()];
 
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::TextFieldForCellWithLabelId(
-                                   IDS_IOS_AUTOFILL_CITY)]
+  [[EarlGrey selectElementWithMatcher:TextFieldWithLabel(@"City")]
       performAction:grey_replaceText(@"New York")];
 
-  // TODO(crbug.com/1482269): Update test when save functionality is
-  // implemented.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityLabel(l10n_util::GetNSString(
+                                   IDS_IOS_AUTOFILL_COUNTRY))]
+      performAction:grey_tap()];
+
+  // Focus the search bar.
+  [[EarlGrey selectElementWithMatcher:SearchBar()] performAction:grey_tap()];
+
+  // Verify the scrim is visible when search bar is focused but not typed in.
+  [[EarlGrey selectElementWithMatcher:SearchBarScrim()]
+      assertWithMatcher:grey_notNil()];
+
+  // Verify the cancel button is visible and unfocuses search bar when tapped.
+  [[EarlGrey selectElementWithMatcher:SearchBarCancelButton()]
+      performAction:grey_tap()];
+
+  // Verify countries are searchable using their name in the current locale.
+  [[EarlGrey selectElementWithMatcher:SearchBar()] performAction:grey_tap()];
+
+  [[EarlGrey selectElementWithMatcher:SearchBar()]
+      performAction:grey_replaceText(@"Germany")];
+
+  // Verify that scrim is not visible anymore.
+  [[EarlGrey selectElementWithMatcher:SearchBarScrim()]
+      assertWithMatcher:grey_nil()];
+
+  [[EarlGrey selectElementWithMatcher:CountryEntry(@"Germany")]
+      performAction:grey_tap()];
+
+  // Save the profile.
+  [[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
+      performAction:grey_tap()];
+
+  // Ensure profile is saved locally.
+  GREYAssertEqual(1U, [AutofillAppInterface profilesCount],
+                  @"Profile should have been saved.");
+}
+
+// Tests that the bottom sheet to edit address is just hidden on Cancel.
+- (void)testUserData_LocalHideBottomSheetOnCancel {
+  // Fill and submit the form.
+  [self fillPresidentProfileAndShowSaveModal];
+
+  // Edit the profile.
+  [[EarlGrey selectElementWithMatcher:ModalEditButtonMatcher()]
+      performAction:grey_tap()];
+
+  // Tap "Cancel"
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(
+                                   grey_accessibilityID(
+                                       kEditProfileBottomSheetCancelButton),
+                                   grey_accessibilityTrait(
+                                       UIAccessibilityTraitButton),
+                                   nil)] performAction:grey_tap()];
+
+  // Open modal by selecting the badge that shouldn't be accepted.
+  [[EarlGrey selectElementWithMatcher:
+                 grey_accessibilityID(
+                     kBadgeButtonSaveAddressProfileAccessibilityIdentifier)]
+      performAction:grey_tap()];
+
+  [[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+
+  // Save the profile.
+  [[EarlGrey selectElementWithMatcher:ModalButtonMatcher()]
+      performAction:grey_tap()];
 }
 
 // Tests the sticky address prompt journey where the prompt remains there when

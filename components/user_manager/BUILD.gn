@@ -29,6 +29,7 @@ component("user_manager") {
     ":common",
     "//base",
     "//components/account_id",
+    "//components/prefs",
     "//ui/gfx",
   ]
 
@@ -70,7 +71,8 @@ component("user_manager") {
     deps += [
       "//ash/constants",
       "//chromeos/ash/components/install_attributes",
-      "//components/prefs",
+      "//chromeos/ash/components/settings",
+      "//components/pref_registry",
       "//skia",
       "//ui/base",
       "//ui/chromeos/resources",

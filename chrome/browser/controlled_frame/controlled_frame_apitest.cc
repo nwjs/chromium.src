@@ -30,6 +30,7 @@
 #include "net/test/spawned_test_server/spawned_test_server.h"
 #include "net/test/test_data_directory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 
 namespace controlled_frame {
 
@@ -270,6 +271,8 @@ class ControlledFrameApiTest
   }
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      blink::features::kIsolateSandboxedIframes};
   std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> app_;
 };
 
@@ -563,7 +566,7 @@ IN_PROC_BROWSER_TEST_F(ControlledFrameApiTest, AuthRequestIsProxied) {
     EXPECT_EQ(kAuthBasicUrl,
               web_view_guest->GetGuestMainFrame()->GetLastCommittedURL());
     // The auth request fails but keeps retrying until this error is produced.
-    // TODO(https://crbug.com/1502580): The error produced here should be
+    // TODO(crbug.com/40942953): The error produced here should be
     // authentication related.
     EXPECT_EQ(net::Error::ERR_TOO_MANY_RETRIES,
               navigation_observer.last_net_error_code());
@@ -596,6 +599,109 @@ IN_PROC_BROWSER_TEST_F(ControlledFrameApiTest, ExecuteScript) {
   EXPECT_EQ(kEvalSuccessStr, SetBackgroundColorToWhite(web_view_guest));
   EXPECT_EQ(kEvalSuccessStr, ExecuteScriptRedBackgroundFile(app_frame));
   EXPECT_EQ(kEvalSuccessStr, VerifyBackgroundColorIsRed(web_view_guest));
+}
+
+IN_PROC_BROWSER_TEST_F(ControlledFrameApiTest, DisabledInDataIframe) {
+  web_app::IsolatedWebAppUrlInfo url_info =
+      CreateAndInstallEmptyApp(web_app::ManifestBuilder());
+  content::RenderFrameHost* app_frame = OpenApp(url_info.app_id());
+
+  GURL https_url = embedded_https_test_server().GetURL("/index.html");
+  ASSERT_TRUE(CreateControlledFrame(app_frame, https_url));
+
+  ASSERT_TRUE(ExecJs(app_frame, R"(
+      const src = '<!DOCTYPE html><p>data: URL</p>';
+      const url = `data:text/html;base64,${btoa(src)}`;
+      new Promise(resolve => {
+        const f = document.createElement('iframe');
+        f.src = url;
+        f.addEventListener('load', resolve);
+        document.body.appendChild(f);
+      });
+  )"));
+  content::RenderFrameHost* iframe = ChildFrameAt(app_frame, 1);
+  ASSERT_NE(iframe, nullptr);
+
+  ASSERT_FALSE(CreateControlledFrame(iframe, https_url));
+}
+
+IN_PROC_BROWSER_TEST_F(ControlledFrameApiTest, DisabledInSandboxedIframe) {
+  web_app::IsolatedWebAppUrlInfo url_info =
+      CreateAndInstallEmptyApp(web_app::ManifestBuilder());
+  content::RenderFrameHost* app_frame = OpenApp(url_info.app_id());
+
+  GURL https_url = embedded_https_test_server().GetURL("/index.html");
+  ASSERT_TRUE(CreateControlledFrame(app_frame, https_url));
+
+  ASSERT_TRUE(
+      ExecJs(app_frame, content::JsReplace(R"(
+      new Promise(resolve => {
+        const f = document.createElement('iframe');
+        f.src = $1;
+        f.sandbox = 'allow-scripts';  // for EvalJs
+        f.addEventListener('load', resolve);
+        document.body.appendChild(f);
+      });
+  )",
+                                           url_info.origin().Serialize())));
+  content::RenderFrameHost* iframe = ChildFrameAt(app_frame, 1);
+  ASSERT_NE(iframe, nullptr);
+
+  ASSERT_FALSE(CreateControlledFrame(iframe, https_url));
+}
+
+IN_PROC_BROWSER_TEST_F(ControlledFrameApiTest, DisabledInSrcdocIframe) {
+  web_app::IsolatedWebAppUrlInfo url_info =
+      CreateAndInstallEmptyApp(web_app::ManifestBuilder());
+  content::RenderFrameHost* app_frame = OpenApp(url_info.app_id());
+
+  ASSERT_TRUE(ExecJs(app_frame, R"(
+      const noopPolicy = trustedTypes.createPolicy("policy", {
+        createHTML: (string) => string,
+      });
+      new Promise(resolve => {
+        const f = document.createElement('iframe');
+        f.srcdoc = noopPolicy.createHTML('<!DOCTYPE html><p>srcdoc iframe</p>');
+        f.addEventListener('load', resolve);
+        document.body.appendChild(f);
+      });
+  )"));
+  content::RenderFrameHost* iframe = ChildFrameAt(app_frame, 0);
+  ASSERT_NE(iframe, nullptr);
+
+  // Despite srcdoc iframes being same-origin, creating the <controlledframe>
+  // fails because AvailabilityCheck looks at the frame's scheme as well as
+  // its isolation level. No other IsolatedContext API does this, but it makes
+  // sense for <controlledframe> because it's not a purely JS-based API that
+  // will be blocked through CSP.
+  ASSERT_FALSE(CreateControlledFrame(
+      iframe, embedded_https_test_server().GetURL("/index.html")));
+}
+
+IN_PROC_BROWSER_TEST_F(ControlledFrameApiTest, DisabledInBlobIframe) {
+  web_app::IsolatedWebAppUrlInfo url_info =
+      CreateAndInstallEmptyApp(web_app::ManifestBuilder());
+  content::RenderFrameHost* app_frame = OpenApp(url_info.app_id());
+
+  ASSERT_TRUE(ExecJs(app_frame, R"(
+      const blob = new Blob(['<!DOCTYPE html><p>blob html page</p>'], {
+        type: 'text/html'
+      });
+      const url = URL.createObjectURL(blob);
+      new Promise(resolve => {
+        const f = document.createElement('iframe');
+        f.src = url;
+        f.addEventListener('load', resolve);
+        document.body.appendChild(f);
+      });
+  )"));
+  content::RenderFrameHost* iframe = ChildFrameAt(app_frame, 0);
+  ASSERT_NE(iframe, nullptr);
+
+  // As with srcdoc iframes, is blocked due to AvailabilityCheck verifying
+  // the frame's scheme as well as its isolation level.
+  ASSERT_FALSE(CreateControlledFrame(
+      iframe, embedded_https_test_server().GetURL("/index.html")));
 }
 
 class ControlledFrameWebSocketApiTest : public ControlledFrameApiTest {

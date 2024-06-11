@@ -45,6 +45,7 @@
 #include "chrome/common/channel_info.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
+#include "components/content_settings/core/browser/content_settings_type_set.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/google/core/common/google_util.h"
 #include "components/permissions/constants.h"
@@ -72,7 +73,7 @@
 #include "chrome/browser/android/resource_mapper.h"
 #include "chrome/browser/android/search_permissions/search_permissions_service.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
-#include "chrome/browser/permissions/notification_blocked_message_delegate_android.h"
+#include "chrome/browser/permissions/permission_blocked_message_delegate_android.h"
 #include "chrome/browser/permissions/permission_infobar_delegate_android.h"
 #include "chrome/browser/permissions/permission_update_message_controller_android.h"
 #include "components/infobars/content/content_infobar_manager.h"
@@ -100,6 +101,10 @@
 #include "extensions/common/constants.h"
 #endif
 
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/media/webrtc/system_media_capture_permissions_mac.h"
+#endif
+
 namespace {
 
 #if BUILDFLAG(IS_ANDROID)
@@ -107,8 +112,11 @@ bool ShouldUseQuietUI(content::WebContents* web_contents,
                       ContentSettingsType type) {
   auto* manager =
       permissions::PermissionRequestManager::FromWebContents(web_contents);
-  return type == ContentSettingsType::NOTIFICATIONS &&
-         manager->ShouldCurrentRequestUseQuietUI();
+  if (type != ContentSettingsType::NOTIFICATIONS &&
+      type != ContentSettingsType::GEOLOCATION) {
+    return false;
+  }
+  return manager->ShouldCurrentRequestUseQuietUI();
 }
 #endif
 
@@ -565,9 +573,9 @@ ChromePermissionsClient::MaybeCreateMessageUI(
     base::WeakPtr<permissions::PermissionPromptAndroid> prompt) {
   if (ShouldUseQuietUI(web_contents, type)) {
     auto delegate =
-        std::make_unique<NotificationBlockedMessageDelegate::Delegate>(
+        std::make_unique<PermissionBlockedMessageDelegate::Delegate>(
             std::move(prompt));
-    return std::make_unique<NotificationBlockedMessageDelegate>(
+    return std::make_unique<PermissionBlockedMessageDelegate>(
         web_contents, std::move(delegate));
   }
 
@@ -607,3 +615,39 @@ ChromePermissionsClient::CreatePrompt(
   return CreatePermissionPrompt(web_contents, delegate);
 }
 #endif
+
+bool ChromePermissionsClient::HasDevicePermission(
+    ContentSettingsType type) const {
+#if BUILDFLAG(IS_MAC)
+  switch (type) {
+    case ContentSettingsType::MEDIASTREAM_MIC:
+      return system_media_permissions::CheckSystemAudioCapturePermission() ==
+             system_media_permissions::SystemPermission::kAllowed;
+    case ContentSettingsType::MEDIASTREAM_CAMERA:
+    case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
+      return system_media_permissions::CheckSystemVideoCapturePermission() ==
+             system_media_permissions::SystemPermission::kAllowed;
+    default:
+      break;
+  }
+#endif  // BUILDFLAG(IS_MAC)
+  return PermissionsClient::HasDevicePermission(type);
+}
+
+bool ChromePermissionsClient::CanRequestDevicePermission(
+    ContentSettingsType type) const {
+#if BUILDFLAG(IS_MAC)
+  switch (type) {
+    case ContentSettingsType::MEDIASTREAM_MIC:
+      return system_media_permissions::CheckSystemAudioCapturePermission() !=
+             system_media_permissions::SystemPermission::kRestricted;
+    case ContentSettingsType::MEDIASTREAM_CAMERA:
+    case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
+      return system_media_permissions::CheckSystemVideoCapturePermission() !=
+             system_media_permissions::SystemPermission::kRestricted;
+    default:
+      break;
+  }
+#endif  // BUILDFLAG(IS_MAC)
+  return PermissionsClient::CanRequestDevicePermission(type);
+}

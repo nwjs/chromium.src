@@ -1320,7 +1320,7 @@ class NearbySharingServiceImplTestBase : public testing::Test {
         kEndpointId));
     EXPECT_FALSE(fake_nearby_connections_manager_->has_incoming_payloads());
 
-    // TODO(crbug.com/1123022): This check is flaky, should be investigated.
+    // TODO(crbug.com/40716484): This check is flaky, should be investigated.
     // EXPECT_TRUE(FileExists(file_path));
 
     // To avoid UAF in OnIncomingTransferUpdate().
@@ -3276,7 +3276,7 @@ TEST_P(NearbySharingServiceImplTest,
 
   EXPECT_FALSE(connection_.IsClosed());
 
-  // TODO(https://crbug.com/1122552) - Remove cleanups after bugfix
+  // TODO(crbug.com/40146639) - Remove cleanups after bugfix
   {
     base::ScopedAllowBlockingForTesting allow_blocking;
     std::optional<base::FilePath> path =
@@ -3329,7 +3329,7 @@ TEST_P(NearbySharingServiceImplTest, AcceptValidShareTarget) {
 
   EXPECT_FALSE(connection_.IsClosed());
 
-  // TODO(https://crbug.com/1122552) - Remove cleanups after bugfix
+  // TODO(crbug.com/40146639) - Remove cleanups after bugfix
   {
     base::ScopedAllowBlockingForTesting allow_blocking;
     std::optional<base::FilePath> path =

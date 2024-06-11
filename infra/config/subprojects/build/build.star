@@ -7,7 +7,7 @@
 
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_url.star", "linkify_builder")
-load("//lib/builders.star", "cpu", "os", "reclient", "siso")
+load("//lib/builders.star", "cpu", "os", "reclient")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -25,7 +25,6 @@ luci.bucket(
             roles = acl.BUILDBUCKET_TRIGGERER,
             groups = [
                 "project-chromium-ci-schedulers",
-                "mdb/foundry-x-team",
             ],
         ),
         acl.entry(
@@ -55,6 +54,8 @@ luci.bucket(
         luci.binding(
             roles = "role/buildbucket.creator",
             groups = [
+                "chromium-led-users",
+                "mdb/chrome-build-access-sphinx",
                 "mdb/chrome-troopers",
                 "mdb/foundry-x-team",
             ],
@@ -84,8 +85,6 @@ ci.defaults.set(
     priority = ci.DEFAULT_FYI_PRIORITY,
     service_account = "chromium-build-perf-ci-builder@chops-service-accounts.iam.gserviceaccount.com",
     siso_configs = [],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
     siso_experiments = ["no-fallback"],
 )
@@ -101,9 +100,9 @@ def cq_build_perf_builder(description_html, **kwargs):
         kwargs["siso_configs"] = ["builder", "remote-library-link", "remote-exec-link"]
     return ci.builder(
         description_html = description_html + "<br>Build stats is show in http://shortn/_gaAdI3x6o6.",
-        reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
+        reclient_jobs = 500,
+        siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
         reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
-        siso_project = siso.project.DEFAULT_UNTRUSTED,
         use_clang_coverage = True,
         **kwargs
     )
@@ -352,8 +351,6 @@ cq_build_perf_builder(
         category = "cros",
         short_name = "siso",
     ),
-    # TODO: b/329399631#comment39 - Enable remote-exec-link after resolving the Segmentation fault issue.
-    siso_configs = ["builder", "remote-library-link"],
 )
 
 cq_build_perf_builder(
@@ -492,7 +489,6 @@ def developer_build_perf_builder(description_html, **kwargs):
         description_html = description_html + "<br>Build stats is show in http://shortn/_gaAdI3x6o6.",
         executable = "recipe:chrome_build/build_perf_developer",
         reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
-        siso_project = siso.project.DEFAULT_UNTRUSTED,
         siso_configs = ["remote-library-link", "remote-exec-link"],
         shadow_reclient_instance = None,
         **kwargs
@@ -634,7 +630,7 @@ This builder measures build performance for Mac developer builds, by simulating 
         category = "mac",
         short_name = "dev",
     ),
-    reclient_jobs = 800,
+    reclient_jobs = 640,
 )
 
 developer_build_perf_builder(
@@ -671,6 +667,33 @@ This builder measures build performance for iOS developer builds, by simulating 
         category = "ios",
         short_name = "dev",
     ),
-    reclient_jobs = 800,
+    reclient_jobs = 640,
     xcode = xcode.xcode_default,
+)
+
+# Experimental builder set up to track local CPU time for Chromium build. b/333389736
+ci.builder(
+    name = "linux-build-perf-no-rbe",
+    description_html = "Monitoring CPU time to build `chrome` target locally without remote executions",
+    executable = "recipe:chrome_build/build_perf_without_rbe",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = ["mb"],
+            build_config = builder_config.build_config.RELEASE,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
+    gn_args = "no_reclient",
+    os = os.LINUX_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "linux",
+        short_name = "norbe",
+    ),
+    contact_team_email = "chrome-build-team@google.com",
+    notifies = ["Chromium Build Time Watcher"],
 )

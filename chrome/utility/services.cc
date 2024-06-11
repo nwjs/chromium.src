@@ -9,7 +9,7 @@
 
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/services/bundz_translation/bundz_translation_service.h"
+#include "chrome/services/on_device_translation/on_device_translation_service.h"
 #include "chrome/services/speech/buildflags/buildflags.h"
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -37,6 +37,10 @@
 #include "services/screen_ai/public/mojom/screen_ai_factory.mojom.h"  // nogncheck
 #include "services/screen_ai/screen_ai_service_impl.h"  // nogncheck
 #endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "services/passage_embeddings/passage_embeddings_service.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(LINUX)
 
 #if BUILDFLAG(IS_WIN)
 #include "chrome/services/system_signals/win/win_system_signals_service.h"
@@ -220,6 +224,13 @@ auto RunMacNotificationService(
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+auto RunPassageEmbeddingsService(
+    mojo::PendingReceiver<passage_embeddings::mojom::PassageEmbeddingsService>
+        receiver) {
+  return std::make_unique<passage_embeddings::PassageEmbeddingsService>(
+      std::move(receiver));
+}
+
 auto RunSystemSignalsService(
     mojo::PendingReceiver<device_signals::mojom::SystemSignalsService>
         receiver) {
@@ -440,10 +451,10 @@ auto RunMahiContentExtractionServiceFactory(
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-auto RunBundzTranslationService(
-    mojo::PendingReceiver<bundz_translation::mojom::BundzTranslationService>
-        receiver) {
-  return std::make_unique<bundz_translation::BundzTranslationService>(
+auto RunOnDeviceTranslationService(
+    mojo::PendingReceiver<
+        on_device_translation::mojom::OnDeviceTranslationService> receiver) {
+  return std::make_unique<on_device_translation::OnDeviceTranslationService>(
       std::move(receiver));
 }
 
@@ -486,6 +497,7 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  services.Add(RunPassageEmbeddingsService);
   services.Add(RunSystemSignalsService);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
@@ -558,7 +570,7 @@ void RegisterMainThreadServices(mojo::ServiceFactory& services) {
   services.Add(RunMahiContentExtractionServiceFactory);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  services.Add(RunBundzTranslationService);
+  services.Add(RunOnDeviceTranslationService);
 }
 
 void RegisterIOThreadServices(mojo::ServiceFactory& services) {

@@ -433,16 +433,36 @@ std::unique_ptr<sync_pb::SavedTabGroupSpecifics> SavedTabGroupModel::MergeGroup(
 
   DCHECK(Contains(group_id));
 
+  // For unpinned groups, `pinned_index` should be std::nullopt since its
+  // position doesn't matter.
   const int index = GetIndexOf(group_id).value();
-  const int preferred_index = sync_specific.group().position();
+  const std::optional<size_t> pinned_index =
+      saved_tab_groups_[index].is_pinned() ? std::optional<size_t>(index)
+                                           : std::nullopt;
 
+  // Merge group and get `preferred_pinned_index`.
   saved_tab_groups_[index].MergeGroup(std::move(sync_specific));
+  std::optional<size_t> preferred_pinned_index =
+      saved_tab_groups_[index].position();
 
-  if (index != preferred_index) {
-    const int num_groups = Count();
-    const int new_index =
-        preferred_index < num_groups ? preferred_index : num_groups - 1;
-    ReorderGroupFromSync(group_id, std::max(new_index, 0));
+  if (pinned_index != preferred_pinned_index) {
+    int new_index;
+    if (preferred_pinned_index.has_value()) {
+      // If the group is pinned, find the pinned position to insert.
+      new_index = preferred_pinned_index.value();
+    } else {
+      // If the group is unpinned, find the first unpinned group index to
+      // insert.
+      new_index = 0;
+      for (auto& group : saved_tab_groups_) {
+        if (group.is_pinned()) {
+          ++new_index;
+        }
+      }
+    }
+
+    ReorderGroupFromSync(group_id,
+                         std::min(std::max(new_index, 0), Count() - 1));
   }
 
   for (auto& observer : observers_) {
@@ -542,6 +562,11 @@ void SavedTabGroupModel::OnGroupClosedInTabStrip(
 
   SavedTabGroup& saved_group = saved_tab_groups_[index.value()];
   saved_group.SetLocalGroupId(std::nullopt);
+
+  // Remove the ID mappings from the tabs as well, since the group is closed.
+  for (SavedTabGroupTab& saved_tab : saved_group.saved_tabs()) {
+    saved_tab.SetLocalTabID(std::nullopt);
+  }
 
   for (auto& observer : observers_) {
     observer.SavedTabGroupLocalIdChanged(saved_group.saved_guid());
@@ -650,10 +675,19 @@ void SavedTabGroupModel::TogglePinState(base::Uuid id) {
   }
   const int index = GetIndexOf(id).value();
   std::unique_ptr<SavedTabGroup> saved_group = RemoveImpl(index);
+  bool was_pinned = saved_group->is_pinned();
   saved_group->SetPinned(!saved_group->is_pinned());
   InsertGroupImpl(*saved_group);
   for (auto& observer : observers_) {
     observer.SavedTabGroupUpdatedLocally(id);
+  }
+
+  if (was_pinned) {
+    base::RecordAction(
+        base::UserMetricsAction("TabGroups_SavedTabGroups_Unpinned"));
+  } else {
+    base::RecordAction(
+        base::UserMetricsAction("TabGroups_SavedTabGroups_Pinned"));
   }
 }
 

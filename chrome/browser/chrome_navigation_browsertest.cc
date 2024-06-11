@@ -68,6 +68,7 @@
 #include "extensions/test/test_extension_dir.h"
 #include "google_apis/gaia/gaia_switches.h"
 #include "net/dns/mock_host_resolver.h"
+#include "pdf/buildflags.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_switches.h"
@@ -1091,7 +1092,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   //    origin in the FrameNavigationEntry is still the opener's origin) and
   //    a new SiteInstance. Because the request is redirected, the saved
   //    PageState is reset.
-  //    TODO(https://crbug.com/1440543): Reconsider whether we should keep
+  //    TODO(crbug.com/40266169): Reconsider whether we should keep
   //    using the initiator origin as the precursor here, since the data: URL
   //    redirection is triggered by the extension and isn't actually related to
   //    the initiator.
@@ -1141,7 +1142,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
 
 // Same as above but the history navigation got redirected to about:blank
 // instead.
-// TODO(https://crbug.com/1440543): This is currently disabled because of
+// TODO(crbug.com/40266169): This is currently disabled because of
 // a bug where we will reuse the previous SiteInstance on the about:blank
 // navigation, even if the origins don't match, resulting in a CHECK failure
 // during the redirect on step 4. See also the TODO with the same bug number in
@@ -1230,7 +1231,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   //    origin, which will inherit from the initiator origin in the
   //    FrameNavigationEntry (the opener URL). The SiteInstance will also
   //    use the opener's SiteInstance.
-  //    TODO(https://crbug.com/1440543): Reconsider whether we should keep
+  //    TODO(crbug.com/40266169): Reconsider whether we should keep
   //    inheriting the initiator origin here, since the about:blank redirection
   //    is triggered by the extension and isn't actually related to the
   //    initiator.
@@ -1351,7 +1352,7 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   //    origin, which will inherit from the initiator origin in the
   //    FrameNavigationEntry (the opener URL). The SiteInstance will also
   //    use the opener's SiteInstance.
-  //    TODO(https://crbug.com/1440543): Reconsider whether we should keep
+  //    TODO(crbug.com/40266169): Reconsider whether we should keep
   //    inheriting the initiator origin here, since the about:blank redirection
   //    is triggered by the extension and isn't actually related to the
   //    initiator.
@@ -1800,7 +1801,7 @@ using ChromeNavigationBrowserTestWithMobileEmulation = DevToolsProtocolTestBase;
 
 // Tests the behavior of navigating to a PDF when mobile emulation is enabled.
 IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTestWithMobileEmulation,
-                       DISABLED_NavigateToPDFWithMobileEmulation) {
+                       NavigateToPDFWithMobileEmulation) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   GURL initial_url = embedded_test_server()->GetURL("/title1.html");
@@ -2384,9 +2385,10 @@ IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
   ASSERT_EQ(GURL("about:blank"), main_contents->GetLastCommittedURL());
 }
 
+#if BUILDFLAG(ENABLE_PDF)
 // Tests that a main frame hosting pdf does not get skipped because of history
 // manipulation intervention if there was a user gesture.
-// TODO(crbug.com/333829580): Final navigation is flaky on all platforms.
+// TODO(crbug.com/333829580): Flaky.
 IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
                        DISABLED_PDFDoNotSkipOnBackForwardDueToUserGesture) {
   GURL pdf_url(embedded_test_server()->GetURL("/pdf/test.pdf"));
@@ -2408,15 +2410,18 @@ IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
   EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_BACK));
 
   ASSERT_TRUE(chrome::CanGoBack(browser()));
+
+  content::TestNavigationObserver go_back_observer(main_contents);
   chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
-  EXPECT_TRUE(content::WaitForLoadStop(main_contents));
+  go_back_observer.WaitForNavigationFinished();
   ASSERT_EQ(pdf_url, main_contents->GetLastCommittedURL());
 }
 
 // Tests that a main frame hosting pdf gets skipped because of history
 // manipulation intervention if there was no user gesture.
+// TODO(crbug.com/333829580): Flaky.
 IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
-                       PDFSkipOnBackForwardNoUserGesture) {
+                       DISABLED_PDFSkipOnBackForwardNoUserGesture) {
   GURL pdf_url(embedded_test_server()->GetURL("/pdf/test.pdf"));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), pdf_url));
 
@@ -2437,10 +2442,12 @@ IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
   EXPECT_TRUE(chrome::IsCommandEnabled(browser(), IDC_BACK));
 
   ASSERT_TRUE(chrome::CanGoBack(browser()));
+  content::TestNavigationObserver go_back_observer(main_contents);
   chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
-  EXPECT_TRUE(content::WaitForLoadStop(main_contents));
+  go_back_observer.WaitForNavigationFinished();
   ASSERT_EQ(GURL("about:blank"), main_contents->GetLastCommittedURL());
 }
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 // This test class turns on the mode where sites where the user enters a
 // password are dynamically added to the list of sites requiring a dedicated

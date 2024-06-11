@@ -83,14 +83,6 @@ class CrossPlatformAccessibilityBrowserTest : public ContentBrowserTest {
   void SetUp() override;
   void SetUpOnMainThread() override;
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    ContentBrowserTest::SetUpCommandLine(command_line);
-    // kDisableAXMenuList is true on Chrome OS by default. Make it consistent
-    // for these cross-platform tests.
-    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-        switches::kDisableAXMenuList, "false");
-  }
-
  protected:
   // Choose which feature flags to enable or disable.
   virtual void ChooseFeatures(
@@ -122,7 +114,7 @@ class CrossPlatformAccessibilityBrowserTest : public ContentBrowserTest {
                                            ax::mojom::Event::kLoadComplete);
     ASSERT_TRUE(
         NavigateToURL(shell(), embedded_test_server()->GetURL(html_file_path)));
-    // TODO(https://crbug.com/1332468): Investigate why this does not return
+    // TODO(crbug.com/40844856): Investigate why this does not return
     // true.
     ASSERT_TRUE(waiter.WaitForNotification());
   }
@@ -815,10 +807,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-// Select controls behave differently on Mac/Android/iOS-Blink, this test
-// doesn't apply.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && \
-    !(BUILDFLAG(IS_IOS) && BUILDFLAG(USE_BLINK))
+#if !BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                        SelectSizeChangeWithOpenedPopupDoesNotCrash) {
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
@@ -874,8 +863,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
         "}");
   }
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && !(BUILDFLAG(IS_IOS)
-        // && BUILDFLAG(USE_BLINK))
+#endif  // !BUILDFLAG(IS_MAC)
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && \
     !(BUILDFLAG(IS_IOS) && BUILDFLAG(USE_BLINK))
@@ -972,6 +960,11 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
       ui::AXCoordinateSystem::kScreenPhysicalPixels,
       ui::AXClippingBehavior::kUnclipped);
 
+  // Both options have the same height, width and left edge.
+  EXPECT_EQ(first_list_item_bounds.height(), second_list_item_bounds.height());
+  EXPECT_EQ(first_list_item_bounds.width(), second_list_item_bounds.width());
+  EXPECT_EQ(first_list_item_bounds.x(), second_list_item_bounds.x());
+
   // We are making sure that the difference between the select element and the
   // pop up menu options are (an arbitrary) amount of px away. This is
   // to account for differences between platforms. Because for the test the
@@ -983,6 +976,12 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 
   EXPECT_LT(first_list_item_bounds.y() - select_bounds.y(), 70);
   EXPECT_LT(second_list_item_bounds.y() - select_bounds.y(), 70);
+
+  // The top of option #2 is option #1's top + the height, within 2 pixels.
+  EXPECT_LT(
+      std::abs(first_list_item_bounds.y() + first_list_item_bounds.height() -
+               second_list_item_bounds.y()),
+      2);
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && !(BUILDFLAG(IS_IOS)
         // && BUILDFLAG(USE_BLINK))
@@ -1067,14 +1066,31 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   EXPECT_LT(std::abs(first_list_item_bounds.y() - select_bounds.y()), 100);
   EXPECT_LT(std::abs(second_list_item_bounds.y() - select_bounds.y()), 100);
   EXPECT_LT(std::abs(third_list_item_bounds.y() - select_bounds.y()), 100);
+
+  // All three options have the same height, width and left edge.
+  EXPECT_EQ(first_list_item_bounds.height(), second_list_item_bounds.height());
+  EXPECT_EQ(second_list_item_bounds.height(), third_list_item_bounds.height());
+  EXPECT_EQ(first_list_item_bounds.width(), second_list_item_bounds.width());
+  EXPECT_EQ(second_list_item_bounds.width(), third_list_item_bounds.width());
+  EXPECT_EQ(first_list_item_bounds.x(), second_list_item_bounds.x());
+  EXPECT_EQ(second_list_item_bounds.x(), third_list_item_bounds.x());
+
+  // The top of options #2 and #3 are the previous option's top + the height,
+  // within 2 pixels.
+  EXPECT_LE(
+      std::abs(first_list_item_bounds.y() + first_list_item_bounds.height() -
+               second_list_item_bounds.y()),
+      2);
+  EXPECT_LE(
+      std::abs(second_list_item_bounds.y() + third_list_item_bounds.height() -
+               third_list_item_bounds.y()),
+      2);
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && !(BUILDFLAG(IS_IOS)
         // && BUILDFLAG(USE_BLINK))
 
-// Select controls behave differently on Mac/Android/iOS-Blink, this test
-// doesn't apply.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && \
-    !(BUILDFLAG(IS_IOS) && BUILDFLAG(USE_BLINK))
+// Android and Mac do not expose <select>s the same as other platforms do.
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                        SelectWithOptgroupActiveDescendant) {
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
@@ -1082,8 +1098,8 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
       <html>
       <body>
         <select autofocus aria-label="Select" id="select_node">
-          <optgroup label="A">
-            <option>Option 1</option>
+          <optgroup label="A" class="a">
+            <option class="a1">Option 1</option>
           </optgroup>
           <optgroup label="B">
             <option selected>Option 2</option>
@@ -1104,15 +1120,26 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   BrowserAccessibility* select = body->PlatformGetChild(0);
   ASSERT_NE(select, nullptr);
   EXPECT_EQ(ax::mojom::Role::kComboBoxSelect, select->GetRole());
-
+  EXPECT_TRUE(select->HasState(ax::mojom::State::kCollapsed));
+  EXPECT_FALSE(select->HasState(ax::mojom::State::kExpanded));
   {
     // Get popup via InternalGetChild so that hidden nodes are included.
     const BrowserAccessibility* popup = select->InternalGetChild(0);
     ASSERT_NE(popup, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListPopup, popup->GetRole());
+    EXPECT_TRUE(popup->HasState(ax::mojom::State::kInvisible));
+
+    // Get "A" via InternalGetChild so that hidden nodes are included.
+    const BrowserAccessibility* group_1 = popup->InternalGetChild(0);
+    ASSERT_NE(group_1, nullptr);
+    EXPECT_EQ(ax::mojom::Role::kGroup, group_1->GetRole());
+    EXPECT_EQ("A",
+              group_1->GetStringAttribute(ax::mojom::StringAttribute::kName));
+    // Invisible because select is collapsed.
+    EXPECT_TRUE(group_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 1" via InternalGetChild so that hidden nodes are included.
-    const BrowserAccessibility* option_1 = popup->InternalGetChild(0);
+    const BrowserAccessibility* option_1 = group_1->InternalGetChild(0);
     ASSERT_NE(option_1, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_1->GetRole());
     EXPECT_EQ("Option 1",
@@ -1121,7 +1148,8 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
     EXPECT_TRUE(option_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 2" via InternalGetChild so that hidden nodes are included.
-    const BrowserAccessibility* option_2 = popup->InternalGetChild(1);
+    const BrowserAccessibility* option_2 =
+        popup->InternalGetChild(1)->InternalGetChild(0);
     ASSERT_NE(option_2, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_2->GetRole());
     EXPECT_EQ("Option 2",
@@ -1142,13 +1170,26 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   }
 
   {
+    EXPECT_TRUE(select->HasState(ax::mojom::State::kExpanded));
+    EXPECT_FALSE(select->HasState(ax::mojom::State::kCollapsed));
+
     // Get popup.
     const BrowserAccessibility* popup = select->PlatformGetChild(0);
     ASSERT_NE(popup, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListPopup, popup->GetRole());
+    EXPECT_FALSE(popup->HasState(ax::mojom::State::kInvisible));
+
+    // Get "A" via InternalGetChild so that hidden nodes are included.
+    const BrowserAccessibility* group_1 = popup->InternalGetChild(0);
+    ASSERT_NE(group_1, nullptr);
+    EXPECT_EQ(ax::mojom::Role::kGroup, group_1->GetRole());
+    EXPECT_EQ("A",
+              group_1->GetStringAttribute(ax::mojom::StringAttribute::kName));
+    // Visible because select is expanded.
+    EXPECT_FALSE(group_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 1".
-    const BrowserAccessibility* option_1 = popup->PlatformGetChild(0);
+    const BrowserAccessibility* option_1 = group_1->PlatformGetChild(0);
     ASSERT_NE(option_1, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_1->GetRole());
     EXPECT_EQ("Option 1",
@@ -1157,7 +1198,8 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
     EXPECT_FALSE(option_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 2".
-    const BrowserAccessibility* option_2 = popup->PlatformGetChild(1);
+    const BrowserAccessibility* option_2 =
+        popup->InternalGetChild(1)->InternalGetChild(0);
     ASSERT_NE(option_2, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_2->GetRole());
     EXPECT_EQ("Option 2",
@@ -1183,13 +1225,26 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   }
 
   {
+    EXPECT_FALSE(select->HasState(ax::mojom::State::kExpanded));
+    EXPECT_TRUE(select->HasState(ax::mojom::State::kCollapsed));
+
     // Get popup via InternalGetChild so that hidden nodes are included.
     const BrowserAccessibility* popup = select->InternalGetChild(0);
     ASSERT_NE(popup, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListPopup, popup->GetRole());
+    EXPECT_TRUE(popup->HasState(ax::mojom::State::kInvisible));
+
+    // Get "A" via InternalGetChild so that hidden nodes are included.
+    const BrowserAccessibility* group_1 = popup->InternalGetChild(0);
+    ASSERT_NE(group_1, nullptr);
+    EXPECT_EQ(ax::mojom::Role::kGroup, group_1->GetRole());
+    EXPECT_EQ("A",
+              group_1->GetStringAttribute(ax::mojom::StringAttribute::kName));
+    // Invisible because select is collapsed.
+    EXPECT_TRUE(group_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 1" via InternalGetChild so that hidden nodes are included.
-    const BrowserAccessibility* option_1 = popup->InternalGetChild(0);
+    const BrowserAccessibility* option_1 = group_1->InternalGetChild(0);
     ASSERT_NE(option_1, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_1->GetRole());
     EXPECT_EQ("Option 1",
@@ -1198,7 +1253,8 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
     EXPECT_TRUE(option_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 2" via InternalGetChild so that hidden nodes are included.
-    const BrowserAccessibility* option_2 = popup->InternalGetChild(1);
+    const BrowserAccessibility* option_2 =
+        popup->InternalGetChild(1)->InternalGetChild(0);
     ASSERT_NE(option_2, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_2->GetRole());
     EXPECT_EQ("Option 2",
@@ -1215,13 +1271,26 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   ExecuteScript("document.getElementById('select_node').selectedIndex = 0;");
   ASSERT_TRUE(active_descendant_waiter.WaitForNotification());
   {
+    EXPECT_FALSE(select->HasState(ax::mojom::State::kExpanded));
+    EXPECT_TRUE(select->HasState(ax::mojom::State::kCollapsed));
+
     // Get popup via InternalGetChild so that hidden nodes are included.
     const BrowserAccessibility* popup = select->InternalGetChild(0);
     ASSERT_NE(popup, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListPopup, popup->GetRole());
+    EXPECT_TRUE(popup->HasState(ax::mojom::State::kInvisible));
+
+    // Get "A" via InternalGetChild so that hidden nodes are included.
+    const BrowserAccessibility* group_1 = popup->InternalGetChild(0);
+    ASSERT_NE(group_1, nullptr);
+    EXPECT_EQ(ax::mojom::Role::kGroup, group_1->GetRole());
+    EXPECT_EQ("A",
+              group_1->GetStringAttribute(ax::mojom::StringAttribute::kName));
+    // Invisible because select is collapsed.
+    EXPECT_TRUE(group_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 1" via InternalGetChild so that hidden nodes are included.
-    const BrowserAccessibility* option_1 = popup->InternalGetChild(0);
+    const BrowserAccessibility* option_1 = group_1->InternalGetChild(0);
     ASSERT_NE(option_1, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_1->GetRole());
     EXPECT_EQ("Option 1",
@@ -1230,7 +1299,8 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
     EXPECT_FALSE(option_1->HasState(ax::mojom::State::kInvisible));
 
     // Get "Option 2" via InternalGetChild so that hidden nodes are included.
-    const BrowserAccessibility* option_2 = popup->InternalGetChild(1);
+    const BrowserAccessibility* option_2 =
+        popup->InternalGetChild(1)->InternalGetChild(0);
     ASSERT_NE(option_2, nullptr);
     EXPECT_EQ(ax::mojom::Role::kMenuListOption, option_2->GetRole());
     EXPECT_EQ("Option 2",
@@ -1239,13 +1309,10 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
     EXPECT_TRUE(option_2->HasState(ax::mojom::State::kInvisible));
   }
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && !(BUILDFLAG(IS_IOS)
-        // && BUILDFLAG(USE_BLINK))
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC)
 
-// Select controls behave differently on Mac/Android/iOS-Blink, this test
-// doesn't apply.
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && \
-    !(BUILDFLAG(IS_IOS) && BUILDFLAG(USE_BLINK))
+// Android uses kComboboxSelect instead of kListbox for <select size > 1>.
+#if !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                        SelectListWithOptgroupActiveDescendant) {
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
@@ -1276,8 +1343,15 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   ASSERT_NE(select, nullptr);
   EXPECT_EQ(ax::mojom::Role::kListBox, select->GetRole());
 
+  // Get Optgroup "B"
+  const BrowserAccessibility* opt_group_2 = select->PlatformGetChild(1);
+  ASSERT_NE(opt_group_2, nullptr);
+  EXPECT_EQ(ax::mojom::Role::kGroup, opt_group_2->GetRole());
+  EXPECT_EQ("B",
+            opt_group_2->GetStringAttribute(ax::mojom::StringAttribute::kName));
+
   // Get "Option 2".
-  const BrowserAccessibility* option_2 = select->PlatformGetChild(3);
+  const BrowserAccessibility* option_2 = opt_group_2->PlatformGetChild(0);
   ASSERT_NE(option_2, nullptr);
   EXPECT_EQ(ax::mojom::Role::kListBoxOption, option_2->GetRole());
   EXPECT_EQ("Option 2",
@@ -1289,8 +1363,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
       ax::mojom::IntAttribute::kActivedescendantId, &active_descendant_id));
   EXPECT_EQ(active_descendant_id, option_2->GetId());
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_MAC) && !(BUILDFLAG(IS_IOS)
-        // && BUILDFLAG(USE_BLINK))
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
                        PlatformIterator) {
@@ -1486,7 +1559,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   TestLocalizedLandmarkType(3, ax::mojom::Role::kForm, "form");
   TestLocalizedLandmarkType(4, ax::mojom::Role::kMain, "main");
   TestLocalizedLandmarkType(5, ax::mojom::Role::kNavigation, "nav");
-  TestLocalizedLandmarkType(6, ax::mojom::Role::kSection, "");
+  TestLocalizedLandmarkType(6, ax::mojom::Role::kSectionWithoutName, "");
   TestLocalizedLandmarkType(7, ax::mojom::Role::kRegion, "a label", u"region");
 
   TestLocalizedLandmarkType(8, ax::mojom::Role::kBanner, "banner", u"banner");
@@ -1498,12 +1571,12 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
   TestLocalizedLandmarkType(12, ax::mojom::Role::kMain, "role_main");
   TestLocalizedLandmarkType(13, ax::mojom::Role::kNavigation, "role_nav");
   TestLocalizedLandmarkType(14, ax::mojom::Role::kRegion, "region", u"region");
-  TestLocalizedLandmarkType(15, ax::mojom::Role::kSection, "", u"");
+  TestLocalizedLandmarkType(15, ax::mojom::Role::kSectionWithoutName, "", u"");
   TestLocalizedLandmarkType(16, ax::mojom::Role::kRegion, "a label", u"region");
   TestLocalizedLandmarkType(17, ax::mojom::Role::kSearch, "search");
 }
 
-// TODO(https://crbug.com/1020456) re-enable when crashing on linux is resolved.
+// TODO(crbug.com/40656480) re-enable when crashing on linux is resolved.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_LocalizedRoleDescription DISABLED_LocalizedRoleDescription
 #else
@@ -1793,7 +1866,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 }
 
 // Flaky on Lacros: https://crbug.com/1292527
-// TODO(https://crbug.com/1318197): Enable on Fuchsia when content_browsertests
+// TODO(crbug.com/40835208): Enable on Fuchsia when content_browsertests
 // runs in non-headless mode.
 #if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_FUCHSIA)
 #define MAYBE_ControlsIdsForDateTimePopup DISABLED_ControlsIdsForDateTimePopup
@@ -2060,7 +2133,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(
     CrossPlatformAccessibilityBrowserTest,
-    // TODO(crbug.com/1377745): Re-enable this test
+    // TODO(crbug.com/40874531): Re-enable this test
     DISABLED_IFrameContentHadFocus_ThenRootDocumentGainedFocus) {
   LoadInitialAccessibilityTreeFromHtmlFilePath(
       "/accessibility/html/iframe-padding.html");
@@ -2149,7 +2222,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 
 #if defined(IS_FAST_BUILD)  // Avoid flakiness on slower debug/sanitizer builds.
 
-// TODO(crbug.com/1466360):  Enable once thread flakiness is resolved.
+// TODO(crbug.com/40923912):  Enable once thread flakiness is resolved.
 // TODO(crbug.com/332652840): It is flaky with SkiaGraphite enabled on Windows.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #define MAYBE_NonInteractiveChangesAreBatched \
@@ -2210,7 +2283,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 #endif
 
 #if defined(IS_FAST_BUILD)  // Avoid flakiness on slower debug/sanitizer builds.
-// TODO(crbug.com/1179057): Fix disabled flaky test.
+// TODO(crbug.com/40749521): Fix disabled flaky test.
 // TODO(crbug.com/332652840): It is flaky with SkiaGraphite enabled on Windows.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #define MAYBE_DocumentSelectionChangesAreNotBatched \
@@ -2267,7 +2340,7 @@ IN_PROC_BROWSER_TEST_F(CrossPlatformAccessibilityBrowserTest,
 #endif  // IS_FAST_BUILD
 
 #if defined(IS_FAST_BUILD)  // Avoid flakiness on slower debug/sanitizer builds.
-// TODO(crbug.com/1179057): Fix disabled flaky test.
+// TODO(crbug.com/40749521): Fix disabled flaky test.
 // TODO(crbug.com/332652840): It is flaky with SkiaGraphite enabled on Windows.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
 #define MAYBE_ActiveDescendantChangesAreNotBatched \
@@ -2639,7 +2712,7 @@ IN_PROC_BROWSER_TEST_F(
 // We do not run this test on Android because only the Java code can change the
 // size of the web contents, instead see the associated test in
 // WebContentsAccessibilityTest#testBoundingBoxUpdatesOnWindowResize().
-// TODO(https://crbug.com/1458666): Timeout on iOS-Blink
+// TODO(crbug.com/40918989): Timeout on iOS-Blink
 #if BUILDFLAG(IS_ANDROID) || (BUILDFLAG(IS_IOS) && BUILDFLAG(USE_BLINK))
 #define MAYBE_FlexBoxBoundingBoxUpdatesOnWindowResize \
   DISABLED_FlexBoxBoundingBoxUpdatesOnWindowResize

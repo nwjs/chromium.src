@@ -347,6 +347,12 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
 
   void ResetCSSFeatureFlags(const RuleFeatureSet&);
 
+  bool CountersChanged() const { return counters_changed_; }
+  void MarkCountersDirty() { counters_changed_ = true; }
+  void MarkCountersClean() { counters_changed_ = false; }
+  // Traverse all elements and recalculate counters values.
+  void UpdateCounters();
+
   void ShadowRootInsertedToDocument(ShadowRoot&);
   void ShadowRootRemovedFromDocument(ShadowRoot*);
   void ResetAuthorStyle(TreeScope&);
@@ -637,12 +643,17 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   bool InPositionTryStyleRecalc() const {
     return in_position_try_style_recalc_;
   }
-  // If we are in a container query style recalc, return the container element,
-  // otherwise return nullptr.
-  Element* GetContainerForContainerStyleRecalc() const {
-    // The To<Element>() should not fail because the style_recalc_root_ is set
-    // to the container element when doing a container query style recalc.
-    if (InContainerQueryStyleRecalc()) {
+  // Get the root element of an interleaving recalc, if any. This function will
+  // return nullptr if the interleaving root is a PseudoElement, because such
+  // elements can't be recalc roots.
+  //
+  // See StyleEngine::UpdateStyleAndLayoutTreeForContainer.
+  // See StyleEngine::UpdateStyleForOutOfFlow.
+  Element* GetInterleavingRecalcRoot() const {
+    if (InContainerQueryStyleRecalc() || InPositionTryStyleRecalc()) {
+      // During interleaved style recalc, the recalc root is either set
+      // to the interleaving root (always an Element), or nullptr (if it's
+      // a PseudoElement).
       return To<Element>(style_recalc_root_.GetRootNode());
     }
     return nullptr;
@@ -709,6 +720,11 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   }
 
  private:
+  void UpdateCounters(const Element& element,
+                      CountersAttachmentContext& context);
+  void UpdateLayoutCounters(const Element& element,
+                            const LayoutObject& layout_object,
+                            CountersAttachmentContext& context);
   // FontSelectorClient implementation.
   void FontsNeedUpdate(FontSelector*, FontInvalidationReason) override;
 
@@ -783,7 +799,8 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
       const HeapHashSet<Member<RuleSet>>& rule_sets,
       unsigned changed_rule_flags,
       bool is_shadow_host);
-  void InvalidateSlottedElements(HTMLSlotElement&);
+  void InvalidateSlottedElements(HTMLSlotElement&,
+                                 const StyleChangeReasonForTracing&);
   void InvalidateForRuleSetChanges(
       TreeScope& tree_scope,
       const HeapHashSet<Member<RuleSet>>& changed_rule_sets,
@@ -917,6 +934,10 @@ class CORE_EXPORT StyleEngine final : public GarbageCollected<StyleEngine>,
   UnorderedTreeScopeSet active_tree_scopes_;
 
   String preferred_stylesheet_set_name_;
+
+  // Flag to track counter changes in the document, indicating
+  // the need to call UpdateCounters.
+  bool counters_changed_{false};
 
   bool uses_root_font_relative_units_{false};
   bool uses_glyph_relative_units_{false};

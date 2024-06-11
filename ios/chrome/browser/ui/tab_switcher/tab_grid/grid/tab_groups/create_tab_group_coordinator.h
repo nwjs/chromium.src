@@ -21,6 +21,9 @@ class WebStateID;
 // Delegate.
 @property(nonatomic, weak) id<CreateOrEditTabGroupCoordinatorDelegate> delegate;
 
+// Whether the dismissal is animated. Default YES.
+@property(nonatomic, assign) BOOL animatedDismissal;
+
 // Initializer when you create a new group.
 // - `identifiers` is the list of selected tab to put in the group once created.
 - (instancetype)

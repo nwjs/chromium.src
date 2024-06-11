@@ -14,14 +14,21 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
+#include "base/timer/elapsed_timer.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history/core/browser/url_database.h"
 #include "components/history/core/browser/url_row.h"
 #include "components/history_embeddings/history_embeddings_features.h"
+#include "components/history_embeddings/ml_embedder.h"
 #include "components/history_embeddings/mock_embedder.h"
+#include "components/history_embeddings/scheduling_embedder.h"
 #include "components/history_embeddings/sql_database.h"
 #include "components/history_embeddings/vector_database.h"
+#include "components/optimization_guide/core/model_quality/feature_type_map.h"
+#include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/page_content_annotations/core/page_content_annotations_service.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/weak_document_ptr.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
@@ -92,7 +99,10 @@ void FinishSearchResultWithHistory(
 HistoryEmbeddingsService::HistoryEmbeddingsService(
     history::HistoryService* history_service,
     page_content_annotations::PageContentAnnotationsService*
-        page_content_annotations_service)
+        page_content_annotations_service,
+    optimization_guide::OptimizationGuideModelProvider*
+        optimization_guide_model_provider,
+    PassageEmbeddingsServiceController* service_controller)
     : history_service_(history_service),
       page_content_annotations_service_(page_content_annotations_service),
       query_id_(0u),
@@ -115,24 +125,55 @@ HistoryEmbeddingsService::HistoryEmbeddingsService(
         base::DoNothing());
   }
 
-  // TODO: b/333094780 - Swap this to the model-backed embedder once ready.
-  embedder_ = std::make_unique<MockEmbedder>();
+  if (kUseMlEmbedder.Get()) {
+    embedder_ = std::make_unique<MlEmbedder>(optimization_guide_model_provider,
+                                             service_controller);
+  } else {
+    embedder_ = std::make_unique<MockEmbedder>();
+  }
+
+  embedder_ = std::make_unique<SchedulingEmbedder>(
+      std::move(embedder_), kScheduledEmbeddingsMin.Get(),
+      kScheduledEmbeddingsMax.Get());
 
   storage_ = base::SequenceBound<Storage>(
       base::ThreadPool::CreateSequencedTaskRunner(
           {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN}),
       history_service_->history_dir());
+
+  // OnEmbedderReady callback needs to be set after the storage_ construction,
+  // since the callback could be invoked immediately.
+  embedder_->SetOnEmbedderReady(
+      base::BindOnce(&HistoryEmbeddingsService::OnEmbedderMetadataReady,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 HistoryEmbeddingsService::~HistoryEmbeddingsService() = default;
 
+void HistoryEmbeddingsService::OnEmbedderMetadataReady(
+    EmbedderMetadata metadata) {
+  embedder_metadata_ = metadata;
+  storage_.AsyncCall(&Storage::SetEmbedderMetadata).WithArgs(metadata);
+}
+
 void HistoryEmbeddingsService::RetrievePassages(
     const history::VisitRow& visit_row,
-    content::RenderFrameHost& host) {
+    content::WeakDocumentPtr weak_render_frame_host) {
+  content::RenderFrameHost* render_frame_host =
+      weak_render_frame_host.AsRenderFrameHostIfValid();
+  if (!render_frame_host) {
+    return;
+  }
+
+  if (!render_frame_host->IsRenderFrameLive()) {
+    return;
+  }
+
   const base::TimeTicks start_time = base::TimeTicks::Now();
   mojo::Remote<blink::mojom::InnerTextAgent> agent;
-  host.GetRemoteInterfaces()->GetInterface(agent.BindNewPipeAndPassReceiver());
+  render_frame_host->GetRemoteInterfaces()->GetInterface(
+      agent.BindNewPipeAndPassReceiver());
   auto params = blink::mojom::InnerTextParams::New();
   params->max_words_per_aggregate_passage =
       std::max(0, kPassageExtractionMaxWordsPerAggregatePassage.Get());
@@ -149,17 +190,20 @@ void HistoryEmbeddingsService::RetrievePassages(
           nullptr));
 }
 
-void HistoryEmbeddingsService::Search(std::string query,
-                                      size_t count,
-                                      SearchResultCallback callback) {
+void HistoryEmbeddingsService::Search(
+    std::string query,
+    std::optional<base::Time> time_range_start,
+    size_t count,
+    SearchResultCallback callback) {
   embedder_->ComputePassagesEmbeddings(
-      {std::move(query)},
+      PassageKind::QUERY, {std::move(query)},
       base::BindOnce(&HistoryEmbeddingsService::OnQueryEmbeddingComputed,
-                     weak_ptr_factory_.GetWeakPtr(), count,
+                     weak_ptr_factory_.GetWeakPtr(), time_range_start, count,
                      std::move(callback)));
 }
 
 void HistoryEmbeddingsService::OnQueryEmbeddingComputed(
+    std::optional<base::Time> time_range_start,
     size_t count,
     SearchResultCallback callback,
     std::vector<std::string> query_passages,
@@ -167,6 +211,11 @@ void HistoryEmbeddingsService::OnQueryEmbeddingComputed(
   bool succeeded = !query_embeddings.empty();
   base::UmaHistogramBoolean("History.Embeddings.QueryEmbeddingSucceeded",
                             succeeded);
+
+  VLOG(1) << "History.Embeddings.QueryEmbeddingSucceeded: " << succeeded
+          << " ; Query: '"
+          << (query_passages.empty() ? "(NONE)" : query_passages[0]) << "'";
+
   if (!succeeded) {
     // Query embedding failed. Just return no search results.
     std::move(callback).Run({});
@@ -178,7 +227,7 @@ void HistoryEmbeddingsService::OnQueryEmbeddingComputed(
   query_id_++;
   storage_.AsyncCall(&Storage::Search)
       .WithArgs(query_id_weak_ptr_factory_.GetWeakPtr(), query_id_.load(),
-                std::move(query_embeddings.front()), count)
+                std::move(query_embeddings.front()), time_range_start, count)
       .Then(base::BindOnce(&HistoryEmbeddingsService::OnSearchCompleted,
                            weak_ptr_factory_.GetWeakPtr(),
                            std::move(callback)));
@@ -186,6 +235,79 @@ void HistoryEmbeddingsService::OnQueryEmbeddingComputed(
 
 base::WeakPtr<HistoryEmbeddingsService> HistoryEmbeddingsService::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+void HistoryEmbeddingsService::SendQualityLog(const std::string& query,
+                                              const SearchResult& result,
+                                              size_t selection,
+                                              size_t num_days,
+                                              size_t num_entered_characters,
+                                              bool from_omnibox_history_scope) {
+  // Exit early if logging is not enabled.
+  if (!kSendQualityLog.Get() || !embedder_metadata_.has_value()) {
+    return;
+  }
+
+  // Prepare log entry and record a histogram for whether it's prepared.
+  QualityLogEntry log_entry = PrepareQualityLogEntry();
+  base::UmaHistogramBoolean("History.Embeddings.Quality.LogEntryPrepared",
+                            !!log_entry);
+  if (!log_entry) {
+    return;
+  }
+
+  optimization_guide::proto::LogAiDataRequest* request =
+      log_entry->log_ai_data_request();
+  if (!request) {
+    return;
+  }
+  optimization_guide::proto::HistoryQueryQuality* quality_proto =
+      optimization_guide::HistoryQueryFeatureTypeMap::GetLoggingData(*request)
+          ->mutable_quality();
+  if (!quality_proto) {
+    return;
+  }
+
+  // Fill the quality proto with data.
+  quality_proto->set_embedding_model_version(
+      embedder_metadata_.value().model_version);
+  quality_proto->set_query(query);
+  quality_proto->set_num_days(num_days);
+  quality_proto->set_num_entered_characters(num_entered_characters);
+
+  // For now, only two UI surfaces are planned, but if more are implemented
+  // then we can take the `UiSurface` directly as a parameter.
+  quality_proto->set_ui_surface(
+      from_omnibox_history_scope
+          ? optimization_guide::proto::UiSurface::
+                UI_SURFACE_OMNIBOX_HISTORY_SCOPE
+          : optimization_guide::proto::UiSurface::UI_SURFACE_HISTORY_PAGE);
+
+  size_t i = 0;
+  for (const ScoredUrlRow& scored_url_row : result) {
+    optimization_guide::proto::DocumentShown* document_shown =
+        quality_proto->add_top_documents_shown();
+    document_shown->set_url(scored_url_row.row.url().spec());
+    document_shown->set_was_clicked(i == selection);
+
+    optimization_guide::proto::PassageData* passage_data =
+        document_shown->add_passages();
+    passage_data->set_text(scored_url_row.scored_url.passage);
+    passage_data->set_score(scored_url_row.scored_url.score);
+    const std::vector<float>& embedding =
+        scored_url_row.scored_url.passage_embedding.GetData();
+    passage_data->mutable_embedding()->mutable_floats()->mutable_values()->Add(
+        embedding.begin(), embedding.end());
+
+    i++;
+  }
+
+  // The data is sent when `log_entry` destructs. There may eventually
+  // be an option to `ModelQualityLogEntry::Drop(std::move(log_entry))`
+  // in the event that log data should not be sent, but it isn't ready yet.
+  // See b/334993555 for details on that; it may be useful if in the
+  // future we decide to let the `log_entry` escape the service. For now,
+  // it doesn't, and logging is only done proactively by destructing here.
 }
 
 void HistoryEmbeddingsService::Shutdown() {
@@ -205,6 +327,11 @@ void HistoryEmbeddingsService::OnHistoryDeletions(
 HistoryEmbeddingsService::Storage::Storage(const base::FilePath& storage_dir)
     : sql_database(storage_dir) {}
 
+void HistoryEmbeddingsService::Storage::SetEmbedderMetadata(
+    EmbedderMetadata metadata) {
+  sql_database.SetEmbedderMetadata(metadata);
+}
+
 void HistoryEmbeddingsService::Storage::ProcessAndStorePassages(
     UrlPassages url_passages,
     std::vector<Embedding> passages_embeddings) {
@@ -221,9 +348,11 @@ std::vector<ScoredUrl> HistoryEmbeddingsService::Storage::Search(
     base::WeakPtr<std::atomic<size_t>> weak_latest_query_id,
     size_t query_id,
     Embedding query_embedding,
+    std::optional<base::Time> time_range_start,
     size_t count) {
-  std::vector<ScoredUrl> scored_urls = sql_database.FindNearest(
-      count, std::move(query_embedding),
+  base::ElapsedTimer timer;
+  SearchInfo search_info = sql_database.FindNearest(
+      time_range_start, count, std::move(query_embedding),
       base::BindRepeating(
           [](base::WeakPtr<std::atomic<size_t>> weak_latest_query_id,
              size_t query_id) {
@@ -233,18 +362,34 @@ std::vector<ScoredUrl> HistoryEmbeddingsService::Storage::Search(
             return !weak_latest_query_id || *weak_latest_query_id != query_id;
           },
           std::move(weak_latest_query_id), query_id));
+  const base::TimeDelta elapsed = timer.Elapsed();
+  base::UmaHistogramTimes("History.Embeddings.Search.Duration", elapsed);
+  base::UmaHistogramCounts1M("History.Embeddings.Search.UrlCount",
+                             search_info.searched_url_count);
+  base::UmaHistogramCounts10M("History.Embeddings.Search.EmbeddingCount",
+                              search_info.searched_embedding_count);
+  base::UmaHistogramBoolean("History.Embeddings.Search.Completed",
+                            search_info.completed);
+
+  VLOG(1) << "History.Embeddings.Search.Duration (ms): "
+          << elapsed.InMilliseconds()
+          << " ; .UrlCount: " << search_info.searched_url_count
+          << " ; .EmbeddingCount: " << search_info.searched_embedding_count
+          << " ; .Completed: " << search_info.completed;
 
   // Populate source passages.
-  for (ScoredUrl& scored_url : scored_urls) {
+  for (ScoredUrl& scored_url : search_info.scored_urls) {
     std::optional<proto::PassagesValue> value =
         sql_database.GetPassages(scored_url.url_id);
     if (value &&
         scored_url.index < static_cast<size_t>(value.value().passages_size())) {
       scored_url.passage = value.value().passages(scored_url.index);
+      VLOG(3) << "- score: " << scored_url.score
+              << " ; passage: " << scored_url.passage;
     }
   }
 
-  return scored_urls;
+  return std::move(search_info.scored_urls);
 }
 
 void HistoryEmbeddingsService::Storage::HandleHistoryDeletions(
@@ -265,11 +410,17 @@ void HistoryEmbeddingsService::Storage::HandleHistoryDeletions(
   }
 }
 
+QualityLogEntry HistoryEmbeddingsService::PrepareQualityLogEntry() {
+  // This requires some Chrome machinery to upload the log entry, so it's
+  // implemented in ChromeHistoryEmbeddingsService.
+  return nullptr;
+}
+
 void HistoryEmbeddingsService::OnPassagesRetrieved(
     UrlPassages url_passages,
     std::vector<std::string> passages) {
   embedder_->ComputePassagesEmbeddings(
-      std::move(passages),
+      PassageKind::PAGE_VISIT_PASSAGE, std::move(passages),
       base::BindOnce(&HistoryEmbeddingsService::OnPassagesEmbeddingsComputed,
                      weak_ptr_factory_.GetWeakPtr(), std::move(url_passages)));
 }
@@ -303,11 +454,11 @@ void HistoryEmbeddingsService::DeterminePassageVisibility(
           page_content_annotations::AnnotationType::kContentVisibility);
   base::UmaHistogramCounts100("History.Embeddings.NumUrlsMatched",
                               scored_urls.size());
-
   base::UmaHistogramBoolean(
       "History.Embeddings.VisibilityModelAvailableAtQuery",
       is_visibility_model_available);
-  if (!is_visibility_model_available) {
+
+  if (!is_visibility_model_available || scored_urls.empty()) {
     OnPassageVisibilityCalculated(std::move(callback), std::move(scored_urls),
                                   {});
     return;

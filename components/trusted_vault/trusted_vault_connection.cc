@@ -4,6 +4,8 @@
 
 #include "components/trusted_vault/trusted_vault_connection.h"
 
+#include "components/trusted_vault/securebox.h"
+
 namespace trusted_vault {
 
 TrustedVaultKeyAndVersion::TrustedVaultKeyAndVersion(
@@ -23,9 +25,11 @@ bool TrustedVaultKeyAndVersion::operator==(
     const TrustedVaultKeyAndVersion& other) const = default;
 
 GpmPinMetadata::GpmPinMetadata(std::optional<std::string> in_public_key,
-                               std::string in_wrapped_pin)
+                               std::string in_wrapped_pin,
+                               base::Time in_expiry)
     : public_key(std::move(in_public_key)),
-      wrapped_pin(std::move(in_wrapped_pin)) {}
+      wrapped_pin(std::move(in_wrapped_pin)),
+      expiry(in_expiry) {}
 
 GpmPinMetadata::GpmPinMetadata(const GpmPinMetadata&) = default;
 

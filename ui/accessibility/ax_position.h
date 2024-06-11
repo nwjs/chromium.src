@@ -181,7 +181,7 @@ enum class AXEmbeddedObjectBehavior {
 // through it, otherwise the text field would be missed by the user.
 //
 // Tests should use ScopedAXEmbeddedObjectBehaviorSetter to change this.
-// TODO(crbug.com/1204592) Don't export this so tests can't change it.
+// TODO(crbug.com/40764129) Don't export this so tests can't change it.
 extern AX_EXPORT AXEmbeddedObjectBehavior g_ax_embedded_object_behavior;
 
 class AX_EXPORT ScopedAXEmbeddedObjectBehaviorSetter {
@@ -2584,7 +2584,7 @@ class AXPosition {
 
         const int max_text_offset = MaxTextOffset();
 
-        // TODO(crbug.com/1404289): temporary disabled until ax position
+        // TODO(crbug.com/40885940): temporary disabled until ax position
         // autocorrection issue is fixed.
         // DCHECK_LE(text_offset_, max_text_offset);
 
@@ -4701,7 +4701,7 @@ class AXPosition {
         << "Creating a position without an anchor is disallowed:\n"
         << ToDebugString();
 
-    // TODO(crbug.com/1404289) Remove this line and let the below IsValid()
+    // TODO(crbug.com/40885940) Remove this line and let the below IsValid()
     // assertion get triggered instead. We shouldn't be creating test positions
     // with offsets that are too large. This seems to occur when the anchor node
     // is ignored, and leads to a number of failing tests.
@@ -4723,7 +4723,7 @@ class AXPosition {
     }
 #endif
 
-    // TODO(crbug.com/1404289) see TODO above.
+    // TODO(crbug.com/40885940) see TODO above.
     // Also look for the failures in
     // AXPositionTest.AsLeafTextPositionBeforeCharacterIncludingGeneratedNewlines,
     // AXPlatformNodeTextRangeProviderTest.TestNormalizeTextRangeForceSameAnchorOnDegenerateRange.
@@ -5829,7 +5829,7 @@ class AXPosition {
   }
 
   AXPositionKind kind_ = AXPositionKind::NULL_POSITION;
-  // TODO(crbug.com/1362839): use weak pointers for the AXTree, so that
+  // TODO(crbug.com/40864560): use weak pointers for the AXTree, so that
   // AXPosition can be used without AXTreeManager support (and also faster than
   // the slow AXTreeID).
   AXTreeID tree_id_;

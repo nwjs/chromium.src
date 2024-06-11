@@ -172,6 +172,7 @@ class CORE_EXPORT Performance : public EventTarget {
   void clearResourceTimings();
   void setResourceTimingBufferSize(unsigned);
   void setBackForwardCacheRestorationBufferSizeForTest(unsigned);
+  void setEventTimingBufferSizeForTest(unsigned);
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(resourcetimingbufferfull,
                                   kResourcetimingbufferfull)
@@ -197,14 +198,14 @@ class CORE_EXPORT Performance : public EventTarget {
                                      bool is_triggered_by_soft_navigation);
 
   bool IsElementTimingBufferFull() const;
-  void AddElementTimingBuffer(PerformanceElementTiming&);
+  void AddToElementTimingBuffer(PerformanceElementTiming&);
 
   bool IsEventTimingBufferFull() const;
-  void AddEventTimingBuffer(PerformanceEventTiming&);
+  void AddToEventTimingBuffer(PerformanceEventTiming&);
 
   bool IsLongAnimationFrameBufferFull() const;
 
-  void AddLayoutShiftBuffer(LayoutShift&);
+  void AddToLayoutShiftBuffer(LayoutShift&);
 
   void AddLargestContentfulPaint(LargestContentfulPaint*);
 

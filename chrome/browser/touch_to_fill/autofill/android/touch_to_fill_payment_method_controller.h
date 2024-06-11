@@ -17,9 +17,10 @@
 namespace autofill {
 
 class ContentAutofillClient;
-class TouchToFillPaymentMethodView;
-class TouchToFillDelegate;
 class CreditCard;
+class Iban;
+class TouchToFillDelegate;
+class TouchToFillPaymentMethodView;
 
 // Controller of the bottom sheet surface for filling credit card or IBAN data on
 // Android. It is responsible for showing the view and handling user
@@ -56,6 +57,13 @@ class TouchToFillPaymentMethodController
             base::WeakPtr<TouchToFillDelegate> delegate,
             base::span<const CreditCard> cards_to_suggest);
 
+  // Shows the Touch To Fill `view`. `delegate` will provide the fillable IBANs
+  // and be notified of the user's decision. Returns whether the surface was
+  // successfully shown.
+  bool Show(std::unique_ptr<TouchToFillPaymentMethodView> view,
+            base::WeakPtr<TouchToFillDelegate> delegate,
+            base::span<const Iban> ibans_to_suggest);
+
   // Hides the surface if it is currently shown.
   void Hide();
 
@@ -63,9 +71,13 @@ class TouchToFillPaymentMethodController
   void OnDismissed(JNIEnv* env, bool dismissed_by_user) override;
   void ScanCreditCard(JNIEnv* env) override;
   void ShowPaymentMethodSettings(JNIEnv* env) override;
-  void SuggestionSelected(JNIEnv* env,
-                          base::android::JavaParamRef<jstring> unique_id,
-                          bool is_virtual) override;
+  void CreditCardSuggestionSelected(
+      JNIEnv* env,
+      base::android::JavaParamRef<jstring> unique_id,
+      bool is_virtual) override;
+  void IbanSuggestionSelected(
+      JNIEnv* env,
+      base::android::JavaParamRef<jstring> guid) override;
 
   TouchToFillKeyboardSuppressor& keyboard_suppressor_for_test() {
     return keyboard_suppressor_;

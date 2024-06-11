@@ -203,7 +203,7 @@ void ResumeGpuWatchdog(GpuWatchdogThread* watchdog_thread) {
   }
 }
 
-// TODO(https://crbug.com/1095744): We currently do not handle
+// TODO(crbug.com/40700374): We currently do not handle
 // VK_ERROR_DEVICE_LOST in in-process-gpu.
 // Android WebView is allowed for now because it CHECKs on context loss.
 void DisableInProcessGpuVulkan(GpuFeatureInfo* gpu_feature_info,
@@ -703,7 +703,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
                               nullptr);
 
 #if defined(DAWN_USE_BUILT_DXC)
-      // TODO(crbug.com/1496679): Preload dxil.dll to avoid loader lock issues
+      // TODO(crbug.com/40075751): Preload dxil.dll to avoid loader lock issues
       // since dxcompiler.dll loads dxil.dll from DllMain.
       base::LoadNativeLibrary(module_path.Append(L"dxil.dll"), nullptr);
       base::LoadNativeLibrary(module_path.Append(L"dxcompiler.dll"), nullptr);
@@ -739,7 +739,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 #endif
     }
   } else {
-    // TODO(https://crbug.com/1095744): It would be better to cleanly tear
+    // TODO(crbug.com/40700374): It would be better to cleanly tear
     // down and recreate the VkDevice on VK_ERROR_DEVICE_LOST. Until that
     // happens, we will exit_on_context_lost to ensure there are no leaks.
     gpu_feature_info_.enabled_gpu_driver_bug_workarounds.push_back(
@@ -1130,9 +1130,15 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
 
   InitializeDawnProcs();
   if (gpu_preferences_.gr_context_type == GrContextType::kGraphiteDawn) {
-    // For non-Android platforms in-process GPU is only used in tests. Just
-    // crash if it doesn't work to expose the test failures early.
-    CHECK(InitializeDawn());
+    if (!InitializeDawn()) {
+      if (gpu_feature_info_.status_values[GPU_FEATURE_TYPE_SKIA_GRAPHITE] !=
+          kGpuFeatureStatusEnabled) {
+        // SkiaGraphite is disabled by software_rendering_list.json
+        gpu_preferences_.gr_context_type = GrContextType::kGL;
+      } else {
+        LOG(FATAL) << "InitializeDawn() failed!";
+      }
+    }
   }
 }
 #endif  // BUILDFLAG(IS_ANDROID)

@@ -16,14 +16,20 @@
 namespace autofill {
 
 struct AutofillErrorDialogContext;
+class AutofillSaveCardBottomSheetBridge;
 enum class AutofillProgressDialogType;
 class CardUnmaskDelegate;
 struct CardUnmaskPromptOptions;
 class CreditCard;
+class CreditCardCvcAuthenticator;
+class CreditCardOtpAuthenticator;
+class Iban;
+class CreditCardRiskBasedAuthenticator;
 class MigratableCreditCard;
 class OtpUnmaskDelegate;
 struct CardUnmaskChallengeOption;
 enum class OtpUnmaskResult;
+class VirtualCardEnrollmentManager;
 
 namespace payments {
 
@@ -38,6 +44,17 @@ class PaymentsAutofillClient : public RiskDataLoader {
  public:
   ~PaymentsAutofillClient() override;
 
+  enum class SaveIbanOfferUserDecision {
+    // The user accepted IBAN save.
+    kAccepted,
+
+    // The user explicitly declined IBAN save.
+    kDeclined,
+
+    // The user ignored the IBAN save prompt.
+    kIgnored,
+  };
+
   // Callback to run if user presses the Save button in the migration dialog.
   // Will pass a vector of GUIDs of cards that the user selected to upload to
   // LocalCardMigrationManager.
@@ -50,10 +67,22 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // storage.
   using MigrationDeleteCardCallback =
       base::RepeatingCallback<void(const std::string&)>;
+  // Callback to run after local/upload IBAN save is offered. The callback runs
+  // with `user_decision` indicating whether the prompt was accepted, declined,
+  // or ignored. `nickname` is optionally provided by the user when IBAN local
+  // or upload save is offered, and can be an empty string.
+  using SaveIbanPromptCallback =
+      base::OnceCallback<void(SaveIbanOfferUserDecision user_decision,
+                              std::u16string_view nickname)>;
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-  // Runs `show_migration_dialog_closure` if the user accepts the card migration
-  // offer. This causes the card migration dialog to be shown.
+#if BUILDFLAG(IS_ANDROID)
+  // Gets the AutofillSaveCardBottomSheetBridge or creates one if it doesn't
+  // exist.
+  virtual AutofillSaveCardBottomSheetBridge*
+  GetOrCreateAutofillSaveCardBottomSheetBridge();
+#elif !BUILDFLAG(IS_IOS)
+  // Runs `show_migration_dialog_closure` if the user accepts the card
+  // migration offer. This causes the card migration dialog to be shown.
   virtual void ShowLocalCardMigrationDialog(
       base::OnceClosure show_migration_dialog_closure);
 
@@ -83,7 +112,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // result to users. `is_vcn_enrolled` indicates if the card was successfully
   // enrolled as a virtual card.
   virtual void VirtualCardEnrollCompleted(bool is_vcn_enrolled);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif  // BUILDFLAG(IS_ANDROID)
 
   // Called after credit card upload is finished. Will show upload result to
   // users. `card_saved` indicates if the card is successfully saved.
@@ -98,6 +127,21 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Hides save card offer or confirmation prompt.
   virtual void HideSaveCardPromptPrompt();
 
+  // Runs `callback` once the user makes a decision with respect to the
+  // offer-to-save prompt. On desktop, shows the offer-to-save bubble if
+  // `should_show_prompt` is true; otherwise only shows the omnibox icon.
+  virtual void ConfirmSaveIbanLocally(const Iban& iban,
+                                      bool should_show_prompt,
+                                      SaveIbanPromptCallback callback);
+
+  // Runs `callback` once the user makes a decision with respect to the
+  // offer-to-upload prompt. On desktop, shows the offer-to-upload bubble if
+  // `should_show_prompt` is true; otherwise only shows the omnibox icon.
+  virtual void ConfirmUploadIbanToCloud(const Iban& iban,
+                                        LegalMessageLines legal_message_lines,
+                                        bool should_show_prompt,
+                                        SaveIbanPromptCallback callback);
+
   // Show/dismiss the progress dialog which contains a throbber and a text
   // message indicating that something is in progress.
   virtual void ShowAutofillProgressDialog(
@@ -111,6 +155,25 @@ class PaymentsAutofillClient : public RiskDataLoader {
   virtual void ShowCardUnmaskOtpInputDialog(
       const CardUnmaskChallengeOption& challenge_option,
       base::WeakPtr<OtpUnmaskDelegate> delegate);
+
+  // Shows a dialog for the user to choose/confirm the authentication
+  // to use in card unmasking.
+  virtual void ShowUnmaskAuthenticatorSelectionDialog(
+      const std::vector<CardUnmaskChallengeOption>& challenge_options,
+      base::OnceCallback<void(const std::string&)>
+          confirm_unmask_challenge_option_callback,
+      base::OnceClosure cancel_unmasking_closure);
+
+  // Dismisses the selection dialog to open the authentication dialog.
+  // `server_success` dictates whether we received a success response
+  // from the server, with true representing success and false representing
+  // failure. A successful server response means that the issuer has sent an OTP
+  // and we can move on to the next portion of this flow.
+  // This should be invoked upon server accepting the authentication method, in
+  // which case, we dismiss the selection dialog to open the authentication
+  // dialog.
+  virtual void DismissUnmaskAuthenticatorSelectionDialog(bool server_success);
+
   // Invoked when we receive the server response of the OTP unmask request.
   virtual void OnUnmaskOtpVerificationResult(OtpUnmaskResult unmask_result);
 
@@ -135,6 +198,23 @@ class PaymentsAutofillClient : public RiskDataLoader {
       base::WeakPtr<CardUnmaskDelegate> delegate);
   virtual void OnUnmaskVerificationResult(
       AutofillClient::PaymentsRpcResult result);
+
+  // Returns a pointer to a VirtualCardEnrollmentManager that is owned by
+  // PaymentsAutofillClient. VirtualCardEnrollmentManager is used for virtual
+  // card enroll and unenroll related flows. This function will return a nullptr
+  // on iOS WebView.
+  virtual VirtualCardEnrollmentManager* GetVirtualCardEnrollmentManager();
+
+  // Gets the CreditCardCvcAuthenticator owned by the client.
+  virtual CreditCardCvcAuthenticator& GetCvcAuthenticator() = 0;
+
+  // Gets the CreditCardOtpAuthenticator owned by the client. This function will
+  // return a nullptr on iOS WebView.
+  virtual CreditCardOtpAuthenticator* GetOtpAuthenticator();
+
+  // Gets the RiskBasedAuthenticator owned by the client. This function will
+  // return a nullptr on iOS WebView.
+  virtual CreditCardRiskBasedAuthenticator* GetRiskBasedAuthenticator();
 };
 
 }  // namespace payments

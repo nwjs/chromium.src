@@ -481,9 +481,9 @@ GLuint GLES2Implementation::CreateGpuFenceCHROMIUM() {
                          ->AllocateIDAtOrAbove(last_gpu_fence_id_ + 1);
   // Out of paranoia, don't allow IDs to wrap around to avoid potential
   // collisions on reuse. The space of 2^32 IDs is enough for over a year of
-  // allocating two per frame at 60fps. TODO(crbug.com/790550): Revisit if this
-  // is an issue, for example by deferring ID release if they would be reissued
-  // too soon.
+  // allocating two per frame at 60fps. TODO(crbug.com/40552536): Revisit if
+  // this is an issue, for example by deferring ID release if they would be
+  // reissued too soon.
   CHECK(client_id > last_gpu_fence_id_) << "ID wrap prevented";
   last_gpu_fence_id_ = client_id;
   helper_->CreateGpuFenceINTERNAL(client_id);
@@ -6680,7 +6680,7 @@ void GLES2Implementation::GetQueryivEXT(GLenum target,
         // Overall reliable driver support for timestamps is limited, so we
         // disable the timestamp portion of this extension to encourage use of
         // the better supported time elapsed queries.
-        // TODO(crbug.com/1411579): Check the underlying driver's capability
+        // TODO(crbug.com/40254878): Check the underlying driver's capability
         // instead of disabling it directly.
         *params = 0;
         break;
@@ -6911,24 +6911,6 @@ void GLES2Implementation::DrawElementsInstancedBaseVertexBaseInstanceANGLE(
   CheckGLError();
 }
 
-GLuint GLES2Implementation::CreateAndConsumeTextureCHROMIUM(
-    const GLbyte* data) {
-  GPU_CLIENT_SINGLE_THREAD_CHECK();
-  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glCreateAndConsumeTextureCHROMIUM("
-                     << static_cast<const void*>(data) << ")");
-  const Mailbox& mailbox = *reinterpret_cast<const Mailbox*>(data);
-  DCHECK(mailbox.Verify()) << "CreateAndConsumeTextureCHROMIUM was passed a "
-                              "mailbox that was not generated via Mailbox "
-                              "creation functions.";
-  GLuint client_id;
-  GetIdHandler(SharedIdNamespaces::kTextures)->MakeIds(this, 0, 1, &client_id);
-  helper_->CreateAndConsumeTextureINTERNALImmediate(client_id, data);
-  if (share_group_->bind_generates_resource())
-    helper_->CommandBufferHelper::OrderingBarrier();
-  CheckGLError();
-  return client_id;
-}
-
 GLuint GLES2Implementation::CreateAndTexStorage2DSharedImageCHROMIUM(
     const GLbyte* mailbox_data) {
   GPU_CLIENT_SINGLE_THREAD_CHECK();
@@ -6938,7 +6920,6 @@ GLuint GLES2Implementation::CreateAndTexStorage2DSharedImageCHROMIUM(
   const Mailbox& mailbox = *reinterpret_cast<const Mailbox*>(mailbox_data);
   DCHECK(mailbox.Verify()) << "CreateAndTexStorage2DSharedImageCHROMIUM was "
                               "passed an invalid mailbox.";
-  DCHECK(mailbox.IsSharedImage());
   GLuint client_id;
   GetIdHandler(SharedIdNamespaces::kTextures)->MakeIds(this, 0, 1, &client_id);
   helper_->CreateAndTexStorage2DSharedImageINTERNALImmediate(client_id,

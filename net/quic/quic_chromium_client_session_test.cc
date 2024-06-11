@@ -159,8 +159,9 @@ class QuicChromiumClientSessionTest
 
  protected:
   void Initialize() {
-    if (socket_data_)
+    if (socket_data_) {
       socket_factory_.AddSocketDataProvider(socket_data_.get());
+    }
     std::unique_ptr<DatagramClientSocket> socket =
         socket_factory_.CreateDatagramClientSocket(
             DatagramSocket::DEFAULT_BIND, NetLog::Get(), NetLogSource());
@@ -195,7 +196,7 @@ class QuicChromiumClientSessionTest
         base::DefaultTickClock::GetInstance(),
         base::SingleThreadTaskRunner::GetCurrentDefault().get(),
         /*socket_performance_watcher=*/nullptr, ConnectionEndpointMetadata(),
-        NetLogWithSource::Make(NetLogSourceType::NONE));
+        /*report_ecn=*/true, NetLogWithSource::Make(NetLogSourceType::NONE));
     if (connectivity_monitor_) {
       connectivity_monitor_->SetInitialDefaultNetwork(default_network_);
       session_->AddConnectivityObserver(connectivity_monitor_.get());
@@ -215,8 +216,9 @@ class QuicChromiumClientSessionTest
 
   void TearDown() override {
     if (session_) {
-      if (connectivity_monitor_)
+      if (connectivity_monitor_) {
         session_->RemoveConnectivityObserver(connectivity_monitor_.get());
+      }
       session_->CloseSessionOnError(
           ERR_ABORTED, quic::QUIC_INTERNAL_ERROR,
           quic::ConnectionCloseBehavior::SILENT_CLOSE);
@@ -1522,10 +1524,13 @@ TEST_P(QuicChromiumClientSessionTest, MigrateToSocket) {
   MockQuicData quic_data2(version_);
   client_maker_.set_connection_id(cid_on_new_path);
   quic_data2.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
-  quic_data2.AddWrite(SYNCHRONOUS, client_maker_.MakeAckAndPingPacket(
-                                       packet_num++,
+  quic_data2.AddWrite(SYNCHRONOUS,
+                      client_maker_.Packet(packet_num++)
+                          .AddAckFrame(/*first_received=*/1,
                                        /*largest_received=*/peer_packet_num - 1,
-                                       /*smallest_received=*/1));
+                                       /*smallest_received=*/1)
+                          .AddPingFrame()
+                          .Build());
   quic_data2.AddWrite(
       SYNCHRONOUS,
       client_maker_.MakeDataPacket(
@@ -1544,7 +1549,7 @@ TEST_P(QuicChromiumClientSessionTest, MigrateToSocket) {
       kQuicYieldAfterPacketsRead,
       quic::QuicTime::Delta::FromMilliseconds(
           kQuicYieldAfterDurationMilliseconds),
-      net_log_with_source_);
+      /*report_ecn=*/true, net_log_with_source_);
   new_reader->StartReading();
   std::unique_ptr<QuicChromiumPacketWriter> new_writer(
       CreateQuicChromiumPacketWriter(new_reader->socket(), session_.get()));
@@ -1601,11 +1606,13 @@ TEST_P(QuicChromiumClientSessionTest, MigrateToSocketMaxReaders) {
   for (size_t i = 0; i < kMaxReadersPerQuicSession - 1; ++i) {
     MockQuicData quic_data2(version_);
     client_maker_.set_connection_id(next_cid);
-    quic_data2.AddWrite(SYNCHRONOUS,
-                        client_maker_.MakeAckAndPingPacket(
-                            packet_num++,
-                            /*largest_received=*/peer_packet_num - 1,
-                            /*smallest_received=*/1));
+    quic_data2.AddWrite(
+        SYNCHRONOUS, client_maker_.Packet(packet_num++)
+                         .AddAckFrame(/*first_received=*/1,
+                                      /*largest_received=*/peer_packet_num - 1,
+                                      /*smallest_received=*/1)
+                         .AddPingFrame()
+                         .Build());
     quic_data2.AddRead(ASYNC, ERR_IO_PENDING);
     quic_data2.AddWrite(ASYNC,
                         client_maker_.MakeRetireConnectionIdPacket(
@@ -1633,7 +1640,7 @@ TEST_P(QuicChromiumClientSessionTest, MigrateToSocketMaxReaders) {
         kQuicYieldAfterPacketsRead,
         quic::QuicTime::Delta::FromMilliseconds(
             kQuicYieldAfterDurationMilliseconds),
-        net_log_with_source_);
+        /*report_ecn=*/true, net_log_with_source_);
     new_reader->StartReading();
     std::unique_ptr<QuicChromiumPacketWriter> new_writer(
         CreateQuicChromiumPacketWriter(new_reader->socket(), session_.get()));
@@ -1674,7 +1681,7 @@ TEST_P(QuicChromiumClientSessionTest, MigrateToSocketMaxReaders) {
       kQuicYieldAfterPacketsRead,
       quic::QuicTime::Delta::FromMilliseconds(
           kQuicYieldAfterDurationMilliseconds),
-      net_log_with_source_);
+      /*report_ecn=*/true, net_log_with_source_);
   new_reader->StartReading();
   std::unique_ptr<QuicChromiumPacketWriter> new_writer(
       CreateQuicChromiumPacketWriter(new_reader->socket(), session_.get()));
@@ -1718,11 +1725,13 @@ TEST_P(QuicChromiumClientSessionTest, MigrateToSocketReadError) {
 
   MockQuicData quic_data2(version_);
   client_maker_.set_connection_id(cid_on_new_path);
-  quic_data2.AddWrite(SYNCHRONOUS, client_maker_.MakeAckAndPingPacket(
-                                       packet_num++,
-
+  quic_data2.AddWrite(SYNCHRONOUS,
+                      client_maker_.Packet(packet_num++)
+                          .AddAckFrame(/*first_received=*/1,
                                        /*largest_received=*/peer_packet_num - 1,
-                                       /*smallest_received=*/1));
+                                       /*smallest_received=*/1)
+                          .AddPingFrame()
+                          .Build());
   quic_data2.AddRead(ASYNC, ERR_IO_PENDING);
   quic_data2.AddRead(ASYNC, server_maker_.MakePingPacket(1));
   quic_data2.AddRead(ASYNC, ERR_IO_PENDING);
@@ -1741,7 +1750,7 @@ TEST_P(QuicChromiumClientSessionTest, MigrateToSocketReadError) {
       kQuicYieldAfterPacketsRead,
       quic::QuicTime::Delta::FromMilliseconds(
           kQuicYieldAfterDurationMilliseconds),
-      net_log_with_source_);
+      /*report_ecn=*/true, net_log_with_source_);
   new_reader->StartReading();
   std::unique_ptr<QuicChromiumPacketWriter> new_writer(
       CreateQuicChromiumPacketWriter(new_reader->socket(), session_.get()));
@@ -1801,23 +1810,23 @@ TEST_P(QuicChromiumClientSessionTest, RetransmittableOnWireTimeout) {
   EXPECT_TRUE(
       QuicChromiumClientSessionPeer::CreateOutgoingStream(session_.get()));
 
-  quic::QuicAlarm* alarm =
+  quic::QuicAlarm& alarm =
       quic::test::QuicConnectionPeer::GetPingAlarm(session_->connection());
-  EXPECT_FALSE(alarm->IsSet());
+  EXPECT_FALSE(alarm.IsSet());
 
   // Send PING, which will be ACKed by the server. After the ACK, there will be
   // no retransmittable packets on the wire, so the alarm should be set.
   session_->connection()->SendPing();
   base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(alarm->IsSet());
+  EXPECT_TRUE(alarm.IsSet());
   EXPECT_EQ(
       clock_.ApproximateNow() + quic::QuicTime::Delta::FromMilliseconds(200),
-      alarm->deadline());
+      alarm.deadline());
 
   // Advance clock and simulate the alarm firing. This should cause a PING to be
   // sent.
   clock_.AdvanceTime(quic::QuicTime::Delta::FromMilliseconds(200));
-  alarm_factory_.FireAlarm(alarm);
+  alarm_factory_.FireAlarm(&alarm);
   base::RunLoop().RunUntilIdle();
 
   quic_data.Resume();
@@ -2144,7 +2153,7 @@ TEST_P(QuicChromiumClientSessionTest, WriteErrorAfterHandshakeConfirmed) {
 // Much like above, but checking that ECN marks are reported.
 TEST_P(QuicChromiumClientSessionTest, ReportsReceivedEcn) {
   base::test::ScopedFeatureList scoped_feature_list_;
-  scoped_feature_list_.InitAndEnableFeature(net::features::kReceiveEcn);
+  scoped_feature_list_.InitAndEnableFeature(net::features::kReportEcn);
 
   MockQuicData mock_quic_data(version_);
   int write_packet_num = 1, read_packet_num = 0;

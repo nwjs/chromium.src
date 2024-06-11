@@ -40,7 +40,6 @@ public interface TabModel extends TabList {
      * Unregisters and destroys the specified tab, and then switches to the previous tab.
      *
      * @param tab The non-null tab to close
-     * @param animate true iff the closing animation should be displayed
      * @param uponExit true iff the tab is being closed upon application exit (after user presses
      *     the system back button)
      * @param canUndo Whether or not this action can be undone. If this is {@code true} and {@link
@@ -51,7 +50,7 @@ public interface TabModel extends TabList {
      *     #getComprehensiveModel()}.
      * @return true if the tab was found
      */
-    boolean closeTab(Tab tab, boolean animate, boolean uponExit, boolean canUndo);
+    boolean closeTab(Tab tab, boolean uponExit, boolean canUndo);
 
     /**
      * Unregisters and destroys the specified tab, and then switches to {@code recommendedNextTab}
@@ -59,7 +58,6 @@ public interface TabModel extends TabList {
      *
      * @param tab The non-null tab to close.
      * @param recommendedNextTab The tab to switch to if not null.
-     * @param animate true iff the closing animation should be displayed.
      * @param uponExit true iff the tab is being closed upon application exit (after user presses
      *     the system back button).
      * @param canUndo Whether or not this action can be undone. If this is {@code true} and {@link
@@ -70,12 +68,7 @@ public interface TabModel extends TabList {
      *     #getComprehensiveModel()}.
      * @return true if the tab was found.
      */
-    boolean closeTab(
-            Tab tab,
-            @Nullable Tab recommendedNextTab,
-            boolean animate,
-            boolean uponExit,
-            boolean canUndo);
+    boolean closeTab(Tab tab, @Nullable Tab recommendedNextTab, boolean uponExit, boolean canUndo);
 
     /**
      * Returns which tab would be selected if the specified tab {@code id} were closed.
@@ -98,6 +91,21 @@ public interface TabModel extends TabList {
      *     partially closed, use the {@link TabList} from {@link #getComprehensiveModel()}.
      */
     void closeMultipleTabs(List<Tab> tabs, boolean canUndo);
+
+    /**
+     * Close multiple tabs on this model.
+     *
+     * @param tabs The tabs to be closed.
+     * @param canUndo Whether or not this action can be undone. If this is {@code true} and {@link
+     *     #supportsPendingClosures()} is {@code true}, this {@link Tab} will not actually be closed
+     *     until {@link #commitTabClosure(int)} is called for every {@link Tab} in {@code tabs} or
+     *     {@link #commitAllTabClosures()} is called. However, it will be effectively removed from
+     *     this list. To get a comprehensive list of all tabs, including ones that have been
+     *     partially closed, use the {@link TabList} from {@link #getComprehensiveModel()}.
+     * @param canRestore Whether or not the tabs can be restored to the TabRestoreService after
+     *     closure. This is only respected if {@code canUndo} is false.
+     */
+    void closeMultipleTabs(List<Tab> tabs, boolean canUndo, boolean canRestore);
 
     /**
      * Close all the tabs on this model. Same as closeAllTabs(false).
@@ -241,12 +249,25 @@ public interface TabModel extends TabList {
 
     /**
      * Set when tab model become active and inactive.
-     * @param active Whether the tab model is active.
      *
-     * TODO(crbug.com/1140125): This function is only called by TabModelSelectorBase class, so we
-     * should create a package private TabModelInternal interface which inherits from TabModel.
-     * TabModelInternal interface should have this method and change TabModelSelectorBase#mTabModels
-     * to hold the impls.
+     * @param active Whether the tab model is active.
+     *     <p>TODO(crbug.com/40726458): This function is only called by TabModelSelectorBase class,
+     *     so we should create a package private TabModelInternal interface which inherits from
+     *     TabModel. TabModelInternal interface should have this method and change
+     *     TabModelSelectorBase#mTabModels to hold the impls.
      */
     void setActive(boolean active);
+
+    /**
+     * Returns the count of non-custom tabs that have a {@link
+     * Tab#getLastNavigationCommittedTimestampMillis()} within the time range [beginTimeMs,
+     * endTimeMs).
+     */
+    int getTabCountNavigatedInTimeWindow(long beginTimeMs, long endTimeMs);
+
+    /**
+     * Closes non-custom tabs that have a {@link Tab#getLastNavigationCommittedTimestampMillis()}
+     * within the time range [beginTimeMs, endTimeMs).
+     */
+    void closeTabsNavigatedInTimeWindow(long beginTimeMs, long endTimeMs);
 }

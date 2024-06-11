@@ -84,6 +84,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
 #include "third_party/blink/renderer/core/frame/location.h"
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
+#include "third_party/blink/renderer/core/frame/pagination_state.h"
 #include "third_party/blink/renderer/core/frame/remote_frame.h"
 #include "third_party/blink/renderer/core/frame/remote_frame_view.h"
 #include "third_party/blink/renderer/core/frame/root_frame_viewport.h"
@@ -96,7 +97,10 @@
 #include "third_party/blink/renderer/core/html/fenced_frame/document_fenced_frames.h"
 #include "third_party/blink/renderer/core/html/fenced_frame/html_fenced_frame_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
+#include "third_party/blink/renderer/core/html/html_embed_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_element.h"
+#include "third_party/blink/renderer/core/html/html_frame_set_element.h"
+#include "third_party/blink/renderer/core/html/html_object_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/parser/text_resource_decoder.h"
@@ -328,6 +332,7 @@ void LocalFrameView::Trace(Visitor* visitor) const {
   visitor->Trace(user_scrollable_areas_);
   visitor->Trace(background_attachment_fixed_objects_);
   visitor->Trace(auto_size_info_);
+  visitor->Trace(pagination_state_);
   visitor->Trace(plugins_);
   visitor->Trace(scrollbars_);
   visitor->Trace(viewport_scrollable_area_);
@@ -3192,13 +3197,15 @@ void LocalFrameView::DisableAutoSizeMode() {
 }
 
 void LocalFrameView::ForceLayoutForPagination(float maximum_shrink_factor) {
+  pagination_state_ = MakeGarbageCollected<PaginationState>();
+
   LayoutView* layout_view = GetLayoutView();
   if (!layout_view) {
     return;
   }
 
-  auto LayoutForPrinting = [&layout_view]() {
-    Document& document = layout_view->GetDocument();
+  Document& document = *frame_->GetDocument();
+  auto LayoutForPrinting = [&layout_view, &document]() {
     document.GetStyleEngine().UpdateViewportSize();
     document.MarkViewportUnitsDirty();
     layout_view->SetNeedsLayoutAndIntrinsicWidthsRecalcAndFullPaintInvalidation(
@@ -3209,7 +3216,7 @@ void LocalFrameView::ForceLayoutForPagination(float maximum_shrink_factor) {
   // Need to update computed style before we can set the initial containing
   // block size. A zoom factor may have been set, and it shouldn't be applied
   // when printing, e.g. when resolving @page margins.
-  frame_->GetDocument()->UpdateStyleAndLayoutTree();
+  document.UpdateStyleAndLayoutTree();
 
   // Set up the initial containing block size for pagination. This is defined as
   // the page area size of the *first* page. [1] The size of the first page may
@@ -3222,29 +3229,23 @@ void LocalFrameView::ForceLayoutForPagination(float maximum_shrink_factor) {
   // [1] https://www.w3.org/TR/css-page-3/#page-model
   // [2] https://www.w3.org/TR/css-page-3/#using-named-pages
   PhysicalSize initial_containing_block_size =
-      layout_view->PageAreaSize(/* page_index */ 0u,
-                                /* page_name */ AtomicString());
+      CalculateInitialContainingBlockSizeForPagination(document);
   layout_view->SetInitialContainingBlockSizeForPagination(
       initial_containing_block_size);
 
   LayoutForPrinting();
 
-  const auto& first_page = To<PhysicalBoxFragment>(
-      *layout_view->GetPhysicalFragment(0)->Children()[0]);
-  const AtomicString& first_page_name = first_page.PageName();
-  if (first_page_name) {
-    PhysicalSize new_size =
-        layout_view->PageAreaSize(/* page_index */ 0u, first_page_name);
-    if (new_size != initial_containing_block_size) {
-      // If the first page was named (this isn't something we can detect without
-      // laying out first), and the size of the first page is different from
-      // what we got above, the initial containing block used was wrong (which
-      // affects e.g. elements with viewport units). Set a new size and lay out
-      // again.
-      layout_view->SetInitialContainingBlockSizeForPagination(new_size);
+  PhysicalSize new_initial_containing_block_size =
+      CalculateInitialContainingBlockSizeForPagination(document);
+  if (new_initial_containing_block_size != initial_containing_block_size) {
+    // If the first page was named (this isn't something we can detect without
+    // laying out first), and the size of the first page is different from what
+    // we got above, the initial containing block used was wrong (which affects
+    // e.g. elements with viewport units). Set a new size and lay out again.
+    layout_view->SetInitialContainingBlockSizeForPagination(
+        new_initial_containing_block_size);
 
-      LayoutForPrinting();
-    }
+    LayoutForPrinting();
   }
 
   // If we don't fit in the given page width, we'll lay out again. If we don't
@@ -3256,21 +3257,30 @@ void LocalFrameView::ForceLayoutForPagination(float maximum_shrink_factor) {
       CalculateOverflowShrinkForPrinting(*layout_view, maximum_shrink_factor);
 
   if (overall_scale_factor > 1.0) {
-    // Re-layout and apply the same scale factor to all pages. PageScaleFactor()
-    // has already been set to honor any scale factor from print settings. That
-    // has to be included as well.
-    layout_view->SetPageScaleFactor(layout_view->PageScaleFactor() *
-                                    overall_scale_factor);
+    // Re-layout and apply the same scale factor to all pages.
+    // PaginationScaleFactor() has already been set to honor any scale factor
+    // from print settings. That has to be included as well.
+    layout_view->SetPaginationScaleFactor(layout_view->PaginationScaleFactor() *
+                                          overall_scale_factor);
     PhysicalSize new_size =
-        layout_view->PageAreaSize(/* page_index */ 0u, first_page_name);
+        CalculateInitialContainingBlockSizeForPagination(document);
     layout_view->SetInitialContainingBlockSizeForPagination(new_size);
     LayoutForPrinting();
   }
 
-  if (TextAutosizer* text_autosizer = frame_->GetDocument()->GetTextAutosizer())
+  if (TextAutosizer* text_autosizer = document.GetTextAutosizer()) {
     text_autosizer->UpdatePageInfo();
+  }
   AdjustViewSize();
   UpdateStyleAndLayout();
+}
+
+void LocalFrameView::DestroyPaginationLayout() {
+  if (!pagination_state_) {
+    return;
+  }
+  pagination_state_->DestroyAnonymousPageLayoutObjects();
+  pagination_state_ = nullptr;
 }
 
 gfx::Rect LocalFrameView::RootFrameToDocument(
@@ -3902,6 +3912,18 @@ void LocalFrameView::PaintFrame(GraphicsContext& context,
   FramePainter(*this).Paint(context, paint_flags);
 }
 
+void LocalFrameView::PrintPage(GraphicsContext& context,
+                               wtf_size_t page_number,
+                               const CullRect& cull_rect) {
+  DCHECK(GetFrame().GetDocument()->Printing());
+  if (pagination_state_) {
+    pagination_state_->SetCurrentPageNumber(page_number);
+  }
+  const PaintFlags flags =
+      PaintFlag::kOmitCompositingInfo | PaintFlag::kAddUrlMetadata;
+  PaintOutsideOfLifecycle(context, flags, cull_rect);
+}
+
 static bool PaintOutsideOfLifecycleIsAllowed(GraphicsContext& context,
                                              const LocalFrameView& frame_view) {
   // A paint outside of lifecycle should not conflict about paint controller
@@ -3927,6 +3949,11 @@ void LocalFrameView::PaintOutsideOfLifecycle(GraphicsContext& context,
   });
 
   {
+    if (pagination_state_) {
+      pagination_state_->UpdateContentAreaPropertiesForCurrentPage(
+          *GetLayoutView());
+    }
+
     bool disable_expansion = paint_flags & PaintFlag::kOmitCompositingInfo;
     OverriddenCullRectScope force_cull_rect(*GetLayoutView()->Layer(),
                                             cull_rect, disable_expansion);
@@ -4262,13 +4289,15 @@ void LocalFrameView::RenderThrottlingStatusChanged() {
 
   // When a frame is throttled, we delete its previous painted output, so it
   // will need to be repainted, even if nothing else has changed.
-  if (LayoutView* layout_view = GetLayoutView())
+  if (LayoutView* layout_view = GetLayoutView()) {
     layout_view->Layer()->SetNeedsRepaint();
+  }
   // The painted output of the frame may be included in a cached subsequence
   // associated with the embedding document, so invalidate the owner.
   if (auto* owner = GetFrame().OwnerLayoutObject()) {
-    if (PaintLayer* owner_layer = owner->Layer())
+    if (PaintLayer* owner_layer = owner->Layer()) {
       owner_layer->SetNeedsRepaint();
+    }
   }
 
   if (!CanThrottleRendering()) {
@@ -4420,7 +4449,7 @@ bool LocalFrameView::ShouldThrottleRenderingForTest() const {
 
 bool LocalFrameView::CanThrottleRendering() const {
   if (lifecycle_updates_throttled_ || IsSubtreeThrottled() ||
-      IsDisplayLocked() || HasViewTransitionThrottlingRendering()) {
+      IsDisplayLocked() || throttled_for_view_transition_) {
     return true;
   }
   // We only throttle hidden cross-origin frames. This is to avoid a situation
@@ -4432,20 +4461,6 @@ bool LocalFrameView::CanThrottleRendering() const {
   return IsHiddenForThrottling() && frame_->IsCrossOriginToNearestMainFrame();
 }
 
-bool LocalFrameView::HasViewTransitionThrottlingRendering() const {
-  if (!frame_->GetDocument())
-    return false;
-
-  // Only nested local frames should be throttled. Pausing rendering for root
-  // local frames is done by pausing frames in the compositor.
-  // See ViewTransition::ScopedPauseRendering for details.
-  auto* transition = ViewTransitionUtils::GetTransition(*frame_->GetDocument());
-  const bool should_throttle =
-      transition && transition->ShouldThrottleRendering();
-  DCHECK(!should_throttle || !frame_->IsLocalRoot());
-  return should_throttle;
-}
-
 void LocalFrameView::UpdateRenderThrottlingStatus(bool hidden_for_throttling,
                                                   bool subtree_throttled,
                                                   bool display_locked,
@@ -4455,6 +4470,23 @@ void LocalFrameView::UpdateRenderThrottlingStatus(bool hidden_for_throttling,
       hidden_for_throttling, subtree_throttled, display_locked, recurse);
   if (was_throttled != CanThrottleRendering())
     RenderThrottlingStatusChanged();
+}
+
+void LocalFrameView::SetThrottledForViewTransition(bool throttled) {
+  if (throttled_for_view_transition_ == throttled) {
+    return;
+  }
+
+  bool was_throttled = CanThrottleRendering();
+  throttled_for_view_transition_ = throttled;
+
+  // Invalidating paint here will cause the iframe to draw with no content
+  // instead of showing old content. This will be fixed by paint holding for
+  // local iframes.
+  if (RuntimeEnabledFeatures::PaintHoldingForLocalIframesEnabled() &&
+      was_throttled != CanThrottleRendering()) {
+    RenderThrottlingStatusChanged();
+  }
 }
 
 void LocalFrameView::BeginLifecycleUpdates() {
@@ -4569,7 +4601,7 @@ LocalFrameUkmAggregator* LocalFrameView::GetUkmAggregator() {
   // TODO(crbug.com/1392462): Avoid checking whether we need to create the
   // aggregator on every access.
   if (!local_root->ukm_aggregator_) {
-    if (!local_root->frame_->GetChromeClient().IsSVGImageChromeClient()) {
+    if (!local_root->frame_->GetChromeClient().IsIsolatedSVGChromeClient()) {
       local_root->ukm_aggregator_ =
           base::MakeRefCounted<LocalFrameUkmAggregator>();
     }

@@ -6,13 +6,17 @@
 
 #import "base/task/sequenced_task_runner.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
+#import "ios/chrome/browser/shared/model/web_state_list/tab_group_range.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/group_tab_info.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_group_utils.h"
 
 @implementation TabGroupItem {
   WebStateList* _webStateList;
-  NSMutableArray<GroupTabInfo*>* _tabGroupInfos;
+  NSMutableDictionary<NSNumber*, GroupTabInfo*>* _tabGroupInfos;
+  base::WeakPtr<const TabGroup> _tabGroup;
+  const void* _tabGroupIdentifier;
+  NSUUID* _requestUUID;
 }
 
 - (instancetype)initWithTabGroup:(const TabGroup*)tabGroup
@@ -22,50 +26,59 @@
   CHECK(webStateList->ContainsGroup(tabGroup));
   self = [super init];
   if (self) {
-    _tabGroup = tabGroup;
+    _tabGroup = tabGroup->GetWeakPtr();
+    _tabGroupIdentifier = tabGroup;
     _webStateList = webStateList;
-    _tabGroupInfos = [[NSMutableArray alloc] init];
+    _tabGroupInfos = [[NSMutableDictionary alloc] init];
   }
   return self;
 }
 
+- (const void*)tabGroupIdentifier {
+  return _tabGroupIdentifier;
+}
+
+- (const TabGroup*)tabGroup {
+  return _tabGroup.get();
+}
+
 - (NSString*)title {
-  if (!_webStateList->ContainsGroup(_tabGroup)) {
+  if (!_tabGroup) {
     return nil;
   }
   return _tabGroup->GetTitle();
 }
 
 - (NSString*)rawTitle {
-  if (!_webStateList->ContainsGroup(_tabGroup)) {
+  if (!_tabGroup) {
     return nil;
   }
   return _tabGroup->GetRawTitle();
 }
 
 - (UIColor*)groupColor {
-  if (!_webStateList->ContainsGroup(_tabGroup)) {
+  if (!_tabGroup) {
     return nil;
   }
   return _tabGroup->GetColor();
 }
 
 - (NSInteger)numberOfTabsInGroup {
-  if (!_webStateList->ContainsGroup(_tabGroup)) {
+  if (!_tabGroup) {
     return 0;
   }
   return _tabGroup->range().count();
 }
 
 - (BOOL)collapsed {
-  if (!_webStateList->ContainsGroup(_tabGroup)) {
+  if (!_tabGroup) {
     return NO;
   }
   return _tabGroup->visual_data().is_collapsed();
 }
 
 - (void)fetchGroupTabInfos:(GroupTabInfosFetchingCompletionBlock)completion {
-  if (!_webStateList->ContainsGroup(_tabGroup)) {
+  if (!_tabGroup) {
     __weak TabGroupItem* weakSelf = self;
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(^{
@@ -76,20 +89,25 @@
 
   // Reset the array to ensure to not display old snapshots and or favicons.
   [_tabGroupInfos removeAllObjects];
-  NSUInteger numberOfRequestedImages = 0;
-  for (int index : _tabGroup->range()) {
-    if (numberOfRequestedImages >= 7) {
-      break;
-    }
-    web::WebState* webState = _webStateList->GetWebStateAt(index);
+  NSUUID* UUID = [NSUUID UUID];
+  _requestUUID = UUID;
+  NSUInteger numberOfRequests = MIN(7, _tabGroup->range().count());
+  int firstIndex = _tabGroup->range().range_begin();
+  for (NSUInteger requestIndex = 0; requestIndex < numberOfRequests;
+       requestIndex++) {
+    web::WebState* webState =
+        _webStateList->GetWebStateAt(firstIndex + requestIndex);
     CHECK(webState);
     __weak TabGroupItem* weakSelf = self;
     [TabGroupUtils fetchTabGroupInfoFromWebState:webState
                                       completion:^(GroupTabInfo* info) {
-                                        [weakSelf addInfo:info];
-                                        [weakSelf notifyCompletion:completion];
+                                        [weakSelf
+                                            groupTabInfoFetched:info
+                                               forRequestNumber:requestIndex
+                                                numberOfRequest:numberOfRequests
+                                                     completion:completion
+                                                    requestUUID:UUID];
                                       }];
-    numberOfRequestedImages++;
   }
 }
 
@@ -101,23 +119,32 @@
 
 #pragma mark - Private helpers
 
-// Adds the given info to the GroupTabInfo array.
-- (void)addInfo:(GroupTabInfo*)info {
-  [_tabGroupInfos addObject:info];
-}
-
-// Saves the snapshot and favicon couple in the same GroupTabInfo. Call the
-// completion if there is no new snapshot or favicon to save.
-
-- (void)notifyCompletion:(GroupTabInfosFetchingCompletionBlock)completion {
-  if (!_webStateList->ContainsGroup(_tabGroup)) {
-    completion(self, @[]);
+// Called when `info` for the `requestNumber` out of `numberOfRequests` is
+// fetched for the `requestUUID`.
+- (void)groupTabInfoFetched:(GroupTabInfo*)info
+           forRequestNumber:(NSUInteger)requestNumber
+            numberOfRequest:(NSUInteger)numberOfRequests
+                 completion:(GroupTabInfosFetchingCompletionBlock)completion
+                requestUUID:(NSUUID*)requestUUId {
+  if (![requestUUId isEqual:_requestUUID] || !_tabGroup) {
     return;
   }
-  if (static_cast<int>([_tabGroupInfos count]) ==
-      MIN(_tabGroup->range().count(), 7)) {
-    completion(self, _tabGroupInfos);
+
+  _tabGroupInfos[@(requestNumber)] = info;
+
+  if (_tabGroupInfos.count != numberOfRequests) {
+    return;
   }
+
+  auto comparator = ^NSComparisonResult(NSNumber* obj1, NSNumber* obj2) {
+    return [obj1 compare:obj2];
+  };
+  NSMutableArray* infos = [NSMutableArray array];
+  for (NSNumber* key in
+       [[_tabGroupInfos allKeys] sortedArrayUsingComparator:comparator]) {
+    [infos addObject:_tabGroupInfos[key]];
+  }
+  completion(self, infos);
 }
 
 @end

@@ -103,13 +103,13 @@ gfx::CALayerResult FromRenderPassQuad(
     }
   }
 
-  // TODO(crbug.com/1215491): support not 2d axis aligned clipping.
+  // TODO(crbug.com/40769959): support not 2d axis aligned clipping.
   if (shared_quad_state->clip_rect &&
       !shared_quad_state->quad_to_target_transform.Preserves2dAxisAlignment()) {
     return gfx::kCALayerFailedQuadClipping;
   }
 
-  // TODO(crbug.com/1215491): support not 2d axis aligned mask.
+  // TODO(crbug.com/40769959): support not 2d axis aligned mask.
   if (!shared_quad_state->mask_filter_info.IsEmpty() &&
       !shared_quad_state->quad_to_target_transform.Preserves2dAxisAlignment()) {
     return gfx::kCALayerFailedRenderPassPassMask;
@@ -160,11 +160,6 @@ gfx::CALayerResult FromTextureQuad(
   ca_layer_overlay->uv_rect =
       BoundingRect(quad->uv_top_left, quad->uv_bottom_right);
   ca_layer_overlay->color = quad->background_color;
-  for (int i = 1; i < 4; ++i) {
-    if (quad->vertex_opacity[i] != quad->vertex_opacity[0])
-      return gfx::kCALayerFailedDifferentVertexOpacities;
-  }
-  ca_layer_overlay->opacity *= quad->vertex_opacity[0];
   ca_layer_overlay->nearest_neighbor_filter = quad->nearest_neighbor;
   ca_layer_overlay->hdr_metadata =
       resource_provider->GetHDRMetadata(resource_id);

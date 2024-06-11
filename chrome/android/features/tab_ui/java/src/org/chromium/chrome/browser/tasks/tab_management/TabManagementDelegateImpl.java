@@ -25,12 +25,14 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
+import org.chromium.chrome.browser.hub.HubManager;
 import org.chromium.chrome.browser.hub.Pane;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupUiActionHandler;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
@@ -38,6 +40,7 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.ColorPickerCoordinator.ColorPickerLayoutType;
+import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
@@ -60,7 +63,7 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             TabSwitcher tabSwitcher,
             ViewGroup tabSwitcherScrimAnchor,
             ScrimCoordinator scrimCoordinator,
-            ObservableSupplier<Float> appHeaderHeightSupplier) {
+            DesktopWindowStateProvider desktopWindowStateProvider) {
         return new TabSwitcherLayout(
                 context,
                 updateHost,
@@ -70,7 +73,7 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                 tabSwitcher,
                 tabSwitcherScrimAnchor,
                 scrimCoordinator,
-                appHeaderHeightSupplier);
+                desktopWindowStateProvider);
     }
 
     @Override
@@ -134,7 +137,8 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
             @NonNull TabCreatorManager tabCreatorManager,
             @NonNull OneshotSupplier<LayoutStateProvider> layoutStateProviderSupplier,
-            @NonNull SnackbarManager snackbarManager) {
+            @NonNull SnackbarManager snackbarManager,
+            @NonNull ModalDialogManager modalDialogManager) {
         return new TabGroupUiCoordinator(
                 activity,
                 parentView,
@@ -151,7 +155,8 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
                 dynamicResourceLoaderSupplier,
                 tabCreatorManager,
                 layoutStateProviderSupplier,
-                snackbarManager);
+                snackbarManager,
+                modalDialogManager);
     }
 
     @Override
@@ -172,7 +177,7 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
             @NonNull OnClickListener newTabButtonOnClickListener,
             boolean isIncognito,
             @NonNull DoubleConsumer onToolbarAlphaChange) {
-        // TODO(crbug/1505772): Consider making this an activity scoped singleton and possibly
+        // TODO(crbug.com/40946413): Consider making this an activity scoped singleton and possibly
         // hosting it in CTA/HubProvider.
         TabSwitcherPaneCoordinatorFactory factory =
                 new TabSwitcherPaneCoordinatorFactory(
@@ -221,14 +226,25 @@ public class TabManagementDelegateImpl implements TabManagementDelegate {
     public Pane createTabGroupsPane(
             @NonNull Context context,
             @NonNull TabModelSelector tabModelSelector,
-            @NonNull DoubleConsumer onToolbarAlphaChange) {
+            @NonNull DoubleConsumer onToolbarAlphaChange,
+            @NonNull OneshotSupplier<ProfileProvider> profileProviderSupplier,
+            @NonNull OneshotSupplier<HubManager> hubManagerSupplier,
+            @NonNull Supplier<TabGroupUiActionHandler> tabGroupUiActionHandlerSupplier,
+            @NonNull Supplier<ModalDialogManager> modalDialogManagerSupplier) {
         LazyOneshotSupplier<TabModelFilter> tabModelFilterSupplier =
                 LazyOneshotSupplier.fromSupplier(
                         () ->
                                 tabModelSelector
                                         .getTabModelFilterProvider()
                                         .getTabModelFilter(false));
-        return new TabGroupsPane(context, tabModelFilterSupplier, onToolbarAlphaChange);
+        return new TabGroupsPane(
+                context,
+                tabModelFilterSupplier,
+                onToolbarAlphaChange,
+                profileProviderSupplier,
+                () -> hubManagerSupplier.get().getPaneManager(),
+                tabGroupUiActionHandlerSupplier,
+                modalDialogManagerSupplier);
     }
 
     @Override

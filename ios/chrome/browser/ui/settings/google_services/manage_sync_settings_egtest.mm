@@ -47,7 +47,7 @@ namespace {
 NSString* const kPassphrase = @"hello";
 
 void SignInWithPromoFromAccountSettings(FakeSystemIdentity* fake_identity,
-                                        BOOL expect_history_sync) {
+                                        BOOL expect_history_sync_ui) {
   // Sign in with fake identity using the settings sign-in promo.
   [ChromeEarlGreyUI
       tapSettingsMenuButton:chrome_test_util::SettingsSignInRowMatcher()];
@@ -66,7 +66,7 @@ void SignInWithPromoFromAccountSettings(FakeSystemIdentity* fake_identity,
                       IDS_IOS_FIRST_RUN_SIGNIN_CONTINUE_AS,
                       base::SysNSStringToUTF16(fake_identity.userGivenName))),
               grey_sufficientlyVisible(), nil)] performAction:grey_tap()];
-  if (expect_history_sync) {
+  if (expect_history_sync_ui) {
     [[EarlGrey selectElementWithMatcher:
                    chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()]
         performAction:grey_tap()];
@@ -158,11 +158,6 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  if ([self
-          isRunningTest:@selector(testRememberCustomPassphraseAfterSignout)]) {
-    config.features_enabled.push_back(
-        syncer::kSyncRememberCustomPassphraseAfterSignout);
-  }
   if ([self isRunningTest:@selector
             (testPersonalizeGoogleServicesSettingsDismissedOnSignOut)]) {
     config.additional_args.push_back(
@@ -198,7 +193,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [ChromeEarlGreyUI openSettingsMenu];
 
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Verify the Sync settings row is not showing.
   [SigninEarlGrey verifySyncUIIsHidden];
@@ -323,7 +319,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 // entries. Also verifies that the user is still signed in when the dialog
 // Cancel button is tapped.
 - (void)testUnsyncedDataDialogShowsInCaseOfUnsyncedReadingListEntry {
-  // TODO(crbug.com/1521690): Test fails on iPhone device and simulator.
+  // TODO(crbug.com/41494658): Test fails on iPhone device and simulator.
   if (![ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_DISABLED(@"Fails on iPhone.");
   }
@@ -446,9 +442,10 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [SigninEarlGrey verifySignedOut];
 
   // Sign back in with the same identity using the settings sign-in promo.
-  // The history sync opt-in was accepted in the first sign-in earlier in this
+  // The history sync opt-in was declined in the first sign-in earlier in this
   // test.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/NO);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Verify the account settings row is showing in the settings menu.
   [[EarlGrey selectElementWithMatcher:SettingsAccountButton()]
@@ -676,7 +673,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
   [ChromeEarlGreyUI openSettingsMenu];
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/NO);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/NO);
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
 
   // Scroll to the bottom to view all section.
@@ -815,7 +813,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
   [ChromeEarlGreyUI openSettingsMenu];
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/NO);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/NO);
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
 
   // Verify that for "History and Tabs" an "Off" button is shown instead of a
@@ -837,7 +836,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
   [ChromeEarlGreyUI openSettingsMenu];
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/NO);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/NO);
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
 
   // Verify that for "History and Tabs" a toggle shows.
@@ -859,7 +859,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [SigninEarlGrey addFakeIdentity:fakeIdentity];
 
   [ChromeEarlGreyUI openSettingsMenu];
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/NO);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/NO);
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
 
   // Verify that for "History and Tabs" a toggle shows.
@@ -904,7 +905,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -927,7 +929,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -949,7 +952,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -974,7 +978,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -1001,7 +1006,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -1048,7 +1054,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -1097,7 +1104,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -1146,7 +1154,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -1217,7 +1226,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
       IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_BATCH_UPLOAD_ITEMS_ITEM, 2,
       fakeIdentity.userEmail);
 
-  // TODO(crbug.com/1482823): Test that items were actually moved.
+  // TODO(crbug.com/40072328): Test that items were actually moved.
 }
 
 // Tests that bulk upload moves the following data types to account:
@@ -1235,7 +1244,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -1290,7 +1300,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
       IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_BATCH_UPLOAD_PASSWORDS_ITEM, 1,
       fakeIdentity.userEmail);
 
-  // TODO(crbug.com/1482823): Test that items were actually moved.
+  // TODO(crbug.com/40072328): Test that items were actually moved.
 }
 
 // Tests that bulk upload moves the following data types to account:
@@ -1309,7 +1319,8 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
 
   [ChromeEarlGreyUI openSettingsMenu];
   // Sign in with fake identity using the settings sign-in promo.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/YES);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Open the "manage sync" view.
   [ChromeEarlGreyUI tapSettingsMenuButton:SettingsAccountButton()];
@@ -1394,7 +1405,7 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
                                    grey_minimumVisiblePercent(0.05), nil)]
       assertWithMatcher:grey_nil()];
 
-  // TODO(crbug.com/1482823): Test that items were actually moved.
+  // TODO(crbug.com/40072328): Test that items were actually moved.
 }
 
 // Before crbug.com/40265120, the autofill and payments toggles used to be
@@ -1572,9 +1583,10 @@ void ExpectBatchUploadConfirmationSnackbar(int count, NSString* email) {
   [SigninEarlGrey verifySignedOut];
 
   // Sign back in with the same identity using the settings sign-in promo.
-  // The history sync opt-in was accepted in the first sign-in earlier in this
+  // The history sync opt-in was declined in the first sign-in earlier in this
   // test.
-  SignInWithPromoFromAccountSettings(fakeIdentity, /*expect_history_sync=*/NO);
+  SignInWithPromoFromAccountSettings(fakeIdentity,
+                                     /*expect_history_sync_ui=*/YES);
 
   // Verify the account settings row is showing in the settings menu.
   [[EarlGrey selectElementWithMatcher:SettingsAccountButton()]

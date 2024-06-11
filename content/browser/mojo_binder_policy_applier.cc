@@ -13,7 +13,7 @@
 
 namespace {
 
-// TODO(https://crbug.com/1245961): It is not sustainable to maintain a list.
+// TODO(crbug.com/40196368): It is not sustainable to maintain a list.
 // An ideal solution should:
 // 1. Show a pre-submit warning if a frame-scoped interface is specified with
 //    kDefer but declares synchronous methods.
@@ -160,7 +160,7 @@ void MojoBinderPolicyApplier::GrantAll() {
   // Check that we are in a Mojo message dispatch, since the deferred binders
   // might call mojo::ReportBadMessage().
   //
-  // TODO(https://crbug.com/1217977): Give the deferred_binders_ a
+  // TODO(crbug.com/40185437): Give the deferred_binders_ a
   // BadMessageCallback and forbid them from using mojo::ReportBadMessage()
   // directly. We are currently in the message stack of one of the PageBroadcast
   // Mojo callbacks handled by RenderViewHost, so if a binder calls

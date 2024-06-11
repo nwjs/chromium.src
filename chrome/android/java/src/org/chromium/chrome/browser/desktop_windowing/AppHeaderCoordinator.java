@@ -8,24 +8,30 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.graphics.Rect;
 import android.os.Build;
+import android.os.Bundle;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.Px;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import org.chromium.base.Log;
+import org.chromium.base.ObserverList;
 import org.chromium.base.ResettersForTesting;
-import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
-import org.chromium.chrome.browser.toolbar.top.TabStripTransitionCoordinator;
+import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.lifecycle.SaveInstanceStateObserver;
+import org.chromium.chrome.browser.lifecycle.TopResumedActivityChangedObserver;
+import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderState;
+import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils;
+import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderUtils.DesktopWindowHeuristicResult;
+import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.components.browser_ui.widget.InsetObserver;
 import org.chromium.components.browser_ui.widget.InsetsRectProvider;
 import org.chromium.ui.util.ColorUtils;
@@ -36,30 +42,20 @@ import org.chromium.ui.util.TokenHolder;
  * from listening the window insets updates, and pushing updates to the tab strip.
  */
 @RequiresApi(api = Build.VERSION_CODES.R)
-public class AppHeaderCoordinator extends ObservableSupplierImpl<Boolean> {
+public class AppHeaderCoordinator
+        implements DesktopWindowStateProvider,
+                TopResumedActivityChangedObserver,
+                SaveInstanceStateObserver {
+    @VisibleForTesting
+    public static final String INSTANCE_STATE_KEY_IS_APP_IN_UNFOCUSED_DW =
+            "is_app_in_unfocused_desktop_window";
+
     private static final String TAG = "AppHeader";
     // TODO(crbug/328446763): Use values from Android V and remove SuppressWarnings.
     private static final int APPEARANCE_TRANSPARENT_CAPTION_BAR_BACKGROUND = 1 << 7;
-    private static final int APPEARANCE_LIGHT_CAPTION_BARS = 1 << 8;
+    @VisibleForTesting static final int APPEARANCE_LIGHT_CAPTION_BARS = 1 << 8;
 
     private static @Nullable InsetsRectProvider sInsetsRectProviderForTesting;
-
-    /** External delegate to adjust UI in response to app header signals. */
-    public interface AppHeaderDelegate {
-
-        /**
-         * Adjust the paddings for app header region.
-         *
-         * @param leftPadding Left padding at the app header region in px.
-         * @param rightPadding Right padding at the app header region in px.
-         */
-        void updateHorizontalPaddings(@Px int leftPadding, @Px int rightPadding);
-
-        /**
-         * @return The background color to be used for the app header.
-         */
-        int getAppHeaderBackgroundColor();
-    }
 
     private Activity mActivity;
     private final View mRootView;
@@ -67,15 +63,16 @@ public class AppHeaderCoordinator extends ObservableSupplierImpl<Boolean> {
     private final InsetObserver mInsetObserver;
     private final InsetsRectProvider mInsetsRectProvider;
     private final WindowInsetsController mInsetsController;
-    private final OneshotSupplier<AppHeaderDelegate> mAppHeaderDelegateSupplier;
-    private final OneshotSupplier<TabStripTransitionCoordinator>
-            mTabStripTransitionCoordinatorSupplier;
+    private final ObserverList<AppHeaderObserver> mObservers = new ObserverList<>();
+    private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
 
     // Internal states
-    private boolean mDesktopWindowingEnabled;
+    private boolean mIsInDesktopWindow;
     private int mBrowserControlsToken = TokenHolder.INVALID_TOKEN;
-
-    private Rect mWidestUnoccludedRect;
+    private @Nullable AppHeaderState mAppHeaderState;
+    private boolean mIsInUnfocusedDesktopWindow;
+    private @DesktopWindowHeuristicResult int mHeuristicResult =
+            DesktopWindowHeuristicResult.UNKNOWN;
 
     /**
      * Instantiate the coordinator to handle drawing the tab strip into the captionBar area.
@@ -86,6 +83,11 @@ public class AppHeaderCoordinator extends ObservableSupplierImpl<Boolean> {
      *     controls visibility.
      * @param insetObserver {@link InsetObserver} that manages insets changes on the
      *     CoordinatorView.
+     * @param activityLifecycleDispatcher The {@link ActivityLifecycleDispatcher} to dispatch {@link
+     *     TopResumedActivityChangedObserver#onTopResumedActivityChanged(boolean)} and {@link
+     *     SaveInstanceStateObserver#onSaveInstanceState(Bundle)} events observed by this class.
+     * @param savedInstanceState The saved instance state {@link Bundle} holding UI state
+     *     information for restoration on startup.
      */
     @SuppressWarnings("WrongConstant")
     public AppHeaderCoordinator(
@@ -93,25 +95,30 @@ public class AppHeaderCoordinator extends ObservableSupplierImpl<Boolean> {
             View rootView,
             BrowserStateBrowserControlsVisibilityDelegate browserControlsVisibilityDelegate,
             InsetObserver insetObserver,
-            OneshotSupplier<AppHeaderDelegate> appHeaderDelegateSupplier,
-            OneshotSupplier<TabStripTransitionCoordinator> tabStripTransitionCoordinatorSupplier) {
+            ActivityLifecycleDispatcher activityLifecycleDispatcher,
+            Bundle savedInstanceState) {
         mActivity = activity;
         mRootView = rootView;
         mBrowserControlsVisibilityDelegate = browserControlsVisibilityDelegate;
         mInsetObserver = insetObserver;
         mInsetsController = mRootView.getWindowInsetsController();
-        mAppHeaderDelegateSupplier = appHeaderDelegateSupplier;
-        mTabStripTransitionCoordinatorSupplier = tabStripTransitionCoordinatorSupplier;
+        mActivityLifecycleDispatcher = activityLifecycleDispatcher;
+        mActivityLifecycleDispatcher.register(this);
+        // Whether the app started in an unfocused desktop window, so that relevant UI state can be
+        // restored.
+        mIsInUnfocusedDesktopWindow =
+                savedInstanceState != null
+                        && savedInstanceState.getBoolean(
+                                INSTANCE_STATE_KEY_IS_APP_IN_UNFOCUSED_DW, false);
 
         // Initialize mInsetsRectProvider and setup observers.
-        WindowInsets insets = mRootView.getRootWindowInsets();
-        WindowInsetsCompat initInsets =
-                insets == null ? null : WindowInsetsCompat.toWindowInsetsCompat(insets, mRootView);
         mInsetsRectProvider =
                 sInsetsRectProviderForTesting != null
                         ? sInsetsRectProviderForTesting
                         : new InsetsRectProvider(
-                                insetObserver, WindowInsets.Type.captionBar(), initInsets);
+                                insetObserver,
+                                WindowInsets.Type.captionBar(),
+                                insetObserver.getLastRawWindowInsets());
         InsetsRectProvider.Observer insetsRectUpdateRunnable = this::onInsetsRectsUpdated;
         mInsetsRectProvider.addObserver(insetsRectUpdateRunnable);
 
@@ -120,78 +127,102 @@ public class AppHeaderCoordinator extends ObservableSupplierImpl<Boolean> {
             insetsRectUpdateRunnable.onBoundingRectsUpdated(
                     mInsetsRectProvider.getWidestUnoccludedRect());
         }
-
-        mAppHeaderDelegateSupplier.runSyncOrOnAvailable(
-                (delegate) -> maybeUpdateAppHeaderPaddings(mDesktopWindowingEnabled));
-        mTabStripTransitionCoordinatorSupplier.runSyncOrOnAvailable(
-                (tabStripTransitionCoordinator) ->
-                        tabStripTransitionCoordinator.setInsetRectProvider(mInsetsRectProvider));
-        set(mDesktopWindowingEnabled);
     }
 
     /** Destroy the instances and remove all the dependencies. */
     public void destroy() {
         mActivity = null;
         mInsetsRectProvider.destroy();
-        if (mTabStripTransitionCoordinatorSupplier.get() != null) {
-            mTabStripTransitionCoordinatorSupplier.get().setInsetRectProvider(null);
-        }
+        mObservers.clear();
+        mActivityLifecycleDispatcher.unregister(this);
     }
 
-    /**
-     * Returns whether the window this instance is associated with to is in desktop windowing mode.
-     */
-    public boolean isDesktopWindowingEnabled() {
-        return mDesktopWindowingEnabled;
+    @Override
+    public AppHeaderState getAppHeaderState() {
+        return mAppHeaderState;
+    }
+
+    // TODO(crbug.com/337086192): Read from mAppHeaderState.
+    @Override
+    public boolean isInDesktopWindow() {
+        return mIsInDesktopWindow;
+    }
+
+    @Override
+    public boolean isInUnfocusedDesktopWindow() {
+        return mIsInUnfocusedDesktopWindow;
+    }
+
+    @Override
+    public boolean addObserver(AppHeaderObserver observer) {
+        return mObservers.addObserver(observer);
+    }
+
+    @Override
+    public boolean removeObserver(AppHeaderObserver observer) {
+        return mObservers.removeObserver(observer);
+    }
+
+    @Override
+    public void updateForegroundColor(int backgroundColor) {
+        updateIconColorForCaptionBars(backgroundColor);
+    }
+
+    // TopResumedActivityChangedObserver implementation.
+    @Override
+    public void onTopResumedActivityChanged(boolean isTopResumedActivity) {
+        mIsInUnfocusedDesktopWindow = !isTopResumedActivity && mIsInDesktopWindow;
+    }
+
+    // SaveInstanceStateObserver implementation.
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(INSTANCE_STATE_KEY_IS_APP_IN_UNFOCUSED_DW, mIsInUnfocusedDesktopWindow);
     }
 
     private void onInsetsRectsUpdated(@NonNull Rect widestUnoccludedRect) {
-        if (widestUnoccludedRect.equals(mWidestUnoccludedRect)) return;
+        mHeuristicResult =
+                checkIsInDesktopWindow(
+                        mActivity, mInsetObserver, mInsetsRectProvider, mHeuristicResult);
+        var isInDesktopWindow = mHeuristicResult == DesktopWindowHeuristicResult.IN_DESKTOP_WINDOW;
+        // Use an empty |widestUnoccludedRect| instead of the cached Rect while creating the
+        // AppHeaderState while not in or while exiting desktop windowing mode, so that it always
+        // holds a valid state for observers to use.
+        var appHeaderState =
+                new AppHeaderState(
+                        mInsetsRectProvider.getWindowRect(),
+                        isInDesktopWindow
+                                ? mInsetsRectProvider.getWidestUnoccludedRect()
+                                : new Rect(),
+                        isInDesktopWindow);
+        if (appHeaderState.equals(mAppHeaderState)) return;
 
-        mWidestUnoccludedRect = widestUnoccludedRect;
-        boolean desktopWindowingEnabled = isDesktopWindowingModeEnabled();
-
-        // Regardless the current state, we'll update the side padding for StripLayoutHelper, as
-        // bounding rect can have updates without entering / exiting desktop windowing mode.
-        maybeUpdateAppHeaderPaddings(desktopWindowingEnabled);
+        boolean desktopWindowingModeChanged = mIsInDesktopWindow != isInDesktopWindow;
+        mIsInDesktopWindow = isInDesktopWindow;
+        mAppHeaderState = appHeaderState;
+        for (var observer : mObservers) {
+            observer.onAppHeaderStateChanged(mAppHeaderState);
+        }
 
         // If whether we are in DW mode does not change, we can end this method now.
-        if (desktopWindowingEnabled == mDesktopWindowingEnabled) return;
-        mDesktopWindowingEnabled = desktopWindowingEnabled;
-        set(mDesktopWindowingEnabled);
+        if (!desktopWindowingModeChanged) return;
+        for (var observer : mObservers) {
+            observer.onDesktopWindowingModeChanged(mIsInDesktopWindow);
+        }
 
         // 1. Enter E2E if we are in desktop windowing mode.
-        WindowCompat.setDecorFitsSystemWindows(mActivity.getWindow(), !mDesktopWindowingEnabled);
+        WindowCompat.setDecorFitsSystemWindows(mActivity.getWindow(), !mIsInDesktopWindow);
 
         // 2. Set the captionBar background appropriately to draw into the region.
-        updateCaptionBarBackground(mDesktopWindowingEnabled);
-        updateIconColorForCaptionBars();
+        updateCaptionBarBackground(mIsInDesktopWindow);
 
         // 3. Lock the browser controls when we are in DW mode.
-        if (mDesktopWindowingEnabled) {
+        if (mIsInDesktopWindow) {
             mBrowserControlsToken =
                     mBrowserControlsVisibilityDelegate.showControlsPersistentAndClearOldToken(
                             mBrowserControlsToken);
         } else {
             mBrowserControlsVisibilityDelegate.releasePersistentShowingToken(mBrowserControlsToken);
-        }
-    }
-
-    private void maybeUpdateAppHeaderPaddings(boolean isDesktopWindowingEnabled) {
-        if (mAppHeaderDelegateSupplier.get() == null
-                || mInsetsRectProvider.getWindowRect().isEmpty()
-                || mWidestUnoccludedRect == null) return;
-
-        if (isDesktopWindowingEnabled) {
-            mAppHeaderDelegateSupplier
-                    .get()
-                    .updateHorizontalPaddings(
-                            mWidestUnoccludedRect.left,
-                            mInsetsRectProvider.getWindowRect().width()
-                                    - mWidestUnoccludedRect.right);
-        } else if (mDesktopWindowingEnabled) {
-            // Only reset when we are exiting desktop windowing mode.
-            mAppHeaderDelegateSupplier.get().updateHorizontalPaddings(0, 0);
         }
     }
 
@@ -204,34 +235,49 @@ public class AppHeaderCoordinator extends ObservableSupplierImpl<Boolean> {
      *   <li>Caption bar has 2 bounding rects;
      *   <li>Widest unoccluded rect in captionBar insets is connected to the bottom;
      * </ol>
+     *
+     * This method is marked as static, in order to ensure it does not change / read any state from
+     * an AppHeaderCoordinator instance, especially the cached {@link AppHeaderState}.
      */
-    // TODO(crbug/328446763): Add metrics to record the failure reason.
-    // TODO(crbug/330213938): Add more criteria checks.
-    private boolean isDesktopWindowingModeEnabled() {
-        if (!mActivity.isInMultiWindowMode()) return false;
+    private static @DesktopWindowHeuristicResult int checkIsInDesktopWindow(
+            Activity activity,
+            InsetObserver insetObserver,
+            InsetsRectProvider insetsRectProvider,
+            @DesktopWindowHeuristicResult int currentResult) {
+        @DesktopWindowHeuristicResult int newResult;
 
-        // Disable DW mode if there is a navigation bar (though it may or may not be visible /
-        // dismissed).
-        assert mInsetObserver.getLastRawWindowInsets() != null
+        assert insetObserver.getLastRawWindowInsets() != null
                 : "Attempt to read the insets too early.";
-
         var navBarInsets =
-                mInsetObserver
+                insetObserver
                         .getLastRawWindowInsets()
                         .getInsets(WindowInsetsCompat.Type.navigationBars());
-        if (navBarInsets.bottom > 0) {
-            return false;
-        }
 
-        int numOfBoundingRects = mInsetsRectProvider.getBoundingRects().size();
-        if (numOfBoundingRects != 2) {
+        int numOfBoundingRects = insetsRectProvider.getBoundingRects().size();
+        Insets captionBarInset = insetsRectProvider.getCachedInset();
+
+        if (!activity.isInMultiWindowMode()) {
+            newResult = DesktopWindowHeuristicResult.NOT_IN_MULTIWINDOW_MODE;
+        } else if (navBarInsets.bottom > 0) {
+            // Disable DW mode if there is a navigation bar (though it may or may not be visible /
+            // dismissed).
+            newResult = DesktopWindowHeuristicResult.NAV_BAR_BOTTOM_INSETS_PRESENT;
+        } else if (numOfBoundingRects != 2) {
             Log.w(TAG, "Unexpected number of bounding rects is observed! " + numOfBoundingRects);
-            return false;
+            newResult = DesktopWindowHeuristicResult.CAPTION_BAR_BOUNDING_RECTS_UNEXPECTED_NUMBER;
+        } else if (captionBarInset.top == 0) {
+            newResult = DesktopWindowHeuristicResult.CAPTION_BAR_TOP_INSETS_ABSENT;
+        } else if (insetsRectProvider.getWidestUnoccludedRect().bottom != captionBarInset.top) {
+            newResult = DesktopWindowHeuristicResult.CAPTION_BAR_BOUNDING_RECT_INVALID_HEIGHT;
+        } else {
+            newResult = DesktopWindowHeuristicResult.IN_DESKTOP_WINDOW;
         }
-
-        Insets captionBarInset = mInsetsRectProvider.getCachedInset();
-        return captionBarInset.top > 0
-                && mInsetsRectProvider.getWidestUnoccludedRect().bottom == captionBarInset.top;
+        if (newResult != currentResult) {
+            Log.i(TAG, "Recording desktop windowing heuristic result: " + newResult);
+            // Only record histogram when heuristics result has changed.
+            AppHeaderUtils.recordDesktopWindowHeuristicResult(newResult);
+        }
+        return newResult;
     }
 
     @SuppressLint("WrongConstant")
@@ -249,17 +295,25 @@ public class AppHeaderCoordinator extends ObservableSupplierImpl<Boolean> {
         }
     }
 
-    // TODO(crbug/328446763): Call this method when theme / tab model switches.
+    // TODO(crbug/328446763): Confirm the icon color update at startup during theme changes.
     @SuppressLint("WrongConstant")
-    private void updateIconColorForCaptionBars() {
-        if (mAppHeaderDelegateSupplier.get() == null) return;
-
-        boolean useLightIcon =
-                ColorUtils.shouldUseLightForegroundOnBackground(
-                        mAppHeaderDelegateSupplier.get().getAppHeaderBackgroundColor());
-        int useLightCaptionBar = useLightIcon ? APPEARANCE_LIGHT_CAPTION_BARS : 0;
+    private void updateIconColorForCaptionBars(int color) {
+        boolean useLightIcon = ColorUtils.shouldUseLightForegroundOnBackground(color);
+        // APPEARANCE_LIGHT_CAPTION_BARS needs to be set when caption bar is with light background.
+        int captionBarAppearance = useLightIcon ? 0 : APPEARANCE_LIGHT_CAPTION_BARS;
         mInsetsController.setSystemBarsAppearance(
-                useLightCaptionBar, APPEARANCE_LIGHT_CAPTION_BARS);
+                captionBarAppearance, APPEARANCE_LIGHT_CAPTION_BARS);
+    }
+
+    /** Set states for testing. */
+    public void setStateForTesting(boolean isInDesktopWindow, AppHeaderState appHeaderState) {
+        mIsInDesktopWindow = isInDesktopWindow;
+        mAppHeaderState = appHeaderState;
+
+        for (var observer : mObservers) {
+            observer.onAppHeaderStateChanged(mAppHeaderState);
+            observer.onDesktopWindowingModeChanged(mIsInDesktopWindow);
+        }
     }
 
     public static void setInsetsRectProviderForTesting(InsetsRectProvider providerForTesting) {

@@ -92,6 +92,7 @@ class NetworkTimeTracker;
 }
 
 namespace os_crypt_async {
+class KeyProvider;
 class OSCryptAsync;
 }
 
@@ -239,7 +240,7 @@ class BrowserProcess {
   // before the full browser starts.
   virtual StartupData* startup_data() = 0;
 
-// TODO(crbug.com/1052397): Revisit once build flag switch of lacros-chrome is
+// TODO(crbug.com/40118868): Revisit once build flag switch of lacros-chrome is
 // complete.
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
   // This will start a timer that, if Chrome is in persistent mode, will check
@@ -291,6 +292,12 @@ class BrowserProcess {
   // Obtain the browser instance of OSCryptAsync, which should be used for data
   // encryption.
   virtual os_crypt_async::OSCryptAsync* os_crypt_async() = 0;
+
+  // Add an additional OSCryptAsync provider for use in tests. Should only be
+  // called once, during startup.
+  virtual void set_additional_os_crypt_async_provider_for_test(
+      size_t precedence,
+      std::unique_ptr<os_crypt_async::KeyProvider> provider) = 0;
 
   virtual BuildState* GetBuildState() = 0;
 };

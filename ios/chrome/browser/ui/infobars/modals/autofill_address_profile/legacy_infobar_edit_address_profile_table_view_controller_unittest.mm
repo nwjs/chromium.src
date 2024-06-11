@@ -5,13 +5,16 @@
 #import "ios/chrome/browser/ui/infobars/modals/autofill_address_profile/legacy_infobar_edit_address_profile_table_view_controller.h"
 
 #import <memory>
+
 #import "base/apple/foundation_util.h"
 #import "base/feature_list.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "components/autofill/core/browser/autofill_test_utils.h"
+#import "components/autofill/core/browser/test_personal_data_manager.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_multi_detail_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_button_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_edit_item.h"
@@ -20,8 +23,8 @@
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
 #import "ios/chrome/browser/ui/autofill/autofill_profile_edit_handler.h"
+#import "ios/chrome/browser/ui/autofill/autofill_profile_edit_mediator.h"
 #import "ios/chrome/browser/ui/autofill/autofill_profile_edit_table_view_controller.h"
-#import "ios/chrome/browser/ui/autofill/autofill_profile_edit_table_view_controller_delegate.h"
 #import "ios/chrome/browser/ui/autofill/autofill_ui_type_util.h"
 #import "ios/chrome/browser/ui/infobars/modals/infobar_modal_delegate.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -39,126 +42,22 @@ class LegacyInfobarEditAddressProfileTableViewControllerTest
  protected:
   void SetUp() override {
     LegacyChromeTableViewControllerTest::SetUp();
-    delegate_mock_ = OCMProtocolMock(
-        @protocol(AutofillProfileEditTableViewControllerDelegate));
     delegate_modal_mock_ = OCMProtocolMock(@protocol(InfobarModalDelegate));
+    personal_data_manager_ =
+        std::make_unique<autofill::TestPersonalDataManager>();
+    profile_ = std::make_unique<autofill::AutofillProfile>(
+        autofill::test::GetFullProfile2());
+    autofill_profile_edit_mediator_ = [[AutofillProfileEditMediator alloc]
+           initWithDelegate:nil
+        personalDataManager:personal_data_manager_.get()
+            autofillProfile:profile_.get()
+          isMigrationPrompt:NO];
     CreateController();
     CheckController();
-    CreateProfileData();
 
     // Reload the model so that the changes are propogated.
     [controller() loadModel];
   }
-
-  LegacyChromeTableViewController* InstantiateController() override {
-    LegacyInfobarEditAddressProfileTableViewController* viewController =
-        [[LegacyInfobarEditAddressProfileTableViewController alloc]
-            initWithModalDelegate:delegate_modal_mock_];
-    autofill_profile_edit_table_view_controller_ =
-        [[AutofillProfileEditTableViewController alloc]
-            initWithDelegate:delegate_mock_
-                   userEmail:nil
-                  controller:viewController
-                settingsView:NO];
-    viewController.handler = autofill_profile_edit_table_view_controller_;
-    return viewController;
-  }
-
-  void CreateProfileData() {
-    autofill::AutofillProfile profile = autofill::test::GetFullProfile2();
-    [autofill_profile_edit_table_view_controller_
-        setFullName:base::SysUTF16ToNSString(
-                        profile.GetRawInfo(autofill::NAME_FULL))];
-    [autofill_profile_edit_table_view_controller_
-        setCompanyName:base::SysUTF16ToNSString(
-                           profile.GetRawInfo(autofill::COMPANY_NAME))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressLine1:base::SysUTF16ToNSString(profile.GetRawInfo(
-                                autofill::ADDRESS_HOME_LINE1))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressLine2:base::SysUTF16ToNSString(profile.GetRawInfo(
-                                autofill::ADDRESS_HOME_LINE2))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressDependentLocality:
-            base::SysUTF16ToNSString(
-                profile.GetRawInfo(autofill::ADDRESS_HOME_DEPENDENT_LOCALITY))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressCity:base::SysUTF16ToNSString(profile.GetRawInfo(
-                               autofill::ADDRESS_HOME_CITY))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressAdminLevel2:base::SysUTF16ToNSString(profile.GetRawInfo(
-                                      autofill::ADDRESS_HOME_ADMIN_LEVEL2))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressState:base::SysUTF16ToNSString(profile.GetRawInfo(
-                                autofill::ADDRESS_HOME_STATE))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressZip:base::SysUTF16ToNSString(
-                              profile.GetRawInfo(autofill::ADDRESS_HOME_ZIP))];
-    [autofill_profile_edit_table_view_controller_
-        setHomeAddressCountry:base::SysUTF16ToNSString(profile.GetRawInfo(
-                                  autofill::ADDRESS_HOME_COUNTRY))];
-    [autofill_profile_edit_table_view_controller_
-        setHomePhoneWholeNumber:base::SysUTF16ToNSString(profile.GetRawInfo(
-                                    autofill::PHONE_HOME_WHOLE_NUMBER))];
-    [autofill_profile_edit_table_view_controller_
-        setEmailAddress:base::SysUTF16ToNSString(
-                            profile.GetRawInfo(autofill::EMAIL_ADDRESS))];
-  }
-
-  // Tests that the save button behaviour changes as the requirements change
-  // depending on the view.
-  void TestRequirements(bool account_profile_or_migration_prompt) {
-    [autofill_profile_edit_table_view_controller_ setLine1Required:YES];
-    [autofill_profile_edit_table_view_controller_ setCityRequired:YES];
-    [autofill_profile_edit_table_view_controller_ setStateRequired:YES];
-    [autofill_profile_edit_table_view_controller_ setZipRequired:NO];
-
-    TableViewTextButtonItem* button_item =
-        static_cast<TableViewTextButtonItem*>(
-            GetTableViewItem(0, NumberOfItemsInSection(0) - 1));
-    EXPECT_EQ(button_item.enabled, YES);
-
-    TableViewTextEditItem* zip_item =
-        static_cast<TableViewTextEditItem*>(GetTableViewItem(0, 6));
-    zip_item.textFieldValue = @"";
-    [autofill_profile_edit_table_view_controller_
-        tableViewItemDidChange:zip_item];
-    // Since, zip was set as not required, the button should be enabled.
-    EXPECT_EQ(button_item.enabled, YES);
-
-    TableViewTextEditItem* name_item =
-        static_cast<TableViewTextEditItem*>(GetTableViewItem(0, 0));
-    name_item.textFieldValue = @"";
-    [autofill_profile_edit_table_view_controller_
-        tableViewItemDidChange:name_item];
-    // Should be still enabled.
-    EXPECT_EQ(button_item.enabled, YES);
-
-    TableViewTextEditItem* city_item =
-        static_cast<TableViewTextEditItem*>(GetTableViewItem(0, 4));
-    city_item.textFieldValue = @"";
-    [autofill_profile_edit_table_view_controller_
-        tableViewItemDidChange:city_item];
-    // Should not be enabled for account profile or migration prompt.
-    EXPECT_EQ(button_item.enabled, !account_profile_or_migration_prompt);
-  }
-
-  AutofillProfileEditTableViewController*
-      autofill_profile_edit_table_view_controller_;
-  id delegate_mock_;
-  id delegate_modal_mock_;
-};
-
-// Tests that there are no requirement checks for the profiles saved to sync.
-TEST_F(LegacyInfobarEditAddressProfileTableViewControllerTest, TestNoRequirements) {
-  TestRequirements(NO);
-}
-
-// TODO(crbug.com/1348294): Merge into main test fixture.
-class LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled
-    : public LegacyInfobarEditAddressProfileTableViewControllerTest {
- protected:
-  LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled() {}
 
   LegacyInfobarEditAddressProfileTableViewController*
   CreateLegacyInfobarEditAddressProfileTableViewController() {
@@ -167,16 +66,14 @@ class LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled
             initWithModalDelegate:delegate_modal_mock_];
     autofill_profile_edit_table_view_controller_ =
         [[AutofillProfileEditTableViewController alloc]
-            initWithDelegate:delegate_mock_
+            initWithDelegate:autofill_profile_edit_mediator_
                    userEmail:base::SysUTF16ToNSString(kTestSyncingEmail)
                   controller:viewController
                 settingsView:NO];
     viewController.handler = autofill_profile_edit_table_view_controller_;
+    autofill_profile_edit_mediator_.consumer =
+        autofill_profile_edit_table_view_controller_;
     return viewController;
-  }
-
-  LegacyChromeTableViewController* InstantiateController() override {
-    return CreateLegacyInfobarEditAddressProfileTableViewController();
   }
 
   void CreateAccountProfile() {
@@ -189,9 +86,8 @@ class LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled
   void TestModelRowsAndButtons(TableViewModel* model,
                                NSString* expectedFooterText,
                                NSString* expectedButtonText) {
-    autofill::AutofillProfile profile = autofill::test::GetFullProfile2();
     NSString* countryCode = base::SysUTF16ToNSString(
-        profile.GetRawInfo(autofill::FieldType::ADDRESS_HOME_COUNTRY));
+        profile_->GetRawInfo(autofill::FieldType::ADDRESS_HOME_COUNTRY));
 
     std::vector<std::pair<autofill::FieldType, std::u16string>> expected_values;
 
@@ -203,7 +99,9 @@ class LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled
       }
 
       expected_values.push_back(
-          {field.autofillType, profile.GetRawInfo(field.autofillType)});
+          {field.autofillType,
+           profile_->GetInfo(field.autofillType,
+                             GetApplicationContext()->GetApplicationLocale())});
     }
 
     EXPECT_EQ(1, [model numberOfSections]);
@@ -233,10 +131,21 @@ class LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled
         GetTableViewItem(0, expected_values.size() + 1));
     EXPECT_NSEQ(buttonCell.buttonText, expectedButtonText);
   }
+
+  LegacyChromeTableViewController* InstantiateController() override {
+    return CreateLegacyInfobarEditAddressProfileTableViewController();
+  }
+
+  AutofillProfileEditTableViewController*
+      autofill_profile_edit_table_view_controller_;
+  AutofillProfileEditMediator* autofill_profile_edit_mediator_;
+  std::unique_ptr<autofill::AutofillProfile> profile_;
+  std::unique_ptr<autofill::TestPersonalDataManager> personal_data_manager_;
+  id delegate_modal_mock_;
 };
 
 // Tests the edit view initialisation for the save prompt of an account profile.
-TEST_F(LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled,
+TEST_F(LegacyInfobarEditAddressProfileTableViewControllerTest,
        TestEditForAccountProfile) {
   CreateAccountProfile();
 
@@ -247,15 +156,8 @@ TEST_F(LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnable
       l10n_util::GetNSString(IDS_AUTOFILL_SAVE_ADDRESS_PROMPT_OK_BUTTON_LABEL));
 }
 
-// Tests that the save in account prompt runs requirement checks.
-TEST_F(LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled,
-       TestRequirements) {
-  CreateAccountProfile();
-  TestRequirements(YES);
-}
-
 class LegacyInfobarEditAddressProfileTableViewControllerMigrationPromptTest
-    : public LegacyInfobarEditAddressProfileTableViewControllerTestWithUnionViewEnabled {
+    : public LegacyInfobarEditAddressProfileTableViewControllerTest {
  protected:
   LegacyChromeTableViewController* InstantiateController() override {
     LegacyInfobarEditAddressProfileTableViewController* viewController =
@@ -274,12 +176,6 @@ TEST_F(LegacyInfobarEditAddressProfileTableViewControllerMigrationPromptTest,
       [controller() tableViewModel], expected_footer_text,
       l10n_util::GetNSString(
           IDS_AUTOFILL_ADDRESS_MIGRATION_TO_ACCOUNT_PROMPT_OK_BUTTON_LABEL));
-}
-
-// Tests that the migration prompt runs requirement checks.
-TEST_F(LegacyInfobarEditAddressProfileTableViewControllerMigrationPromptTest,
-       TestRequirements) {
-  TestRequirements(YES);
 }
 
 }  // namespace

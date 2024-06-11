@@ -36,6 +36,7 @@
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/forms/layout_text_control_inner_editor.h"
@@ -197,9 +198,7 @@ const ComputedStyle* TextControlInnerEditorElement::CustomStyleForLayoutObject(
     style_builder.SetOverflowX(EOverflow::kScroll);
     // overflow-y:visible doesn't work because overflow-x:scroll makes a layer.
     style_builder.SetOverflowY(EOverflow::kScroll);
-    style_builder.SetPseudoElementStyles(
-        1 << (kPseudoIdScrollbar - kFirstPublicPseudoId));
-
+    style_builder.SetScrollbarWidth(EScrollbarWidth::kNone);
     style_builder.SetDisplay(EDisplay::kFlowRoot);
   }
 
@@ -209,18 +208,7 @@ const ComputedStyle* TextControlInnerEditorElement::CustomStyleForLayoutObject(
   if (!is_visible_)
     style_builder.SetOpacity(0);
 
-  const ComputedStyle* style = style_builder.TakeStyle();
-
-  if (style->HasPseudoElementStyle(kPseudoIdScrollbar)) {
-    ComputedStyleBuilder no_scrollbar_style_builder =
-        GetDocument().GetStyleResolver().CreateComputedStyleBuilder();
-    no_scrollbar_style_builder.SetStyleType(kPseudoIdScrollbar);
-    no_scrollbar_style_builder.SetDisplay(EDisplay::kNone);
-    style->AddCachedPseudoElementStyle(no_scrollbar_style_builder.TakeStyle(),
-                                       kPseudoIdScrollbar, g_null_atom);
-  }
-
-  return style;
+  return style_builder.TakeStyle();
 }
 
 // ----------------------------

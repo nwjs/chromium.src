@@ -29,7 +29,14 @@
 #error File can only be included when USE_BLINK is true
 #endif
 
+namespace blink {
+namespace mojom {
+class FileChooserParams;
+}
+}  // namespace blink
+
 namespace content {
+class FileSelectListener;
 class NavigationEntry;
 class NavigationHandle;
 class RenderFrameHost;
@@ -200,6 +207,14 @@ class ContentWebState : public WebState,
   int GetVirtualKeyboardHeight(content::WebContents* web_contents) override;
   bool OnlyExpandTopControlsAtPageTop() override;
   void SetTopControlsGestureScrollInProgress(bool in_progress) override;
+  std::unique_ptr<content::ColorChooser> OpenColorChooser(
+      content::WebContents* web_contents,
+      SkColor color,
+      const std::vector<blink::mojom::ColorSuggestionPtr>& suggestions)
+      override;
+  void RunFileChooser(content::RenderFrameHost* render_frame_host,
+                      scoped_refptr<content::FileSelectListener> listener,
+                      const blink::mojom::FileChooserParams& params) override;
 
  private:
   // Helper method to register notification observers.

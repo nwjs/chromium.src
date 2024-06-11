@@ -253,7 +253,7 @@ class WebSocketChannel::ConnectDelegate
   // danger of this pointer being stale, because deleting the WebSocketChannel
   // cancels the connect process, deleting this object and preventing its
   // callbacks from being called.
-  const raw_ptr<WebSocketChannel, DanglingUntriaged> creator_;
+  const raw_ptr<WebSocketChannel> creator_;
 };
 
 WebSocketChannel::WebSocketChannel(
@@ -594,7 +594,7 @@ ChannelState WebSocketChannel::ReadFrames() {
     }
   }
 
-  // TODO(crbug.com/999235): Remove this CHECK.
+  // TODO(crbug.com/41479064): Remove this CHECK.
   CHECK(event_interface_);
   while (!event_interface_->HasPendingDataFrames()) {
     DCHECK(stream_);
@@ -613,7 +613,7 @@ ChannelState WebSocketChannel::ReadFrames() {
       return CHANNEL_DELETED;
     }
     DCHECK_NE(CLOSED, state_);
-    // TODO(crbug.com/999235): Remove this CHECK.
+    // TODO(crbug.com/41479064): Remove this CHECK.
     CHECK(event_interface_);
   }
   return CHANNEL_ALIVE;

@@ -134,6 +134,9 @@ interface InputDeviceSettingsProvider {
 
   // Sets the keyboard brightness to a specified level.
   SetKeyboardBrightness(double percent);
+  // Sets whether to use ambient light sensor to automatically set the keyboard
+  // brightness.
+  SetKeyboardAmbientLightSensorEnabled(bool enabled);
 
   // Starts observing customizable button presses for the device with the given
   // `device_id`.
@@ -158,10 +161,17 @@ interface InputDeviceSettingsProvider {
   // Returns whether the internal keyboard has a backlight.
   HasKeyboardBacklight() => (bool has_keyboard_backlight);
 
+  // Returns whether the internal keyboard has ambient light sensor.
+  HasAmbientLightSensor() => (bool has_ambient_light_sensor);
+
   // Returns whether the internal keyboard support RGB lighting.
   IsRgbKeyboardSupported() => (bool is_rgb_keyboard_supported);
 
   // Tracks clicks on the "Keyboard Color" link in Keyboard Settings, that
   // navigates to the RGB Control in the Personalization Hub.
   RecordKeyboardColorLinkClicked();
+
+  // Records metric each time user changes the keyboard brightness through
+  // the slider.
+  RecordKeyboardBrightnessChangeFromSlider(double percent);
 };

@@ -58,9 +58,6 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   ClientView* CreateClientView(Widget* widget) override;
   ax::mojom::Role GetAccessibleWindowRole() final;
 
-  // WidgetDelegate:
-  gfx::Rect GetDesiredWidgetBounds() final;
-
   // Create and initialize the bubble Widget with proper bounds.
   static Widget* CreateBubble(
       std::unique_ptr<BubbleDialogDelegate> bubble_delegate);
@@ -128,7 +125,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // before another function call which also sets bounds, so that bounds are
   // not set multiple times in a row. When animating bounds changes, setting
   // bounds twice in a row can make the widget position jump.
-  // TODO(crbug.com/982880) It would be good to be able to re-target the
+  // TODO(crbug.com/41470150) It would be good to be able to re-target the
   // animation rather than expect callers to use SetArrowWithoutResizing if they
   // are also changing the anchor rect, or similar.
   void SetArrowWithoutResizing(BubbleBorder::Arrow arrow);
@@ -326,7 +323,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // should be called only if you need to force update the bounds of the widget
   // and/or position of the bubble, for example if the size of the bubble's
   // content view changed.
-  // TODO(crbug.com/1520953) Not recommended; Use autosize in the constructor
+  // TODO(crbug.com/41493925) Not recommended; Use autosize in the constructor
   // instead.
   void SizeToContents();
 
@@ -454,6 +451,8 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   void UpdateHighlightedButton(bool highlight);
 
   void SetAnchoredDialogKey();
+
+  gfx::Rect GetDesiredBubbleBounds();
 
   gfx::Insets title_margins_;
   gfx::Insets footnote_margins_;

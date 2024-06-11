@@ -62,7 +62,13 @@ void WaitForDisplayed(Browser* browser) {
 //
 // Fullscreen tests.
 //
-IN_PROC_BROWSER_TEST_F(FullscreenControllerTest, FullscreenOnFileURL) {
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_FullscreenOnFileURL DISABLED_FullscreenOnFileURL
+#else
+#define MAYBE_FullscreenOnFileURL FullscreenOnFileURL
+#endif
+// TODO(https://crbug.com/330729275): Re-enable when fixed on macOS 14.
+IN_PROC_BROWSER_TEST_F(FullscreenControllerTest, MAYBE_FullscreenOnFileURL) {
   static const base::FilePath::CharType* kEmptyFile =
       FILE_PATH_LITERAL("empty.html");
   GURL file_url(ui_test_utils::GetTestUrl(
@@ -224,8 +230,8 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerTest, FastKeyboardLockUnlockRelock) {
   base::TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner.get());
 
   ASSERT_TRUE(RequestKeyboardLock(/*esc_key_locked=*/true));
-  // Shorter than |ExclusiveAccessBubble::kInitialDelayMs|.
-  task_runner->FastForwardBy(base::Milliseconds(InitialBubbleDelayMs() / 2));
+  // Shorter than `ExclusiveAccessBubble::kShowTime`.
+  task_runner->FastForwardBy(ExclusiveAccessBubble::kShowTime / 2);
   CancelKeyboardLock();
   ASSERT_TRUE(RequestKeyboardLock(/*esc_key_locked=*/true));
   ASSERT_TRUE(GetExclusiveAccessManager()
@@ -241,8 +247,8 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerTest, SlowKeyboardLockUnlockRelock) {
   base::TestMockTimeTaskRunner::ScopedContext scoped_context(task_runner.get());
 
   ASSERT_TRUE(RequestKeyboardLock(/*esc_key_locked=*/true));
-  // Longer than |ExclusiveAccessBubble::kInitialDelayMs|.
-  task_runner->FastForwardBy(base::Milliseconds(InitialBubbleDelayMs() + 20));
+  // Longer than `ExclusiveAccessBubble::kShowTime`.
+  task_runner->FastForwardBy(ExclusiveAccessBubble::kShowTime * 2);
   CancelKeyboardLock();
   ASSERT_TRUE(RequestKeyboardLock(/*esc_key_locked=*/true));
   ASSERT_TRUE(GetExclusiveAccessManager()

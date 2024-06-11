@@ -31,7 +31,6 @@
 <translation id="1620510694547887537">Камера</translation>
 <translation id="1633720957382884102">Қатысты сайттар</translation>
 <translation id="1644574205037202324">Тарих</translation>
-<translation id="1647582022260550163">Рұқсаттарды бастапқы күйге қайтарып, cookie файлдары мен сайт деректерін өшіргіңіз келе ме?</translation>
 <translation id="1652197001188145583">Қосылса, сайттар NFC құрылғыларын пайдалануға рұқсат сұрай алады. Өшірілсе, пайдалана алмайды.</translation>
 <translation id="1660204651932907780">Сайттарда дыбыстың шығуына рұқсат ету (ұсынылады)</translation>
 <translation id="1677097821151855053">Cookie файлдары мен сайттың басқа деректері сізді есте сақтап қалу (мысалы, аккаунтыңызға кіру процесін жеңілдету немесе жарнамаларды сізге бейімдеу) үшін қолданылады. Барлық сайт үшін cookie файлдарын басқару үшін <ph name="BEGIN_LINK" />Параметрлер<ph name="END_LINK" /> бөлімін қараңыз.</translation>
@@ -69,7 +68,6 @@
 <translation id="2241587408274973373">Жаңа қойынды бетінің карталары</translation>
 <translation id="2241634353105152135">Бір-ақ рет</translation>
 <translation id="2253414712144136228"><ph name="NAME_OF_LIST_ITEM" /> элементін жою</translation>
-<translation id="2253989982043948086">{NUM_SELECTED,plural, =1{1 сайт блокталған}other{# сайт блокталған}}</translation>
 <translation id="228293613124499805">Сіз кіретін сайттардың көпшілігі теңшелімдеріңізді немесе сайтпен бөлісетін ақпаратты сақтау арқылы тәжірибеңізді жақсарту үшін құрылғыңызға деректерді сақтауы мүмкін. Бұл параметрді қосулы ұстауды ұсынамыз.</translation>
 <translation id="2289270750774289114">Сайт маңайдағы Bluetooth құрылғыларын анықтағысы келген кезде, рұқсат сұралсын (ұсынылады).</translation>
 <translation id="2315043854645842844">Операциялық жүйе клиенттік сертификатты таңдауға қолдау көрсетпейді.</translation>
@@ -123,7 +121,6 @@
 <translation id="3008272652534848354">Рұқсаттарды бастапқы күйіне қайтару</translation>
 <translation id="301521992641321250">Автоматты түрде блокталған</translation>
 <translation id="3069226013421428034">Белгілі бір сайт үшін бөгде қызметтер арқылы кіруге рұқсат беру.</translation>
-<translation id="3082992102194421695">{COUNT,plural, =1{Мерзімі ертең аяқталады}other{Мерзімі # күннен кейін аяқталады}}</translation>
 <translation id="310297983047869047">Алдыңғы слайд</translation>
 <translation id="3109724472072898302">Жиылған</translation>
 <translation id="3114012059975132928">Бейне ойнатқыш</translation>
@@ -135,6 +132,7 @@
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> сақталған деректері</translation>
 <translation id="321187648315454507"><ph name="APP_NAME" /> браузерінен хабарландырулар алу үшін <ph name="BEGIN_LINK" />Android параметрлерінде<ph name="END_LINK" /> оларды да қосыңыз.</translation>
 <translation id="3227137524299004712">Микрофон</translation>
+<translation id="3232293466644486101">Браузерді пайдалану деректерін жою…</translation>
 <translation id="3242646949159196181">Қосылса, сайттар дыбыс ойната алады. Өшірілсе, ойната алмайды.</translation>
 <translation id="3277252321222022663">Сайттардың датчиктерді пайдалануына рұқсат ету (ұсынылады)</translation>
 <translation id="3285500645985761267">Қатысты сайттарға топта жасайтын әрекетіңізді көруге рұқсат ету</translation>
@@ -198,6 +196,7 @@
 <translation id="4278390842282768270">Рұқсат етілген</translation>
 <translation id="429312253194641664">Сайтта мультимедиа ойнатылуда</translation>
 <translation id="42981349822642051">Жаю</translation>
+<translation id="4336219115486912529">{COUNT,plural, =1{Мерзімі ертең аяқталады}other{Мерзімі # күннен кейін аяқталады}}</translation>
 <translation id="4336566011000459927">Chrome бүгін cookie файлдарына қайта шектеу қояды.</translation>
 <translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Соңғы қойындыңыз</translation>
 <translation id="4338831206024587507"><ph name="DOMAIN" /> доменіндегі барлық сайт</translation>
@@ -305,9 +304,11 @@
 <translation id="6015775454662021376">Осы сайттың құрылғыңызға кіруін басқарыңыз.</translation>
 <translation id="6040143037577758943">Жабу</translation>
 <translation id="6042308850641462728">Жаю</translation>
+<translation id="6060464773477604108"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> Соңғы қойындыңыз</translation>
 <translation id="6064125863973209585">Жүктеп алынғандар</translation>
 <translation id="6071501408666570960">Сіз бұл сайтта аккаунттан шығарылуыңыз мүмкін.</translation>
 <translation id="6120483543004435978">Қосылса, сайттар құрылғыны белсенді пайдаланатын уақытыңызды білуге рұқсат сұрай алады. Өшірілсе, біле алмайды.</translation>
+<translation id="6140839633433422817">Рұқсаттарды бастапқы күйге қайтарып, cookie файлдары мен сайт деректерін жою қажет пе?</translation>
 <translation id="6165508094623778733">Толығырақ</translation>
 <translation id="6171020522141473435">Қосылса, сайттар Bluetooth құрылғыларын пайдалануға рұқсат сұрай алады. Өшірілсе, пайдалана алмайды.</translation>
 <translation id="6177111841848151710">Ағымдағы іздеу жүйесі үшін тыйым салынды</translation>
@@ -341,6 +342,7 @@
 <translation id="6545864417968258051">Bluetooth құрылғыларын іздеу</translation>
 <translation id="6552800053856095716">{PERMISSIONS_SUMMARY_BLOCKED,plural, =1{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> және тағы <ph name="NUM_MORE" /> қызметті пайдалануға тыйым салынған.}other{<ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> және тағы <ph name="NUM_MORE" /> қызметті пайдалануға тыйым салынған.}}</translation>
 <translation id="6554732001434021288">Соңғы кіру: <ph name="NUM_DAYS" /> күн бұрын</translation>
+<translation id="656065428026159829">Басқаларын көру</translation>
 <translation id="6561560012278703671">Дыбыссыз хабарландыру функциясын пайдалану (хабарландырулар кедергі келтірмейді)</translation>
 <translation id="6593061639179217415">Компьютерге арналған сайт</translation>
 <translation id="6608650720463149374"><ph name="GIGABYTES" /> ГБ</translation>
@@ -401,7 +403,6 @@
 <translation id="7561196759112975576">Әрқашан</translation>
 <translation id="757524316907819857">Сайттардың қорғалған контентті ойнатуына тыйым салу</translation>
 <translation id="7594634374516752650">Bluetooth құрылғысына жалғанды</translation>
-<translation id="7641339528570811325">Шолу деректерін тазалау…</translation>
 <translation id="7649070708921625228">Анықтама</translation>
 <translation id="7658239707568436148">Бас тарту</translation>
 <translation id="7667547420449112975">Оз елінің ғажап сиқыршысы</translation>
@@ -425,6 +426,7 @@
 <translation id="7986741934819883144">Контактіні таңдау</translation>
 <translation id="7990211076305263060">Қосылса, сайттар микрофонды пайдалануға рұқсат сұрай алады. Өшірілсе, пайдалана алмайды.</translation>
 <translation id="8007176423574883786">Осы құрылғы үшін өшірілді</translation>
+<translation id="8009579582995973057"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> <ph name="FROM_DEVICE" /> құрылғысынан</translation>
 <translation id="802154636333426148">Жүктеу сәтсіз аяқталды</translation>
 <translation id="8042586301629853791">Сұрыптау шарты:</translation>
 <translation id="8067883171444229417">Бейнені ойнату</translation>
@@ -479,7 +481,6 @@
 <translation id="8721719390026067591">Қосылса, сайттар Bluetooth құрылғыларын іздеуге рұқсат сұрай алады. Өшірілсе, іздей алмайды.</translation>
 <translation id="8725066075913043281">Әрекетті қайталау</translation>
 <translation id="8730621377337864115">Дайын</translation>
-<translation id="8736193154595564524">{NUM_SELECTED,plural, =1{1 сайтқа рұқсат етілген}other{# сайтқа рұқсат етілген}}</translation>
 <translation id="8751914237388039244">Кескін таңдау</translation>
 <translation id="8800034312320686233">Сайт жұмыс істемей ме?</translation>
 <translation id="8801436777607969138">Белгілі бір сайт үшін JavaScript бағдарламасын бөгеуге болады.</translation>

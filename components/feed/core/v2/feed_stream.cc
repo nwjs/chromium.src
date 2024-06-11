@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -630,7 +631,8 @@ bool FeedStream::IsFeedEnabledByDse() {
 }
 
 bool FeedStream::IsWebFeedEnabled() {
-  return feed::IsWebFeedEnabledForLocale(delegate_->GetCountry());
+  return feed::IsWebFeedEnabledForLocale(delegate_->GetCountry()) &&
+         !delegate_->IsSupervisedAccount();
 }
 
 void FeedStream::EnabledPreferencesChanged() {
@@ -801,7 +803,7 @@ EphemeralChangeId FeedStream::CreateEphemeralChange(
 
 EphemeralChangeId FeedStream::CreateEphemeralChangeFromPackedData(
     SurfaceId surface_id,
-    base::StringPiece data) {
+    std::string_view data) {
   feedpacking::DismissData msg;
   msg.ParseFromArray(data.data(), data.size());
   return CreateEphemeralChange(surface_id,
@@ -829,7 +831,7 @@ bool FeedStream::RejectEphemeralChange(SurfaceId surface_id,
 }
 
 void FeedStream::ProcessThereAndBackAgain(
-    base::StringPiece data,
+    std::string_view data,
     const LoggingParameters& logging_parameters) {
   feedwire::ThereAndBackAgainData msg;
   msg.ParseFromArray(data.data(), data.size());
@@ -844,7 +846,7 @@ void FeedStream::ProcessThereAndBackAgain(
 }
 
 void FeedStream::ProcessViewAction(
-    base::StringPiece data,
+    std::string_view data,
     const LoggingParameters& logging_parameters) {
   if (!logging_parameters.view_actions_enabled)
     return;
@@ -974,7 +976,7 @@ void FeedStream::SubscribedWebFeedCount(
     base::OnceCallback<void(int)> callback) {
   subscriptions().SubscribedWebFeedCount(std::move(callback));
 }
-void FeedStream::RegisterFeedUserSettingsFieldTrial(base::StringPiece group) {
+void FeedStream::RegisterFeedUserSettingsFieldTrial(std::string_view group) {
   delegate_->RegisterFeedUserSettingsFieldTrial(group);
 }
 

@@ -1856,20 +1856,6 @@ _FUNCTION_INFO = {
     'unit_test': False,
     'es3': True,
   },
-  'CreateAndConsumeTextureCHROMIUM': {
-    'type': 'NoCommand',
-    'extension': "CHROMIUM_texture_mailbox",
-    'trace_level': 2,
-  },
-  'CreateAndConsumeTextureINTERNAL': {
-    'decoder_func': 'DoCreateAndConsumeTextureINTERNAL',
-    'internal': True,
-    'type': 'PUT',
-    'count': 16,  # GL_MAILBOX_SIZE_CHROMIUM
-    'impl_func': False,
-    'unit_test': False,
-    'trace_level': 2,
-  },
   'ClearStencil': {
     'type': 'StateSet',
     'state': 'ClearStencil',
@@ -4267,7 +4253,8 @@ def main(argv):
 
   # This script lives under src/gpu/command_buffer.
   script_dir = os.path.dirname(os.path.abspath(__file__))
-  assert script_dir.endswith(os.path.normpath("src/gpu/command_buffer"))
+  assert script_dir.endswith((os.path.normpath("src/gpu/command_buffer"),
+                              os.path.normpath("chromium/gpu/command_buffer")))
   # os.path.join doesn't do the right thing with relative paths.
   chromium_root_dir = os.path.abspath(script_dir + "/../..")
 

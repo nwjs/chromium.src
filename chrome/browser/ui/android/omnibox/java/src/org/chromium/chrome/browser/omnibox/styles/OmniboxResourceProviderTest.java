@@ -445,7 +445,6 @@ public class OmniboxResourceProviderTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ChromeFeatureList.OMNIBOX_MODERNIZE_VISUAL_UPDATE)
     public void replaceContextForSmallTabletWindow() {
         Context originalContext = mActivity;
         originalContext.getResources().getConfiguration().screenWidthDp = 700;

@@ -489,7 +489,7 @@ wgpu::TextureFormat ToDawnTextureViewFormat(viz::SharedImageFormat format,
                                             int plane_index) {
   // The multi plane formats create a separate image per plane and return the
   // single planar equivalents.
-  // TODO(crbug.com/1449108): The above reasoning does not hold unilaterally
+  // TODO(crbug.com/40269645): The above reasoning does not hold unilaterally
   // on Android, and this function will need more information to determine the
   // correct operation to take on that platform.
 #if BUILDFLAG(IS_ANDROID)
@@ -511,7 +511,7 @@ wgpu::TextureFormat ToDawnTextureViewFormat(viz::SharedImageFormat format,
         return wgpu::TextureFormat::R16Float;
     }
   } else if (format.IsLegacyMultiplanar()) {
-    // TODO(crbug.com/1366495): Remove legacy multiplanar checks once
+    // TODO(crbug.com/40239769): Remove legacy multiplanar checks once
     // multiplanar SI support lands.
     if (format == viz::LegacyMultiPlaneFormat::kNV12 ||
         format == viz::LegacyMultiPlaneFormat::kNV12A) {
@@ -549,13 +549,13 @@ wgpu::TextureUsage SupportedDawnTextureUsage(
   if (is_dcomp_surface) {
     // Textures from DComp surfaces cannot be used as TextureBinding, however
     // DCompSurfaceImageBacking creates a textureable intermediate texture.
-    // TODO(crbug.com/1468844): Remove TextureBinding usage when the
+    // TODO(crbug.com/40277263): Remove TextureBinding usage when the
     // intermediate workaround is remove.
     return usage | wgpu::TextureUsage::RenderAttachment |
            wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst;
   }
 
-  // TODO(crbug.com/1451784): Use read/write intent instead of format to get
+  // TODO(crbug.com/40270683): Use read/write intent instead of format to get
   // correct usages.
   if (!is_yuv_plane) {
     return usage | wgpu::TextureUsage::RenderAttachment |
@@ -610,10 +610,10 @@ skgpu::graphite::TextureInfo GraphiteBackendTextureInfo(
   } else {
     CHECK_EQ(gr_context_type, GrContextType::kGraphiteDawn);
 #if BUILDFLAG(SKIA_USE_DAWN)
-    return DawnBackendTextureInfo(format, readonly, is_yuv_plane, plane_index,
-                                  mipmapped, scanout_dcomp_surface,
-                                  supports_multiplanar_rendering,
-                                  supports_multiplanar_copy);
+    return DawnBackendTextureInfo(
+        format, readonly, is_yuv_plane, plane_index,
+        /*array_slice=*/0, mipmapped, scanout_dcomp_surface,
+        supports_multiplanar_rendering, supports_multiplanar_copy);
 #endif
   }
   NOTREACHED_NORETURN();
@@ -666,6 +666,7 @@ skgpu::graphite::DawnTextureInfo DawnBackendTextureInfo(
     bool readonly,
     bool is_yuv_plane,
     int plane_index,
+    int array_slice,
     bool mipmapped,
     bool scanout_dcomp_surface,
     bool supports_multiplanar_rendering,
@@ -691,6 +692,7 @@ skgpu::graphite::DawnTextureInfo DawnBackendTextureInfo(
   }
   dawn_texture_info.fMipmapped =
       mipmapped ? skgpu::Mipmapped::kYes : skgpu::Mipmapped::kNo;
+  dawn_texture_info.fSlice = array_slice;
   return dawn_texture_info;
 }
 #endif

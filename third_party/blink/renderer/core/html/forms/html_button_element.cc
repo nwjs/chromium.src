@@ -35,10 +35,12 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/form_data.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_listbox_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_list_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/layout/forms/layout_button.h"
+#include "third_party/blink/renderer/core/layout/layout_ng_block_flow.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 
@@ -62,7 +64,18 @@ LayoutObject* HTMLButtonElement::CreateLayoutObject(
       display == EDisplay::kInlineLayoutCustom ||
       display == EDisplay::kLayoutCustom)
     return HTMLFormControlElement::CreateLayoutObject(style);
+  if (RuntimeEnabledFeatures::LayoutBlockButtonEnabled()) {
+    return MakeGarbageCollected<LayoutNGBlockFlow>(this);
+  }
   return MakeGarbageCollected<LayoutButton>(this);
+}
+
+void HTMLButtonElement::AdjustStyle(ComputedStyleBuilder& builder) {
+  if (RuntimeEnabledFeatures::LayoutBaselineFixEnabled()) {
+    builder.SetShouldIgnoreOverflowPropertyForInlineBlockBaseline();
+    builder.SetInlineBlockBaselineEdge(EInlineBlockBaselineEdge::kContentBox);
+  }
+  HTMLFormControlElement::AdjustStyle(builder);
 }
 
 FormControlType HTMLButtonElement::FormControlType() const {

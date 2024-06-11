@@ -28,6 +28,7 @@
 #include "ui/base/cursor/platform_cursor.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
+#include "ui/display/screen.h"
 #include "ui/events/event.h"
 #include "ui/events/event_target_iterator.h"
 #include "ui/events/event_utils.h"
@@ -163,7 +164,6 @@ void WaylandWindow::UpdateWindowScale(bool update_bounds) {
   }
 
   float new_scale = output->scale_factor();
-  ui_scale_ = output->GetUIScaleFactor();
   SetWindowScale(new_scale);
 
   // Propagate update to the child windows
@@ -350,20 +350,24 @@ bool WaylandWindow::StartDrag(
 
 void WaylandWindow::UpdateDragImage(const gfx::ImageSkia& image,
                                     const gfx::Vector2d& offset) {
-  if (connection_->data_drag_controller()->state() !=
-      WaylandDataDragController::State::kIdle) {
+  if (connection_->data_drag_controller()->IsDragInProgress()) {
     connection_->data_drag_controller()->UpdateDragImage(image, offset);
   }
 }
 
 void WaylandWindow::CancelDrag() {
+  // If this is an outgoing drag session, `CancelSession()` will end up calling
+  // our `OnDragSessionClose()` method, which runs `drag_loop_quit_closure_`. If
+  // this is an incoming drag session, there is no drag loop to quit (because
+  // that's only set up in `StartDrag()`, i.e. for outgoing sessions), so we
+  // don't need to do anything else here.
   connection_->data_drag_controller()->CancelSession();
 }
 
 void WaylandWindow::Show(bool inactive) {
   // Initially send the window geometry. After this, we only update window
   // geometry when the value in latched_state_ updates.
-  SetWindowGeometry(latched_state_.bounds_dip.size());
+  SetWindowGeometry(latched_state_);
   frame_manager_->MaybeProcessPendingFrame();
 }
 
@@ -414,13 +418,9 @@ void WaylandWindow::DumpState(std::ostream& out) const {
       << ", restore_bounds_dip=" << restored_bounds_dip_.ToString()
       << ", overlay_delegation="
       << (wayland_overlay_delegation_enabled_ ? "enabled" : "disabled");
-  if (frame_insets_px_) {
-    out << ", frame_insets=" << frame_insets_px_->ToString();
-  }
   if (has_touch_focus_) {
     out << ", has_touch_focus";
   }
-  out << ", ui_scale=" << ui_scale_;
   constexpr auto kOpacityToString =
       base::MakeFixedFlatMap<PlatformWindowOpacity, const char*>(
           {{PlatformWindowOpacity::kInferOpacity, "infer"},
@@ -456,14 +456,14 @@ void WaylandWindow::PrepareForShutdown() {
 }
 
 void WaylandWindow::SetBoundsInPixels(const gfx::Rect& bounds_px) {
-  // TODO(crbug.com/1306688): This is currently used only by unit tests.
+  // TODO(crbug.com/40218466): This is currently used only by unit tests.
   // Figure out how to migrate to test only methods.
   auto bounds_dip = delegate_->ConvertRectToDIP(bounds_px);
   SetBoundsInDIP(bounds_dip);
 }
 
 gfx::Rect WaylandWindow::GetBoundsInPixels() const {
-  // TODO(crbug.com/1306688): This is currently used only by unit tests.
+  // TODO(crbug.com/40218466): This is currently used only by unit tests.
   // Figure out how to migrate to test only methods. For now, only the size
   // should be used outside of tests. Make up some reasonable value for origin.
   auto origin =
@@ -527,9 +527,8 @@ void WaylandWindow::Minimize() {}
 void WaylandWindow::Restore() {}
 
 PlatformWindowState WaylandWindow::GetPlatformWindowState() const {
-  // Remove normal state for all the other types of windows as it's only the
-  // WaylandToplevelWindow that supports state changes.
-  return PlatformWindowState::kNormal;
+  // `window_state` is always `kNormal` for WaylandPopup and WaylandBubble.
+  return applied_state().window_state;
 }
 
 void WaylandWindow::Activate() {
@@ -597,19 +596,6 @@ bool WaylandWindow::ShouldWindowContentsBeTransparent() const {
 
 void WaylandWindow::SetAspectRatio(const gfx::SizeF& aspect_ratio) {
   NOTIMPLEMENTED_LOG_ONCE();
-}
-
-void WaylandWindow::SetDecorationInsets(const gfx::Insets* insets_px) {
-  // TODO(crbug.com/1395267): Add window geometry to WaylandWindow::State.
-  if ((!frame_insets_px_ && !insets_px) ||
-      (frame_insets_px_ && insets_px && *frame_insets_px_ == *insets_px)) {
-    return;
-  }
-  if (insets_px) {
-    frame_insets_px_ = *insets_px;
-  } else {
-    frame_insets_px_ = std::nullopt;
-  }
 }
 
 void WaylandWindow::SetWindowIcons(const gfx::ImageSkia& window_icon,
@@ -724,7 +710,7 @@ void WaylandWindow::OcclusionStateChanged(
   // configures, so it would be valid for the configure ack's commit to have the
   // unsynchronised occlusion state set, if that happened after configure but
   // before the corresponding frame was produced.
-  // TODO(crbug.com/1278648): Remove this once the oldest ash we want to use
+  // TODO(crbug.com/40208263): Remove this once the oldest ash we want to use
   // supports synchronized occlusion state in configure.
   SetPendingOcclusionState(occlusion_state);
 }
@@ -839,7 +825,7 @@ void WaylandWindow::OnDragDataAvailable(std::unique_ptr<OSExchangeData> data) {
   if (!drop_handler) {
     return;
   }
-  // TODO(crbug.com/1487784): Factor DataFetched out of Enter callback.
+  // TODO(crbug.com/40073696): Factor DataFetched out of Enter callback.
   drop_handler->OnDragDataAvailable(std::move(data));
 }
 
@@ -886,6 +872,7 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
   }
 
   PlatformWindowDelegate::State state;
+  state.window_state = PlatformWindowState::kUnknown;
   state.bounds_dip = properties.bounds;
 
   // Make sure we don't store empty bounds, or else later on we might send an
@@ -896,7 +883,16 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
   // This can happen when a test doesn't set `properties.bounds`, but there have
   // also been crashes in production because of this (crbug.com/1435478).
   if (state.bounds_dip.IsEmpty()) {
-    state.bounds_dip = gfx::Rect(0, 0, 1, 1);
+    // If bounds are not specified, place the window on the appropriate display,
+    // if supported.
+    auto* screen = display::Screen::GetScreen();
+    DCHECK(screen) << "A TestScreen must be instantiated for tests creating "
+                      "windows with no initial bounds.";
+    const gfx::Point origin =
+        IsScreenCoordinatesEnabled()
+            ? screen->GetDisplayForNewWindows().work_area().CenterPoint()
+            : gfx::Point(0, 0);
+    state.bounds_dip = gfx::Rect(origin, {1, 1});
   }
 
   // Properties contain DIP bounds but the buffer scale is initially 1 so it's
@@ -921,8 +917,6 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
 #endif
 
   connection_->window_manager()->AddWindow(GetWidget(), this);
-
-  SetDecorationInsets(&properties.frame_insets_px);
 
   if (!OnInitialize(std::move(properties), &state)) {
     return false;
@@ -954,23 +948,13 @@ bool WaylandWindow::Initialize(PlatformWindowInitProperties properties) {
   return true;
 }
 
-void WaylandWindow::SetWindowGeometry(gfx::Size size_dip) {}
+void WaylandWindow::SetWindowGeometry(
+    const PlatformWindowDelegate::State& state) {}
 
 gfx::Vector2d WaylandWindow::GetWindowGeometryOffsetInDIP() const {
-  if (!frame_insets_px_.has_value()) {
-    return {};
-  }
-
-  auto scale = applied_state().window_scale;
-  return {static_cast<int>(frame_insets_px_->left() / scale),
-          static_cast<int>(frame_insets_px_->top() / scale)};
-}
-
-gfx::Insets WaylandWindow::GetDecorationInsetsInDIP() const {
-  auto scale = latched_state().window_scale;
-  return frame_insets_px_.has_value()
-             ? gfx::ScaleToRoundedInsets(*frame_insets_px_, 1.f / scale)
-             : gfx::Insets{};
+  const auto& insets_dip =
+      delegate()->CalculateInsetsInDIP(GetPlatformWindowState());
+  return {insets_dip.left(), insets_dip.top()};
 }
 
 WaylandWindow* WaylandWindow::GetRootParentWindow() {
@@ -1276,6 +1260,15 @@ void WaylandWindow::ProcessPendingConfigureState(uint32_t serial) {
   // For values not specified in pending_configure_state_, use the latest
   // requested values.
   auto state = GetLatestRequestedState();
+
+  if (pending_configure_state_.window_state.has_value()) {
+    state.window_state = pending_configure_state_.window_state.value();
+  }
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  if (pending_configure_state_.fullscreen_type.has_value()) {
+    state.fullscreen_type = pending_configure_state_.fullscreen_type.value();
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
   if (pending_configure_state_.bounds_dip.has_value()) {
     state.bounds_dip = pending_configure_state_.bounds_dip.value();
   }
@@ -1335,18 +1328,32 @@ void WaylandWindow::RequestStateFromClient(
 void WaylandWindow::RequestState(PlatformWindowDelegate::State state,
                                  int64_t serial,
                                  bool force) {
-  // State should NOT be requested during the ongoing request handling.
-  CHECK(!requesting_state_) << "Detected re-enterancy of state request.";
-  base::AutoReset<bool> setter(&requesting_state_, true);
-
   LOG_IF(WARNING, in_flight_requests_.size() > 100u)
       << "The queue of configures is longer than 100!";
+
+  // If we called re-entrantly into `RequestState` from
+  // `MaybeApplyLatestStateRequest`, save this call to execute later.
+  // TODO(crbug.com/40058672): Remove this.
+  if (applying_state_) {
+    reentrant_requests_.emplace_back(state, serial, force);
+    return;
+  }
 
   // If there are no in-flight requests, then the applied state should be the
   // latched state, because in flight configure requests are only removed on
   // latch.
   if (in_flight_requests_.empty()) {
-    DCHECK_EQ(applied_state_, latched_state_);
+    // Currently, we have a hack that overrides `applied_state_.window_state`
+    // when the window state change is requested from the client. In such case,
+    // `applied_state_` may take a different window state value from
+    // `latched_state_` when the server side sends configure event.
+    // TODO(crbug.com/40276379): Check window state is equal between
+    // `applied_state_` and `latched_state_` as well.
+    auto applied_state_copy = applied_state_;
+    // Override `applied_state_.window_state` as the same value as
+    // `latched_state_` to exclude `window_state` from equivalence check.
+    applied_state_copy.window_state = latched_state_.window_state;
+    CHECK_EQ(applied_state_copy, latched_state_);
   }
 
   // Adjust state values if necessary.
@@ -1361,9 +1368,6 @@ void WaylandWindow::RequestState(PlatformWindowDelegate::State state,
   state.size_px = gfx::ScaleToEnclosingRectIgnoringError(
                       gfx::Rect(state.bounds_dip.size()), state.window_scale)
                       .size();
-  // This will ensure that if insets at the time of the request changed, a new
-  // frame is produced when the state is applied.
-  state.insets = GetDecorationInsetsInDIP();
 
   StateRequest req{.state = state, .serial = serial};
   if (in_flight_requests_.empty()) {
@@ -1498,24 +1502,13 @@ void WaylandWindow::LatchStateRequest(const StateRequest& req) {
   // Latch the most up to date state we have a frame back for.
   auto old_state = latched_state_;
   latched_state_ = req.state;
-  auto old_latched_insets = latched_insets_;
-  latched_insets_ = GetDecorationInsetsInDIP();
 
-  // Update the geometry if the bounds are different or the window scale has
-  // been changed or if the insets have changed since the last latched request.
-  // If geometry is not updated on window scale update, the insets are set in a
-  // wrong way. That is, aura provides insets in pixels, which are converted by
-  // the device scale factor known from the display. It can be different from
-  // the one that the |latch_state_.window_scale| has. As a result, the geometry
-  // is set with wrong values as Wayland requires them to be in DIP.
+  // Update the geometry if the bounds or the insets are changed since the last
+  // latched request.
   if (req.state.bounds_dip.size() != old_state.bounds_dip.size() ||
-      req.state.window_scale != old_state.window_scale ||
-      // If insets change that is a geometry change even when the bounds or
-      // scale remain the same. The updated insets may not be known at the time
-      // of the request, hence the need to check this if there are changes in
-      // insets since it latched the last time.
-      old_latched_insets != latched_insets_) {
-    SetWindowGeometry(req.state.bounds_dip.size());
+      delegate()->CalculateInsetsInDIP(req.state.window_state) !=
+          delegate()->CalculateInsetsInDIP(old_state.window_state)) {
+    SetWindowGeometry(req.state);
   }
   UpdateWindowMask();
   if (req.serial != -1) {
@@ -1524,6 +1517,14 @@ void WaylandWindow::LatchStateRequest(const StateRequest& req) {
 }
 
 void WaylandWindow::MaybeApplyLatestStateRequest(bool force) {
+  // Calling `MaybeApplyLatestStateRequest` re-entrantly is hard to reason about
+  // and also can lead to memory corruption during accesses to
+  // `in_flight_requests_`.
+  CHECK(!applying_state_)
+      << "MaybeApplyLatestStateRequest called re-entrantly.";
+  auto setter =
+      std::make_optional<base::AutoReset<bool>>(&applying_state_, true);
+
   if (in_flight_requests_.empty()) {
     return;
   }
@@ -1565,6 +1566,28 @@ void WaylandWindow::MaybeApplyLatestStateRequest(bool force) {
   // bounds.
   latest.viz_seq = delegate()->OnStateUpdate(old, latest.state);
 
+  // `ProcessSequencePoint` may re-entrantly call
+  // `MaybeApplyLatestStateRequest`. This is safe as long as we do not hold
+  // references to `in_flight_requests_` after here.
+  setter.reset();
+
+  // Process any requests added re-entrantly. We need to move the requests out
+  // of `reentrant_requests_` here because each re-entrant request may also add
+  // its own re-entrant requests. This implementation preserves ordering of
+  // requests as if they were added one by one by essentially performing a
+  // pre-order traversal when re-entrant requests add their own re-entrant
+  // requests (and so on). We only need to process re-entrant requests here,
+  // because re-entrant requests can only be added during the re-entrant
+  // critical section above. So, if we ensure `reentrant_requests_` is empty
+  // directly after the critical section above finishes, we maintain the
+  // invariant that `reentrant_requests_` is always empty outside of the
+  // critical section.
+  auto reentrant_requests = std::move(reentrant_requests_);
+  reentrant_requests_.clear();
+  for (const auto& [req_state, req_serial, req_force] : reentrant_requests) {
+    RequestState(req_state, req_serial, req_force);
+  }
+
   // If we have state requests which don't require synchronization to latch, or
   // if no frames will be produced, ack them immediately. Using -2 (or any
   // negative number that isn't -1) will cause all requests with viz_seq==-1 to
@@ -1578,6 +1601,16 @@ void WaylandWindow::MaybeApplyLatestStateRequest(bool force) {
   if (UseTestConfigForPlatformWindows() && latch_immediately_for_testing_) {
     ProcessSequencePoint(INT64_MAX);
   }
+}
+
+PlatformWindowDelegate::State WaylandWindow::GetLatestRequestedState() const {
+  return in_flight_requests_.empty() ? applied_state_
+                                     : in_flight_requests_.back().state;
+}
+
+void WaylandWindow::ForceApplyWindowStateDoNotUse(
+    PlatformWindowState window_state) {
+  applied_state_.window_state = window_state;
 }
 
 }  // namespace ui

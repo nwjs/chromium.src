@@ -26,7 +26,6 @@
 #include "components/user_manager/fake_user_manager.h"
 #include "components/user_manager/fake_user_manager_delegate.h"
 #include "components/user_manager/known_user.h"
-#include "components/user_manager/multi_user/multi_user_sign_in_policy_controller.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_image/user_image.h"
 #include "components/user_manager/user_names.h"
@@ -114,7 +113,7 @@ FakeChromeUserManager::AddUserWithAffiliationAndTypeAndProfile(
     TestingProfile* profile) {
   user_manager::User* user =
       user_manager::User::CreateRegularUser(account_id, user_type);
-  user->SetAffiliation(is_affiliated);
+  user->SetAffiliated(is_affiliated);
   user->set_username_hash(
       user_manager::FakeUserManager::GetFakeUsernameHash(account_id));
   user->SetStubImage(
@@ -206,11 +205,6 @@ void FakeChromeUserManager::LoginUser(const AccountId& account_id,
   SimulateUserProfileLoad(account_id);
 }
 
-user_manager::MultiUserSignInPolicyController*
-FakeChromeUserManager::GetMultiUserSignInPolicyController() {
-  return multi_user_sign_in_policy_controller_;
-}
-
 void FakeChromeUserManager::SwitchActiveUser(const AccountId& account_id) {
   active_account_id_ = account_id;
   active_user_ = nullptr;
@@ -283,14 +277,6 @@ bool FakeChromeUserManager::IsDeprecatedSupervisedAccountId(
          user_manager::kSupervisedUserDomain;
 }
 
-void FakeChromeUserManager::ScheduleResolveLocale(
-    const std::string& locale,
-    base::OnceClosure on_resolved_callback,
-    std::string* out_resolved_locale) const {
-  NOTIMPLEMENTED();
-  return;
-}
-
 bool FakeChromeUserManager::IsValidDefaultUserImageId(int image_index) const {
   return default_user_image::IsValidIndex(image_index);
 }
@@ -343,7 +329,7 @@ void FakeChromeUserManager::UserLoggedIn(const AccountId& account_id,
         primary_user_ = user;
       }
       if (active_user_) {
-        NotifyUserAddedToSession(user, /*user_switch_pending=*/true);
+        NotifyUserAddedToSession(user);
       } else {
         active_user_ = user;
       }
@@ -573,18 +559,13 @@ void FakeChromeUserManager::LoadDeviceLocalAccounts(
   NOTREACHED();
 }
 
-bool FakeChromeUserManager::IsEnterpriseManaged() const {
-  return is_enterprise_managed_;
-}
-
 bool FakeChromeUserManager::IsDeviceLocalAccountMarkedForRemoval(
     const AccountId& account_id) const {
   return false;
 }
 
-void FakeChromeUserManager::SetUserAffiliation(
-    const AccountId& account_id,
-    const base::flat_set<std::string>& user_affiliation_ids) {}
+void FakeChromeUserManager::SetUserAffiliated(const AccountId& account_id,
+                                              bool is_affiliated) {}
 
 void FakeChromeUserManager::SetUserAffiliationForTesting(
     const AccountId& account_id,
@@ -593,7 +574,7 @@ void FakeChromeUserManager::SetUserAffiliationForTesting(
   if (!user) {
     return;
   }
-  user->SetAffiliation(is_affiliated);
+  user->SetAffiliated(is_affiliated);
   NotifyUserAffiliationUpdated(*user);
 }
 

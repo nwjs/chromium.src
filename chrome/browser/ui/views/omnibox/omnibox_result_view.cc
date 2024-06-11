@@ -110,17 +110,11 @@ class OmniboxResultSelectionIndicator : public views::View {
   METADATA_HEADER(OmniboxResultSelectionIndicator, views::View)
 
  public:
-  const bool cr2023_expanded_state_colors_enabled =
-      omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
-          omnibox::kExpandedStateColors);
-  const int kStrokeThickness = cr2023_expanded_state_colors_enabled ? 4 : 3;
+  const int kStrokeThickness = 4;
 
   explicit OmniboxResultSelectionIndicator(OmniboxResultView* result_view)
       : result_view_(result_view) {
-    const int height =
-        OmniboxFieldTrial::IsChromeRefreshSuggestHoverFillShapeEnabled() ? 40
-                                                                         : 0;
-    SetPreferredSize(gfx::Size(kStrokeThickness, height));
+    SetPreferredSize(gfx::Size(kStrokeThickness, 40));
   }
 
   // views::View:
@@ -173,7 +167,6 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
                               base::Unretained(this))) {
   CHECK_GE(model_index, 0u);
 
-  if (OmniboxFieldTrial::IsChromeRefreshSuggestHoverFillShapeEnabled()) {
     SetLayoutManager(std::make_unique<views::FillLayout>());
 
     auto* selection_indicator_container_ =
@@ -241,69 +234,6 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
             views::MaximumFlexSizeRule::kPreferred));
 
     mouse_enter_exit_handler_.ObserveMouseEnterExitOn(this);
-
-  } else {
-    SetLayoutManager(std::make_unique<views::FlexLayout>())
-        ->SetOrientation(views::LayoutOrientation::kVertical);
-
-    views::View* suggestion_container_ =
-        AddChildView(std::make_unique<views::View>());
-    suggestion_container_->SetLayoutManager(
-        std::make_unique<views::FillLayout>());
-    mouse_enter_exit_handler_.ObserveMouseEnterExitOn(suggestion_container_);
-
-    // TODO(olesiamarukhno): Consider making it a decoration instead of separate
-    // view (painting it in a layer).
-    selection_indicator_ = suggestion_container_->AddChildView(
-        std::make_unique<OmniboxResultSelectionIndicator>(this));
-
-    views::View* suggestion_button_container =
-        suggestion_container_->AddChildView(std::make_unique<views::View>());
-    suggestion_button_container
-        ->SetLayoutManager(std::make_unique<views::FlexLayout>())
-        ->SetCrossAxisAlignment(views::LayoutAlignment::kCenter);
-    suggestion_button_container->SetProperty(
-        views::kFlexBehaviorKey,
-        views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
-                                 views::MaximumFlexSizeRule::kUnbounded));
-
-    suggestion_view_ = suggestion_button_container->AddChildView(
-        std::make_unique<OmniboxMatchCellView>(this));
-    suggestion_view_->SetProperty(
-        views::kFlexBehaviorKey,
-        views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
-                                 views::MaximumFlexSizeRule::kUnbounded)
-            .WithWeight(4));
-
-    const auto child_insets =
-        gfx::Insets::TLBR(0, 0, 0, OmniboxMatchCellView::kMarginRight);
-
-    remove_suggestion_button_ = suggestion_button_container->AddChildView(
-        std::make_unique<OmniboxRemoveSuggestionButton>(base::BindRepeating(
-            &OmniboxResultView::ButtonPressed, base::Unretained(this),
-            OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION)));
-    remove_suggestion_button_->SetProperty(views::kMarginsKey, child_insets);
-    views::InstallCircleHighlightPathGenerator(remove_suggestion_button_);
-    remove_suggestion_button_->SetTooltipText(
-        l10n_util::GetStringUTF16(IDS_OMNIBOX_REMOVE_SUGGESTION));
-    auto* const focus_ring = views::FocusRing::Get(remove_suggestion_button_);
-    focus_ring->SetHasFocusPredicate(base::BindRepeating(
-        [](const OmniboxResultView* results, const View* view) {
-          return view->GetVisible() && results->GetMatchSelected() &&
-                 (results->popup_view_->GetSelection().state ==
-                  OmniboxPopupSelection::FOCUSED_BUTTON_REMOVE_SUGGESTION);
-        },
-        base::Unretained(this)));
-    focus_ring->SetColorId(kColorOmniboxResultsFocusIndicator);
-
-    button_row_ = AddChildView(std::make_unique<OmniboxSuggestionButtonRowView>(
-        popup_view_, model_index));
-
-    // Quickly mouse-exiting through the suggestion button row sometimes leaves
-    // the whole row highlighted. This fixes that. It doesn't seem necessary to
-    // further observe the child controls of |button_row_|.
-    mouse_enter_exit_handler_.ObserveMouseEnterExitOn(button_row_);
-  }
 }
 
 OmniboxResultView::~OmniboxResultView() {}
@@ -318,8 +248,9 @@ std::unique_ptr<views::Background> OmniboxResultView::GetPopupCellBackground(
                           view->GetNativeTheme()->UserHasContrastPreference();
   // TODO(tapted): Consider using background()->SetNativeControlColor() and
   // always have a background.
-  if (part_state == OmniboxPartState::NORMAL && !prefers_contrast)
+  if (part_state == OmniboxPartState::NORMAL && !prefers_contrast) {
     return nullptr;
+  }
 
   if (OmniboxFieldTrial::IsStarterPackIPHEnabled() &&
       part_state == OmniboxPartState::IPH) {
@@ -328,15 +259,10 @@ std::unique_ptr<views::Background> OmniboxResultView::GetPopupCellBackground(
         /*for_border_thickness=*/0);
   }
 
-  if (OmniboxFieldTrial::IsChromeRefreshSuggestHoverFillShapeEnabled()) {
     gfx::RoundedCornersF radii = {0, static_cast<float>(view->height()),
                                   static_cast<float>(view->height()), 0};
     return views::CreateThemedRoundedRectBackground(
         GetOmniboxBackgroundColorId(part_state), radii);
-  }
-
-  return views::CreateThemedSolidBackground(
-      GetOmniboxBackgroundColorId(part_state));
 }
 
 void OmniboxResultView::SetMatch(const AutocompleteMatch& match) {
@@ -400,8 +326,9 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
                                     ? kColorOmniboxResultsTextDimmedSelected
                                     : kColorOmniboxResultsTextDimmed;
   suggestion_view_->separator()->ApplyTextColor(dimmed_id);
-  if (remove_suggestion_button_->GetVisible())
+  if (remove_suggestion_button_->GetVisible()) {
     views::FocusRing::Get(remove_suggestion_button_)->SchedulePaint();
+  }
 
   // Recreate the icons in case the color needs to change.
   // Note: if this is an extension icon or favicon then this can be done in
@@ -409,10 +336,11 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
   //       be an optimization opportunity here.
   // TODO(dschuyler): determine whether to optimize the color changes.
   auto icon = GetIcon();
-  if (icon.IsEmpty())
+  if (icon.IsEmpty()) {
     suggestion_view_->ClearIcon();
-  else
+  } else {
     suggestion_view_->SetIcon(*icon.ToImageSkia(), match_);
+  }
 
   // We must reapply colors for all the text fields here. If we don't, we can
   // break theme changes for ZeroSuggest. See https://crbug.com/1095205.
@@ -430,7 +358,9 @@ void OmniboxResultView::ApplyThemeAndRefreshIcons(bool force_reapply_styles) {
     suggestion_view_->content()->ApplyTextColor(default_id);
     suggestion_view_->description()->ApplyTextColor(dimmed_id);
   } else if (match_.type == AutocompleteMatchType::NULL_RESULT_MESSAGE) {
-    suggestion_view_->content()->ApplyTextColor(kColorOmniboxText);
+    suggestion_view_->content()->ApplyTextColor(
+        match_.IsIPHSuggestion() ? kColorOmniboxResultsTextDimmed
+                                 : kColorOmniboxText);
   } else if (prefers_contrast || force_reapply_styles) {
     // Normally, OmniboxTextView caches its appearance, but in high contrast,
     // selected-ness changes the text colors, so the styling of the text part of
@@ -517,8 +447,9 @@ OmniboxPartState OmniboxResultView::GetThemeState() const {
     return is_iph ? OmniboxPartState::IPH : OmniboxPartState::NORMAL;
   }
 
-  if (GetMatchSelected())
+  if (GetMatchSelected()) {
     return OmniboxPartState::SELECTED;
+  }
 
   // If we don't highlight the whole row when the user has the mouse over the
   // remove suggestion button, it's unclear which suggestion is being removed.
@@ -583,9 +514,9 @@ bool OmniboxResultView::OnMouseDragged(const ui::MouseEvent& event) {
 }
 
 void OmniboxResultView::OnMouseReleased(const ui::MouseEvent& event) {
-  if (match_.type == AutocompleteMatchType::STARTER_PACK) {
-    // Starter pack matches in the keyword mode refresh are a special case that
-    // does not commit the omnibox by opening a selected match.
+  if (AutocompleteMatch::IsFeaturedSearchType(match_.type)) {
+    // Featured search matches in the keyword mode refresh are a special case
+    // that does not commit the omnibox by opening a selected match.
     OmniboxEditModel* model = popup_view_->model();
     model->ClearKeyword();
     model->SetPopupSelection(OmniboxPopupSelection(
@@ -647,8 +578,9 @@ void OmniboxResultView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
                              autocomplete_controller->result().size());
 
   node_data->AddBoolAttribute(ax::mojom::BoolAttribute::kSelected, is_selected);
-  if (IsMouseHovered())
+  if (IsMouseHovered()) {
     node_data->AddState(ax::mojom::State::kHovered);
+  }
 }
 
 void OmniboxResultView::OnThemeChanged() {
@@ -718,8 +650,9 @@ void OmniboxResultView::UpdateRemoveSuggestionVisibility() {
 
   remove_suggestion_button_->SetVisible(new_visibility);
 
-  if (old_visibility != new_visibility)
+  if (old_visibility != new_visibility) {
     InvalidateLayout();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

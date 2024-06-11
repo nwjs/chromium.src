@@ -68,6 +68,7 @@ class ClientTagBasedModelTypeProcessor : public ModelTypeProcessor,
            std::unique_ptr<EntityData> entity_data,
            MetadataChangeList* metadata_change_list) override;
   void Delete(const std::string& storage_key,
+              const DeletionOrigin& origin,
               MetadataChangeList* metadata_change_list) override;
   void UpdateStorageKey(const EntityData& entity_data,
                         const std::string& storage_key,
@@ -135,6 +136,7 @@ class ClientTagBasedModelTypeProcessor : public ModelTypeProcessor,
 
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused. Public for tests.
+  // LINT.IfChange(SyncModelTypeErrorSite)
   enum class ErrorSite {
     kReportedByBridge = 0,
     kApplyFullUpdates = 1,
@@ -143,6 +145,7 @@ class ClientTagBasedModelTypeProcessor : public ModelTypeProcessor,
     kSupportsIncrementalUpdatesMismatch = 4,
     kMaxValue = kSupportsIncrementalUpdatesMismatch,
   };
+  // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncModelTypeErrorSite)
 
  private:
   friend class ModelTypeDebugInfo;

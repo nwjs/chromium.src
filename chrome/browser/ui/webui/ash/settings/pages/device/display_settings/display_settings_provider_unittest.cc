@@ -128,6 +128,45 @@ class FakeDisplayBrightnessSettingsObserver
   base::OnceClosure quit_callback_;
 };
 
+// A mock observer that counts when OnAmbientLightSensorEnabledChanged function
+// is called.
+class FakeAmbientLightSensorObserver
+    : public mojom::AmbientLightSensorObserver {
+ public:
+  uint32_t num_ambient_light_sensor_enabled_changed_calls() const {
+    return num_ambient_light_sensor_enabled_changed_calls_;
+  }
+
+  double is_ambient_light_sensor_enabled() {
+    return is_ambient_light_sensor_enabled_;
+  }
+
+  // mojom::AmbientLightSensorObserver:
+  void OnAmbientLightSensorEnabledChanged(
+      bool is_ambient_light_sensor_enabled) override {
+    ++num_ambient_light_sensor_enabled_changed_calls_;
+    is_ambient_light_sensor_enabled_ = is_ambient_light_sensor_enabled;
+
+    if (quit_callback_) {
+      std::move(quit_callback_).Run();
+    }
+  }
+
+  void WaitForAmbientLightSensorEnabledChanged() {
+    DCHECK(quit_callback_.is_null());
+    base::RunLoop loop;
+    quit_callback_ = loop.QuitClosure();
+    loop.Run();
+  }
+
+  mojo::Receiver<mojom::AmbientLightSensorObserver> receiver{this};
+
+ private:
+  uint32_t num_ambient_light_sensor_enabled_changed_calls_ = 0;
+  bool is_ambient_light_sensor_enabled_ = true;
+  base::OnceClosure quit_callback_;
+};
+
 class FakeBrightnessControlDelegate : public BrightnessControlDelegate {
  public:
   FakeBrightnessControlDelegate() = default;
@@ -140,8 +179,11 @@ class FakeBrightnessControlDelegate : public BrightnessControlDelegate {
 
   void HandleBrightnessDown() override {}
   void HandleBrightnessUp() override {}
-  void SetBrightnessPercent(double percent, bool gradual) override {
+  void SetBrightnessPercent(double percent,
+                            bool gradual,
+                            BrightnessChangeSource source) override {
     brightness_percent_ = percent;
+    last_brightness_change_source_ = source;
   }
   void GetBrightnessPercent(
       base::OnceCallback<void(std::optional<double>)> callback) override {
@@ -150,12 +192,19 @@ class FakeBrightnessControlDelegate : public BrightnessControlDelegate {
   void SetAmbientLightSensorEnabled(bool enabled) override {
     is_ambient_light_sensor_enabled_ = enabled;
   }
+  void GetAmbientLightSensorEnabled(
+      base::OnceCallback<void(std::optional<bool>)> callback) override {
+    std::move(callback).Run(is_ambient_light_sensor_enabled_);
+  }
   void HasAmbientLightSensor(
       base::OnceCallback<void(std::optional<bool>)> callback) override {
     std::move(callback).Run(has_ambient_light_sensor_);
   }
 
   double brightness_percent() const { return brightness_percent_; }
+  BrightnessChangeSource last_brightness_change_source() const {
+    return last_brightness_change_source_;
+  }
   bool is_ambient_light_sensor_enabled() const {
     return is_ambient_light_sensor_enabled_;
   }
@@ -165,6 +214,8 @@ class FakeBrightnessControlDelegate : public BrightnessControlDelegate {
 
  private:
   double brightness_percent_;
+  BrightnessChangeSource last_brightness_change_source_ =
+      BrightnessChangeSource::kUnknown;
   // Enabled by default to match system behavior.
   bool is_ambient_light_sensor_enabled_ = true;
   bool has_ambient_light_sensor_ = true;
@@ -566,8 +617,10 @@ TEST_F(DisplaySettingsProviderTest,
   // Set the brightness with a sentinel value, so we can test that the
   // brightness doesn't change if the feature flag is disabled.
   double brightness_before_setting = 50.0;
-  brightness_control_delegate_->SetBrightnessPercent(brightness_before_setting,
-                                                     false);
+  brightness_control_delegate_->SetBrightnessPercent(
+      brightness_before_setting,
+      /*gradual=*/false, /*source=*/
+      BrightnessControlDelegate::BrightnessChangeSource::kQuickSettings);
 
   provider_->SetBrightnessControlDelegateForTesting(
       brightness_control_delegate_.get());
@@ -607,6 +660,10 @@ TEST_F(DisplaySettingsProviderTest,
   // brightness percent.
   EXPECT_EQ(brightness_percent,
             brightness_control_delegate_->brightness_percent());
+  // The BrightnessChangeSource should indicate that this change came from the
+  // Settings app.
+  EXPECT_EQ(BrightnessControlDelegate::BrightnessChangeSource::kSettingsApp,
+            brightness_control_delegate_->last_brightness_change_source());
 
   // Histogram should have been recorded for this change.
   histogram_tester_.ExpectTotalCount(
@@ -709,6 +766,64 @@ TEST_F(DisplaySettingsProviderTest,
   histogram_tester_.ExpectTotalCount(
       "ChromeOS.Settings.Display.Internal.AutoBrightnessEnabled",
       /*expected_count=*/2);
+}
+
+// Test that the ambient light sensor observer returns the correct information
+// when the ambient light sensor status changes.
+TEST_F(DisplaySettingsProviderTest, AmbientLightSensorObservation) {
+  feature_list_.Reset();
+  feature_list_.InitAndEnableFeature(
+      ash::features::kEnableBrightnessControlInSettings);
+
+  FakeAmbientLightSensorObserver fake_observer;
+  base::test::TestFuture<bool> future;
+
+  provider_->SetInternalDisplayAmbientLightSensorEnabled(false);
+
+  provider_->ObserveAmbientLightSensor(
+      fake_observer.receiver.BindNewPipeAndPassRemote(), future.GetCallback());
+  base::RunLoop().RunUntilIdle();
+
+  // The TestFuture should have been called with 'false', indicating that the
+  // ambient light sensor is not enabled.
+  EXPECT_FALSE(future.Get());
+
+  // Observer should not have been called yet.
+  EXPECT_EQ(0u, fake_observer.num_ambient_light_sensor_enabled_changed_calls());
+
+  {
+    bool is_ambient_light_sensor_enabled = true;
+    power_manager::AmbientLightSensorChange change;
+    change.set_cause(
+        power_manager::AmbientLightSensorChange_Cause_BRIGHTNESS_USER_REQUEST);
+    change.set_sensor_enabled(is_ambient_light_sensor_enabled);
+    provider_->AmbientLightSensorEnabledChanged(change);
+
+    fake_observer.WaitForAmbientLightSensorEnabledChanged();
+
+    // Observer should have been called.
+    EXPECT_EQ(1u,
+              fake_observer.num_ambient_light_sensor_enabled_changed_calls());
+    EXPECT_EQ(is_ambient_light_sensor_enabled,
+              fake_observer.is_ambient_light_sensor_enabled());
+  }
+
+  {
+    bool is_ambient_light_sensor_enabled = false;
+    power_manager::AmbientLightSensorChange change;
+    change.set_cause(
+        power_manager::AmbientLightSensorChange_Cause_BRIGHTNESS_USER_REQUEST);
+    change.set_sensor_enabled(is_ambient_light_sensor_enabled);
+    provider_->AmbientLightSensorEnabledChanged(change);
+
+    fake_observer.WaitForAmbientLightSensorEnabledChanged();
+
+    // Observer should have been called a second time.
+    EXPECT_EQ(2u,
+              fake_observer.num_ambient_light_sensor_enabled_changed_calls());
+    EXPECT_EQ(is_ambient_light_sensor_enabled,
+              fake_observer.is_ambient_light_sensor_enabled());
+  }
 }
 
 // Test the behavior when setting the internal display screen brightness (when

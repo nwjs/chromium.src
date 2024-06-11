@@ -742,7 +742,7 @@ void FlexLayoutAlgorithm::ConstructAndAppendFlexItems(
     };
 
     const Length& flex_basis = child_style.FlexBasis();
-    if (is_column_ && flex_basis.IsPercentOrCalc()) {
+    if (is_column_ && flex_basis.MayHavePercentDependence()) {
       has_column_percent_flex_basis_ = true;
     }
 
@@ -1478,8 +1478,12 @@ LayoutResult::EStatus FlexLayoutAlgorithm::GiveItemsFinalPositionAndSize(
     AdjustButtonBaseline(final_content_cross_size);
   } else if (Node().IsSlider()) {
     DCHECK(!InvolvedInBlockFragmentation(container_builder_));
-    container_builder_.SetBaselines(BorderScrollbarPadding().BlockSum() +
-                                    final_content_cross_size);
+    if (RuntimeEnabledFeatures::LayoutBaselineFixEnabled()) {
+      container_builder_.ClearBaselines();
+    } else {
+      container_builder_.SetBaselines(BorderScrollbarPadding().BlockSum() +
+                                      final_content_cross_size);
+    }
   }
 
   // Signal if we need to relayout with new child scrollbar information.
@@ -2031,6 +2035,9 @@ void FlexLayoutAlgorithm::AdjustButtonBaseline(
   // See LayoutButton::BaselinePosition()
   if (!Node().HasLineIfEmpty() && !Node().ShouldApplyLayoutContainment() &&
       !container_builder_.FirstBaseline()) {
+    if (RuntimeEnabledFeatures::LayoutBaselineFixEnabled()) {
+      return;
+    }
     // To ensure that we have a consistent baseline when we have no children,
     // even when we have the anonymous LayoutBlock child, we calculate the
     // baseline for the empty case manually here.
@@ -2105,7 +2112,8 @@ FlexLayoutAlgorithm::ComputeMinMaxSizeOfMultilineColumnContainer() {
     largest_inline_size_contributions.max_size =
         flex_line_outputs.back().line_cross_size +
         flex_line_outputs.back().cross_axis_offset -
-        flex_line_outputs.front().cross_axis_offset;
+        flex_line_outputs.front().cross_axis_offset +
+        (flex_line_outputs.size() - 1) * algorithm_.gap_between_lines_;
   }
 
   DCHECK_GE(largest_inline_size_contributions.min_size, 0);

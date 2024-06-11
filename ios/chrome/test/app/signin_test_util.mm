@@ -122,6 +122,8 @@ void SignOutAndClearIdentities(ProceduralBlock completion) {
     browser_state->GetPrefs()->ClearPref(
         prefs::kGoogleServicesLastSyncingGaiaId);
     browser_state->GetPrefs()->ClearPref(
+        prefs::kGoogleServicesLastSignedInUsername);
+    browser_state->GetPrefs()->ClearPref(
         prefs::kGoogleServicesLastSyncingUsername);
 
     // `SignOutAndClearIdentities()` is called during shutdown. Commit all pref
@@ -165,7 +167,7 @@ void SignInWithoutSync(id<SystemIdentity> identity) {
                initWithBrowser:browser
                       identity:identity
                    accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN
-              postSignInAction:PostSignInAction::kNone
+             postSignInActions:PostSignInActionSet({PostSignInAction::kNone})
       presentingViewController:viewController];
   [authenticationFlow startSignInWithCompletion:^(BOOL success) {
     authenticationFlow = nil;

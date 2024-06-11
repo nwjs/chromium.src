@@ -76,6 +76,7 @@ class InputDeviceSettingsProvider
       uint32_t device_id,
       ::ash::mojom::GraphicsTabletSettingsPtr settings) override;
   void SetKeyboardBrightness(double percent) override;
+  void SetKeyboardAmbientLightSensorEnabled(bool enabled) override;
 
   // InputDeviceSettingsController::Observer:
   void OnKeyboardConnected(const ::ash::mojom::Keyboard& keyboard) override;
@@ -114,6 +115,13 @@ class InputDeviceSettingsProvider
   void OnCustomizableTabletButtonPressed(
       const ::ash::mojom::GraphicsTablet& graphics_tablet,
       const ::ash::mojom::Button& button) override;
+  void OnKeyboardBatteryInfoChanged(
+      const ::ash::mojom::Keyboard& keyboard) override;
+  void OnGraphicsTabletBatteryInfoChanged(
+      const ::ash::mojom::GraphicsTablet& graphics_tablet) override;
+  void OnMouseBatteryInfoChanged(const ::ash::mojom::Mouse& mouse) override;
+  void OnTouchpadBatteryInfoChanged(
+      const ::ash::mojom::Touchpad& touchpad) override;
 
   void StartObserving(uint32_t device_id) override;
   void StopObserving() override;
@@ -137,8 +145,10 @@ class InputDeviceSettingsProvider
   void SetWidgetForTesting(views::Widget* widget);
   void HasLauncherButton(HasLauncherButtonCallback callback) override;
   void HasKeyboardBacklight(HasKeyboardBacklightCallback callback) override;
+  void HasAmbientLightSensor(HasAmbientLightSensorCallback callback) override;
   void IsRgbKeyboardSupported(IsRgbKeyboardSupportedCallback callback) override;
   void RecordKeyboardColorLinkClicked() override;
+  void RecordKeyboardBrightnessChangeFromSlider(double percent) override;
 
   void SetKeyboardBrightnessControlDelegateForTesting(
       raw_ptr<KeyboardBrightnessControlDelegate> delegate) {
@@ -156,6 +166,9 @@ class InputDeviceSettingsProvider
 
   void OnReceiveHasKeyboardBacklight(HasKeyboardBacklightCallback callback,
                                      std::optional<bool> has_backlight);
+
+  void OnReceiveHasAmbientLightSensor(HasAmbientLightSensorCallback callback,
+                                      std::optional<bool> has_sensor);
 
   void OnReceiveKeyboardBrightness(std::optional<double> brightness_percent);
 

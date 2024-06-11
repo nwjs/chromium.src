@@ -23,6 +23,7 @@
 #include "components/autofill/core/browser/metrics/payments/mandatory_reauth_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/offers_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/wallet_usage_data_metrics.h"
+#include "components/autofill/core/browser/payments/constants.h"
 #include "components/autofill/core/browser/payments/payments_data_cleaner.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/ui/autofill_image_fetcher_base.h"
@@ -45,54 +46,6 @@ using autofill_metrics::LogMandatoryReauthOfferOptInDecision;
 using autofill_metrics::MandatoryReauthOfferOptInDecision;
 
 namespace {
-
-// Checks the order of preference of the `original_card` with the
-// `duplicate_card` and returns whether to dedupe/erase the `duplicate_card`
-// based on the order of preference. We assume that both the cards in params are
-// duplicates of each other.
-//
-// This function returns true in the following situations:
-// Case 1: `original_card` = RecordType::kLocalCard
-//         `duplicate_card` = RecordType::kMaskedServerCard
-//         `should_suggest_server_cards_for_deduped_cards` = false
-//
-// Case 2: `original_card` = RecordType::kFullServerCard
-//         `duplicate_card` = RecordType::kLocalCard
-//         `should_suggest_server_cards_for_deduped_cards` = irrelevant
-//
-// Case 3: `original_card` = RecordType::kMaskedServerCard
-//         `duplicate_card` = RecordType::kLocalCard
-//         `should_suggest_server_cards_for_deduped_cards` = true
-bool ShouldDedupeDuplicateCard(CreditCard* original_card,
-                               CreditCard* duplicate_card) {
-  // FULL_SERVER_CARDs have the highest priority and should never be removed
-  // from the suggestion list.
-  if (duplicate_card->record_type() ==
-      CreditCard::RecordType::kFullServerCard) {
-    return false;
-  }
-  const bool should_suggest_server_cards_for_deduped_cards =
-      base::FeatureList::IsEnabled(
-          features::kAutofillSuggestServerCardInsteadOfLocalCard);
-
-  // Delete duplicated MASKED_SERVER_CARD if the original_card is a LOCAL_CARD
-  // and we are NOT suggesting MASKED_SERVER_CARD for duplicates.
-  if (duplicate_card->record_type() ==
-          CreditCard::RecordType::kMaskedServerCard &&
-      original_card->record_type() == CreditCard::RecordType::kLocalCard &&
-      !should_suggest_server_cards_for_deduped_cards) {
-    return true;
-  }
-  // Delete duplicated LOCAL_CARD if the original_card is a FULL_SERVER_CARD
-  // or we are suggesting MASKED_SERVER_CARD for duplicates.
-  if (duplicate_card->record_type() == CreditCard::RecordType::kLocalCard &&
-      (original_card->record_type() ==
-           CreditCard::RecordType::kFullServerCard ||
-       should_suggest_server_cards_for_deduped_cards)) {
-    return true;
-  }
-  return false;
-}
 
 // Receives the loaded profiles from the web data service and stores them in
 // |*dest|. The pending handle is the address of the pending handle
@@ -272,10 +225,8 @@ PaymentsDataManager::PaymentsDataManager(
     syncer::SyncService* sync_service,
     signin::IdentityManager* identity_manager,
     GeoIpCountryCode variations_country_code,
-    const std::string& app_locale,
-    base::RepeatingClosure notify_pdm_observers)
-    : notify_pdm_observers_(notify_pdm_observers),
-      image_fetcher_(image_fetcher),
+    const std::string& app_locale)
+    : image_fetcher_(image_fetcher),
       shared_storage_handler_(std::move(shared_storage_handler)),
       sync_service_(sync_service),
       identity_manager_(identity_manager),
@@ -308,6 +259,10 @@ PaymentsDataManager::PaymentsDataManager(
 PaymentsDataManager::~PaymentsDataManager() {
   CancelPendingLocalQuery(&pending_creditcards_query_);
   CancelPendingServerQueries();
+}
+
+void PaymentsDataManager::Shutdown() {
+  sync_observer_.Reset();
 }
 
 void PaymentsDataManager::OnAutofillChangedBySync(
@@ -421,6 +376,7 @@ void PaymentsDataManager::OnWebDataServiceRequestDone(
         ReceiveLoadedDbValues(h, result.get(),
                               &pending_masked_bank_accounts_query_,
                               &masked_bank_accounts_);
+        OnMaskedBankAccountsRefreshed();
         break;
       default:
         NOTREACHED();
@@ -444,7 +400,7 @@ void PaymentsDataManager::OnWebDataServiceRequestDone(
     PaymentsDataCleaner(this).CleanupPaymentsData();
   }
 
-  notify_pdm_observers_.Run();
+  NotifyObservers();
 }
 
 CoreAccountInfo PaymentsDataManager::GetAccountInfoForPaymentsServer() const {
@@ -488,7 +444,7 @@ void PaymentsDataManager::Refresh() {
   LoadPaymentsCustomerData();
   LoadAutofillOffers();
   LoadVirtualCardUsageData();
-  if (IsCardBenefitsPrefEnabled()) {
+  if (IsCardBenefitsSyncEnabled() && IsCardBenefitsPrefEnabled()) {
     LoadCreditCardBenefits();
   }
 }
@@ -603,6 +559,13 @@ PaymentsDataManager::GetApplicableBenefitDescriptionForCardAndOrigin(
   if (app_locale_ != "en-US") {
     return std::u16string();
   }
+  // Ensure that benefit suggestions can be displayed for this card on the
+  // current origin.
+  if (optimization_guide &&
+      optimization_guide->ShouldBlockBenefitSuggestionLabelsForCardAndUrl(
+          credit_card, origin.GetURL())) {
+    return std::u16string();
+  }
   CreditCardBenefitBase::LinkedCardInstrumentId benefit_instrument_id(
       credit_card.instrument_id());
 
@@ -619,7 +582,7 @@ PaymentsDataManager::GetApplicableBenefitDescriptionForCardAndOrigin(
   if (optimization_guide) {
     CreditCardCategoryBenefit::BenefitCategory category_benefit_type =
         optimization_guide->AttemptToGetEligibleCreditCardBenefitCategory(
-            credit_card.issuer_id(), origin);
+            credit_card.issuer_id(), origin.GetURL());
     if (category_benefit_type !=
         CreditCardCategoryBenefit::BenefitCategory::kUnknownBenefitCategory) {
       std::optional<CreditCardCategoryBenefit> category_benefit =
@@ -713,12 +676,12 @@ std::vector<const Iban*> PaymentsDataManager::GetIbans() const {
   return result;
 }
 
-std::vector<const Iban*> PaymentsDataManager::GetIbansToSuggest() const {
-  std::vector<const Iban*> ibans_to_suggest =
+std::vector<Iban> PaymentsDataManager::GetOrderedIbansToSuggest() const {
+  std::vector<const Iban*> available_ibans =
       ShouldSuggestServerPaymentMethods() ? GetIbans() : GetLocalIbans();
   // Remove any IBAN from the returned list if it's a local IBAN and its
   // prefix, suffix, and length matches any existing server IBAN.
-  std::erase_if(ibans_to_suggest, [this](const Iban* iban) {
+  std::erase_if(available_ibans, [this](const Iban* iban) {
     return iban->record_type() == Iban::kLocalIban &&
            base::ranges::any_of(
                server_ibans_, [&](const std::unique_ptr<Iban>& server_iban) {
@@ -726,7 +689,25 @@ std::vector<const Iban*> PaymentsDataManager::GetIbansToSuggest() const {
                });
   });
 
+  base::ranges::sort(
+      available_ibans, [comparison_time = AutofillClock::Now()](
+                           const Iban* iban0, const Iban* iban1) {
+        return iban0->HasGreaterRankingThan(iban1, comparison_time);
+      });
+
+  std::vector<Iban> ibans_to_suggest;
+  ibans_to_suggest.reserve(available_ibans.size());
+  for (const Iban* iban : available_ibans) {
+    ibans_to_suggest.push_back(*iban);
+  }
   return ibans_to_suggest;
+}
+
+bool PaymentsDataManager::HasMaskedBankAccounts() const {
+  if (!IsAutofillPaymentMethodsEnabled()) {
+    return false;
+  }
+  return !masked_bank_accounts_.empty();
 }
 
 std::vector<BankAccount> PaymentsDataManager::GetMaskedBankAccounts() const {
@@ -861,6 +842,24 @@ void PaymentsDataManager::SetPrefService(PrefService* pref_service) {
           base::Unretained(this)));
 }
 
+void PaymentsDataManager::NotifyObservers() {
+  if (!HasPendingPaymentQueries()) {
+    for (Observer& o : observers_) {
+      o.OnPaymentsDataChanged();
+    }
+  }
+}
+
+bool PaymentsDataManager::IsCardEligibleForBenefits(
+    const CreditCard& card) const {
+  return (card.issuer_id() == kAmexCardIssuerId &&
+          base::FeatureList::IsEnabled(
+              features::kAutofillEnableCardBenefitsForAmericanExpress)) ||
+         (card.issuer_id() == kCapitalOneCardIssuerId &&
+          base::FeatureList::IsEnabled(
+              features::kAutofillEnableCardBenefitsForCapitalOne));
+}
+
 bool PaymentsDataManager::IsCardBenefitsFeatureEnabled() {
   return base::FeatureList::IsEnabled(
              features::kAutofillEnableCardBenefitsForAmericanExpress) ||
@@ -870,6 +869,11 @@ bool PaymentsDataManager::IsCardBenefitsFeatureEnabled() {
 
 bool PaymentsDataManager::IsCardBenefitsPrefEnabled() const {
   return prefs::IsPaymentCardBenefitsEnabled(pref_service_);
+}
+
+bool PaymentsDataManager::IsCardBenefitsSyncEnabled() const {
+  return base::FeatureList::IsEnabled(
+      features::kAutofillEnableCardBenefitsSync);
 }
 
 bool PaymentsDataManager::IsAutofillPaymentMethodsEnabled() const {
@@ -1058,7 +1062,7 @@ bool PaymentsDataManager::IsServerCard(const CreditCard* credit_card) const {
 
 bool PaymentsDataManager::ShouldShowCardsFromAccountOption() const {
 // The feature is only for Linux, Windows, Mac, and Fuchsia.
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS) || \
     BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_FUCHSIA)
@@ -1109,11 +1113,6 @@ bool PaymentsDataManager::IsPaymentMethodsMandatoryReauthEnabled() {
 
 bool PaymentsDataManager::ShouldShowPaymentMethodsMandatoryReauthPromo() {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
-  if (!base::FeatureList::IsEnabled(
-          features::kAutofillEnablePaymentsMandatoryReauth)) {
-    return false;
-  }
-
   // There is no need to show the promo if the feature is already enabled.
   if (prefs::IsPaymentMethodsMandatoryReauthEnabled(pref_service_)) {
 #if BUILDFLAG(IS_ANDROID)
@@ -1599,10 +1598,10 @@ void PaymentsDataManager::RecordUseOfIban(Iban& iban) {
 
 // The priority ranking for deduping a duplicate card is:
 // 1. RecordType::kFullServerCard
-// 2. RecordType::kLocalCard
-// 3. RecordType::kMaskedServerCard
-// Note: 2 & 3 are swapped if experiment
-// kAutofillSuggestServerCardInsteadOfLocalCard is enabled.
+// 2. RecordType::kMaskedServerCard
+// 3. RecordType::kLocalCard
+// Note- Duplicate kMaskedServerCard and kFullServerCard cannot be present on
+// the same client at the same time.
 // static
 void PaymentsDataManager::DedupeCreditCardToSuggest(
     std::list<CreditCard*>* cards_to_suggest) {
@@ -1615,9 +1614,10 @@ void PaymentsDataManager::DedupeCreditCardToSuggest(
         continue;
       }
       // Check if the cards are local or server duplicate of each other. If yes,
-      // then check if we can dedupe/erase the duplicate card.
+      // then delete the duplicate if it's a local card.
       if ((*inner_it_copy)->IsLocalOrServerDuplicateOf(**outer_it) &&
-          ShouldDedupeDuplicateCard(*outer_it, *inner_it_copy)) {
+          (*inner_it_copy)->record_type() ==
+              CreditCard::RecordType::kLocalCard) {
         cards_to_suggest->erase(inner_it_copy);
       }
     }
@@ -1630,7 +1630,7 @@ scoped_refptr<AutofillWebDataService> PaymentsDataManager::GetLocalDatabase() {
 scoped_refptr<AutofillWebDataService> PaymentsDataManager::GetServerDatabase() {
   return database_helper_->GetServerDatabase();
 }
-bool PaymentsDataManager::IsUsingAccountStorageForServerData() {
+bool PaymentsDataManager::IsUsingAccountStorageForServerDataForTest() {
   return database_helper_->IsUsingAccountStorageForServerData();
 }
 
@@ -1707,7 +1707,6 @@ void PaymentsDataManager::LoadIbans() {
     NOTREACHED();
     return;
   }
-
   CancelPendingLocalQuery(&pending_local_ibans_query_);
   CancelPendingServerQuery(&pending_server_ibans_query_);
 
@@ -1866,6 +1865,16 @@ void PaymentsDataManager::AddMaskedBankAccountForTest(
   masked_bank_accounts_.push_back(std::make_unique<BankAccount>(bank_account));
 }
 
+void PaymentsDataManager::AddServerCreditCardForTest(
+    std::unique_ptr<CreditCard> credit_card) {
+  server_credit_cards_.push_back(std::move(credit_card));
+}
+
+void PaymentsDataManager::AddCreditCardBenefitForTest(
+    CreditCardBenefit benefit) {
+  credit_card_benefits_.push_back(std::move(benefit));
+}
+
 bool PaymentsDataManager::HasPendingPaymentQueries() const {
   return pending_creditcards_query_ != 0 ||
          pending_server_creditcards_query_ != 0 ||
@@ -1963,6 +1972,21 @@ std::string PaymentsDataManager::SaveImportedCreditCard(
   SetCreditCards(&credit_cards);
 
   return guid;
+}
+
+void PaymentsDataManager::OnMaskedBankAccountsRefreshed() {
+  std::vector<GURL> updated_urls;
+  for (auto& bank_account : masked_bank_accounts_) {
+    const GURL& display_icon_url =
+        bank_account->payment_instrument().display_icon_url();
+    if (!display_icon_url.is_valid()) {
+      continue;
+    }
+    updated_urls.emplace_back(display_icon_url);
+  }
+  if (!updated_urls.empty()) {
+    FetchImagesForURLs(updated_urls);
+  }
 }
 
 }  // namespace autofill

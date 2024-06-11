@@ -111,7 +111,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
     NSMutableArray<UIViewController*>* viewControllersAboveFeed;
 
 // Identity disc shown in the NTP.
-// TODO(crbug.com/1170995): Remove once the Feed header properly supports
+// TODO(crbug.com/40165977): Remove once the Feed header properly supports
 // ContentSuggestions.
 @property(nonatomic, weak) UIButton* identityDiscButton;
 
@@ -204,14 +204,14 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
 
   self.view.accessibilityIdentifier = kNTPViewIdentifier;
 
-  // TODO(crbug.com/1262536): Remove this when bug is fixed.
+  // TODO(crbug.com/40799579): Remove this when bug is fixed.
   [self.feedWrapperViewController loadViewIfNeeded];
   [self.contentSuggestionsViewController loadViewIfNeeded];
 
   // Prevent the NTP from spilling behind the toolbar and tab strip.
   self.view.clipsToBounds = YES;
 
-  // TODO(crbug.com/1403612): The contentCollectionView width might be narrower
+  // TODO(crbug.com/40251609): The contentCollectionView width might be narrower
   // than the ContentSuggestions view. This causes elements to be hidden. A
   // gesture recognizer is added to allow these elements to be interactable.
   UITapGestureRecognizer* singleTapRecognizer = [[UITapGestureRecognizer alloc]
@@ -483,7 +483,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
   AddSameConstraints(feedView, self.view);
 
   // Configures the content suggestions in the view hierarchy.
-  // TODO(crbug.com/1262536): Remove this when issue is fixed.
+  // TODO(crbug.com/40799579): Remove this when issue is fixed.
   if (self.contentSuggestionsViewController.parentViewController) {
     [self.contentSuggestionsViewController willMoveToParentViewController:nil];
     [self.contentSuggestionsViewController.view removeFromSuperview];
@@ -517,7 +517,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
       [self.headerViewController.view isDescendantOfView:self.containerView]);
   self.headerViewController.view.translatesAutoresizingMaskIntoConstraints = NO;
 
-  // TODO(crbug.com/1170995): The contentCollectionView width might be
+  // TODO(crbug.com/40165977): The contentCollectionView width might be
   // narrower than the ContentSuggestions view. This causes elements to be
   // hidden, so we set clipsToBounds to ensure that they remain visible. The
   // collection view changes, so we must set this property each time it does.
@@ -621,13 +621,13 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
   // fetched/displayed, thus needed a reset. However, in the instance where the
   // omnibox is focused, it is more important to keep that focused state and not
   // show a "double" omibox state.
-  // TODO(crbug.com/1371261): Replace the -setContentOffsetForWebState: call
+  // TODO(crbug.com/40241297): Replace the -setContentOffsetForWebState: call
   // with calls directly from all async updates to the NTP.
   if (self.omniboxFocused) {
     return;
   }
   [self setContentOffset:-[self heightAboveFeed]];
-  // TODO(crbug.com/1406940): Constraint updating should not be necessary since
+  // TODO(crbug.com/40252945): Constraint updating should not be necessary since
   // scrollViewDidScroll: calls this if needed.
   [self setInitialFakeOmniboxConstraints];
   if ([self.NTPContentDelegate isContentHeaderSticky]) {
@@ -789,8 +789,12 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
     return;
   }
 
-  self.headerViewController.view.alpha = 1;
-  [self shiftTilesDownForOmniboxDefocus];
+  // Do not trigger defocus animation if the user is already navigating away
+  // from the NTP.
+  if (self.NTPVisible) {
+    self.headerViewController.view.alpha = 1;
+    [self shiftTilesDownForOmniboxDefocus];
+  }
 }
 
 #pragma mark - UIScrollViewDelegate
@@ -872,19 +876,19 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
 }
 
 - (void)scrollViewDidScrollToTop:(UIScrollView*)scrollView {
-  // TODO(crbug.com/1114792): Handle scrolling.
+  // TODO(crbug.com/40710989): Handle scrolling.
 }
 
 - (void)scrollViewWillBeginDecelerating:(UIScrollView*)scrollView {
-  // TODO(crbug.com/1114792): Handle scrolling.
+  // TODO(crbug.com/40710989): Handle scrolling.
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView*)scrollView {
-  // TODO(crbug.com/1114792): Handle scrolling.
+  // TODO(crbug.com/40710989): Handle scrolling.
 }
 
 - (void)scrollViewDidEndScrollingAnimation:(UIScrollView*)scrollView {
-  // TODO(crbug.com/1114792): Handle scrolling.
+  // TODO(crbug.com/40710989): Handle scrolling.
 }
 
 - (BOOL)scrollViewShouldScrollToTop:(UIScrollView*)scrollView {
@@ -911,7 +915,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
 
 #pragma mark - UIGestureRecognizerDelegate
 
-// TODO(crbug.com/1170995): Remove once the Feed header properly supports
+// TODO(crbug.com/40165977): Remove once the Feed header properly supports
 // ContentSuggestions.
 - (BOOL)gestureRecognizer:(UIGestureRecognizer*)gestureRecognizer
        shouldReceiveTouch:(UITouch*)touch {
@@ -1356,9 +1360,9 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
 
 // Checks whether the feed top section is visible and updates the
 // `NTPContentDelegate`.
-// TODO(crbug.com/1331010): This function currently checks the visibility of the
-// entire feed top section, but it should only check the visibility of the promo
-// within it.
+// TODO(crbug.com/40843602): This function currently checks the visibility of
+// the entire feed top section, but it should only check the visibility of the
+// promo within it.
 - (void)updateFeedSigninPromoIsVisible {
   if (!self.feedTopSectionViewController) {
     return;
@@ -1381,7 +1385,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
       signinPromoHasChangedVisibility:isFeedSigninPromoVisible];
 }
 
-// TODO(crbug.com/1403612): Remove once the Feed header properly supports
+// TODO(crbug.com/40251609): Remove once the Feed header properly supports
 // ContentSuggestions.
 - (void)handleSingleTapInView:(UITapGestureRecognizer*)recognizer {
   CGPoint location = [recognizer locationInView:[recognizer.view superview]];
@@ -1734,12 +1738,15 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
   // for Discover infinite feed.
   CGFloat minimumHeight = collectionViewHeight + headerHeight;
   if (!IsRegularXRegularSizeClass(self.collectionView)) {
-    CGFloat toolbarHeight = IsSplitToolbarMode(self.collectionView)
-                                ? [self stickyOmniboxHeight]
-                                : 0;
-    CGFloat additionalHeight =
-        toolbarHeight + self.collectionView.contentInset.bottom;
-    minimumHeight -= additionalHeight;
+    minimumHeight -= self.collectionView.contentInset.bottom;
+    if (IsSplitToolbarMode(self)) {
+      minimumHeight -= [self stickyOmniboxHeight];
+    } else {
+      // Add in half of the margin between the fakebox and the rest of the
+      // content suggestions, to ensure there is enough height to fully
+      // finish the fakebox to omnibox transition.
+      minimumHeight += content_suggestions::HeaderBottomPadding() / 2;
+    }
   }
 
   return minimumHeight;
@@ -1786,7 +1793,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
   return self.collectionView.contentSize.height > 0;
 }
 
-// TODO(crbug.com/1262536): Temporary fix to compensate for the view hierarchy
+// TODO(crbug.com/40799579): Temporary fix to compensate for the view hierarchy
 // sometimes breaking. Use DCHECKs to investigate what exactly is broken and
 // find a fix.
 - (void)verifyNTPViewHierarchy {
@@ -1841,7 +1848,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
 // Ensures that `subView` is a descendent of `parentView`. If not, logs a DCHECK
 // and adds the subview. Includes `relationshipID` for metrics recorder to log
 // which part of the view hierarchy was broken.
-// TODO(crbug.com/1262536): Remove this once bug is fixed.
+// TODO(crbug.com/40799579): Remove this once bug is fixed.
 - (void)ensureView:(UIView*)subView
            isSubviewOf:(UIView*)parentView
     withRelationshipID:(BrokenNTPHierarchyRelationship)relationship {
@@ -1902,7 +1909,7 @@ BASE_FEATURE(kMagicStackRemoveGradientView,
 - (UIView*)containerView {
   UIView* containerView;
   if (self.isFeedVisible) {
-    // TODO(crbug.com/1262536): Remove this when the bug is fixed.
+    // TODO(crbug.com/40799579): Remove this when the bug is fixed.
     if (IsNTPViewHierarchyRepairEnabled()) {
       [self verifyNTPViewHierarchy];
     }

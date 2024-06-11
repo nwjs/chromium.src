@@ -23,6 +23,10 @@ IN_PROC_BROWSER_TEST_F(CrElementsTest, CrChip) {
   RunTest("cr_elements/cr_chip_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(CrElementsTest, CrCollapse) {
+  RunTest("cr_elements/cr_collapse_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(CrElementsTest, CrContainerShadowMixin) {
   RunTest("cr_elements/cr_container_shadow_mixin_test.js", "mocha.run()");
 }
@@ -47,6 +51,14 @@ IN_PROC_BROWSER_TEST_F(CrElementsTest, MAYBE_CrDrawer) {
 
 IN_PROC_BROWSER_TEST_F(CrElementsTest, CrExpandButton) {
   RunTest("cr_elements/cr_expand_button_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrElementsTest, CrIcon) {
+  RunTest("cr_elements/cr_icon_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrElementsTest, CrIconset) {
+  RunTest("cr_elements/cr_iconset_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(CrElementsTest, FindShortcutMixin) {
@@ -129,8 +141,16 @@ IN_PROC_BROWSER_TEST_F(CrElementsTest, CrViewManager) {
   RunTest("cr_elements/cr_view_manager_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(CrElementsTest, CrPageSelector) {
+  RunTest("cr_elements/cr_page_selector_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(CrElementsTest, CrPolicyIndicator) {
   RunTest("cr_elements/cr_policy_indicator_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrElementsTest, CrProgress) {
+  RunTest("cr_elements/cr_progress_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(CrElementsTest, CrAutoImg) {
@@ -139,6 +159,10 @@ IN_PROC_BROWSER_TEST_F(CrElementsTest, CrAutoImg) {
 
 IN_PROC_BROWSER_TEST_F(CrElementsTest, CrToolbar) {
   RunTest("cr_elements/cr_toolbar_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrElementsTest, CrTooltip) {
+  RunTest("cr_elements/cr_tooltip_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(CrElementsTest, CrTree) {

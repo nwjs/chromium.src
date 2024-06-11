@@ -172,7 +172,7 @@
     'identifier': 'TROGDOR_PUBLIC_LKGM',
     'skylab': {
       'cros_board': 'trogdor',
-      'cros_img': 'trogdor-public/R125-15826.0.0',
+      'use_lkgm': True,
       'bucket': 'chromiumos-image-archive',
     },
   },
@@ -181,7 +181,7 @@
     'skylab': {
       'cros_board': 'volteer',
       'cros_model': 'voxel',
-      'cros_img': 'volteer-public/R125-15826.0.0',
+      'use_lkgm': True,
       'bucket': 'chromiumos-image-archive',
       'dut_pool': 'chromium',
       'public_builder': 'cros_test_platform_public',
@@ -214,10 +214,10 @@
       '--webview-command-line-arg=--webview-verbose-logging',
     ],
   },
-  'INTEL_UHD_630': {
-    'identifier': 'Intel UHD 630',
+  'INTEL_UHD_630_OR_770': {
+    'identifier': 'Intel UHD 630 or 770',
     'mixins': [
-      'intel_uhd_630',
+      'intel_uhd_630_or_770',
     ],
   },
   'IPHONE_7_15_4_1': {
@@ -251,64 +251,64 @@
   },
   'LACROS_VERSION_SKEW_BETA': {
     'identifier': 'Lacros version skew testing ash beta',
-    'description': 'Run with ash-chrome version 125.0.6422.64',
+    'description': 'Run with ash-chrome version 126.0.6478.33',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6422.64/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6478.33/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v125.0.6422.64',
-          'revision': 'version:125.0.6422.64',
+          'location': 'lacros_version_skew_tests_v126.0.6478.33',
+          'revision': 'version:126.0.6478.33',
         },
       ],
     },
   },
   'LACROS_VERSION_SKEW_CANARY': {
     'identifier': 'Lacros version skew testing ash canary',
-    'description': 'Run with ash-chrome version 127.0.6489.0',
+    'description': 'Run with ash-chrome version 127.0.6530.0',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6489.0/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6530.0/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v127.0.6489.0',
-          'revision': 'version:127.0.6489.0',
+          'location': 'lacros_version_skew_tests_v127.0.6530.0',
+          'revision': 'version:127.0.6530.0',
         },
       ],
     },
   },
   'LACROS_VERSION_SKEW_DEV': {
     'identifier': 'Lacros version skew testing ash dev',
-    'description': 'Run with ash-chrome version 126.0.6475.0',
+    'description': 'Run with ash-chrome version 127.0.6516.0',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v126.0.6475.0/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v127.0.6516.0/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v126.0.6475.0',
-          'revision': 'version:126.0.6475.0',
+          'location': 'lacros_version_skew_tests_v127.0.6516.0',
+          'revision': 'version:127.0.6516.0',
         },
       ],
     },
   },
   'LACROS_VERSION_SKEW_STABLE': {
     'identifier': 'Lacros version skew testing ash stable',
-    'description': 'Run with ash-chrome version 124.0.6367.219',
+    'description': 'Run with ash-chrome version 125.0.6422.140',
     'args': [
-      '--ash-chrome-path-override=../../lacros_version_skew_tests_v124.0.6367.219/test_ash_chrome',
+      '--ash-chrome-path-override=../../lacros_version_skew_tests_v125.0.6422.140/test_ash_chrome',
     ],
     'swarming': {
       'cipd_packages': [
         {
           'cipd_package': 'chromium/testing/linux-ash-chromium/x86_64/ash.zip',
-          'location': 'lacros_version_skew_tests_v124.0.6367.219',
-          'revision': 'version:124.0.6367.219',
+          'location': 'lacros_version_skew_tests_v125.0.6422.140',
+          'revision': 'version:125.0.6422.140',
         },
       ],
     },
@@ -343,30 +343,6 @@
       'mac_retina_nvidia_gpu_stable',
     ],
   },
-  'MODEL_VALIDATION_BASE': {
-    'identifier': 'MODEL_VALIDATION_BASE',
-  },
-  'MODEL_VALIDATION_TRUNK': {
-    'identifier': 'MODEL_VALIDATION_TRUNK',
-    'linux_args': [
-      '--chromedriver',
-      'chromedriver',
-      '--binary',
-      'chrome',
-    ],
-    'mac_args': [
-      '--chromedriver',
-      'chromedriver',
-      '--binary',
-      'Google Chrome.app/Contents/MacOS/Google Chrome',
-    ],
-    'win_args': [
-      '--chromedriver',
-      'chromedriver.exe',
-      '--binary',
-      'Chrome.exe',
-    ],
-  },
   'NVIDIA_GEFORCE_GTX_1660': {
     'identifier': 'NVIDIA GeForce GTX 1660',
     'mixins': [
@@ -397,30 +373,6 @@
       'ios_runtime_cache_17_4',
     ],
   },
-  'SIM_IPAD_AIR_2_15_5': {
-    'identifier': 'iPad Air 2 15.5',
-    'args': [
-      '--platform',
-      'iPad Air 2',
-      '--version',
-      '15.5',
-    ],
-    'mixins': [
-      'ios_runtime_cache_15_5',
-    ],
-  },
-  'SIM_IPAD_AIR_5TH_GEN_15_5': {
-    'identifier': 'iPad Air (5th generation) 15.5',
-    'args': [
-      '--platform',
-      'iPad Air (5th generation)',
-      '--version',
-      '15.5',
-    ],
-    'mixins': [
-      'ios_runtime_cache_15_5',
-    ],
-  },
   'SIM_IPAD_AIR_5TH_GEN_16_4': {
     'identifier': 'iPad Air (5th generation) 16.4',
     'args': [
@@ -443,6 +395,18 @@
     ],
     'mixins': [
       'ios_runtime_cache_17_4',
+    ],
+  },
+  'SIM_IPAD_AIR_5TH_GEN_17_5': {
+    'identifier': 'iPad Air (5th generation) 17.5',
+    'args': [
+      '--platform',
+      'iPad Air (5th generation)',
+      '--version',
+      '17.5',
+    ],
+    'mixins': [
+      'ios_runtime_cache_17_5',
     ],
   },
   'SIM_IPAD_PRO_6TH_GEN_16_4': {
@@ -469,16 +433,16 @@
       'ios_runtime_cache_17_4',
     ],
   },
-  'SIM_IPHONE_13_15_5': {
-    'identifier': 'iPhone 13 15.5',
+  'SIM_IPHONE_13_16_4': {
+    'identifier': 'iPhone 13 16.4',
     'args': [
       '--platform',
       'iPhone 13',
       '--version',
-      '15.5',
+      '16.4',
     ],
     'mixins': [
-      'ios_runtime_cache_15_5',
+      'ios_runtime_cache_16_4',
     ],
   },
   'SIM_IPHONE_14_16_4': {
@@ -503,6 +467,18 @@
     ],
     'mixins': [
       'ios_runtime_cache_17_4',
+    ],
+  },
+  'SIM_IPHONE_14_17_5': {
+    'identifier': 'iPhone 14 17.5',
+    'args': [
+      '--platform',
+      'iPhone 14',
+      '--version',
+      '17.5',
+    ],
+    'mixins': [
+      'ios_runtime_cache_17_5',
     ],
   },
   'SIM_IPHONE_14_PLUS_16_4': {
@@ -553,30 +529,6 @@
       'ios_runtime_cache_17_4',
     ],
   },
-  'SIM_IPHONE_6S_15_5': {
-    'identifier': 'iPhone 6s 15.5',
-    'args': [
-      '--platform',
-      'iPhone 6s',
-      '--version',
-      '15.5',
-    ],
-    'mixins': [
-      'ios_runtime_cache_15_5',
-    ],
-  },
-  'SIM_IPHONE_SE_3RD_GEN_15_5': {
-    'identifier': 'iPhone SE (3rd generation) 15.5',
-    'args': [
-      '--platform',
-      'iPhone SE (3rd generation)',
-      '--version',
-      '15.5',
-    ],
-    'mixins': [
-      'ios_runtime_cache_15_5',
-    ],
-  },
   'SIM_IPHONE_SE_3RD_GEN_16_4': {
     'identifier': 'iPhone SE (3rd generation) 16.4',
     'args': [
@@ -601,16 +553,28 @@
       'ios_runtime_cache_17_4',
     ],
   },
-  'SIM_IPHONE_X_15_5': {
-    'identifier': 'iPhone X 15.5',
+  'SIM_IPHONE_SE_3RD_GEN_17_5': {
+    'identifier': 'iPhone SE (3rd generation) 17.5',
+    'args': [
+      '--platform',
+      'iPhone SE (3rd generation)',
+      '--version',
+      '17.5',
+    ],
+    'mixins': [
+      'ios_runtime_cache_17_5',
+    ],
+  },
+  'SIM_IPHONE_X_16_4': {
+    'identifier': 'iPhone X 16.4',
     'args': [
       '--platform',
       'iPhone X',
       '--version',
-      '15.5',
+      '16.4',
     ],
     'mixins': [
-      'ios_runtime_cache_15_5',
+      'ios_runtime_cache_16_4',
     ],
   },
   'SINGLE_GROUP_PER_STUDY_PREFER_EXISTING_BEHAVIOR': {

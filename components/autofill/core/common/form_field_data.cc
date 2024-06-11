@@ -106,12 +106,12 @@ bool DeserializeSection1(base::PickleIterator* iter,
       iter->ReadString(&autocomplete_attribute) &&
       iter->ReadUInt64(&max_length) && iter->ReadBool(&is_autofilled);
   if (success) {
-    field_data->label = std::move(label);
+    field_data->set_label(std::move(label));
     field_data->set_name(std::move(name));
     field_data->set_value(std::move(value));
-    field_data->autocomplete_attribute = std::move(autocomplete_attribute);
-    field_data->max_length = max_length;
-    field_data->is_autofilled = std::move(is_autofilled);
+    field_data->set_autocomplete_attribute(std::move(autocomplete_attribute));
+    field_data->set_max_length(max_length);
+    field_data->set_is_autofilled(std::move(is_autofilled));
     // Form control types are serialized as strings for legacy reasons.
     // TODO(crbug.com/1353392,crbug.com/1482526): Why does the Password Manager
     // (de)serialize form control types? Remove it or migrate it to the enum
@@ -142,7 +142,7 @@ bool DeserializeSection6(base::PickleIterator* iter,
   if (!ReadAsInt(iter, &check_status)) {
     return false;
   }
-  field_data->check_status = check_status;
+  field_data->set_check_status(check_status);
   return true;
 }
 
@@ -153,8 +153,8 @@ bool DeserializeSection7(base::PickleIterator* iter,
   if (!iter->ReadBool(&is_focusable) || !iter->ReadBool(&should_autocomplete)) {
     return false;
   }
-  field_data->is_focusable = std::move(is_focusable);
-  field_data->should_autocomplete = std::move(should_autocomplete);
+  field_data->set_is_focusable(std::move(is_focusable));
+  field_data->set_should_autocomplete(std::move(should_autocomplete));
   return true;
 }
 
@@ -169,11 +169,13 @@ bool DeserializeSection3(base::PickleIterator* iter,
       option_values.size() != option_contents.size()) {
     return false;
   }
-  field_data->text_direction = text_direction;
+  field_data->set_text_direction(text_direction);
+  std::vector<SelectOption> options;
   for (size_t i = 0; i < option_values.size(); ++i) {
-    field_data->options.push_back({.value = std::move(option_values[i]),
-                                   .content = std::move(option_contents[i])});
+    options.push_back({.value = std::move(option_values[i]),
+                       .content = std::move(option_contents[i])});
   }
+  field_data->set_options(std::move(options));
   return true;
 }
 
@@ -185,8 +187,8 @@ bool DeserializeSection12(base::PickleIterator* iter,
       !ReadSelectOptionVector(iter, &options)) {
     return false;
   }
-  field_data->text_direction = std::move(text_direction);
-  field_data->options = std::move(options);
+  field_data->set_text_direction(std::move(text_direction));
+  field_data->set_options(std::move(options));
   return true;
 }
 
@@ -196,7 +198,7 @@ bool DeserializeSection2(base::PickleIterator* iter,
   if (!ReadAsInt(iter, &role)) {
     return false;
   }
-  field_data->role = role;
+  field_data->set_role(role);
   return true;
 }
 
@@ -206,7 +208,7 @@ bool DeserializeSection4(base::PickleIterator* iter,
   if (!iter->ReadString16(&placeholder)) {
     return false;
   }
-  field_data->placeholder = std::move(placeholder);
+  field_data->set_placeholder(std::move(placeholder));
   return true;
 }
 
@@ -216,7 +218,7 @@ bool DeserializeSection8(base::PickleIterator* iter,
   if (!iter->ReadString16(&css_classes)) {
     return false;
   }
-  field_data->css_classes = std::move(css_classes);
+  field_data->set_css_classes(std::move(css_classes));
   return true;
 }
 
@@ -226,7 +228,7 @@ bool DeserializeSection9(base::PickleIterator* iter,
   if (!iter->ReadUInt32(&properties_mask)) {
     return false;
   }
-  field_data->properties_mask = std::move(properties_mask);
+  field_data->set_properties_mask(std::move(properties_mask));
   return true;
 }
 
@@ -236,7 +238,7 @@ bool DeserializeSection10(base::PickleIterator* iter,
   if (!iter->ReadString16(&id_attribute)) {
     return false;
   }
-  field_data->id_attribute = std::move(id_attribute);
+  field_data->set_id_attribute(std::move(id_attribute));
   return true;
 }
 
@@ -246,17 +248,8 @@ bool DeserializeSection11(base::PickleIterator* iter,
   if (!iter->ReadString16(&name_attribute)) {
     return false;
   }
-  field_data->name_attribute = std::move(name_attribute);
+  field_data->set_name_attribute(std::move(name_attribute));
   return true;
-}
-
-auto IdentityTuple(const FormFieldData& f) {
-  return std::tuple_cat(
-      std::tie(f.label, f.name(), f.name_attribute, f.id_attribute,
-               f.form_control_type(), f.autocomplete_attribute, f.placeholder,
-               f.max_length, f.css_classes, f.is_focusable,
-               f.should_autocomplete, f.role, f.text_direction, f.options),
-      std::make_tuple(IsCheckable(f.check_status)));
 }
 
 }  // namespace
@@ -282,9 +275,9 @@ Section Section::FromFieldIdentifier(
   // We intentionally do not include the LocalFrameToken in the section
   // because frame tokens should not be sent to a renderer.
   //
-  // TODO(crbug.com/1257141): Remove special handling of FrameTokens.
+  // TODO(crbug.com/40200532): Remove special handling of FrameTokens.
   size_t generated_frame_id =
-      frame_token_ids.emplace(field.host_frame, frame_token_ids.size())
+      frame_token_ids.emplace(field.host_frame(), frame_token_ids.size())
           .first->second;
   section.value_ = FieldIdentifier(base::UTF16ToUTF8(field.name()),
                                    generated_frame_id, field.renderer_id());
@@ -363,7 +356,16 @@ FormFieldData& FormFieldData::operator=(FormFieldData&&) = default;
 FormFieldData::~FormFieldData() = default;
 
 bool FormFieldData::SameFieldAs(const FormFieldData& field) const {
-  return IdentityTuple(*this) == IdentityTuple(field);
+  auto equality_tuple = [](const FormFieldData& f) {
+    return std::tuple_cat(
+        std::tie(f.label_, f.name_, f.name_attribute_, f.id_attribute_,
+                 f.form_control_type_, f.autocomplete_attribute_,
+                 f.placeholder_, f.max_length_, f.css_classes_, f.is_focusable_,
+                 f.should_autocomplete_, f.role_, f.text_direction_,
+                 f.options_),
+        std::make_tuple(IsCheckable(f.check_status_)));
+  };
+  return equality_tuple(*this) == equality_tuple(field);
 }
 
 bool FormFieldData::IsTextInputElement() const {
@@ -393,21 +395,20 @@ bool FormFieldData::IsSelectOrSelectListElement() const {
 }
 
 bool FormFieldData::DidUserType() const {
-  return properties_mask & kUserTyped;
+  return properties_mask() & kUserTyped;
 }
 
 bool FormFieldData::HadFocus() const {
-  return properties_mask & kHadFocus;
+  return properties_mask() & kHadFocus;
 }
 
 bool FormFieldData::WasPasswordAutofilled() const {
-  return properties_mask & kAutofilled;
+  return properties_mask() & kAutofilled;
 }
 
 // static
 bool FormFieldData::DeepEqual(const FormFieldData& a, const FormFieldData& b) {
-  return a.renderer_id() == b.renderer_id() &&
-         IdentityTuple(a) == IdentityTuple(b);
+  return a.renderer_id() == b.renderer_id() && a.SameFieldAs(b);
 }
 
 FormFieldData::FillData::FillData() = default;
@@ -417,10 +418,10 @@ FormFieldData::FillData::~FillData() = default;
 FormFieldData::FillData::FillData(const FormFieldData& field)
     : value(field.value()),
       renderer_id(field.renderer_id()),
-      host_form_id(field.host_form_id),
-      section(field.section),
-      is_autofilled(field.is_autofilled),
-      force_override(field.force_override) {}
+      host_form_id(field.host_form_id()),
+      section(field.section()),
+      is_autofilled(field.is_autofilled()),
+      force_override(field.force_override()) {}
 
 FormFieldData::FillData::FillData(const FillData&) = default;
 
@@ -482,25 +483,25 @@ FormControlType StringToFormControlTypeDiscouraged(
 void SerializeFormFieldData(const FormFieldData& field_data,
                             base::Pickle* pickle) {
   pickle->WriteInt(kFormFieldDataPickleVersion);
-  pickle->WriteString16(field_data.label);
+  pickle->WriteString16(field_data.label());
   pickle->WriteString16(field_data.name());
   pickle->WriteString16(field_data.value());
   pickle->WriteString(FormControlTypeToString(field_data.form_control_type()));
   // We don't serialize the `parsed_autocomplete`. See http://crbug.com/1353392.
-  pickle->WriteString(field_data.autocomplete_attribute);
-  pickle->WriteUInt64(field_data.max_length);
-  pickle->WriteBool(field_data.is_autofilled);
-  pickle->WriteInt(static_cast<int>(field_data.check_status));
-  pickle->WriteBool(field_data.is_focusable);
-  pickle->WriteBool(field_data.should_autocomplete);
-  pickle->WriteInt(static_cast<int>(field_data.role));
-  pickle->WriteInt(field_data.text_direction);
-  WriteSelectOptionVector(field_data.options, pickle);
-  pickle->WriteString16(field_data.placeholder);
-  pickle->WriteString16(field_data.css_classes);
-  pickle->WriteUInt32(field_data.properties_mask);
-  pickle->WriteString16(field_data.id_attribute);
-  pickle->WriteString16(field_data.name_attribute);
+  pickle->WriteString(field_data.autocomplete_attribute());
+  pickle->WriteUInt64(field_data.max_length());
+  pickle->WriteBool(field_data.is_autofilled());
+  pickle->WriteInt(static_cast<int>(field_data.check_status()));
+  pickle->WriteBool(field_data.is_focusable());
+  pickle->WriteBool(field_data.should_autocomplete());
+  pickle->WriteInt(static_cast<int>(field_data.role()));
+  pickle->WriteInt(field_data.text_direction());
+  WriteSelectOptionVector(field_data.options(), pickle);
+  pickle->WriteString16(field_data.placeholder());
+  pickle->WriteString16(field_data.css_classes());
+  pickle->WriteUInt32(field_data.properties_mask());
+  pickle->WriteString16(field_data.id_attribute());
+  pickle->WriteString16(field_data.name_attribute());
 }
 
 bool DeserializeFormFieldData(base::PickleIterator* iter,
@@ -642,31 +643,32 @@ bool DeserializeFormFieldData(base::PickleIterator* iter,
 }
 
 std::ostream& operator<<(std::ostream& os, const FormFieldData& field) {
-  return os << "label='" << field.label << "' "
+  return os << "label='" << field.label() << "' "
             << "unique_Id=" << field.global_id() << " " << "origin='"
-            << field.origin.Serialize() << "' " << "name='" << field.name()
-            << "' " << "id_attribute='" << field.id_attribute << "' "
-            << "name_attribute='" << field.name_attribute << "' " << "value='"
+            << field.origin().Serialize() << "' " << "name='" << field.name()
+            << "' " << "id_attribute='" << field.id_attribute() << "' "
+            << "name_attribute='" << field.name_attribute() << "' " << "value='"
             << field.value() << "' " << "control='" << field.form_control_type()
-            << "' " << "autocomplete='" << field.autocomplete_attribute << "' "
-            << "parsed_autocomplete='"
-            << (field.parsed_autocomplete
-                    ? field.parsed_autocomplete->ToString()
+            << "' " << "autocomplete='" << field.autocomplete_attribute()
+            << "' " << "parsed_autocomplete='"
+            << (field.parsed_autocomplete()
+                    ? field.parsed_autocomplete()->ToString()
                     : "")
-            << "' " << "placeholder='" << field.placeholder << "' "
-            << "max_length=" << field.max_length << " " << "css_classes='"
-            << field.css_classes << "' " << "autofilled=" << field.is_autofilled
-            << " " << "check_status=" << field.check_status << " "
-            << "is_focusable=" << field.is_focusable << " "
-            << "should_autocomplete=" << field.should_autocomplete << " "
-            << "role=" << field.role << " "
-            << "text_direction=" << field.text_direction << " "
-            << "is_enabled=" << field.is_enabled << " "
-            << "is_readonly=" << field.is_readonly << " "
-            << "user_input=" << field.user_input << " "
-            << "properties_mask=" << field.properties_mask << " "
-            << "label_source=" << field.label_source << " "
-            << "bounds=" << field.bounds.ToString();
+            << "' " << "placeholder='" << field.placeholder() << "' "
+            << "max_length=" << field.max_length() << " " << "css_classes='"
+            << field.css_classes() << "' "
+            << "autofilled=" << field.is_autofilled() << " "
+            << "check_status=" << field.check_status() << " "
+            << "is_focusable=" << field.is_focusable() << " "
+            << "should_autocomplete=" << field.should_autocomplete() << " "
+            << "role=" << field.role() << " "
+            << "text_direction=" << field.text_direction() << " "
+            << "is_enabled=" << field.is_enabled() << " "
+            << "is_readonly=" << field.is_readonly() << " "
+            << "user_input=" << field.user_input() << " "
+            << "properties_mask=" << field.properties_mask() << " "
+            << "label_source=" << field.label_source() << " "
+            << "bounds=" << field.bounds().ToString();
 }
 
 LogBuffer& operator<<(LogBuffer& buffer, const FormFieldData& field) {
@@ -677,27 +679,28 @@ LogBuffer& operator<<(LogBuffer& buffer, const FormFieldData& field) {
                           base::NumberToString(field.renderer_id().value()),
                           ", host frame: ",
                           field.renderer_form_id().frame_token.ToString(), " (",
-                          field.origin.Serialize(),
+                          field.origin().Serialize(),
                           "), host form renderer id: ",
-                          base::NumberToString(field.host_form_id.value())});
-  buffer << Tr{} << "Origin:" << field.origin.Serialize();
-  buffer << Tr{} << "Name attribute:" << field.name_attribute;
-  buffer << Tr{} << "Id attribute:" << field.id_attribute;
+                          base::NumberToString(field.host_form_id().value())});
+  buffer << Tr{} << "Origin:" << field.origin().Serialize();
+  buffer << Tr{} << "Name attribute:" << field.name_attribute();
+  buffer << Tr{} << "Id attribute:" << field.id_attribute();
   constexpr size_t kMaxLabelSize = 100;
   const std::u16string truncated_label =
-      field.label.substr(0, std::min(field.label.length(), kMaxLabelSize));
+      field.label().substr(0, std::min(field.label().length(), kMaxLabelSize));
   buffer << Tr{} << "Label:" << truncated_label;
   buffer << Tr{} << "Form control type:" << field.form_control_type();
-  buffer << Tr{} << "Autocomplete attribute:" << field.autocomplete_attribute;
+  buffer << Tr{} << "Autocomplete attribute:" << field.autocomplete_attribute();
   buffer << Tr{} << "Parsed autocomplete attribute:"
-         << (field.parsed_autocomplete ? field.parsed_autocomplete->ToString()
-                                       : "");
-  buffer << Tr{} << "Aria label:" << field.aria_label;
-  buffer << Tr{} << "Aria description:" << field.aria_description;
-  buffer << Tr{} << "Section:" << field.section;
-  buffer << Tr{} << "Is focusable:" << field.is_focusable;
-  buffer << Tr{} << "Is enabled:" << field.is_enabled;
-  buffer << Tr{} << "Is readonly:" << field.is_readonly;
+         << (field.parsed_autocomplete()
+                 ? field.parsed_autocomplete()->ToString()
+                 : "");
+  buffer << Tr{} << "Aria label:" << field.aria_label();
+  buffer << Tr{} << "Aria description:" << field.aria_description();
+  buffer << Tr{} << "Section:" << field.section();
+  buffer << Tr{} << "Is focusable:" << field.is_focusable();
+  buffer << Tr{} << "Is enabled:" << field.is_enabled();
+  buffer << Tr{} << "Is readonly:" << field.is_readonly();
   buffer << Tr{} << "Is empty:" << (field.value().empty() ? "Yes" : "No");
   buffer << CTag{"table"};
   return buffer;

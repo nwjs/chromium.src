@@ -7,21 +7,38 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/strings/string_util.h"
+#include "components/affiliations/core/browser/affiliation_utils.h"
 
 namespace plus_addresses::test {
 
-PlusProfile CreatePlusProfile() {
-  return {.profile_id = "123",
-          .facet = "foo.com",
-          .plus_address = "plus+foo@plus.plus",
-          .is_confirmed = true};
+PlusProfile CreatePlusProfile(bool use_full_domain) {
+  PlusProfile::facet_t facet;
+  if (use_full_domain) {
+    facet = affiliations::FacetURI::FromCanonicalSpec("https://foo.com");
+  } else {
+    facet = "foo.com";
+  }
+  return PlusProfile(/*profile_id=*/"123", facet,
+                     /*plus_address=*/"plus+foo@plus.plus",
+                     /*is_confirmed=*/true);
 }
 
-PlusProfile CreatePlusProfile2() {
-  return {.profile_id = "234",
-          .facet = "bar.com",
-          .plus_address = "plus+bar@plus.plus",
-          .is_confirmed = true};
+PlusProfile CreatePlusProfile2(bool use_full_domain) {
+  PlusProfile::facet_t facet;
+  if (use_full_domain) {
+    facet = affiliations::FacetURI::FromCanonicalSpec("https://bar.com");
+  } else {
+    facet = "bar.com";
+  }
+  return PlusProfile(/*profile_id=*/"234", facet,
+                     /*plus_address=*/"plus+bar@plus.plus",
+                     /*is_confirmed=*/true);
+}
+
+PlusProfile CreatePlusProfileWithFacet(const affiliations::FacetURI& facet) {
+  PlusProfile profile = CreatePlusProfile();
+  profile.facet = facet;
+  return profile;
 }
 
 std::string MakeCreationResponse(const PlusProfile& profile) {
@@ -65,7 +82,9 @@ std::string MakePlusProfile(const PlusProfile& profile) {
             }
           }
         )",
-      {profile.profile_id, profile.facet, profile.plus_address, mode}, nullptr);
+      {profile.profile_id, absl::get<std::string>(profile.facet),
+       profile.plus_address, mode},
+      nullptr);
   DCHECK(base::JSONReader::Read(json));
   return json;
 }

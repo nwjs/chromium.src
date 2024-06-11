@@ -65,7 +65,7 @@ preferred language on the current system. Every string shown in the UI is
 translated.
 
 ### Bundle Installer
-TODO(crbug.com/1035895): Implement bundle installers.
+TODO(crbug.com/40664480): Implement bundle installers.
 
 The bundle installer allows installation of more than one application. The
 bundle installer is typically used in software distribution scenarios.
@@ -220,7 +220,7 @@ The final manifest looks as follows:
 ```
 
 ### MSI Wrapper
-TODO(crbug.com/1327497) - Implement and document.
+TODO(crbug.com/40841203) - Implement and document.
 
 ### Scope
 The updater is installed in one of the following modes (or scopes):
@@ -611,7 +611,7 @@ install. Legacy MSI installers read values such as the
 `LastInstallerResultUIString` from the `ClientState` key in the registry and
 display the string.
 
-TODO(crbug.com/1339454): Implement running installers at
+TODO(crbug.com/40229998): Implement running installers at
 BELOW_NORMAL_PRIORITY_CLASS if the update flow is a background flow.
 
 #### Updater UI behavior
@@ -803,16 +803,21 @@ the following parameters:
 ```
 
 ### Enterprise Enrollment
-The updater may be enrolled with a particular enterprise. Enrollment is
+The machine updater may be enrolled with a particular enterprise. Enrollment is
 coordinated with a device management server by means of an enrollment token and
 a device management token. The enrollment token is placed on the device by other
 programs or the enterprise administrator and serves as an indicator of which
-enterprise the device should attempt to enroll with. The updater sends the
-enrollment token, along with the device's machine name, os information, and
-(on Windows) BIOS serial number. If the server accepts the enrollment, it
-responds with a device-specific device management token, which is used in
-future requests to fetch device-specific policies from the device management
-server.
+enterprise the device should attempt to enroll with. On Windows platform,
+alternatively, an enrollment token can be tagged to the meta-installer by the
+key `etoken`. This is called runtime enrollment token and must be a GUID string.
+When the meta-installer runs, the tagged token is persisted to
+`CloudManagementEnrollmentToken` under registry key
+`{CLIENTSTATE}\{UpdaterAppID}`.  The updater searches the enrollment token from
+known places in order, sends it along with the device's machine name, os
+information, and (on Windows) BIOS serial number. If the server accepts the
+enrollment, it responds with a device-specific device management token, which is
+used in future requests to fetch device-specific policies from the device
+management server.
 
 By default, if enrollment fails, for example if the enrollment token is invalid
 or revoked, the updater will start in an unmanaged state. Instead, if you want
@@ -820,7 +825,8 @@ to prevent the updater from starting if enrollment fails, set
 `EnrollmentMandatory` to `1` (Windows only).
 
 After the updater sets itself up, the `FetchPolicies` RPC is invoked on the
-updater server to register with device management and fetch policies.
+updater server to register with device management and fetch policies. Concurrent
+calls of `FetchPolicies` will result in only a single policy fetch.
 
 The updater also checks for policy updates when the `RunPeriodicTasks` RPC is
 invoked at periodic intervals.
@@ -829,16 +835,23 @@ The maximum size of the token is 4K (Windows only).
 
 #### Windows
 The enrollment token is searched in the order:
-* The `EnrollmentToken` REG_BINARY value from
-  `HKLM\Software\Policies\{COMPANY_SHORTNAME}\CloudManagement`
-* The `CloudManagementEnrollmentToken` REG_BINARY value from
-  `HKLM\Software\Policies\{COMPANY_SHORTNAME}\{BROWSER_NAME}`
 
-The `EnrollmentMandatory` REG_DWORD value is also read from
+* The `EnrollmentToken` REG_SZ value from
+  `HKLM\Software\Policies\{COMPANY_SHORTNAME}\CloudManagement`
+* The `CloudManagementEnrollmentToken` REG_SZ value from
+  `HKLM\Software\Policies\{COMPANY_SHORTNAME}\{BROWSER_NAME}`
+* The `CloudManagementEnrollmentToken` REG_SZ value from
+  `{CLIENTSTATE}\{UpdaterAppID}` (the runtime enrollmen token)
+* The `CloudManagementEnrollmentToken` REG_SZ value from
+  `{CLIENTSTATE}\{430FD4D0-B729-4F61-AA34-91526481799D}` (the legacy runtime
+  enrollment token)
+
+The `EnrollmentMandatory` `REG_DWORD` value is also read from
 `HKLM\Software\Policies\{COMPANY_SHORTNAME}\CloudManagement`.
 
 #### macOS
 The enrollment token is searched in the order:
+
 * Managed Preference value with key `CloudManagementEnrollmentToken` in domain
  `{MAC_BROWSER_BUNDLE_IDENTIFIER}`.
 * Managed Preference value with key `EnrollmentToken` in domain
@@ -1175,7 +1188,7 @@ The updater accepts updates packaged as CRX₃ files. All files are signed with 
 publisher key. The corresponding public key is hardcoded into the updater.
 
 ### Differential Updates
-TODO(crbug.com/1331030): Implement and document differential update support.
+TODO(crbug.com/40227383): Implement and document differential update support.
 
 ### Update Timing
 The updater runs periodic tasks every hour, checking its own status, detecting
@@ -1684,6 +1697,12 @@ The updater uninstaller removes all updater files, registry keys, RPC hooks,
 scheduled tasks, and so forth from the system, except that:
 *   it leaves a small log file in its data directory.
 *   it leaves the Clients registry key in Windows registry.
+
+Inactive instances of the updater uninstall themselves (but not the updater
+overall) once the active version of the updater is higher than the inactive
+instance's version. Additionally, as part of its periodic tasks, the active
+updater will trigger the uninstallation of old instances of the updater and
+clean up any files they leak.
 
 ## Associated Tools
 

@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "build/build_config.h"
+#include "partition_alloc/build_config.h"
 #include "partition_alloc/partition_alloc_base/check.h"
 #include "partition_alloc/partition_alloc_base/logging.h"
 #include "partition_alloc/partition_alloc_base/threading/platform_thread_for_testing.h"
@@ -26,7 +26,7 @@
 #include <sys/resource.h>
 #endif
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_BUILDFLAG(USE_STARSCAN)
 #include "partition_alloc/stack/stack.h"
 #include "partition_alloc/starscan/pcscan.h"
 #endif
@@ -52,14 +52,14 @@ void* ThreadFunc(void* params) {
 
     delegate = thread_params->delegate;
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_BUILDFLAG(USE_STARSCAN)
     StackTopRegistry::Get().NotifyThreadCreated();
 #endif
   }
 
   delegate->ThreadMain();
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_BUILDFLAG(USE_STARSCAN)
   StackTopRegistry::Get().NotifyThreadDestroyed();
 #endif
 

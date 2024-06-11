@@ -677,7 +677,7 @@ void DownloadItemNotification::OnImageDecoded(const SkBitmap& decoded_bitmap) {
 
 void DownloadItemNotification::OnImageCropped(const SkBitmap& bitmap) {
   gfx::Image image = gfx::Image::CreateFrom1xBitmap(bitmap);
-  notification_->set_image(image);
+  notification_->SetImage(image);
 
 // Provide the file path that backs the image to facilitate notification drag.
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1004,14 +1004,12 @@ std::u16string DownloadItemNotification::GetWarningStatusString() const {
     }
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_LOCAL_PASSWORD_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING: {
-      // TODO(crbug.com/1491184): Implement UX for this danger type.
+      // TODO(crbug.com/40074456): Implement UX for this danger type.
       NOTREACHED();
       break;
     }
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_SCAN_FAILED: {
-      // TODO(b/327392327): Implement UX for this danger type.
-      NOTREACHED();
-      break;
+      return l10n_util::GetStringUTF16(IDS_PROMPT_DOWNLOAD_BLOCKED_SCAN_FAILED);
     }
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_FAILED:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE:

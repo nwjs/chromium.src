@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 """Definitions of builders in the tryserver.blink builder group."""
 
-load("//lib/builders.star", "cpu", "os", "reclient", "siso")
+load("//lib/builders.star", "cpu", "os", "reclient")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/branches.star", "branches")
 load("//lib/try.star", "try_")
@@ -17,13 +17,9 @@ try_.defaults.set(
     cores = 8,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
-    siso_project = siso.project.DEFAULT_UNTRUSTED,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 consoles.list_view(
@@ -74,9 +70,6 @@ try_.builder(
     main_list_view = "try",
 )
 
-# TODO(crbug.com/1474702): Once `chrome_wpt_tests` is on CQ/CI (`linux-rel` and
-# `Linux Tests`), remove `ci/linux-wpt-fyi-rel` and move its definition here.
-#
 # `linux-wpt-chromium-rel` (tests chrome) is distinct from `linux-blink-rel`
 # (tests content shell) to avoid coupling their build configurations.
 try_.builder(
@@ -87,10 +80,27 @@ Chrome.\
 """,
     mirrors = ["ci/linux-wpt-chromium-rel"],
     builder_config_settings = builder_config.try_settings(
-        retry_failed_shards = True,
+        retry_failed_shards = False,
     ),
     gn_args = "ci/linux-wpt-chromium-rel",
     os = os.LINUX_DEFAULT,
+    contact_team_email = "chrome-blink-engprod@google.com",
+    main_list_view = "try",
+)
+
+try_.builder(
+    name = "win10-wpt-chromium-rel",
+    description_html = """\
+Runs <a href="https://web-platform-tests.org">web platform tests</a> against
+Chrome.\
+""",
+    mirrors = ["ci/win10-wpt-chromium-rel"],
+    builder_config_settings = builder_config.try_settings(
+        retry_failed_shards = False,
+    ),
+    gn_args = "ci/win10-wpt-chromium-rel",
+    builderless = True,
+    os = os.WINDOWS_10,
     contact_team_email = "chrome-blink-engprod@google.com",
     main_list_view = "try",
 )
@@ -346,6 +356,8 @@ blink_mac_builder(
             "minimal_symbols",
         ],
     ),
+    cores = None,
+    cpu = cpu.ARM64,
 )
 
 blink_mac_builder(
@@ -373,8 +385,30 @@ blink_mac_builder(
             "reclient",
             "chrome_with_codecs",
             "minimal_symbols",
+            "x64",
         ],
     ),
+    cores = None,
+    cpu = cpu.ARM64,
+)
+
+try_.builder(
+    name = "mac13-wpt-chromium-rel",
+    description_html = """\
+Runs <a href="https://web-platform-tests.org">web platform tests</a> against
+Chrome.\
+""",
+    mirrors = ["ci/mac13-wpt-chromium-rel"],
+    builder_config_settings = builder_config.try_settings(
+        retry_failed_shards = False,
+    ),
+    gn_args = "ci/mac13-wpt-chromium-rel",
+    builderless = True,
+    cores = None,
+    os = os.MAC_ANY,
+    cpu = cpu.ARM64,
+    contact_team_email = "chrome-blink-engprod@google.com",
+    main_list_view = "try",
 )
 
 blink_mac_builder(
@@ -405,6 +439,8 @@ blink_mac_builder(
             "minimal_symbols",
         ],
     ),
+    cores = None,
+    cpu = cpu.ARM64,
 )
 
 blink_mac_builder(
@@ -465,8 +501,10 @@ blink_mac_builder(
             "reclient",
             "chrome_with_codecs",
             "minimal_symbols",
+            "x64",
         ],
     ),
+    cpu = cpu.ARM64,
     contact_team_email = "chrome-blink-engprod@google.com",
 )
 
@@ -501,5 +539,6 @@ blink_mac_builder(
             "minimal_symbols",
         ],
     ),
+    cpu = cpu.ARM64,
     contact_team_email = "chrome-blink-engprod@google.com",
 )

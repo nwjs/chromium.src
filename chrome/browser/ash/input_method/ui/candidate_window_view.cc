@@ -173,8 +173,9 @@ class InformationTextArea : public views::View {
   }
 
  protected:
-  gfx::Size CalculatePreferredSize() const override {
-    gfx::Size size = views::View::CalculatePreferredSize();
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
+    gfx::Size size = views::View::CalculatePreferredSize(available_size);
     size.SetToMax(gfx::Size(min_width_, 0));
     return size;
   }
@@ -189,7 +190,11 @@ BEGIN_METADATA(InformationTextArea)
 END_METADATA
 
 CandidateWindowView::CandidateWindowView(gfx::NativeView parent)
-    : selected_candidate_index_in_page_(-1) {
+    : views::BubbleDialogDelegateView(nullptr,
+                                      views::BubbleBorder::TOP_LEFT,
+                                      views::BubbleBorder::DIALOG_SHADOW,
+                                      true),
+      selected_candidate_index_in_page_(-1) {
   DialogDelegate::SetButtons(ui::DIALOG_BUTTON_NONE);
   SetCanActivate(false);
   DCHECK(parent);
@@ -255,10 +260,8 @@ void CandidateWindowView::OnThemeChanged() {
 }
 
 void CandidateWindowView::UpdateVisibility() {
-  if (candidate_area_->GetVisible() || auxiliary_text_->GetVisible() ||
-      preedit_->GetVisible()) {
-    SizeToContents();
-  } else {
+  if (!candidate_area_->GetVisible() && !auxiliary_text_->GetVisible() &&
+      !preedit_->GetVisible()) {
     GetWidget()->Close();
   }
 }

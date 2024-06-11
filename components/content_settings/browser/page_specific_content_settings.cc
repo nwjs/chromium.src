@@ -227,6 +227,12 @@ bool DelayUntilCommitIfNecessary(content::RenderFrameHost* rfh,
   return false;
 }
 
+bool IsThirdPartyCookieDetails(const content::CookieAccessDetails& details) {
+  return net::SchemefulSite(details.url) !=
+             net::SchemefulSite(details.first_party_url) ||
+         !details.site_for_cookies.IsFirstParty(details.url);
+}
+
 }  // namespace
 
 InflightNavigationContentSettings::InflightNavigationContentSettings(
@@ -997,13 +1003,16 @@ void PageSpecificContentSettings::OnCookiesAccessed(
   if (details.cookie_list.empty())
     return;
 
-  auto& model = details.blocked_by_policy ? blocked_browsing_data_model_
-                                          : allowed_browsing_data_model_;
+  bool blocked = details.blocked_by_policy;
+  auto& model =
+      blocked ? blocked_browsing_data_model_ : allowed_browsing_data_model_;
   for (const auto& cookie : details.cookie_list) {
     // The size isn't relevant here and won't be displayed in the UI.
     model->AddBrowsingData(cookie, BrowsingDataModel::StorageType::kCookie,
                            /*storage_size=*/0,
-                           /*cookie_count=*/1);
+                           /*cookie_count=*/1,
+                           /*blocked_third_party=*/
+                           (blocked && IsThirdPartyCookieDetails(details)));
   }
 
   if (details.blocked_by_policy) {
@@ -1058,7 +1067,7 @@ void PageSpecificContentSettings::OnInterestGroupJoined(
     const url::Origin& api_origin,
     bool blocked_by_policy) {
   if (blocked_by_policy) {
-    // TODO(crbug.com/1456641): Report the COOKIES content setting type as
+    // TODO(crbug.com/40066162): Report the COOKIES content setting type as
     // having been blocked when the UI is updated to better reflect site data.
     blocked_interest_group_api_.push_back(api_origin);
   } else {
@@ -1080,7 +1089,7 @@ void PageSpecificContentSettings::OnTopicAccessed(
     const url::Origin& api_origin,
     bool blocked_by_policy,
     privacy_sandbox::CanonicalTopic topic) {
-  // TODO(crbug.com/1286276): Add URL and Topic to local_shared_objects?
+  // TODO(crbug.com/40210776): Add URL and Topic to local_shared_objects?
   accessed_topics_.insert(topic);
   MaybeUpdateParent(&PageSpecificContentSettings::OnTopicAccessed, api_origin,
                     blocked_by_policy, topic);
@@ -1108,7 +1117,7 @@ void PageSpecificContentSettings::OnBrowsingDataAccessed(
   if (blocked) {
     // Reduce the set of items reported for block to things that are obviously
     // related to cookies, as that is the icon that is displayed.
-    // TODO(crbug.com/1456641): When the COOKIES content setting Omnibox entry
+    // TODO(crbug.com/40066162): When the COOKIES content setting Omnibox entry
     // correctly reflects site data, reconsider limiting the types.
     if (model->IsStorageTypeCookieLike(storage_type)) {
       OnContentBlocked(ContentSettingsType::COOKIES);
@@ -1431,7 +1440,7 @@ PageSpecificContentSettings::GetAccessedTopics() const {
   if (accessed_topics_.empty() &&
       privacy_sandbox::kPrivacySandboxSettings4ShowSampleDataForTesting.Get() &&
       page().GetMainDocument().GetLastCommittedURL().host() == "example.com") {
-    // TODO(crbug.com/1286276): Remove sample topic when API is ready.
+    // TODO(crbug.com/40210776): Remove sample topic when API is ready.
     return {privacy_sandbox::CanonicalTopic(browsing_topics::Topic(3),
                                             kTopicsAPISampleDataTaxonomy),
             privacy_sandbox::CanonicalTopic(browsing_topics::Topic(4),
@@ -1553,10 +1562,13 @@ void PageSpecificContentSettings::OnCapturingStateChangedInternal(
     // Camera and Microphone share the same activity indicator view. If one of
     // them is in use, reset a blocked state for another as we cannot display
     // in-use and blocked indicator at once.
+    // If permission is blocked on the system level, it should be reset as well
+    // as the in use indicator has higher priority.
     auto t = type == ContentSettingsType::MEDIASTREAM_CAMERA
                  ? ContentSettingsType::MEDIASTREAM_MIC
                  : ContentSettingsType::MEDIASTREAM_CAMERA;
-    if (media_blocked_indicator_timer_.contains(t)) {
+    if (media_blocked_indicator_timer_.contains(t) ||
+        delegate_->IsBlockedOnSystemLevel(t)) {
       ResetMediaBlockedState(t, /*update_indicators=*/false);
     }
   } else {

@@ -263,8 +263,9 @@ static_assert(
 // Feature to migrate the Media thread to a SequencedTaskRunner backed from
 // the base::ThreadPool. Does not currently work on Fuchsia due to FIDL
 // requiring thread affinity.
-BASE_DECLARE_FEATURE(kUseThreadPoolForMediaTaskRunner){
-    "UseThreadPoolForMediaTaskRunner", base::FEATURE_DISABLED_BY_DEFAULT};
+BASE_FEATURE(kUseThreadPoolForMediaTaskRunner,
+             "UseThreadPoolForMediaTaskRunner",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Updates the crash key for whether this renderer is foregrounded.
 void UpdateForegroundCrashKey(bool foreground) {
@@ -1587,7 +1588,7 @@ RenderThreadImpl::GetMediaSequencedTaskRunner() {
 #if BUILDFLAG(IS_FUCHSIA)
     // Start IO thread on Fuchsia to make that thread usable for FIDL.
     base::Thread::Options options(base::MessagePumpType::IO, 0);
-    // TODO(crbug.com/1400772): Use kCompositing to address media latency on
+    // TODO(crbug.com/40250424): Use kCompositing to address media latency on
     // Fuchsia until alignment on new media thread types is achieved.
     options.thread_type = base::ThreadType::kCompositing;
 #else

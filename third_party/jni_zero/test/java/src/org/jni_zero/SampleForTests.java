@@ -39,7 +39,7 @@ class SampleForTests {
 
     public void startExample() {
         // Calls C++ Init(...) method and holds a pointer to the C++ class.
-        mNativeCPPObject = SampleForTestsJni.get().init(this, "myParam", new byte[0], null);
+        mNativeCPPObject = SampleForTestsJni.get().init(this, "myParam", new byte[0], null, null);
     }
 
     public void doStuff() {
@@ -68,7 +68,7 @@ class SampleForTests {
     // Java_SampleForTests_javaMethod(JNIEnv* env, jobject caller, jint foo, jint bar)
     // Typically the C++ code would have obtained the jobject via the Init() call described above.
     @CalledByNative
-    public int javaMethod(int foo, int bar) {
+    public int javaMethod(int jcaller, int ret) {
         return 0;
     }
 
@@ -100,7 +100,7 @@ class SampleForTests {
     // Method signature with generics in params.
     @CalledByNative
     public void methodWithGenericParams(
-            Map<String, Map<String, String>> foo, LinkedList<Integer> bar) {}
+            Map<String, Map<String, String>> env, LinkedList<Integer> bar) {}
 
     // Constructors will be exported to C++ as:
     // Java_SampleForTests_Constructor(JNIEnv* env, jint foo, jint bar)
@@ -141,17 +141,19 @@ class SampleForTests {
 
     // The generator is not confused by @Annotated parameters.
     @CalledByNative
-    void javaMethodWithAnnotatedParam(
+    @JniType("std::vector<int32_t>")
+    int[] jniTypesAndAnnotations(
             @SomeAnnotation @JniType("MyEnum") int foo,
-            final @SomeAnnotation int bar,
+            final @SomeAnnotation @JniType("std::vector<int32_t>") int[] bar,
             @SomeAnnotation final int baz,
-            @SomeAnnotation @JniType("long") final @AnotherAnnotation long bat) {}
+            @SomeAnnotation @JniType("long") final @AnotherAnnotation long bat) {
+        return bar;
+    }
 
     // ---------------------------------------------------------------------------------------------
     // Java fields which are accessed from C++ code only must be annotated with @AccessedByNative to
     // prevent them being eliminated when unreferenced code is stripped.
-    @AccessedByNative
-    private int mJavaField;
+    @AccessedByNative private int mJavaField;
 
     // This "struct" will be created by the native side using |createInnerStructA|,
     // and used by the java-side somehow.
@@ -271,7 +273,8 @@ class SampleForTests {
                 SampleForTests caller,
                 String param,
                 @JniType("jni_zero::ByteArrayView") byte[] bytes,
-                @JniType("jni_zero::tests::CPPClass*") SampleForTests convertedType);
+                @JniType("jni_zero::tests::CPPClass*") SampleForTests convertedType,
+                @JniType("std::vector") SampleForTests[] nonConvertedArray);
 
         // This defines a function binding to the associated C++ class member function. The name is
         // derived from |nativeDestroy| and |nativeCPPClass| to arrive at CPPClass::Destroy() (i.e.
@@ -288,7 +291,7 @@ class SampleForTests {
         // This declares a C++ function which the application code must implement:
         // static jdouble GetDoubleFunction(JNIEnv* env, jobject caller);
         // The jobject parameter refers back to this java side object instance.
-        double getDoubleFunction(SampleForTests caller);
+        double getDoubleFunction(SampleForTests ret);
 
         // Similar to nativeGetDoubleFunction(), but here the C++ side will receive a jclass rather
         // than jobject param, as the function is declared static.
@@ -297,17 +300,17 @@ class SampleForTests {
         // This function takes a non-POD datatype. We have a list mapping them to their full
         // classpath in jni_generator.py JavaParamToJni. If you require a new datatype, make sure
         // you add to that function.
-        void setNonPODDatatype(SampleForTests caller, Rect rect);
+        void setNonPODDatatype(SampleForTests obj, Rect rect);
 
         // This declares a C++ function which the application code must implement:
         // static ScopedJavaLocalRef<jobject> GetNonPODDatatype(JNIEnv* env, jobject caller);
         // The jobject parameter refers back to this java side object instance.
         // Note that it returns a ScopedJavaLocalRef<jobject> so that you don' have to worry about
         // deleting the JNI local reference. This is similar with Strings and arrays.
-        Object getNonPODDatatype(SampleForTests caller);
+        Object getNonPODDatatype(SampleForTests jcaller);
 
         // Test jclass and jthrowable, as well as generics.
-        Class<Map<String, String>> getClass(Class<Map<String, String>> arg0);
+        Class<Map<String, String>> getClass(Class<Map<String, String>> env);
 
         Throwable getThrowable(Throwable arg0);
 

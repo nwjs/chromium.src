@@ -58,11 +58,6 @@ extern const char
 extern const char kAutofillEnableMerchantDomainInUnmaskCardRequestName[];
 extern const char kAutofillEnableMerchantDomainInUnmaskCardRequestDescription[];
 
-// Title and description for the flag to control whether the autofill payments
-// mandatory reauth feature is enabled.
-extern const char kAutofillEnablePaymentsMandatoryReauthName[];
-extern const char kAutofillEnablePaymentsMandatoryReauthDescription[];
-
 // Title and description for the flag to control the latency optimization where
 // the risk data pre-fetched during retrieval.
 extern const char kAutofillEnablePrefetchingRiskDataForRetrievalName[];
@@ -103,6 +98,10 @@ extern const char kAutofillEnableSupportForLandmarkDescription[];
 extern const char kAutofillEnableCardProductNameName[];
 extern const char kAutofillEnableCardProductNameDescription[];
 
+// Title and description for flag to enable Verve card support for autofill.
+extern const char kAutofillEnableVerveCardSupportName[];
+extern const char kAutofillEnableVerveCardSupportDescription[];
+
 // Title and description for flag to enable virtual card enrollment and
 // retrieval.
 extern const char kAutofillEnableVirtualCardsName[];
@@ -125,11 +124,6 @@ extern const char kAutofillPruneSuggestionsDescription[];
 // Title and description for the flag that makes the autofill infobars sticky.
 extern const char kAutofillStickyInfobarName[];
 extern const char kAutofillStickyInfobarDescription[];
-
-// Title and description for the flag to suggest Server card instead of a
-// deduped Local card.
-extern const char kAutofillSuggestServerCardInsteadOfLocalCardName[];
-extern const char kAutofillSuggestServerCardInsteadOfLocalCardDescription[];
 
 // Title and description for the flag to update GPay-related links in chrome
 // settings to GPay web instead of the legacy Payments Center.
@@ -181,6 +175,12 @@ extern const char kSpotlightDonateNewIntentsDescription[];
 // reports is delayed.
 extern const char kBreakpadNoDelayInitialUploadName[];
 extern const char kBreakpadNoDelayInitialUploadDescription[];
+
+// Title and description for the flag to enable the content notification
+// experiments. This is a kill switcher that guarded the
+// ContentPushNotifications feature.
+extern const char kContentNotificationExperimentName[];
+extern const char kContentNotificationExperimentDescription[];
 
 // Title and description for the flag to enable the content notifications
 // feature.
@@ -441,9 +441,10 @@ extern const char kFullscreenSmoothScrollingDescription[];
 extern const char kHttpsUpgradesName[];
 extern const char kHttpsUpgradesDescription[];
 
-// Title and description for the flag to enable revamped Incognito NTP page.
-extern const char kIncognitoNtpRevampName[];
-extern const char kIncognitoNtpRevampDescription[];
+// Title and description for the flag to enable account-switching UI when
+// tapping the identity disc on the New Tab page.
+extern const char kIdentityDiscAccountSwitchName[];
+extern const char kIdentityDiscAccountSwitchDescription[];
 
 // Title and description for the flag to indicate the identity error in
 // the overflow menu.
@@ -459,6 +460,11 @@ extern const char kInProductHelpDemoModeDescription[];
 // menu.
 extern const char kIOSBrowserEditMenuMetricsName[];
 extern const char kIOSBrowserEditMenuMetricsDescription[];
+
+// Title and description for the flag to enable detecting the username in the
+// username first flows for saving.
+extern const char kIOSDetectUsernameInUffName[];
+extern const char kIOSDetectUsernameInUffDescription[];
 
 // Title and description for the flag to enable the Docking Promo.
 extern const char kIOSDockingPromoName[];
@@ -476,10 +482,6 @@ extern const char kIOSEditMenuSearchWithDescription[];
 extern const char kIOSEditMenuHideSearchWebName[];
 extern const char kIOSEditMenuHideSearchWebDescription[];
 
-// Title and description for the flag to enable handling external action URLs.
-extern const char kIOSExternalActionURLsName[];
-extern const char kIOSExternalActionURLsDescription[];
-
 // Title and description for the flag to enable the keyboard accessory upgrade.
 extern const char kIOSKeyboardAccessoryUpgradeName[];
 extern const char kIOSKeyboardAccessoryUpgradeDescription[];
@@ -488,10 +490,6 @@ extern const char kIOSKeyboardAccessoryUpgradeDescription[];
 // Stack.
 extern const char kIOSMagicStackCollectionViewName[];
 extern const char kIOSMagicStackCollectionViewDescription[];
-
-// Title and description for the flag to enable parcel tracking.
-extern const char kIOSParcelTrackingName[];
-extern const char kIOSParcelTrackingDescription[];
 
 // Title and description for the flag to require Local Authentication before
 // accessing the any of the Password Manager surfaces.
@@ -516,6 +514,10 @@ extern const char kSyncWebauthnCredentialsDescription[];
 // username forms in sign-in UFF.
 extern const char kIOSPasswordSignInUffName[];
 extern const char kIOSPasswordSignInUffDescription[];
+
+// Title and description for the flag to enable iOS Quick Delete feature.
+extern const char kIOSQuickDeleteName[];
+extern const char kIOSQuickDeleteDescription[];
 
 // Title and description for the flag to enable the Save to Drive feature.
 extern const char kIOSSaveToDriveName[];
@@ -571,6 +573,11 @@ extern const char kIPHiOSSwipeToolbarToChangeTabFeatureDescription[];
 extern const char kIPHiOSTabGridSwipeRightForIncognitoName[];
 extern const char kIPHiOSTabGridSwipeRightForIncognitoDescription[];
 
+// Title and description for the flag to enable the Lens web page early
+// transition.
+extern const char kLensWebPageEarlyTransitionEnabledName[];
+extern const char kLensWebPageEarlyTransitionEnabledDescription[];
+
 // Title and description for the flag to add Linked Services Setting to the Sync
 // Settings page.
 extern const char kLinkedServicesSettingIosName[];
@@ -600,7 +607,7 @@ extern const char kMetrickitNonCrashReportDescription[];
 extern const char kMigrateSyncingUserToSignedInName[];
 extern const char kMigrateSyncingUserToSignedInDescription[];
 
-// TODO(crbug.com/1128242): Remove this flag after the refactoring work is
+// TODO(crbug.com/40148908): Remove this flag after the refactoring work is
 // finished.
 // Title and description for the flag used to test the newly
 // implemented tabstrip.
@@ -625,9 +632,13 @@ extern const char kOverflowMenuCustomizationName[];
 extern const char kOverflowMenuCustomizationDescription[];
 
 // Title and description for temporary bug fix to broken NTP view hierarhy.
-// TODO(crbug.com/1262536): Remove this when fixed.
+// TODO(crbug.com/40799579): Remove this when fixed.
 extern const char kNTPViewHierarchyRepairName[];
 extern const char kNTPViewHierarchyRepairDescription[];
+
+// Title and description for the flag to enable actions in suggest.
+extern const char kOmniboxActionsInSuggestName[];
+extern const char kOmniboxActionsInSuggestDescription[];
 
 // Title and description for the flag to possibly remove company entity images.
 extern const char kOmniboxCompanyEntityIconAdjustmentName[];
@@ -837,10 +848,21 @@ extern const char kSafetyCheckMagicStackDescription[];
 extern const char kScreenTimeIntegrationName[];
 extern const char kScreenTimeIntegrationDescription[];
 
+// Title and description for the flag to enable caching Segmentation ranking for
+// the Home Magic Stack on Start.
+extern const char kSegmentationPlatformIosModuleRankerCachingName[];
+extern const char kSegmentationPlatformIosModuleRankerCachingDescription[];
+
 // Title and description for the flag to enable Segmentation ranking for the
 // Home Magic Stack.
 extern const char kSegmentationPlatformIosModuleRankerName[];
 extern const char kSegmentationPlatformIosModuleRankerDescription[];
+
+// Title and description for the flag to enable Segmentation ranking for the
+// Home Magic Stack split between Start and NTP.
+extern const char kSegmentationPlatformIosModuleRankerSplitBySurfaceName[];
+extern const char
+    kSegmentationPlatformIosModuleRankerSplitBySurfaceDescription[];
 
 // Title and description for the flag to send UMA data over any network.
 extern const char kSendUmaOverAnyNetwork[];
@@ -873,11 +895,6 @@ extern const char kSpotlightReadingListSourceDescription[];
 extern const char kStartSurfaceName[];
 extern const char kStartSurfaceDescription[];
 
-// Title and description for the flag to control if custom passphrase should be
-// remembered after sign-out.
-extern const char kSyncRememberCustomPassphraseAfterSignoutName[];
-extern const char kSyncRememberCustomPassphraseAfterSignoutDescription[];
-
 // Title and description for the flag to control if Chrome Sync should use the
 // sandbox servers.
 extern const char kSyncSandboxName[];
@@ -893,6 +910,11 @@ extern const char kSyncSessionOnVisibilityChangedDescription[];
 extern const char kSyncSegmentsDataName[];
 extern const char kSyncSegmentsDataDescription[];
 
+// Title and description for the flag to control if tab groups are synced with
+// other syncing devices.
+extern const char kTabGroupSync[];
+extern const char kTabGroupSyncDescription[];
+
 // Title and description for the flag to enable TFLite for language detection.
 extern const char kTFLiteLanguageDetectionName[];
 extern const char kTFLiteLanguageDetectionDescription[];
@@ -906,11 +928,6 @@ extern const char kTFLiteLanguageDetectionIgnoreDescription[];
 // top toolbar.
 extern const char kThemeColorInTopToolbarName[];
 extern const char kThemeColorInTopToolbarDescription[];
-
-// Title and description for the flag to enable the iOS Hide Feed with Search
-// Choice feature.
-extern const char kIOSHideFeedWithSearchChoiceName[];
-extern const char kIOSHideFeedWithSearchChoiceDescription[];
 
 // Title and description for the flag to enable the iOS Large Fakebox feature
 extern const char kIOSLargeFakeboxName[];
@@ -979,12 +996,6 @@ extern const char kUndoMigrationOfSyncingUserToSignedInDescription[];
 // BookmarkModel instance per BrowserState (instead of having two).
 extern const char kUnifiedBookmarkModelName[];
 extern const char kUnifiedBookmarkModelDescription[];
-
-// Title and description for the flag to enable using the
-// loadSimulatedRequest:responseHTMLString: API for displaying error pages in
-// CRWWKNavigationHandler.
-extern const char kUseLoadSimulatedRequestForOfflinePageName[];
-extern const char kUseLoadSimulatedRequestForOfflinePageDescription[];
 
 // Title and description for the flag to control the maximum wait time (in
 // seconds) for a response from the Account Capabilities API.

@@ -263,6 +263,10 @@ public final class ChromePreferenceKeys {
 
     public static final String HISTORY_SHOW_HISTORY_INFO = "history_home_show_info";
 
+    /** Whether the app-specific history info text was already seen by users. */
+    public static final String HISTORY_APP_SPECIFIC_INFO_SEEN =
+            "Chrome.History.AppSpecificInfoSeen";
+
     /** Keys used to save settings related to homepage. */
     public static final String DEPRECATED_HOMEPAGE_CUSTOM_URI = "homepage_custom_uri";
 
@@ -535,6 +539,14 @@ public final class ChromePreferenceKeys {
             new KeyPrefix("Chrome.HomeModules.FreshnessCount.*");
 
     /**
+     * The timestamp of the last time when a freshness store was logged for the module type. The
+     * number at the end should be consistent with {@link
+     * org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType}
+     */
+    public static final KeyPrefix HOME_MODULES_FRESHNESS_TIMESTAMP_MS =
+            new KeyPrefix("Chrome.HomeModules.FreshnessScoreTimeStamp.*");
+
+    /**
      * Save the timestamp of the last time that we record metrics on whether user enables the price
      * tracking annotations.
      */
@@ -753,15 +765,15 @@ public final class ChromePreferenceKeys {
     public static final String SIGNIN_PROMO_BOOKMARKS_DECLINED = "signin_promo_bookmarks_declined";
 
     /**
-     * Whether the user dismissed the personalized sign in promo from the Settings.
-     * Default value is false.
+     * Whether the user dismissed the personalized sign in promo from the Settings. Default value is
+     * false.
      */
     public static final String SIGNIN_PROMO_SETTINGS_PERSONALIZED_DISMISSED =
             "settings_personalized_signin_promo_dismissed";
 
-    // TODO(https://crbug.com/1091858): Remove this after migrating the legacy code that uses
-    //                                  the sync account before the native is loaded.
-    public static final String SIGNIN_LEGACY_SYNC_ACCOUNT_EMAIL = "google.services.username";
+    // TODO(crbug.com/40697988): Remove this after migrating the legacy code that uses
+    //                                  the primary account before the native is loaded.
+    public static final String SIGNIN_LEGACY_PRIMARY_ACCOUNT_EMAIL = "google.services.username";
 
     public static final String SNAPSHOT_DATABASE_REMOVED = "snapshot_database_removed";
 
@@ -934,8 +946,10 @@ public final class ChromePreferenceKeys {
                 EXPLORE_OFFLINE_CONTENT_AVAILABILITY_STATUS,
                 FIRST_RUN_SKIPPED_BY_POLICY,
                 FLAGS_LAST_CACHED_MINIMAL_BROWSER_FLAGS_TIME_MILLIS,
+                HISTORY_APP_SPECIFIC_INFO_SEEN,
                 HOME_MODULES_MODULE_TYPE.pattern(),
                 HOME_MODULES_FRESHNESS_COUNT.pattern(),
+                HOME_MODULES_FRESHNESS_TIMESTAMP_MS.pattern(),
                 HOMEPAGE_CUSTOM_GURL,
                 HOMEPAGE_LOCATION_POLICY_GURL,
                 HOMEPAGE_USE_CHROME_NTP,

@@ -3,10 +3,10 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/ui/settings/password/password_manager_view_controller.h"
-#import "ios/chrome/browser/ui/settings/password/password_manager_view_controller+Testing.h"
 
 #import "base/apple/foundation_util.h"
 #import "base/functional/bind.h"
+#import "base/location.h"
 #import "base/strings/string_piece.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
@@ -40,6 +40,7 @@
 #import "ios/chrome/browser/ui/settings/cells/inline_promo_cell.h"
 #import "ios/chrome/browser/ui/settings/cells/inline_promo_item.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_check_item.h"
+#import "ios/chrome/browser/ui/settings/password/password_manager_view_controller+Testing.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_consumer.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_mediator.h"
 #import "ios/chrome/browser/ui/settings/password/passwords_settings_commands.h"
@@ -66,7 +67,7 @@ using password_manager::PasswordForm;
 using password_manager::TestPasswordStore;
 using ::testing::Return;
 
-// TODO(crbug.com/1324555): Remove this double and uses TestSyncUserSettings
+// TODO(crbug.com/40839348): Remove this double and uses TestSyncUserSettings
 @interface TestPasswordsMediator : PasswordsMediator
 
 @property(nonatomic) OnDeviceEncryptionState encryptionState;
@@ -1200,7 +1201,7 @@ TEST_F(PasswordManagerViewControllerTest, PasswordStoreListener) {
 
   auto password =
       GetTestStore().stored_passwords().at("http://www.example.com/").at(0);
-  GetTestStore().RemoveLogin(password);
+  GetTestStore().RemoveLogin(FROM_HERE, password);
   RunUntilIdle();
   EXPECT_EQ(1, NumberOfItemsInSection(
                    GetSectionIndex(SectionIdentifierSavedPasswords)));
@@ -1220,7 +1221,7 @@ TEST_F(PasswordManagerViewControllerTest, WidgetPromo) {
   InlinePromoItem* item = static_cast<InlinePromoItem*>(
       GetTableViewItem(GetSectionIndex(SectionIdentifierWidgetPromo), 0));
 
-  EXPECT_NSEQ(item.promoImage, [UIImage imageNamed:kWidgetPromoImageName]);
+  EXPECT_NSEQ(item.promoImage, [UIImage imageNamed:WidgetPromoImageName()]);
   EXPECT_NSEQ(item.promoText, l10n_util::GetNSString(
                                   IDS_IOS_PASSWORD_MANAGER_WIDGET_PROMO_TEXT));
   EXPECT_NSEQ(item.moreInfoButtonTitle,
@@ -1233,7 +1234,7 @@ TEST_F(PasswordManagerViewControllerTest, WidgetPromo) {
   SetEditing(true);
   EXPECT_FALSE(item.enabled);
   EXPECT_NSEQ(item.promoImage,
-              [UIImage imageNamed:kWidgetPromoDisabledImageName]);
+              [UIImage imageNamed:WidgetPromoDisabledImageName()]);
   SetEditing(false);
 
   [GetPasswordManagerViewController() settingsWillBeDismissed];

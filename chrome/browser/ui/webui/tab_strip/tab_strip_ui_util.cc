@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/strings/string_number_conversions.h"
@@ -95,8 +96,8 @@ bool IsDraggedTab(const ui::OSExchangeData& drop_data) {
   }
 
   for (uint32_t i = 0; i < entry_count; ++i) {
-    base::StringPiece16 type;
-    base::StringPiece16 data;
+    std::u16string_view type;
+    std::u16string_view data;
     if (!iter.ReadStringPiece16(&type) || !iter.ReadStringPiece16(&data)) {
       return false;
     }
@@ -127,7 +128,7 @@ bool DropTabsInNewBrowser(Browser* new_browser,
   gfx::Range tab_indices_to_move;
   std::optional<tab_groups::TabGroupId> source_group_id;
 
-  // TODO(https://crbug.com/1069869): de-duplicate with
+  // TODO(crbug.com/40126106): de-duplicate with
   // TabStripUIHandler::HandleMoveTab and
   // TabStripUIHandler::HandleMoveGroup.
 

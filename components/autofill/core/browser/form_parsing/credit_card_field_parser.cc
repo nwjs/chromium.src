@@ -293,8 +293,9 @@ bool CreditCardFieldParser::LikelyCardMonthSelectField(
     return false;
   }
 
-  if (field->options.size() < 12 || field->options.size() > 13)
+  if (field->options().size() < 12 || field->options().size() > 13) {
     return false;
+  }
 
   auto matches_december = [](const SelectOption& option) {
     static constexpr char16_t kNumericalDecemberRe[] = u"12";
@@ -308,8 +309,8 @@ bool CreditCardFieldParser::LikelyCardMonthSelectField(
            MatchesRegex<kNumericalYearRe>(option.content);
   };
   // If in doubt, return false.
-  return matches_december(field->options.back()) &&
-         !base::ranges::any_of(field->options, matches_year);
+  return matches_december(field->options().back()) &&
+         !base::ranges::any_of(field->options(), matches_year);
 }
 
 // static
@@ -333,8 +334,9 @@ bool CreditCardFieldParser::LikelyCardYearSelectField(
     static constexpr char16_t kSingleDigitDateRe[] = u"\\b[1-9]\\b";
     return MatchesRegex<kSingleDigitDateRe>(option.content);
   };
-  if (base::ranges::any_of(field->options, matches_single_digit_date))
+  if (base::ranges::any_of(field->options(), matches_single_digit_date)) {
     return false;
+  }
 
   // Another way to eliminate days - filter out 'day' fields.
   base::span<const MatchPatternRef> day_patterns =
@@ -353,8 +355,9 @@ bool CreditCardFieldParser::LikelyCardYearSelectField(
     static constexpr char16_t kBirthYearRe[] = u"(1999|99)";
     return MatchesRegex<kBirthYearRe>(option.content);
   };
-  if (base::ranges::any_of(field->options, matches_birth_year))
+  if (base::ranges::any_of(field->options(), matches_birth_year)) {
     return false;
+  }
 
   // Test if three consecutive items in `field->options` mention three
   // consecutive year dates.
@@ -379,15 +382,15 @@ bool CreditCardFieldParser::LikelyCardYearSelectField(
     // While 23 is a valid expiration year, the selector is not a expiration
     // year selector. In case we find a single-digit entry, we reject this as
     // an expiration year selector.
-    if (base::Contains(field->options, u"2", option_projection)) {
+    if (base::Contains(field->options(), u"2", option_projection)) {
       return false;
     }
     auto is_substring = [](std::u16string_view option,
                            std::u16string_view year_needle) {
       return option.find(year_needle) != std::u16string_view::npos;
     };
-    return base::ranges::search(field->options, year_needles, is_substring,
-                                option_projection) != field->options.end();
+    return base::ranges::search(field->options(), year_needles, is_substring,
+                                option_projection) != field->options().end();
   };
   return OptionsContain(years_to_check_2_digit, &SelectOption::value) ||
          OptionsContain(years_to_check_2_digit, &SelectOption::content);
@@ -412,10 +415,10 @@ bool CreditCardFieldParser::LikelyCardTypeSelectField(
   // a pretty common mistake; e.g., "Master card" instead of "Mastercard".
   bool isSelect = (FindShortestSubstringMatchInSelect(
                        l10n_util::GetStringUTF16(IDS_AUTOFILL_CC_VISA), true,
-                       field->options) >= 0) ||
+                       field->options()) >= 0) ||
                   (FindShortestSubstringMatchInSelect(
                        l10n_util::GetStringUTF16(IDS_AUTOFILL_CC_MASTERCARD),
-                       true, field->options) >= 0);
+                       true, field->options()) >= 0);
   return isSelect;
 }
 
@@ -614,7 +617,7 @@ bool CreditCardFieldParser::ParseExpirationDate(ParsingContext& context,
   scanner->RewindTo(month_year_saved_cursor);
 
   // Bail out if the field cannot fit a 2-digit year expiration date.
-  const uint64_t current_field_max_length = scanner->Cursor()->max_length;
+  const uint64_t current_field_max_length = scanner->Cursor()->max_length();
   if (!FieldCanFitDataForFieldType(current_field_max_length,
                                    CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR))
     return false;
@@ -683,22 +686,22 @@ FieldType CreditCardFieldParser::DetermineExpirationYearType(
 
   // For text fields, look for placeholder patterns.
   if (field.IsTextInputElement()) {
-    if (field.max_length == 2) {
+    if (field.max_length() == 2) {
       return CREDIT_CARD_EXP_2_DIGIT_YEAR;
     }
     // If you add new languages, also update other places labeled with
     // [EXP_DATE_FORMAT].
     static constexpr char16_t kYYYYRegex[] = u"yyyy|aaaa|jjjj";
-    if (MatchesRegex<kYYYYRegex>(field.placeholder, nullptr) ||
-        MatchesRegex<kYYYYRegex>(field.label, nullptr)) {
+    if (MatchesRegex<kYYYYRegex>(field.placeholder(), nullptr) ||
+        MatchesRegex<kYYYYRegex>(field.label(), nullptr)) {
       return CREDIT_CARD_EXP_4_DIGIT_YEAR;
     }
     static constexpr char16_t kYYRegex[] = u"yy|aa|jj";
-    if (MatchesRegex<kYYRegex>(field.placeholder, nullptr) ||
-        MatchesRegex<kYYRegex>(field.label, nullptr)) {
+    if (MatchesRegex<kYYRegex>(field.placeholder(), nullptr) ||
+        MatchesRegex<kYYRegex>(field.label(), nullptr)) {
       return CREDIT_CARD_EXP_2_DIGIT_YEAR;
     }
-    if (field.max_length == 4) {
+    if (field.max_length() == 4) {
       return CREDIT_CARD_EXP_4_DIGIT_YEAR;
     }
   }
@@ -716,13 +719,14 @@ FieldType CreditCardFieldParser::DetermineExpirationYearType(
     // While 23 is a valid expiration year, the selector is not a expiration
     // year selector. In case we find a single-digit entry, we reject this as
     // an expiration year selector.
-    if (base::Contains(field.options, u"2", option_projection)) {
+    if (base::Contains(field.options(), u"2", option_projection)) {
       return false;
     }
     auto is_substring = [&year_needle](std::u16string_view option) {
       return option.find(year_needle) != std::u16string_view::npos;
     };
-    return base::ranges::any_of(field.options, is_substring, option_projection);
+    return base::ranges::any_of(field.options(), is_substring,
+                                option_projection);
   };
   if (field.IsSelectOrSelectListElement()) {
     base::Time::Exploded time_exploded;
@@ -776,8 +780,8 @@ FieldType CreditCardFieldParser::GetExpirationYearType() const {
         /*server_hint=*/NO_SERVER_DATA,
         /*forced_field_type=*/NO_SERVER_DATA);
   }
-  return expiration_year_->max_length == 2 ? CREDIT_CARD_EXP_2_DIGIT_YEAR
-                                           : CREDIT_CARD_EXP_4_DIGIT_YEAR;
+  return expiration_year_->max_length() == 2 ? CREDIT_CARD_EXP_2_DIGIT_YEAR
+                                             : CREDIT_CARD_EXP_4_DIGIT_YEAR;
 }
 
 bool CreditCardFieldParser::HasExpiration() const {
@@ -810,14 +814,14 @@ CreditCardFieldParser::DetermineExpirationDateFormat(
     //           ^^^^^ opt separator
     //                ^^^ opt white space
     //                       ^^^^^^^^^^^^^^ year
-    matches = MatchesRegex<kFormatRegex>(field.placeholder, &groups) ||
-              MatchesRegex<kFormatRegex>(field.label, &groups);
+    matches = MatchesRegex<kFormatRegex>(field.placeholder(), &groups) ||
+              MatchesRegex<kFormatRegex>(field.label(), &groups);
     // Support "--/--" and "--/----" as recognized placeholders.
     if (!matches) {
       static constexpr char16_t kFormatRegEx2[] =
           u"(?:--|__)(\\s?/\\s?)(-{2,4}|_{2,4})";
-      matches = MatchesRegex<kFormatRegEx2>(field.placeholder, &groups) ||
-                MatchesRegex<kFormatRegEx2>(field.label, &groups);
+      matches = MatchesRegex<kFormatRegEx2>(field.placeholder(), &groups) ||
+                MatchesRegex<kFormatRegEx2>(field.label(), &groups);
     }
   } else {
     static constexpr char16_t kFormatRegEx[] = u"mm(\\s?[/-]?\\s?)?(y{2,4})";
@@ -825,8 +829,8 @@ CreditCardFieldParser::DetermineExpirationDateFormat(
     //                                                  ^^^^^ opt separator
     //                                                       ^^^ opt white space
     //                                                         year ^^^^^^^
-    matches = MatchesRegex<kFormatRegEx>(field.placeholder, &groups) ||
-              MatchesRegex<kFormatRegEx>(field.label, &groups);
+    matches = MatchesRegex<kFormatRegEx>(field.placeholder(), &groups) ||
+              MatchesRegex<kFormatRegEx>(field.label(), &groups);
   }
 
   // Build a list of separator candidates from the regular expression sorted
@@ -884,7 +888,7 @@ CreditCardFieldParser::DetermineExpirationDateFormat(
   for (uint8_t year_length : year_length_candidates) {
     for (const std::u16string& separator : separator_candidates) {
       uint8_t candidate_size = kMonthLength + separator.length() + year_length;
-      if (field.max_length == 0 || candidate_size <= field.max_length) {
+      if (field.max_length() == 0 || candidate_size <= field.max_length()) {
         return {separator, year_length};
       }
     }
@@ -892,7 +896,7 @@ CreditCardFieldParser::DetermineExpirationDateFormat(
 
   // Now use to the `field.max_length` attribute to guess an appropriate
   // format.
-  switch (field.max_length) {
+  switch (field.max_length()) {
     case 1:
     case 2:
     case 3:

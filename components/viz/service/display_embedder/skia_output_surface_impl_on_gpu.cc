@@ -511,7 +511,7 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame(
       cache_use.emplace(dependency_->GetGrShaderCache(),
                         gpu::kDisplayCompositorClientId);
     }
-    // TODO(crbug.com/1434131): Implement resource cleanup for Graphite.
+    // TODO(crbug.com/40264581): Implement resource cleanup for Graphite.
     dependency_->ScheduleGrContextCleanup();
 
     std::vector<GrBackendSemaphore> begin_semaphores;
@@ -675,7 +675,7 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass(
 
   std::optional<gpu::raster::GrShaderCache::ScopedCacheUse> cache_use;
   if (gr_context() && dependency_->GetGrShaderCache()) {
-    // TODO(crbug.com/1434131): Implement pipeline caching for Graphite.
+    // TODO(crbug.com/40264581): Implement pipeline caching for Graphite.
     cache_use.emplace(dependency_->GetGrShaderCache(),
                       gpu::kDisplayCompositorClientId);
   }
@@ -826,7 +826,6 @@ SkiaOutputSurfaceImplOnGpu::CreateSharedImageRepresentationSkia(
   // of clients' eventual allowed usages. Note that CopyOutputRequests are not
   // writable via raster or GLES2 (by contract).
   constexpr uint32_t kUsage = gpu::SHARED_IMAGE_USAGE_GLES2_READ |
-                              gpu::SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
                               gpu::SHARED_IMAGE_USAGE_RASTER_READ |
                               gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
                               gpu::SHARED_IMAGE_USAGE_DISPLAY_WRITE;
@@ -1977,9 +1976,9 @@ void SkiaOutputSurfaceImplOnGpu::BeginAccessImages(
     }
 
     // Prepare for accessing render pass.
-    context->BeginAccessIfNecessary(
-        context_state_.get(), shared_image_representation_factory_.get(),
-        dependency_->GetMailboxManager(), begin_semaphores, end_semaphores);
+    context->BeginAccessIfNecessary(context_state_.get(),
+                                    shared_image_representation_factory_.get(),
+                                    begin_semaphores, end_semaphores);
     if (context->HasAccessEndState()) {
       image_contexts_to_apply_end_state_.emplace(context);
     }
@@ -2935,7 +2934,8 @@ void SkiaOutputSurfaceImplOnGpu::DetileOverlay(
     const gfx::RectF& crop_rect,
     gfx::OverlayTransform transform) {
   if (!vulkan_image_processor_) {
-    vulkan_image_processor_ = media::VulkanImageProcessor::Create();
+    vulkan_image_processor_ =
+        media::VulkanImageProcessor::Create(/*is_protected=*/true);
   }
 
   // Note that we don't want to get the device queue from the

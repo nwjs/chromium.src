@@ -28,7 +28,6 @@
 #include "gpu/command_buffer/service/error_state.h"
 #include "gpu/command_buffer/service/feature_info.h"
 #include "gpu/command_buffer/service/framebuffer_manager.h"
-#include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/memory_tracking.h"
 #include "gpu/command_buffer/service/service_discardable_manager.h"
 #include "ui/gl/gl_context.h"
@@ -499,7 +498,6 @@ TexturePassthrough::TexturePassthrough(GLuint service_id, GLenum target)
 }
 
 TexturePassthrough::~TexturePassthrough() {
-  DeleteFromMailboxManager();
   if (have_context_) {
     glDeleteTextures(1, &owned_service_id_);
   }
@@ -539,9 +537,7 @@ Texture::Texture(GLuint service_id)
     : TextureBase(service_id),
       owned_service_id_(service_id) {}
 
-Texture::~Texture() {
-  DeleteFromMailboxManager();
-}
+Texture::~Texture() = default;
 
 void Texture::AddTextureRef(TextureRef* ref) {
   DCHECK(!base::Contains(refs_, ref));

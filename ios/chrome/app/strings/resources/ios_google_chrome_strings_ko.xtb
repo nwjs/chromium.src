@@ -4,7 +4,6 @@
 <translation id="1021782183249308751">Chrome 아이콘을 길게 누른 후 'Edit Home Screen'(홈 화면 편집) 클릭</translation>
 <translation id="1066101356081285416">Chrome은 사용자가 방문한 사이트에서 운송장 번호를 감지하여 새 탭 페이지에 배송 현황을 표시합니다. 이 기능을 제공하고 모든 사용자를 위해 Google 쇼핑 기능을 개선하기 위해 운송장 번호와 웹사이트 이름이 Google로 전송됩니다. <ph name="BEGIN_LINK" />배송 추적 설정<ph name="END_LINK" />에서 언제든지 업데이트할 수 있습니다.</translation>
 <translation id="1085696779717592361">Chrome을 기본 브라우저로 사용</translation>
-<translation id="1105362920864247682">Chrome에서 인터넷 사용 기록을 삭제합니다.</translation>
 <translation id="1143896152279775643">비밀번호가 <ph name="EMAIL" />의 Google 비밀번호 관리자에 저장됩니다.</translation>
 <translation id="1177414119866731261">Chrome 메뉴 열기</translation>
 <translation id="1180362651362502943">Google 계정의 Chrome 데이터를 계속 사용하세요.</translation>
@@ -76,8 +75,6 @@
 <translation id="2736805085127235148">현재 기기 설정에서 Chrome 알림이 사용 중지되어 있습니다.</translation>
 <translation id="2750626042242931740">Chrome 설정에서 언제든지 선택사항을 업데이트할 수 있습니다</translation>
 <translation id="2767464022270041271">저장된 비밀번호가 없습니다. 비밀번호를 저장하면 Google 비밀번호 관리자에서 확인할 수 있습니다.</translation>
-<translation id="2789947168960170215">암호가 기억나지 않거나 이 설정을 변경하려면 <ph name="BEGIN_LINK" />계정에서 Chrome 데이터를 삭제<ph name="END_LINK" />하세요.</translation>
-<translation id="2868822340714096138">Chrome에서 인터넷 사용 기록 삭제</translation>
 <translation id="2869959624320573933">Chrome에 로그인</translation>
 <translation id="2876628302275096482"><ph name="BEGIN_LINK" />Chrome에서 데이터를 비공개로 유지하는 방법<ph name="END_LINK" /> 자세히 알아보기</translation>
 <translation id="2952581218264071393">1. Chrome 설정 열기</translation>
@@ -97,7 +94,6 @@
 <translation id="3472587960215700950">Chrome에서 Google 지도를 사용하여 감지된 주소의 경로 및 지역 정보를 제공합니다.</translation>
 <translation id="3503014945441706099">이 Chrome 프로필에 향상된 세이프 브라우징도 사용해 보세요.</translation>
 <translation id="3522659714780527202">Chrome을 사용하는 어느 곳에서나 탭을 확인하려면 동기화를 사용 설정하세요.</translation>
-<translation id="3577555362230509265">다른 앱에서 Chrome을 사용합니다.</translation>
 <translation id="364480321352456989">Chrome이 최신 버전이 아닙니다.</translation>
 <translation id="3646736009628185125">가족 구성원이 비밀번호를 바로 받을 수 없습니다. Chrome을 업데이트하고 비밀번호를 동기화하도록 요청하세요. <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="3655656110921623717">Chrome에서 모바일 사이트를 매번 요청함을 의미합니다</translation>
@@ -120,10 +116,12 @@
 <translation id="417201473131094001">Chrome Canary에서 지원되지 않습니다.</translation>
 <translation id="424864128008805179">Chrome에서 로그아웃하시겠습니까?</translation>
 <translation id="4251174643044751591">Chrome에서 결제 수단 설정 페이지를 엽니다.</translation>
+<translation id="4286914711740227883">Chrome에서 인터넷 사용 기록 삭제</translation>
 <translation id="4453284704333523777">Chrome 설정 관리</translation>
 <translation id="4523886039239821078">일부 부가기능이 Chrome을 비정상 종료시킵니다. 다음 항목을 제거하세요.</translation>
 <translation id="4633328489441962921">Chrome에서 업데이트를 확인할 수 없습니다.</translation>
 <translation id="4636900170638246267">이 사이트 및 Chrome에 로그인하세요.</translation>
+<translation id="4742795653798179840">Chrome 데이터 삭제됨</translation>
 <translation id="4761869838909035636">Chrome 안전 확인 실행</translation>
 <translation id="4798859546468762093">맞춤설정 및 기타 기능을 사용하려면 <ph name="FEATURE_NAME_1" /> 그리고 <ph name="FEATURE_NAME_2" />에 Chrome을 포함하세요.</translation>
 <translation id="4819268619367838612">앱 개선을 위해 Chrome에서 사용 통계 및 비정상 종료 데이터를 Google에 전송합니다. <ph name="BEGIN_LINK" />관리<ph name="END_LINK" /></translation>
@@ -134,6 +132,7 @@
 <translation id="4840404732697892756">Google 계정으로 로그인하면 Google 비밀번호 관리자에서 비밀번호를 확인할 수 있습니다.</translation>
 <translation id="4860330141789125848">{COUNT,plural, =1{Chrome의 새 탭 페이지를 통해 이 택배를 추적할 수 있습니다.}other{Chrome의 새 탭 페이지를 통해 이 택배를 추적할 수 있습니다.}}</translation>
 <translation id="4903674399067644695">이 카드는 Chrome을 최대한 활용하는 방법에 관한 추천을 보여줍니다.</translation>
+<translation id="4919069428879420545">Chrome에서 인터넷 사용 기록을 삭제합니다.</translation>
 <translation id="49200511069271369">내가 로그인한 계정과 Chrome이 사용될 수 있는 방식은 <ph name="DOMAIN" /> 조직에서 관리합니다. 관리자는 특정 기능을 설정하거나 제한할 수 있습니다</translation>
 <translation id="498985224078955265">이 탭을 다른 기기로 보내려면 두 기기 모두에서 Chrome에 로그인하세요.</translation>
 <translation id="5030102366287574140">Chrome에서는 정보 유출, 안전하지 않은 웹사이트 등으로부터 사용자를 보호합니다</translation>
@@ -193,9 +192,9 @@
 <translation id="6648150602980899529"><ph name="DOMAIN" />에서 관리하는 계정으로 로그인합니다. 계정 관리자가 내 Chrome 데이터를 관리하게 되며 데이터는 이 계정에 영구적으로 연결됩니다. Chrome에서 로그아웃하면 데이터가 기기에서 삭제되지만 Google 계정에는 그대로 유지됩니다.</translation>
 <translation id="6683891932310469419">Chrome 방문 기록 페이지를 엽니다.</translation>
 <translation id="6709398533399187136">정보 유출로 인해 비밀번호가 노출되었습니다. Google 비밀번호 관리자에서 지금 바로 비밀번호를 변경하시기 바랍니다.</translation>
-<translation id="6815466750807582739">결제 수단 및 주소는 암호화되지 않습니다. Chrome 방문 기록은 동기화되지 않습니다.
+<translation id="6820553595690137150">결제 수단 및 주소는 암호로 암호화되지 않습니다.
 
-암호를 아는 사람만 암호화된 내 데이터를 읽을 수 있습니다. 암호는 Google로 전송되거나 Google에 저장되지 않습니다. 암호가 기억나지 않거나 이 설정을 변경하려면 <ph name="BEGIN_LINK" />계정에서 Chrome 데이터를 삭제<ph name="END_LINK" />하세요.</translation>
+이 설정을 변경하려면 <ph name="BEGIN_LINK" />계정의 Chrome 데이터를 삭제<ph name="END_LINK" />하세요.</translation>
 <translation id="6851982868877411675">iOS에서 Chrome 설정을 열고 '기본 브라우저 앱'을 탭한 다음 Chrome을 선택합니다.</translation>
 <translation id="686691656039982452">Google 계정에 <ph name="BEGIN_LINK" />저장되는 Chrome 데이터를 관리<ph name="END_LINK" />할 수 있습니다.
 
@@ -219,6 +218,7 @@ Chrome 환경을 개선하는 데 데이터를 사용하는 설정을 더 보려
 <translation id="7261678641327190792">Chrome에서 비밀번호를 확인할 수 없습니다.</translation>
 <translation id="7272930098487145294">이미지를 저장하려면 '설정'을 탭하여 Chrome에 사진 추가 권한을 부여하세요.</translation>
 <translation id="7275945473750112644"><ph name="HOSTED_DOMAIN" />에서 관리하는 계정이므로 이 기기에서 내 Chrome 데이터가 삭제됩니다</translation>
+<translation id="7284245284340063465">암호가 기억나지 않거나 이 설정을 변경하려면 <ph name="BEGIN_LINK" />계정에서 Chrome 데이터를 삭제<ph name="END_LINK" />하세요.</translation>
 <translation id="7304491752269485262">Chrome 자동 완성 펼쳐 보기</translation>
 <translation id="7344094882820374540">위험한 사이트로부터 보호하는 Chrome의 가장 강력한 보안 기능을 이용하세요</translation>
 <translation id="7349129508108954623">Chrome에서 Google 지도를 사용하여 감지된 주소의 경로 및 지역 정보를 제공하도록 허용합니다</translation>
@@ -227,7 +227,6 @@ Chrome 환경을 개선하는 데 데이터를 사용하는 설정을 더 보려
 <translation id="7466693328838535498">검색 위젯 상자에 Chrome을 입력합니다.</translation>
 <translation id="746684838091935575">3. Chrome 선택하기</translation>
 <translation id="7492574581995589075">조직에서 Google 계정에 Chrome 데이터를 사용하고 저장하는 기능을 사용 중지했습니다. 새 북마크, 비밀번호 등이 이 기기에만 저장됩니다.</translation>
-<translation id="756809126120519699">Chrome 데이터 삭제됨</translation>
 <translation id="7581063337314642333">Chrome에서 탭 그리드로 이동</translation>
 <translation id="7662994914830945754">Chrome을 사용하는 어느 곳에서나 탭을 확인하려면 로그인한 후 동기화를 사용 설정하세요.</translation>
 <translation id="7669869107155339016">Chrome 설정으로 이동합니다.</translation>
@@ -251,6 +250,9 @@ Chrome 환경을 개선하는 데 데이터를 사용하는 설정을 더 보려
 <translation id="8160472928944011082">Chrome을 업데이트할 수 없습니다.</translation>
 <translation id="8174679664544842874">Chrome에서 새 탭을 엽니다.</translation>
 <translation id="8213758103105806860">Chrome 북마크 보기</translation>
+<translation id="8317674518145175158">결제 수단 및 주소는 암호화되지 않습니다. Chrome 방문 기록은 동기화되지 않습니다.
+
+암호를 아는 사람만 암호화된 내 데이터를 읽을 수 있습니다. 암호는 Google로 전송되거나 Google에 저장되지 않습니다. 암호가 기억나지 않거나 이 설정을 변경하려면 <ph name="BEGIN_LINK" />계정에서 Chrome 데이터를 삭제<ph name="END_LINK" />하세요.</translation>
 <translation id="8328903609881776074">새 Chrome 시크릿 탭을 엽니다.</translation>
 <translation id="8357607116237445042">이 기기에서 내 Chrome 데이터를 삭제할지 또는 유지할지 선택하세요</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. All rights reserved.</translation>
@@ -281,9 +283,6 @@ Chrome 환경을 개선하는 데 데이터를 사용하는 설정을 더 보려
 <translation id="8808828119384186784">Chrome 설정</translation>
 <translation id="8850736900032787670">내 관심분야를 바탕으로 맞춤설정된 콘텐츠를 받으려면 Chrome에 로그인하세요.</translation>
 <translation id="8855781063981781621">Chrome에서 잠금 모드를 사용 중지하려면 iPad에서 사용 중지하세요</translation>
-<translation id="8856877214925961642">결제 수단 및 주소는 암호로 암호화되지 않습니다.
-
-이 설정을 변경하려면 <ph name="BEGIN_LINK" />계정의 Chrome 데이터를 삭제<ph name="END_LINK" />하세요.</translation>
 <translation id="8857676124663337448">Google 비밀번호 관리자에서 일부 비밀번호를 확인할 수 없습니다. 내일 다시 시도해 보세요.</translation>
 <translation id="8865415417596392024">계정의 Chrome 데이터</translation>
 <translation id="8874688701962049679">Chrome을 최대한 활용하기 위한 도움말입니다.</translation>

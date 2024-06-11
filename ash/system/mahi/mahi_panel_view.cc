@@ -19,11 +19,14 @@
 #include "ash/style/style_util.h"
 #include "ash/style/typography.h"
 #include "ash/system/mahi/mahi_constants.h"
+#include "ash/system/mahi/mahi_content_source_button.h"
 #include "ash/system/mahi/mahi_error_status_view.h"
+#include "ash/system/mahi/mahi_panel_drag_controller.h"
 #include "ash/system/mahi/mahi_question_answer_view.h"
 #include "ash/system/mahi/mahi_ui_controller.h"
 #include "ash/system/mahi/mahi_ui_update.h"
 #include "ash/system/mahi/summary_outlines_section.h"
+#include "ash/utility/arc_curve_path_util.h"
 #include "base/check.h"
 #include "base/check_is_test.h"
 #include "base/functional/bind.h"
@@ -34,10 +37,6 @@
 #include "chromeos/components/mahi/public/cpp/views/experiment_badge.h"
 #include "components/vector_icons/vector_icons.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "third_party/skia/include/core/SkPathBuilder.h"
-#include "third_party/skia/include/core/SkPoint.h"
-#include "third_party/skia/include/core/SkRRect.h"
-#include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkScalar.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -80,8 +79,6 @@ namespace {
 constexpr SkScalar kContentScrollViewCornerRadius = 16;
 constexpr int kPanelChildSpacing = 8;
 constexpr int kHeaderRowSpacing = 8;
-constexpr gfx::Insets kSourceRowPadding = gfx::Insets::TLBR(6, 12, 6, 14);
-constexpr int kSourceRowSpacing = 8;
 
 // Ask Question container constants.
 constexpr gfx::Insets kAskQuestionContainerInteriorMargin =
@@ -393,7 +390,7 @@ class MahiScrollView : public views::ScrollView,
   METADATA_HEADER(MahiScrollView, views::ScrollView)
 
  public:
-  MahiScrollView(MahiUiController* ui_controller)
+  explicit MahiScrollView(MahiUiController* ui_controller)
       : MahiUiController::Delegate(ui_controller) {
     SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
     SetBackgroundThemeColorId(cros_tokens::kCrosSysSystemOnBase);
@@ -413,62 +410,14 @@ class MahiScrollView : public views::ScrollView,
  private:
   // views::ScrollView:
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override {
-    const auto contents_bounds = GetContentsBounds();
-    const auto width = contents_bounds.width();
-    const auto height = contents_bounds.height();
-    constexpr auto radius = kContentScrollViewCornerRadius;
+    const SkPath clip_path = util::GetArcCurveRectPath(
+        GetContentsBounds().size(),
+        util::ArcCurveCorner(util::ArcCurveCorner::CornerLocation::kBottomRight,
+                             gfx::Size(kCutoutWidth + kCutoutConvexRadius,
+                                       kCutoutHeight + kCutoutConvexRadius),
+                             kCutoutConcaveRadius, kCutoutConvexRadius),
+        kContentScrollViewCornerRadius);
 
-    const auto bottom_left = SkPoint::Make(0.f, height);
-    const auto top_right = SkPoint::Make(width, 0.f);
-    constexpr auto top_left = SkPoint::Make(0.f, 0.f);
-
-    // One-radius offsets that can be added to or subtracted from coordinates to
-    // indicate a unidirectional move, e.g., when calculating the endpoint of an
-    // arc.
-    constexpr auto horizontal_offset = SkPoint::Make(radius, 0.f);
-    constexpr auto vertical_offset = SkPoint::Make(0.f, radius);
-
-    // The following spec indicates the order of the cutout's first, second, and
-    // third curves: http://screen/9K4tXBZXihWN9KA.
-    const auto cutout_curve1_end_x = width - kCutoutWidth;
-    const auto cutout_curve1_end_y = height - kCutoutConvexRadius;
-
-    const auto cutout_curve2_end_x = cutout_curve1_end_x + kCutoutConcaveRadius;
-    const auto cutout_curve2_end_y = height - kCutoutHeight;
-
-    const auto cutout_curve3_end_x = width;
-    const auto cutout_curve3_end_y = cutout_curve2_end_y - kCutoutConvexRadius;
-
-    auto clip_path =
-        SkPathBuilder()
-            // Start just after the curve of the top-left rounded corner.
-            .moveTo(0.f, radius)
-            // Draw the bottom-left rounded corner and a vertical line
-            // connecting it to the top-left corner.
-            .arcTo(bottom_left, bottom_left + horizontal_offset, radius)
-            // Draw the first curve of the bottom-right corner's cutout and a
-            // horizontal line connecting it to the bottom-left rounded corner.
-            .arcTo(SkPoint::Make(cutout_curve1_end_x, height),
-                   SkPoint::Make(cutout_curve1_end_x, cutout_curve1_end_y),
-                   kCutoutConvexRadius)
-            // Draw the cutout's second curve and a vertical line connecting it
-            // to the first curve.
-            .arcTo(SkPoint::Make(cutout_curve1_end_x, cutout_curve2_end_y),
-                   SkPoint::Make(cutout_curve2_end_x, cutout_curve2_end_y),
-                   kCutoutConcaveRadius)
-            // Draw the cutout's third curve and a horizontal line connecting
-            // it to the second curve.
-            .arcTo(SkPoint::Make(cutout_curve3_end_x, cutout_curve2_end_y),
-                   SkPoint::Make(cutout_curve3_end_x, cutout_curve3_end_y),
-                   kCutoutConvexRadius)
-            // Draw the top-right rounded corner and a vertical line connecting
-            // it to the bottom-right corner's cutout.
-            .arcTo(top_right, top_right - horizontal_offset, radius)
-            // Draw the top-left rounded corner and a horizontal line connecting
-            // it to the top-right corner.
-            .arcTo(top_left, top_left + vertical_offset, radius)
-            .close()
-            .detach();
     SetClipPath(clip_path);
   }
 
@@ -585,34 +534,11 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
 
   AddChildView(CreateHeaderRow());
 
-  auto* const mahi_manager = chromeos::MahiManager::Get();
-
-  // Add a source row containing the content icon and title.
-  AddChildView(
-      views::Builder<views::BoxLayoutView>()
-          .SetID(mahi_constants::ViewId::kContentMetadataRow)
-          .SetBackground(StyleUtil::CreateThemedFullyRoundedRectBackground(
-              cros_tokens::kCrosSysSystemOnBase1))
-          .SetBorder(views::CreateEmptyBorder(kSourceRowPadding))
-          .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
-          .SetBetweenChildSpacing(kSourceRowSpacing)
-          .AddChildren(
-              views::Builder<views::ImageView>()
-                  .CopyAddressTo(&content_icon_)
-                  .SetID(mahi_constants::kContentIcon)
-                  .SetImage(ui::ImageModel::FromImageSkia(
-                      mahi_manager->GetContentIcon()))
-                  .SetImageSize(mahi_constants::kContentIconSize),
-              views::Builder<views::Label>()
-                  .CopyAddressTo(&content_title_)
-                  .SetID(mahi_constants::kContentTitle)
-                  .SetText(mahi_manager->GetContentTitle())
-                  .SetEnabledColorId(cros_tokens::kCrosSysOnSurfaceVariant)
-                  .CustomConfigure(base::BindOnce([](views::Label* self) {
-                    TypographyProvider::Get()->StyleLabel(
-                        TypographyToken::kCrosAnnotation2, *self);
-                  })))
-          .Build());
+  // Add a button which shows the content source icon and title.
+  AddChildView(views::Builder<MahiContentSourceButton>()
+                   .CopyAddressTo(&content_source_button_)
+                   .SetID(mahi_constants::ViewId::kContentSourceButton)
+                   .Build());
 
   // Add a scrollable view of the panel's content, with a feedback section.
   AddChildView(
@@ -767,6 +693,14 @@ MahiPanelView::~MahiPanelView() {
                               base::TimeTicks::Now() - open_time_);
 }
 
+void MahiPanelView::OnMouseEvent(ui::MouseEvent* event) {
+  HandleDragEventIfNeeded(event);
+}
+
+void MahiPanelView::OnGestureEvent(ui::GestureEvent* event) {
+  HandleDragEventIfNeeded(event);
+}
+
 std::unique_ptr<views::View> MahiPanelView::CreateHeaderRow() {
   return views::Builder<views::FlexLayoutView>()
       .SetOrientation(views::LayoutOrientation::kHorizontal)
@@ -846,10 +780,7 @@ void MahiPanelView::OnUpdated(const MahiUiUpdate& update) {
       send_button_->SetEnabled(true);
       return;
     case MahiUiUpdateType::kContentsRefreshInitiated: {
-      auto* const mahi_manager = chromeos::MahiManager::Get();
-      content_icon_->SetImage(
-          ui::ImageModel::FromImageSkia(mahi_manager->GetContentIcon()));
-      content_title_->SetText(mahi_manager->GetContentTitle());
+      content_source_button_->RefreshContentSourceInfo();
       return;
     }
     case MahiUiUpdateType::kErrorReceived:
@@ -907,6 +838,14 @@ void MahiPanelView::OnSendButtonPressed() {
         mahi_constants::kMahiButtonClickHistogramName,
         mahi_constants::PanelButton::kAskQuestionSendButton);
   }
+}
+
+void MahiPanelView::HandleDragEventIfNeeded(ui::LocatedEvent* event) {
+  // Checks whether the event is part of a drag sequence and handles it if
+  // needed. Note that we only handle drag events for repositioning the panel
+  // here. Other drag behavior, e.g. for text selection, is handled by the
+  // panel's child views.
+  ui_controller_->drag_controller()->OnLocatedPanelEvent(event);
 }
 
 BEGIN_METADATA(MahiPanelView)

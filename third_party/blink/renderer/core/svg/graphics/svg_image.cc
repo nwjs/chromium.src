@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/core/svg/svg_animated_preserve_aspect_ratio.h"
 #include "third_party/blink/renderer/core/svg/svg_document_extensions.h"
 #include "third_party/blink/renderer/core/svg/svg_fe_image_element.h"
+#include "third_party/blink/renderer/core/svg/svg_foreign_object_element.h"
 #include "third_party/blink/renderer/core/svg/svg_image_element.h"
 #include "third_party/blink/renderer/core/svg/svg_svg_element.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
@@ -79,20 +80,6 @@ bool HasSmilAnimations(const Document& document) {
 
 SVGImage::SVGImage(ImageObserver* observer, bool is_multipart)
     : Image(observer, is_multipart),
-      // TODO(chikamune): use an existing AgentGroupScheduler
-      // SVG will be shared via MemoryCache (which is renderer process
-      // global cache) across multiple AgentSchedulingGroups. That's
-      // why we can't use an existing AgentSchedulingGroup for now. If
-      // we incorrectly use the existing ASG/AGS and if we freeze task
-      // queues on a AGS, it will affect SVGs on other AGS. To
-      // mitigate this problem, we need to split the MemoryCache into
-      // smaller granularity. There is an active effort to mitigate
-      // this which is called "Memory Cache Per Context"
-      // (https://crbug.com/1127971).
-      agent_group_scheduler_(Thread::MainThread()
-                                 ->Scheduler()
-                                 ->ToMainThreadScheduler()
-                                 ->CreateAgentGroupScheduler()),
       has_pending_timeline_rewind_(false) {}
 
 SVGImage::~SVGImage() {
@@ -114,7 +101,7 @@ bool SVGImage::IsInSVGImage(const Node* node) {
   if (!page)
     return false;
 
-  return page->GetChromeClient().IsSVGImageChromeClient();
+  return page->GetChromeClient().IsIsolatedSVGChromeClient();
 }
 
 LocalFrame* SVGImage::GetFrame() const {
@@ -126,7 +113,7 @@ SVGSVGElement* SVGImage::RootElement() const {
   if (!document_host_) {
     return nullptr;
   }
-  return DynamicTo<SVGSVGElement>(GetFrame()->GetDocument()->documentElement());
+  return document_host_->RootElement();
 }
 
 LayoutSVGRoot* SVGImage::LayoutRoot() const {
@@ -628,7 +615,7 @@ void SVGImage::NotifyAsyncLoadCompleted() {
 }
 
 Image::SizeAvailability SVGImage::DataChanged(bool all_data_received) {
-  TRACE_EVENT0("blink", "SVGImage::dataChanged");
+  TRACE_EVENT("blink", "SVGImage::DataChanged");
 
   // Don't do anything if is an empty image.
   if (!DataSize())
@@ -638,10 +625,6 @@ Image::SizeAvailability SVGImage::DataChanged(bool all_data_received) {
     return document_host_ ? kSizeAvailable : kSizeUnavailable;
 
   SCOPED_BLINK_UMA_HISTOGRAM_TIMER_HIGHRES("Blink.SVGImage.DataChanged");
-
-  CHECK(!document_host_);
-
-  chrome_client_ = MakeGarbageCollected<SVGImageChromeClient>(this);
 
   // Because an SVGImage has no relation to a normal Page, it can't get default
   // font settings from the embedder. Copy settings for fonts and other things
@@ -657,8 +640,12 @@ Image::SizeAvailability SVGImage::DataChanged(bool all_data_received) {
   // This will become an issue when SVGImage will be able to load other
   // SVGImage objects, but we're safe now, because SVGImage can only be
   // loaded by a top-level document.
-  document_host_ = MakeGarbageCollected<IsolatedSVGDocumentHost>(
-      *chrome_client_, *agent_group_scheduler_, Data(),
+  CHECK(!document_host_);
+  std::tie(chrome_client_, document_host_) =
+      IsolatedSVGDocumentHostInitializer::Get()->GetOrCreate();
+  chrome_client_->SetImage(this);
+  document_host_->InstallDocument(
+      Data(),
       WTF::BindOnce(&SVGImage::NotifyAsyncLoadCompleted,
                     weak_ptr_factory_.GetWeakPtr()),
       settings_to_use, IsolatedSVGDocumentHost::ProcessingMode::kAnimated);

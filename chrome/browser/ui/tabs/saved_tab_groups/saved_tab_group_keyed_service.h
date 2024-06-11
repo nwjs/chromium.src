@@ -32,10 +32,14 @@ class SavedTabGroupKeyedService : public KeyedService,
       delete;
   ~SavedTabGroupKeyedService() override;
 
+  // Whether the sync setting is on for saved tab groups.
+  bool AreSavedTabGroupsSynced();
+
   SavedTabGroupModelListener* listener() { return &listener_; }
   const SavedTabGroupModel* model() const { return &model_; }
   SavedTabGroupModel* model() { return &model_; }
-  SavedTabGroupSyncBridge* bridge() { return &bridge_; }
+  base::WeakPtr<syncer::ModelTypeControllerDelegate>
+  GetSavedTabGroupControllerDelegate();
   Profile* profile() { return profile_; }
 
   // Populates `saved_guid_to_local_group_id_mapping_` with a pair to link once
@@ -112,11 +116,6 @@ class SavedTabGroupKeyedService : public KeyedService,
       const std::map<content::WebContents*, base::Uuid>&
           opened_web_contents_to_uuid,
       const SavedTabGroup& saved_group);
-
-  // Activates the first tab in saved group that is already opened when its
-  // button is pressed, If active tab exists in saved group, only activates
-  // window.
-  void FocusFirstTabOrWindowInOpenGroup(tab_groups::TabGroupId local_group_id);
 
   // Returns a pointer to the TabStripModel which contains `local_group_id`.
   const TabStripModel* GetTabStripModelWithTabGroupId(

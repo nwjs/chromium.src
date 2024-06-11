@@ -67,7 +67,6 @@
 #include "components/crash/core/common/crash_key.h"
 #include "components/crx_file/id_util.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/notification_service.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -484,7 +483,7 @@ void AppShimManager::UpdateAppBadge(
     Profile* profile,
     const webapps::AppId& app_id,
     const std::optional<badging::BadgeManager::BadgeValue>& badge) {
-  // TODO(https://crbug.com/1199624): Support updating the app badge for apps
+  // TODO(crbug.com/40761338): Support updating the app badge for apps
   // that aren't currently running.
   auto found_app = apps_.find(app_id);
   if (found_app == apps_.end()) {
@@ -973,7 +972,7 @@ bool AppShimManager::LoadAndLaunchApp_TryExistingProfileStates(
       // If `profiles_with_handlers` is empty, either because `params` does not
       // contains files or urls, or because there are no profiles that can
       // handle the files or urls, select the first open profile encountered.
-      // TODO(https://crbug.com/829689): This should select the
+      // TODO(crbug.com/40570436): This should select the
       // most-recently-used profile, not the first profile encountered.
       auto it = app_state->profiles.begin();
       if (it != app_state->profiles.end()) {
@@ -1638,7 +1637,7 @@ void AppShimManager::OnAppDeactivated(content::BrowserContext* context,
   // Check the integrity of AppState::profiles across all apps. Include the app
   // ID in the dump, to help pin down the cause.
   //
-  // TODO(crbug.com/1302722): Remove this once we're confident this never
+  // TODO(crbug.com/40217091): Remove this once we're confident this never
   // happens.
   std::string inconsistent_app_ids;
   for (const auto& [id, state] : apps_) {

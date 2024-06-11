@@ -4,7 +4,6 @@
 
 #include "chrome/updater/policy/service.h"
 
-#include <algorithm>
 #include <concepts>
 #include <functional>
 #include <optional>
@@ -67,11 +66,10 @@ PolicyService::PolicyManagers SortManagers(
 #if BUILDFLAG(IS_WIN)
 bool CloudPolicyOverridesPlatformPolicy(
     PolicyService::PolicyManagerVector providers) {
-  PolicyService::PolicyManagerVector::const_iterator it =
-      std::find_if(providers.begin(), providers.end(),
-                   [](scoped_refptr<PolicyManagerInterface> p) {
-                     return p && p->CloudPolicyOverridesPlatformPolicy();
-                   });
+  PolicyService::PolicyManagerVector::const_iterator it = base::ranges::find_if(
+      providers, [](scoped_refptr<PolicyManagerInterface> p) {
+        return p && p->CloudPolicyOverridesPlatformPolicy();
+      });
 
   return it == providers.end() ? false
                                : *(*it)->CloudPolicyOverridesPlatformPolicy();
@@ -94,7 +92,7 @@ PolicyService::PolicyManagerVector CreatePolicyManagerVector(
   //    has a higher priority than the group policy manger.
   PolicyService::PolicyManagerVector managers;
   if (dm_policy_manager) {
-    managers.push_back(std::move(dm_policy_manager));
+    managers.push_back(dm_policy_manager);
   }
   scoped_refptr<PolicyManagerInterface> external_constants_policy_manager =
       external_constants ? base::MakeRefCounted<PolicyManager>(
@@ -129,7 +127,8 @@ PolicyService::PolicyManagerVector CreatePolicyManagerVector(
 PolicyService::PolicyManagers::PolicyManagers(
     PolicyManagerVector manager_vector,
     PolicyManagerNameMap manager_name_map)
-    : vector(manager_vector), name_map(manager_name_map) {}
+    : vector(std::move(manager_vector)),
+      name_map(std::move(manager_name_map)) {}
 PolicyService::PolicyManagers::~PolicyManagers() = default;
 
 PolicyService::PolicyService(PolicyManagerVector managers)
@@ -142,7 +141,7 @@ PolicyService::PolicyService(PolicyManagerVector managers)
 PolicyService::PolicyService(
     scoped_refptr<ExternalConstants> external_constants)
     : policy_managers_(SortManagers(CreatePolicyManagerVector(
-          /*should_take_policy_critical_section*/ false,
+          /*should_take_policy_critical_section=*/false,
           external_constants,
           CreateDMPolicyManager(external_constants->IsMachineManaged())))),
       external_constants_(external_constants) {
@@ -190,12 +189,12 @@ void PolicyService::FetchPoliciesDone(
           [](scoped_refptr<ExternalConstants> external_constants,
              scoped_refptr<PolicyManagerInterface> dm_policy_manager) {
             return CreatePolicyManagerVector(
-                /*should_take_policy_critical_section*/ true,
+                /*should_take_policy_critical_section=*/true,
                 external_constants, dm_policy_manager);
           },
           external_constants_,
           dm_policy_manager ? dm_policy_manager
-          : policy_managers_.name_map.count(kSourceDMPolicyManager)
+          : policy_managers_.name_map.contains(kSourceDMPolicyManager)
               ? policy_managers_.name_map[kSourceDMPolicyManager]
               : nullptr),
       base::BindOnce(&PolicyService::PolicyManagerLoaded,

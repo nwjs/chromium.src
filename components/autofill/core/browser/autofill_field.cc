@@ -73,6 +73,8 @@ static constexpr auto kAutofillHeuristicsVsHtmlOverrides =
 static constexpr auto kAutofillHeuristicsVsServerOverrides =
     base::MakeFixedFlatSet<std::pair<FieldType, FieldType>>(
         {{ADDRESS_HOME_ADMIN_LEVEL2, ADDRESS_HOME_CITY},
+         {ADDRESS_HOME_HOUSE_NUMBER_AND_APT, ADDRESS_HOME_HOUSE_NUMBER},
+         {ADDRESS_HOME_HOUSE_NUMBER_AND_APT, ADDRESS_HOME_APT_NUM},
          {ADDRESS_HOME_APT_NUM, ADDRESS_HOME_LINE2},
          {ADDRESS_HOME_APT_NUM, ADDRESS_HOME_LINE3},
          {ADDRESS_HOME_APT_NUM, ADDRESS_HOME_HOUSE_NUMBER},
@@ -188,7 +190,7 @@ AutofillField::AutofillField(const FormFieldData& field)
       field_signature_(
           CalculateFieldSignatureByNameAndType(name(), form_control_type())),
       parseable_name_(name()),
-      parseable_label_(label) {
+      parseable_label_(label()) {
   local_type_predictions_.fill(NO_SERVER_DATA);
 }
 
@@ -307,7 +309,7 @@ AutofillType AutofillField::ComputedType() const {
     return AutofillType(server_type());
   }
 
-  // TODO(crbug/1441057) Delete this if-statement when
+  // TODO(crbug.com/40266396) Delete this if-statement when
   // features::kAutofillEnableExpirationDateImprovements has launched. This
   // should be covered by
   // FormStructureRationalizer::RationalizeAutocompleteAttributes.
@@ -452,7 +454,7 @@ bool AutofillField::IsCreditCardPrediction() const {
 
 void AutofillField::AppendLogEventIfNotRepeated(
     const FieldLogEventType& log_event) {
-  // TODO(crbug.com/1325851): Consider to use an Overflow event to stop
+  // TODO(crbug.com/40225658): Consider to use an Overflow event to stop
   // recording log events into |field_log_events_| to save memory when
   // |field_log_events_| reaches certain threshold, e.g. 1000.
 

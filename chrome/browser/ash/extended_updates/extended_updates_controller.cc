@@ -7,10 +7,18 @@
 #include <memory>
 
 #include "ash/constants/ash_features.h"
+#include "ash/shell.h"
+#include "ash/system/extended_updates/extended_updates_metrics.h"
+#include "ash/system/model/system_tray_model.h"
+#include "ash/system/model/update_model.h"
+#include "base/callback_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
+#include "base/logging.h"
 #include "base/time/default_clock.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/extended_updates/extended_updates_notification.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash_factory.h"
@@ -46,6 +54,11 @@ bool HasNoAndroidApps(content::BrowserContext* context) {
     return false;
   }
 
+  if (!arc::IsArcPlayStoreEnabledForProfile(profile)) {
+    // Play store turned off.
+    return true;
+  }
+
   auto* proxy = apps::AppServiceProxyFactory::GetForProfile(profile);
   auto& registry = proxy->AppRegistryCache();
   if (!registry.IsAppTypeInitialized(apps::AppType::kArc)) {
@@ -72,8 +85,39 @@ ExtendedUpdatesController* ExtendedUpdatesController::Get() {
   return instance_;
 }
 
+void ExtendedUpdatesController::ResetInstanceForTesting() {
+  if (instance_) {
+    delete instance_;
+    instance_ = nullptr;
+  }
+}
+
+void ExtendedUpdatesController::
+    RecordEntryPointEventForSettingsSetUpButtonShown() {
+  RecordExtendedUpdatesEntryPointEvent(
+      ExtendedUpdatesEntryPointEvent::kSettingsSetUpButtonShown);
+}
+
+void ExtendedUpdatesController::
+    RecordEntryPointEventForSettingsSetUpButtonClicked() {
+  RecordExtendedUpdatesEntryPointEvent(
+      ExtendedUpdatesEntryPointEvent::kSettingsSetUpButtonClicked);
+}
+
+base::CallbackListSubscription
+ExtendedUpdatesController::SubscribeToDeviceSettingsChanges(
+    base::RepeatingClosure callback) {
+  if (CrosSettings::IsInitialized()) {
+    return CrosSettings::Get()->AddSettingsObserver(
+        kDeviceExtendedAutoUpdateEnabled, std::move(callback));
+  }
+  return base::CallbackListSubscription();
+}
+
 ExtendedUpdatesController::ExtendedUpdatesController()
-    : clock_(base::DefaultClock::GetInstance()) {}
+    : clock_(base::DefaultClock::GetInstance()) {
+  SubscribeToDeviceSettingsChanges();
+}
 
 ExtendedUpdatesController::~ExtendedUpdatesController() = default;
 
@@ -116,7 +160,6 @@ bool ExtendedUpdatesController::OptIn(content::BrowserContext* context) {
     return false;
   }
 
-  // TODO(b/329513970): Add metrics.
   return owner_settings->SetBoolean(kDeviceExtendedAutoUpdateEnabled, true);
 }
 
@@ -138,12 +181,19 @@ void ExtendedUpdatesController::OnEolInfo(
     return;
   }
 
-  // This function is called upon login, so owner settings may not have finished
-  // loading yet. Defer decision to show notification until then.
   auto* owner_settings =
       OwnerSettingsServiceAshFactory::GetForBrowserContext(context);
+  if (!owner_settings) {
+    // In some sessions OwnerSettingsService may be completely uninitialized,
+    // for example Guest Mode.
+    LOG(WARNING) << "OwnerSettingsService is uninitialized for the profile."
+                    " Will not notify about extended updates";
+    return;
+  }
+  // This function is called upon login, so owner settings may not have finished
+  // loading yet. Defer decision to show notification until then.
   owner_settings->IsOwnerAsync(base::IgnoreArgs<bool>(
-      base::BindOnce(&ExtendedUpdatesController::MaybeShowNotification,
+      base::BindOnce(&ExtendedUpdatesController::OnOwnershipDetermined,
                      weak_factory_.GetWeakPtr(), context->GetWeakPtr())));
 }
 
@@ -151,28 +201,54 @@ void ExtendedUpdatesController::SetClockForTesting(base::Clock* clock) {
   clock_ = clock;
 }
 
-void ExtendedUpdatesController::MaybeShowNotification(
+void ExtendedUpdatesController::OnOwnershipDetermined(
     base::WeakPtr<content::BrowserContext> context) {
-  if (!context || !ShouldShowNotification(context.get())) {
+  if (!context || !IsOptInEligible(context.get())) {
     return;
   }
-  ShowNotification(context.get());
+
+  if (auto* system_tray_model = Shell::Get()->system_tray_model()) {
+    system_tray_model->SetShowExtendedUpdatesNotice(true);
+    SubscribeToDeviceSettingsChanges();
+  }
+
+  if (ShouldShowNotification(context.get())) {
+    ShowNotification(context.get());
+  }
 }
 
-// TODO(b/333619965): Also check if user has dismissed the notification before.
 // TODO(b/333767804): Show notification again if extended updates date changed.
 bool ExtendedUpdatesController::ShouldShowNotification(
     content::BrowserContext* context) {
-  if (!IsOptInEligible(context)) {
+  if (!IsOptInEligible(context) || !HasNoAndroidApps(context)) {
     return false;
   }
-  return HasNoAndroidApps(context);
+  Profile* profile = Profile::FromBrowserContext(context);
+  if (ExtendedUpdatesNotification::IsNotificationDismissed(profile)) {
+    return false;
+  }
+  return true;
 }
 
 void ExtendedUpdatesController::ShowNotification(
     content::BrowserContext* context) {
-  Profile* profile = Profile::FromBrowserContext(context);
-  ExtendedUpdatesNotification::Create(profile)->Show();
+  ExtendedUpdatesNotification::Show(Profile::FromBrowserContext(context));
+}
+
+void ExtendedUpdatesController::SubscribeToDeviceSettingsChanges() {
+  if (!settings_change_subscription_) {
+    settings_change_subscription_ = SubscribeToDeviceSettingsChanges(
+        base::BindRepeating(&ExtendedUpdatesController::OnDeviceSettingsChanged,
+                            weak_factory_.GetWeakPtr()));
+  }
+}
+
+void ExtendedUpdatesController::OnDeviceSettingsChanged() {
+  if (IsOptedIn()) {
+    if (auto* system_tray_model = Shell::Get()->system_tray_model()) {
+      system_tray_model->SetShowExtendedUpdatesNotice(false);
+    }
+  }
 }
 
 bool ExtendedUpdatesController::HasOptInAbility(

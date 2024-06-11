@@ -7,12 +7,16 @@
 #include <string>
 #include <vector>
 
+#include "base/run_loop.h"
+#include "base/scoped_observation.h"
+#include "base/test/gmock_callback_support.h"
+#include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/with_feature_override.h"
+#include "base/uuid.h"
 #include "build/buildflag.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
-#include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager_test_base.h"
 #include "components/autofill/core/browser/profile_token_quality_test_api.h"
 #include "components/autofill/core/browser/test_autofill_clock.h"
@@ -44,67 +48,84 @@ const base::Time kMuchLaterTime = base::Time::FromSecondsSinceUnixEpoch(5000);
 
 constexpr char kGuid[] = "a21f010a-eac1-41fc-aee9-c06bbedfb292";
 
+class MockAddressDataManagerObserver : public AddressDataManager::Observer {
+ public:
+  MOCK_METHOD(void, OnAddressDataChanged, (), (override));
+};
+
 class AddressDataManagerTest : public PersonalDataManagerTestBase,
                                public testing::Test {
  protected:
   void SetUp() override {
     SetUpTest();
-    ResetPersonalDataManager();
+    ResetAddressDataManager();
   }
   void TearDown() override { TearDownTest(); }
 
-  ~AddressDataManagerTest() override {
-    if (personal_data_) {
-      personal_data_->Shutdown();
-    }
-    personal_data_.reset();
+  AddressDataManager& address_data_manager() { return *address_data_manager_; }
+
+  void WaitForOnAddressDataChanged() {
+    testing::NiceMock<MockAddressDataManagerObserver> observer;
+    base::RunLoop run_loop;
+    ON_CALL(observer, OnAddressDataChanged)
+        .WillByDefault(base::test::RunClosure(run_loop.QuitClosure()));
+    base::ScopedObservation<AddressDataManager, AddressDataManager::Observer>
+        observation{&observer};
+    observation.Observe(address_data_manager_.get());
+    run_loop.Run();
   }
 
-  AddressDataManager& address_data_manager() {
-    return personal_data_->address_data_manager();
+  void ResetAddressDataManager(bool use_sync_transport_mode = false) {
+    address_data_manager_.reset();
+    MakePrimaryAccountAvailable(use_sync_transport_mode);
+    address_data_manager_ = std::make_unique<AddressDataManager>(
+        profile_database_service_, prefs_.get(), prefs_.get(), &sync_service_,
+        identity_test_env_.identity_manager(), strike_database_.get(),
+        GeoIpCountryCode("US"), "en-US");
+    address_data_manager_->LoadProfiles();
+    WaitForOnAddressDataChanged();
   }
 
-  void ResetPersonalDataManager(bool use_sync_transport_mode = false) {
-    if (personal_data_) {
-      personal_data_->Shutdown();
-    }
-    personal_data_ = std::make_unique<PersonalDataManager>("EN", "US");
-    PersonalDataManagerTestBase::ResetPersonalDataManager(
-        use_sync_transport_mode, personal_data_.get());
-  }
-
-  // TODO(b/322170538): Rename.
-  void AddProfileToPersonalDataManager(const AutofillProfile& profile) {
-    PersonalDataChangedWaiter waiter(*personal_data_);
+  void AddProfileToAddressDataManager(const AutofillProfile& profile) {
+    // When trying to add a duplicate profile, observers are notified
+    // synchronously, which is why calling `WaitForOnAddressDataChanged()`
+    // after `AddProfile()` doesn't suffice.
+    testing::NiceMock<MockAddressDataManagerObserver> observer;
+    base::RunLoop run_loop;
+    ON_CALL(observer, OnAddressDataChanged)
+        .WillByDefault(base::test::RunClosure(run_loop.QuitClosure()));
+    base::ScopedObservation<AddressDataManager, AddressDataManager::Observer>
+        observation{&observer};
+    observation.Observe(address_data_manager_.get());
     address_data_manager().AddProfile(profile);
-    std::move(waiter).Wait();
+    run_loop.Run();
   }
 
-  // TODO(b/322170538): Rename.
-  void UpdateProfileOnPersonalDataManager(const AutofillProfile& profile) {
-    PersonalDataChangedWaiter waiter(*personal_data_);
+  void UpdateProfileOnAddressDataManager(const AutofillProfile& profile) {
+    // Like in `AddProfileToAddressDataManager()`, observers are notified
+    // synchronously when trying to perform a no-op update.
+    testing::NiceMock<MockAddressDataManagerObserver> observer;
+    base::RunLoop run_loop;
+    ON_CALL(observer, OnAddressDataChanged)
+        .WillByDefault(base::test::RunClosure(run_loop.QuitClosure()));
+    base::ScopedObservation<AddressDataManager, AddressDataManager::Observer>
+        observation{&observer};
+    observation.Observe(address_data_manager_.get());
     address_data_manager().UpdateProfile(profile);
-    std::move(waiter).Wait();
+    run_loop.Run();
   }
 
-  // TODO(b/322170538): Rename.
-  void RemoveByGUIDFromPersonalDataManager(const std::string& guid) {
-    PersonalDataChangedWaiter waiter(*personal_data_);
-    address_data_manager().RemoveProfile(guid);
-    std::move(waiter).Wait();
-  }
-
-  // TODO(b/322170538): Make this an `AddressDataManager`.
-  std::unique_ptr<PersonalDataManager> personal_data_;
+ private:
+  std::unique_ptr<AddressDataManager> address_data_manager_;
 };
 
 TEST_F(AddressDataManagerTest, AddProfile) {
   // Add profile0 to the database.
   AutofillProfile profile0(test::GetFullProfile());
   profile0.SetRawInfo(EMAIL_ADDRESS, u"j@s.com");
-  AddProfileToPersonalDataManager(profile0);
+  AddProfileToAddressDataManager(profile0);
   // Reload the database.
-  ResetPersonalDataManager();
+  ResetAddressDataManager();
   // Verify the addition.
   const std::vector<AutofillProfile*>& results1 =
       address_data_manager().GetProfiles();
@@ -115,10 +136,10 @@ TEST_F(AddressDataManagerTest, AddProfile) {
   AutofillProfile profile0a = profile0;
   profile0a.set_guid(base::Uuid::GenerateRandomV4().AsLowercaseString());
 
-  AddProfileToPersonalDataManager(profile0a);
+  AddProfileToAddressDataManager(profile0a);
 
   // Reload the database.
-  ResetPersonalDataManager();
+  ResetAddressDataManager();
 
   // Verify the non-addition.
   const std::vector<AutofillProfile*>& results2 =
@@ -134,10 +155,10 @@ TEST_F(AddressDataManagerTest, AddProfile) {
   // Add the different profile.  This should save as a separate profile.
   // Note that if this same profile was "merged" it would collapse to one
   // profile with a multi-valued entry for email.
-  AddProfileToPersonalDataManager(profile1);
+  AddProfileToAddressDataManager(profile1);
 
   // Reload the database.
-  ResetPersonalDataManager();
+  ResetAddressDataManager();
 
   // Verify the addition.
   EXPECT_THAT(address_data_manager().GetProfiles(),
@@ -148,7 +169,7 @@ TEST_F(AddressDataManagerTest, UpdateProfile_ModificationDate) {
   TestAutofillClock test_clock;
   test_clock.SetNow(kArbitraryTime);
   AutofillProfile profile = test::GetFullProfile();
-  AddProfileToPersonalDataManager(profile);
+  AddProfileToAddressDataManager(profile);
   ASSERT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile)));
 
@@ -157,14 +178,14 @@ TEST_F(AddressDataManagerTest, UpdateProfile_ModificationDate) {
   // `modification_date()`.
   test_clock.SetNow(kSomeLaterTime);
   profile.SetRawInfo(EMAIL_ADDRESS, u"new" + profile.GetRawInfo(EMAIL_ADDRESS));
-  UpdateProfileOnPersonalDataManager(profile);
+  UpdateProfileOnAddressDataManager(profile);
   std::vector<AutofillProfile*> profiles = address_data_manager().GetProfiles();
   ASSERT_THAT(profiles, UnorderedElementsAre(Pointee(profile)));
   EXPECT_EQ(profiles[0]->modification_date(), kSomeLaterTime);
 
   // If the profile hasn't change, expect that updating is a no-op.
   test_clock.SetNow(kMuchLaterTime);
-  UpdateProfileOnPersonalDataManager(profile);
+  UpdateProfileOnAddressDataManager(profile);
   profiles = address_data_manager().GetProfiles();
   ASSERT_THAT(profiles, UnorderedElementsAre(Pointee(profile)));
   EXPECT_EQ(profiles[0]->modification_date(), kSomeLaterTime);
@@ -180,10 +201,10 @@ TEST_F(AddressDataManagerTest, GetProfiles) {
   kAccountProfile2.set_source_for_testing(AutofillProfile::Source::kAccount);
   AutofillProfile kLocalProfile = test::GetFullProfile();
 
-  AddProfileToPersonalDataManager(kAccountProfile);
-  AddProfileToPersonalDataManager(kAccountProfile2);
-  AddProfileToPersonalDataManager(kLocalProfile);
-  ResetPersonalDataManager();
+  AddProfileToAddressDataManager(kAccountProfile);
+  AddProfileToAddressDataManager(kAccountProfile2);
+  AddProfileToAddressDataManager(kLocalProfile);
+  ResetAddressDataManager();
 
   EXPECT_THAT(
       address_data_manager().GetProfiles(),
@@ -211,14 +232,14 @@ TEST_F(AddressDataManagerTest, GetProfiles_Order) {
   profile3.set_use_date(now - base::Hours(1));
   profile3.set_use_count(1234);
 
-  AddProfileToPersonalDataManager(profile1);
-  AddProfileToPersonalDataManager(profile2);
-  AddProfileToPersonalDataManager(profile3);
-  ResetPersonalDataManager();
+  AddProfileToAddressDataManager(profile1);
+  AddProfileToAddressDataManager(profile2);
+  AddProfileToAddressDataManager(profile3);
+  ResetAddressDataManager();
 
   // kNone doesn't guarantee any order.
   EXPECT_THAT(address_data_manager().GetProfiles(
-                  PersonalDataManager::ProfileOrder::kNone),
+                  AddressDataManager::ProfileOrder::kNone),
               UnorderedElementsAre(Pointee(profile1), Pointee(profile2),
                                    Pointee(profile3)));
 
@@ -226,18 +247,18 @@ TEST_F(AddressDataManagerTest, GetProfiles_Order) {
   // `profile1` and `profile2` have the same use count, so `profile2` with later
   // use date is second.
   EXPECT_THAT(address_data_manager().GetProfiles(
-                  PersonalDataManager::ProfileOrder::kHighestFrecencyDesc),
+                  AddressDataManager::ProfileOrder::kHighestFrecencyDesc),
               testing::ElementsAre(Pointee(profile3), Pointee(profile2),
                                    Pointee(profile1)));
 
   std::vector<AutofillProfile*> profiles = address_data_manager().GetProfiles(
-      PersonalDataManager::ProfileOrder::kMostRecentlyUsedFirstDesc);
+      AddressDataManager::ProfileOrder::kMostRecentlyUsedFirstDesc);
   // Ordered by `use_date()`.
   EXPECT_THAT(profiles,
               testing::ElementsAre(Pointee(profile2), Pointee(profile3),
                                    Pointee(profile1)));
 
-  // TODO(crbug.com/1420547): The modification date cannot be set beforehand,
+  // TODO(crbug.com/40258814): The modification date cannot be set beforehand,
   // since it is overwritten by the database when the profile is initially
   // stored. To test the ordering by modification date, update the `profiles`
   // modification dates such that the order gets reversed. It is necessary to
@@ -247,7 +268,7 @@ TEST_F(AddressDataManagerTest, GetProfiles_Order) {
     profiles[i]->set_modification_date(now - base::Hours(2 - i));
   }
   EXPECT_THAT(address_data_manager().GetProfiles(
-                  PersonalDataManager::ProfileOrder::kMostRecentlyModifiedDesc),
+                  AddressDataManager::ProfileOrder::kMostRecentlyModifiedDesc),
               testing::ElementsAre(Pointee(profile1), Pointee(profile3),
                                    Pointee(profile2)));
 }
@@ -261,11 +282,11 @@ TEST_F(AddressDataManagerTest, GetProfilesToSuggest_ProfileAutofillDisabled) {
   test::SetProfileInfo(&local_profile, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
                        "Orlando", "FL", "32801", "US", "19482937549");
-  AddProfileToPersonalDataManager(local_profile);
+  AddProfileToAddressDataManager(local_profile);
 
   // Disable Profile autofill.
   prefs::SetAutofillProfileEnabled(prefs_.get(), false);
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   // Check that profiles were saved.
   const size_t expected_profiles = 1;
@@ -284,10 +305,10 @@ TEST_F(AddressDataManagerTest,
   test::SetProfileInfo(&local_profile, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
                        "Orlando", "FL", "32801", "US", "19482937549");
-  AddProfileToPersonalDataManager(local_profile);
+  AddProfileToAddressDataManager(local_profile);
 
   address_data_manager().LoadProfiles();
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   // Expect that all profiles are suggested.
   const size_t expected_profiles = 1;
@@ -298,7 +319,7 @@ TEST_F(AddressDataManagerTest,
   // Disable Profile autofill.
   prefs::SetAutofillProfileEnabled(prefs_.get(), false);
   // Reload the database.
-  ResetPersonalDataManager();
+  ResetAddressDataManager();
 
   // Expect no profile values or suggestions were loaded.
   EXPECT_EQ(0U, address_data_manager().GetProfilesToSuggest().size());
@@ -308,26 +329,26 @@ TEST_F(AddressDataManagerTest,
 // false.
 TEST_F(AddressDataManagerTest, GetProfilesToSuggest_NoProfilesAddedIfDisabled) {
   prefs::SetAutofillProfileEnabled(prefs_.get(), false);
-  AddProfileToPersonalDataManager(test::GetFullProfile());
+  AddProfileToAddressDataManager(test::GetFullProfile());
   EXPECT_TRUE(address_data_manager().GetProfiles().empty());
 }
 
 // Tests that `GetProfilesForSettings()` orders by descending modification
 // dates.
-// TODO(crbug.com/1420547): The modification date is set in AutofillTable.
+// TODO(crbug.com/40258814): The modification date is set in AutofillTable.
 // Setting it on the test profiles directly doesn't suffice.
 TEST_F(AddressDataManagerTest, GetProfilesForSettings) {
   TestAutofillClock test_clock;
 
   AutofillProfile kAccountProfile = test::GetFullProfile();
   kAccountProfile.set_source_for_testing(AutofillProfile::Source::kAccount);
-  AddProfileToPersonalDataManager(kAccountProfile);
+  AddProfileToAddressDataManager(kAccountProfile);
 
   AutofillProfile kLocalOrSyncableProfile = test::GetFullProfile2();
   kLocalOrSyncableProfile.set_source_for_testing(
       AutofillProfile::Source::kLocalOrSyncable);
   test_clock.Advance(base::Minutes(123));
-  AddProfileToPersonalDataManager(kLocalOrSyncableProfile);
+  AddProfileToAddressDataManager(kLocalOrSyncableProfile);
 
   EXPECT_THAT(address_data_manager().GetProfilesForSettings(),
               testing::ElementsAre(testing::Pointee(kLocalOrSyncableProfile),
@@ -341,7 +362,7 @@ TEST_F(AddressDataManagerTest, AddRemoveUpdateProfileSequence) {
   address_data_manager().AddProfile(profile);
   address_data_manager().RemoveProfile(profile.guid());
   address_data_manager().UpdateProfile(profile);
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   auto profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(0U, profiles.size());
@@ -349,7 +370,7 @@ TEST_F(AddressDataManagerTest, AddRemoveUpdateProfileSequence) {
   address_data_manager().AddProfile(profile);
   address_data_manager().RemoveProfile(profile.guid());
   address_data_manager().RemoveProfile(profile.guid());
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(0U, profiles.size());
@@ -357,7 +378,7 @@ TEST_F(AddressDataManagerTest, AddRemoveUpdateProfileSequence) {
   address_data_manager().AddProfile(profile);
   profile.SetRawInfo(EMAIL_ADDRESS, u"new@email.com");
   address_data_manager().UpdateProfile(profile);
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, profiles.size());
@@ -367,7 +388,7 @@ TEST_F(AddressDataManagerTest, AddRemoveUpdateProfileSequence) {
   address_data_manager().UpdateProfile(profile);
   profile.SetRawInfo(EMAIL_ADDRESS, u"newest@email.com");
   address_data_manager().UpdateProfile(profile);
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   profiles = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, profiles.size());
@@ -383,10 +404,10 @@ TEST_F(AddressDataManagerTest, AddProfile_BasicInformation) {
   // Add a profile to the database.
   AutofillProfile profile(test::GetFullProfile());
   profile.SetRawInfo(EMAIL_ADDRESS, u"j@s.com");
-  AddProfileToPersonalDataManager(profile);
+  AddProfileToAddressDataManager(profile);
 
   // Reload the database.
-  ResetPersonalDataManager();
+  ResetAddressDataManager();
 
   // Verify the addition.
   const std::vector<AutofillProfile*>& results =
@@ -505,7 +526,7 @@ TEST_F(AddressDataManagerTest, AddProfile_CrazyCharacters) {
   profiles.push_back(profile7);
 
   for (const AutofillProfile& profile : profiles) {
-    AddProfileToPersonalDataManager(profile);
+    AddProfileToAddressDataManager(profile);
   }
   ASSERT_EQ(profiles.size(), address_data_manager().GetProfiles().size());
   for (size_t i = 0; i < profiles.size(); ++i) {
@@ -531,7 +552,7 @@ TEST_F(AddressDataManagerTest, AddProfile_Invalid) {
   AutofillProfile with_invalid = without_invalid;
   with_invalid.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, u"Invalid_Phone_Number");
 
-  AddProfileToPersonalDataManager(with_invalid);
+  AddProfileToAddressDataManager(with_invalid);
   ASSERT_EQ(1u, address_data_manager().GetProfiles().size());
   AutofillProfile profile = *address_data_manager().GetProfiles()[0];
   ASSERT_NE(without_invalid.GetRawInfo(PHONE_HOME_WHOLE_NUMBER),
@@ -555,17 +576,17 @@ TEST_F(AddressDataManagerTest, AddUpdateRemoveProfiles) {
                        "Orlando", "FL", "32801", "US", "19482937549");
 
   // Add two test profiles to the database.
-  AddProfileToPersonalDataManager(profile0);
-  AddProfileToPersonalDataManager(profile1);
+  AddProfileToAddressDataManager(profile0);
+  AddProfileToAddressDataManager(profile1);
 
   EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1)));
 
   // Update, remove, and add.
   profile0.SetRawInfo(NAME_FIRST, u"John");
-  UpdateProfileOnPersonalDataManager(profile0);
-  RemoveByGUIDFromPersonalDataManager(profile1.guid());
-  AddProfileToPersonalDataManager(profile2);
+  UpdateProfileOnAddressDataManager(profile0);
+  address_data_manager().RemoveProfile(profile1.guid());
+  AddProfileToAddressDataManager(profile2);
 
   EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile2)));
@@ -573,7 +594,7 @@ TEST_F(AddressDataManagerTest, AddUpdateRemoveProfiles) {
   // Reset the PersonalDataManager.  This tests that the personal data was saved
   // to the web database, and that we can load the profiles from the web
   // database.
-  ResetPersonalDataManager();
+  ResetAddressDataManager();
 
   // Verify that we've loaded the profiles from the web database.
   EXPECT_THAT(address_data_manager().GetProfiles(),
@@ -590,14 +611,14 @@ TEST_F(AddressDataManagerTest, UpdateProfile_NewObservations) {
   TestAutofillClock test_clock;
   test_clock.SetNow(kArbitraryTime);
   AutofillProfile profile = test::GetFullProfile();
-  AddProfileToPersonalDataManager(profile);
+  AddProfileToAddressDataManager(profile);
   test_clock.SetNow(kSomeLaterTime);
 
   // Add an observation, as might happen during a form submit.
   test_api(profile.token_quality())
       .AddObservation(NAME_FIRST,
                       ProfileTokenQuality::ObservationType::kAccepted);
-  UpdateProfileOnPersonalDataManager(profile);
+  UpdateProfileOnAddressDataManager(profile);
 
   // Expect that `UpdateProfile()` didn't reject the update as a no-op.
   // Since new observations are considered a metadata change, further expected
@@ -624,11 +645,11 @@ TEST_F(AddressDataManagerTest, UpdateProfile_ResetObservations) {
   test_api(profile.token_quality())
       .AddObservation(NAME_LAST,
                       ProfileTokenQuality::ObservationType::kEditedFallback);
-  AddProfileToPersonalDataManager(profile);
+  AddProfileToAddressDataManager(profile);
 
   // Modify the NAME_FIRST and update the profile in the PDM.
   profile.SetRawInfo(NAME_FIRST, u"new " + profile.GetRawInfo(NAME_FIRST));
-  UpdateProfileOnPersonalDataManager(profile);
+  UpdateProfileOnAddressDataManager(profile);
 
   // Expect that only the observations for NAME_LAST remain.
   profile = *address_data_manager().GetProfileByGUID(profile.guid());
@@ -658,10 +679,10 @@ TEST_F(AddressDataManagerTest, IsCountryEligibleForAccountStorage) {
 TEST_F(AddressDataManagerTest, MigrateProfileToAccount) {
   const AutofillProfile kLocalProfile = test::GetFullProfile();
   ASSERT_EQ(kLocalProfile.source(), AutofillProfile::Source::kLocalOrSyncable);
-  AddProfileToPersonalDataManager(kLocalProfile);
+  AddProfileToAddressDataManager(kLocalProfile);
 
   address_data_manager().MigrateProfileToAccount(kLocalProfile);
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
   const std::vector<AutofillProfile*> profiles =
       address_data_manager().GetProfiles();
 
@@ -686,7 +707,7 @@ TEST_F(AddressDataManagerTest, PopulateUniqueIDsOnLoad) {
                        "");
 
   // Add the profile0 to the db.
-  AddProfileToPersonalDataManager(profile0);
+  AddProfileToAddressDataManager(profile0);
 
   // Verify that we've loaded the profiles from the web database.
   const std::vector<AutofillProfile*>& results2 =
@@ -698,7 +719,7 @@ TEST_F(AddressDataManagerTest, PopulateUniqueIDsOnLoad) {
   AutofillProfile profile1(i18n_model_definition::kLegacyHierarchyCountryCode);
   test::SetProfileInfo(&profile1, "z", "", "", "", "", "", "", "", "", "", "",
                        "");
-  AddProfileToPersonalDataManager(profile1);
+  AddProfileToAddressDataManager(profile1);
 
   // Make sure the two profiles have different GUIDs, both valid.
   const std::vector<AutofillProfile*>& results3 =
@@ -715,12 +736,12 @@ TEST_F(AddressDataManagerTest, SetEmptyProfile) {
                        "");
 
   // Add the empty profile to the database.
-  AddProfileToPersonalDataManager(profile0);
+  AddProfileToAddressDataManager(profile0);
 
   // Reset the PersonalDataManager.  This tests that the personal data was saved
   // to the web database, and that we can load the profiles from the web
   // database.
-  ResetPersonalDataManager();
+  ResetAddressDataManager();
 
   // Verify that we've loaded the profiles from the web database.
   ASSERT_EQ(0U, address_data_manager().GetProfiles().size());
@@ -738,8 +759,8 @@ TEST_F(AddressDataManagerTest, Refresh) {
                        "Orlando", "FL", "32801", "US", "19482937549");
 
   // Add the test profiles to the database.
-  AddProfileToPersonalDataManager(profile0);
-  AddProfileToPersonalDataManager(profile1);
+  AddProfileToAddressDataManager(profile0);
+  AddProfileToAddressDataManager(profile1);
 
   EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1)));
@@ -752,8 +773,7 @@ TEST_F(AddressDataManagerTest, Refresh) {
   profile_database_service_->AddAutofillProfile(profile2);
 
   address_data_manager().LoadProfiles();
-
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   EXPECT_THAT(address_data_manager().GetProfiles(),
               UnorderedElementsAre(Pointee(profile0), Pointee(profile1),
@@ -765,7 +785,7 @@ TEST_F(AddressDataManagerTest, Refresh) {
       profile2.guid(), AutofillProfile::Source::kLocalOrSyncable);
 
   address_data_manager().LoadProfiles();
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   auto results = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results.size());
@@ -775,7 +795,7 @@ TEST_F(AddressDataManagerTest, Refresh) {
   profile_database_service_->UpdateAutofillProfile(profile0);
 
   address_data_manager().LoadProfiles();
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   results = address_data_manager().GetProfiles();
   ASSERT_EQ(1U, results.size());
@@ -787,14 +807,14 @@ TEST_F(AddressDataManagerTest, UpdateLanguageCodeInProfile) {
   test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
-  AddProfileToPersonalDataManager(profile);
+  AddProfileToAddressDataManager(profile);
 
   // Make sure everything is set up correctly.
   EXPECT_EQ(1U, address_data_manager().GetProfiles().size());
   EXPECT_EQ(1U, address_data_manager().GetProfiles().size());
 
   profile.set_language_code("en");
-  UpdateProfileOnPersonalDataManager(profile);
+  UpdateProfileOnAddressDataManager(profile);
 
   const std::vector<AutofillProfile*>& results =
       address_data_manager().GetProfiles();
@@ -823,8 +843,8 @@ TEST_F(AddressDataManagerTest, CreateDuplicateWithAnUpdate) {
   base::Time newer_use_data = AutofillClock::Now();
   more_recently_used_profile.set_use_date(newer_use_data);
 
-  AddProfileToPersonalDataManager(more_recently_used_profile);
-  AddProfileToPersonalDataManager(less_recently_used_profile);
+  AddProfileToAddressDataManager(more_recently_used_profile);
+  AddProfileToAddressDataManager(less_recently_used_profile);
 
   EXPECT_EQ(address_data_manager().GetProfiles().size(), 2U);
 
@@ -836,7 +856,7 @@ TEST_F(AddressDataManagerTest, CreateDuplicateWithAnUpdate) {
       less_recently_used_profile.guid());
   // Set the updated profile to have a older use date than it's duplicate.
   updated_less_recently_used_profile.set_use_date(older_use_date);
-  UpdateProfileOnPersonalDataManager(updated_less_recently_used_profile);
+  UpdateProfileOnAddressDataManager(updated_less_recently_used_profile);
 
   // Verify that the less recently used profile was removed.
   ASSERT_EQ(address_data_manager().GetProfiles().size(), 1U);
@@ -861,8 +881,8 @@ TEST_F(AddressDataManagerTest,
   less_recently_used_profile.set_use_date(AutofillClock::Now());
   more_recently_used_profile.set_use_date(AutofillClock::Now());
 
-  AddProfileToPersonalDataManager(less_recently_used_profile);
-  AddProfileToPersonalDataManager(more_recently_used_profile);
+  AddProfileToAddressDataManager(less_recently_used_profile);
+  AddProfileToAddressDataManager(more_recently_used_profile);
 
   EXPECT_EQ(address_data_manager().GetProfiles().size(), 2U);
 
@@ -876,11 +896,10 @@ TEST_F(AddressDataManagerTest,
   test_clock.Advance(base::Days(1));
   base::Time newer_use_data = AutofillClock::Now();
   updated_more_recently_used_profile.set_use_date(newer_use_data);
-  PersonalDataChangedWaiter update_waiter(*personal_data_);
   // Expect an update and a deletion. This only triggers a single notification
   // once both operations have finished.
   address_data_manager().UpdateProfile(updated_more_recently_used_profile);
-  std::move(update_waiter).Wait();
+  WaitForOnAddressDataChanged();
 
   // Verify that less recently used profile was removed.
   ASSERT_EQ(address_data_manager().GetProfiles().size(), 1U);
@@ -898,11 +917,11 @@ TEST_F(AddressDataManagerTest, RecordUseOf) {
   ASSERT_EQ(profile.use_count(), 1u);
   ASSERT_EQ(profile.use_date(), kArbitraryTime);
   ASSERT_EQ(profile.modification_date(), kArbitraryTime);
-  AddProfileToPersonalDataManager(profile);
+  AddProfileToAddressDataManager(profile);
 
   test_clock.SetNow(kSomeLaterTime);
   address_data_manager().RecordUseOf(profile);
-  PersonalDataChangedWaiter(*personal_data_).Wait();
+  WaitForOnAddressDataChanged();
 
   AutofillProfile* adm_profile =
       address_data_manager().GetProfileByGUID(profile.guid());
@@ -1065,16 +1084,8 @@ TEST_F(AddressDataManagerTest, ClearUrlsFromBrowsingHistoryInTimeRange) {
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-class AddressDataManagerExplicitSigninTest
-    : public base::test::WithFeatureOverride,
-      public AddressDataManagerTest {
- public:
-  AddressDataManagerExplicitSigninTest()
-      : base::test::WithFeatureOverride(
-            ::switches::kExplicitBrowserSigninUIOnDesktop) {}
-};
 
-TEST_P(AddressDataManagerExplicitSigninTest,
+TEST_F(AddressDataManagerTest,
        IsEligibleForAddressAccountStorageSigninPending) {
   // Setup account in auth error.
   CoreAccountInfo account_info =
@@ -1097,16 +1108,12 @@ TEST_P(AddressDataManagerExplicitSigninTest,
   ASSERT_TRUE(sync_service_.GetUserSettings()->GetSelectedTypes().Has(
       syncer::UserSelectableType::kAutofill));
 
-  // Account storage is eligible when explicit signin UI is enabled.
-  EXPECT_EQ(address_data_manager().IsEligibleForAddressAccountStorage(),
-            ::switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-                ::switches::ExplicitBrowserSigninPhase::kFull));
+  // Account storage is not eligible.
+  EXPECT_FALSE(address_data_manager().IsEligibleForAddressAccountStorage());
 }
 
-INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(AddressDataManagerExplicitSigninTest);
-
 TEST_F(AddressDataManagerTest, AutofillSyncToggleAvailableInTransportMode) {
-  ResetPersonalDataManager(
+  ResetAddressDataManager(
       /*use_sync_transport_mode=*/true);
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
@@ -1117,18 +1124,23 @@ TEST_F(AddressDataManagerTest, AutofillSyncToggleAvailableInTransportMode) {
   const CoreAccountInfo& account = sync_service_.GetAccountInfo();
   identity_test_env_.SimulateSuccessfulFetchOfAccountInfo(
       account.account_id, account.email, account.gaia,
-      /*hosted_domain=*/"", "Full Name", "Given Name",
-      personal_data_->app_locale(), /*picture_url=*/"");
+      /*hosted_domain=*/"", "Full Name", "Given Name", "en-US",
+      /*picture_url=*/"");
 
   prefs_->SetBoolean(::prefs::kExplicitBrowserSignin, true);
-  EXPECT_TRUE(
-      personal_data_->address_data_manager().IsAutofillSyncToggleAvailable());
+  EXPECT_TRUE(address_data_manager().IsAutofillSyncToggleAvailable());
 
   prefs_->SetBoolean(::prefs::kExplicitBrowserSignin, false);
-  EXPECT_FALSE(
-      personal_data_->address_data_manager().IsAutofillSyncToggleAvailable());
+  EXPECT_FALSE(address_data_manager().IsAutofillSyncToggleAvailable());
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+TEST_F(AddressDataManagerTest, ChangeCallbackIsTriggeredOnAddedProfile) {
+  ::testing::StrictMock<base::MockOnceClosure> callback;
+  EXPECT_CALL(callback, Run);
+  address_data_manager().AddChangeCallback(callback.Get());
+  AddProfileToAddressDataManager(test::GetFullProfile());
+}
 
 }  // namespace
 

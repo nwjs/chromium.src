@@ -58,6 +58,7 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ButtonDataProvider;
+import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
@@ -175,7 +176,7 @@ public class IdentityDiscControllerTest {
                         withContentDescription(descriptionId)));
 
         // Clicking the signed-out avatar should lead to the correct sign-in screen.
-        // TODO(crbug.com/1523958): Implement the new sign-in flow for automotive and update the
+        // TODO(crbug.com/41496906): Implement the new sign-in flow for automotive and update the
         // verification below.
         if (!BuildInfo.getInstance().isAutomotive) {
             Activity signinActivity =
@@ -228,7 +229,7 @@ public class IdentityDiscControllerTest {
     public void testIdentityDiscWithSignin() {
         // Identity Disc should be shown on sign-in state change with a NTP refresh.
         mSigninTestRule.addAccountThenSignin(EMAIL, NAME);
-        // TODO(https://crbug.com/1132291): Remove the reload once the sign-in without sync observer
+        // TODO(crbug.com/40721874): Remove the reload once the sign-in without sync observer
         //  is implemented.
         TestThreadUtils.runOnUiThreadBlocking(mTab::reload);
         String expectedContentDescription =
@@ -258,7 +259,7 @@ public class IdentityDiscControllerTest {
         // Identity Disc should be shown on sign-in state change with a NTP refresh.
         CoreAccountInfo coreAccountInfo = addAccountWithNonDisplayableEmail(NAME);
         SigninTestUtil.signin(coreAccountInfo);
-        // TODO(https://crbug.com/1132291): Remove the reload once the sign-in without sync observer
+        // TODO(crbug.com/40721874): Remove the reload once the sign-in without sync observer
         //  is implemented.
         TestThreadUtils.runOnUiThreadBlocking(mTab::reload);
         String expectedContentDescription =
@@ -295,7 +296,7 @@ public class IdentityDiscControllerTest {
                                         .accessibility_toolbar_btn_identity_disc_with_name_and_email,
                                 FULL_NAME,
                                 EMAIL);
-        // TODO(crbug.com/1469988): This is a no-op, replace with ViewUtils.waitForVisibleView().
+        // TODO(crbug.com/40277716): This is a no-op, replace with ViewUtils.waitForVisibleView().
         ViewUtils.isEventuallyVisible(
                 allOf(
                         withId(R.id.optional_toolbar_button),
@@ -303,7 +304,7 @@ public class IdentityDiscControllerTest {
                         isDisplayed()));
 
         mSigninTestRule.signOut();
-        // TODO(crbug.com/1469988): This is a no-op, replace with ViewUtils.waitForVisibleView().
+        // TODO(crbug.com/40277716): This is a no-op, replace with ViewUtils.waitForVisibleView().
         ViewUtils.isEventuallyVisible(
                 allOf(
                         withId(R.id.optional_toolbar_button),
@@ -343,12 +344,12 @@ public class IdentityDiscControllerTest {
     @SuppressWarnings("CheckReturnValue")
     public void testIdentityDiscWithSwitchToIncognito() {
         mSigninTestRule.addTestAccountThenSigninAndEnableSync();
-        // TODO(crbug.com/1469988): This is a no-op, replace with ViewUtils.waitForVisibleView().
+        // TODO(crbug.com/40277716): This is a no-op, replace with ViewUtils.waitForVisibleView().
         ViewUtils.isEventuallyVisible(allOf(withId(R.id.optional_toolbar_button), isDisplayed()));
 
         // Identity Disc should not be visible, when switched from sign in state to incognito NTP.
         mActivityTestRule.newIncognitoTabFromMenu();
-        // TODO(crbug.com/1469988): This is a no-op, replace with ViewUtils.waitForVisibleView().
+        // TODO(crbug.com/40277716): This is a no-op, replace with ViewUtils.waitForVisibleView().
         ViewUtils.isEventuallyVisible(
                 allOf(
                         withId(R.id.optional_toolbar_button),
@@ -435,7 +436,7 @@ public class IdentityDiscControllerTest {
     }
 
     private @StringRes int getSignedOutAvatarDescription() {
-        return (IdentityDiscController.shouldShowNewSigninFlow())
+        return (SigninUtils.shouldShowNewSigninFlow())
                 ? R.string.accessibility_toolbar_btn_signed_out_identity_disc
                 : R.string.accessibility_toolbar_btn_signed_out_with_sync_identity_disc;
     }

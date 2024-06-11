@@ -30,6 +30,7 @@
 #include "base/win/shortcut.h"
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/shell_integration_win.h"
+#include "chrome/browser/shortcuts/platform_util_win.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_test_override.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcuts_menu_win.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
@@ -50,16 +51,7 @@ namespace {
 constexpr base::FilePath::CharType kIconChecksumFileExt[] =
     FILE_PATH_LITERAL(".ico.md5");
 
-//constexpr base::FilePath::CharType kChromeProxyExecutable[] =
-//    FILE_PATH_LITERAL("nw.exe");
-
 }  // namespace
-
-base::FilePath GetChromeProxyPath() {
-  base::FilePath chrome_dir;
-  CHECK(base::PathService::Get(base::FILE_EXE, &chrome_dir));
-  return chrome_dir; //.Append(kChromeProxyExecutable);
-}
 
 namespace internals {
 namespace {
@@ -161,7 +153,7 @@ bool CreateShortcutsInPaths(const base::FilePath& web_app_path,
     return false;
   }
 
-  base::FilePath chrome_proxy_path = GetChromeProxyPath();
+  base::FilePath chrome_proxy_path = shortcuts::GetChromeProxyPath();
 
   // Working directory.
   base::FilePath working_dir(chrome_proxy_path.DirName());
@@ -430,7 +422,7 @@ void GetShortcutLocationsAndDeleteShortcuts(
     return;
   }
 
-  // TODO(crbug.com/1400425): Figure out how to make this call not crash &
+  // TODO(crbug.com/40250252): Figure out how to make this call not crash &
   // incorporate unpin / pin methods in unit-tests.
   shell_integration::win::UnpinShortcuts(
       all_shortcuts, base::BindOnce(&DeleteShortcuts, all_shortcuts,
@@ -448,6 +440,7 @@ void CreateIconAndSetRelaunchDetails(const base::FilePath& web_app_path,
           shortcut_info.url, shortcut_info.app_id, shortcut_info.profile_path,
           "");
 
+  command_line.SetProgram(shortcuts::GetChromeProxyPath());
 #endif
   command_line.SetProgram(GetChromeProxyPath());
   const base::CommandLine::StringVector& args = base::CommandLine::ForCurrentProcess()->GetArgs();
@@ -580,7 +573,7 @@ bool CreatePlatformShortcuts(const base::FilePath& web_app_path,
   bool pin_to_taskbar = false;
   // PinShortcutToTaskbar in unit-tests are not preferred as unpinning causes
   // crashes, so use the shortcut override for testing to not pin to taskbar.
-  // TODO(crbug.com/1400425): Figure out how to make this call not crash &
+  // TODO(crbug.com/40250252): Figure out how to make this call not crash &
   // incorporate unpin / pin methods in unit-tests.
   if (!test_override) {
     pin_to_taskbar =

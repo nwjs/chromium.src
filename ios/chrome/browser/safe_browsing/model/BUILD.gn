@@ -39,6 +39,7 @@ source_set("model") {
     ":password_protection_ts",
     "//base",
     "//build:branding_buildflags",
+    "//components/feature_engagement/public",
     "//components/keyed_service/core",
     "//components/keyed_service/ios",
     "//components/omnibox/common",

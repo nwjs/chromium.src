@@ -426,7 +426,8 @@ public class PageInfoViewTest {
     public void tearDown() throws TimeoutException {
         LocationUtils.setFactory(null);
         // Notification channels don't get cleaned up automatically.
-        // TODO(crbug.com/951402): Find a general solution to avoid leaking channels between tests.
+        // TODO(crbug.com/41452182): Find a general solution to avoid leaking channels between
+        // tests.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             TestThreadUtils.runOnUiThreadBlocking(
                     () -> {
@@ -1123,5 +1124,6 @@ public class PageInfoViewTest {
         onView(withText(R.string.ad_privacy_page_topics_link_row_label)).check(doesNotExist());
     }
 
-    // TODO(1071762): Add tests for preview pages, offline pages, offline state and other states.
+    // TODO(crbug.com/40685274): Add tests for preview pages, offline pages, offline state and other
+    // states.
 }

@@ -30,6 +30,14 @@ class GPMEnclaveController;
 class PrefService;
 class Profile;
 
+namespace base {
+class Clock;
+}
+
+namespace chromeos {
+class PasskeyDialogController;
+}
+
 namespace content {
 class BrowserContext;
 class RenderFrameHost;
@@ -50,7 +58,8 @@ class PrefRegistrySyncable;
 // ChromeWebAuthenticationDelegate is the //chrome layer implementation of
 // content::WebAuthenticationDelegate.
 class ChromeWebAuthenticationDelegate
-    : public content::WebAuthenticationDelegate {
+    : public content::WebAuthenticationDelegate,
+      base::SupportsWeakPtr<ChromeWebAuthenticationDelegate> {
  public:
 #if BUILDFLAG(IS_MAC)
   // Returns a configuration struct for instantiating the macOS WebAuthn
@@ -58,6 +67,8 @@ class ChromeWebAuthenticationDelegate
   static TouchIdAuthenticatorConfig TouchIdAuthenticatorConfigForProfile(
       Profile* profile);
 #endif  // BUILDFLAG(IS_MAC)
+
+  ChromeWebAuthenticationDelegate();
 
   ~ChromeWebAuthenticationDelegate() override;
 
@@ -80,13 +91,15 @@ class ChromeWebAuthenticationDelegate
       content::RenderFrameHost* render_frame_host) override;
   bool SupportsPasskeyMetadataSyncing() override;
   bool IsFocused(content::WebContents* web_contents) override;
-  std::optional<bool> IsUserVerifyingPlatformAuthenticatorAvailableOverride(
-      content::RenderFrameHost* render_frame_host) override;
+  void IsUserVerifyingPlatformAuthenticatorAvailableOverride(
+      content::RenderFrameHost* render_frame_host,
+      base::OnceCallback<void(std::optional<bool>)> callback) override;
   content::WebAuthenticationRequestProxy* MaybeGetRequestProxy(
       content::BrowserContext* browser_context,
       const url::Origin& caller_origin) override;
-  bool IsEnclaveAuthenticatorAvailable(
-      content::BrowserContext* browser_context) override;
+  void BrowserProvidedPasskeysAvailable(
+      content::BrowserContext* browser_context,
+      base::OnceCallback<void(bool)> callback) override;
 
 #if BUILDFLAG(IS_MAC)
   std::optional<TouchIdAuthenticatorConfig> GetTouchIdAuthenticatorConfig(
@@ -96,6 +109,14 @@ class ChromeWebAuthenticationDelegate
   ChromeOSGenerateRequestIdCallback GetGenerateRequestIdCallback(
       content::RenderFrameHost* render_frame_host) override;
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+ private:
+#if BUILDFLAG(IS_WIN)
+  // Caches the result from looking up whether a TPM is available for Enclave
+  // requests.
+  std::optional<bool> tpm_available_;
+#endif
+  base::WeakPtrFactory<ChromeWebAuthenticationDelegate> weak_ptr_factory_{this};
 };
 
 class ChromeAuthenticatorRequestDelegate
@@ -184,6 +205,7 @@ class ChromeAuthenticatorRequestDelegate
       device::FidoRequestType request_type,
       std::optional<device::ResidentKeyRequirement> resident_key_requirement,
       device::UserVerificationRequirement user_verification_requirement,
+      std::optional<std::string_view> user_name,
       base::span<const device::CableDiscoveryData> pairings_from_extension,
       bool is_enclave_authenticator_available,
       device::FidoDiscoveryFactory* discovery_factory) override;
@@ -239,6 +261,8 @@ class ChromeAuthenticatorRequestDelegate
   void SetTrustedVaultConnectionForTesting(
       std::unique_ptr<trusted_vault::TrustedVaultConnection> connection);
 
+  void SetClockForTesting(base::Clock*);
+
  private:
   FRIEND_TEST_ALL_PREFIXES(ChromeAuthenticatorRequestDelegatePrivateTest,
                            DaysSinceDate);
@@ -273,6 +297,10 @@ class ChromeAuthenticatorRequestDelegate
   // Adds GPM passkeys matching |rp_id| to |passkeys|.
   void GetPhoneContactableGpmPasskeysForRpId(
       std::vector<device::DiscoverableCredentialMetadata>* passkeys);
+
+  // Update `tai` to remove credentials that aren't applicable to this request.
+  void FilterRecognizedCredentials(
+      device::FidoRequestHandlerBase::TransportAvailabilityInfo* tai);
 
 #if BUILDFLAG(IS_MAC)
   // DaysSinceDate returns the number of days between `formatted_date` (in ISO
@@ -344,6 +372,12 @@ class ChromeAuthenticatorRequestDelegate
   // available that can service requests for synced GPM passkeys.
   bool can_use_synced_phone_passkeys_ = false;
 
+#if BUILDFLAG(IS_CHROMEOS)
+  std::unique_ptr<chromeos::PasskeyDialogController>
+      chromeos_passkey_controller_;
+#endif
+
+  // TODO(crbug.com/40187814): Don't define this on ChromeOS.
   std::unique_ptr<GPMEnclaveController> enclave_controller_;
 
   // Stores the TransportAvailabilityInfo while we're waiting for the enclave
@@ -360,6 +394,7 @@ class ChromeAuthenticatorRequestDelegate
   // `enclave_controller_` when it is created.
   std::unique_ptr<trusted_vault::TrustedVaultConnection>
       pending_trusted_vault_connection_;
+  raw_ptr<base::Clock> clock_ = nullptr;
 
   base::WeakPtrFactory<ChromeAuthenticatorRequestDelegate> weak_ptr_factory_{
       this};

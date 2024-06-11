@@ -197,7 +197,7 @@ class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
     vp9_profile0_codecs_.push_back("vp09.00.10.08");
 
     // VP9 profile 2 is supported in WebM/MP4 with ClearKey/ExternalClearKey.
-    // TODO(crbug.com/707128): Add support in Widevine CDM.
+    // TODO(crbug.com/40513453): Add support in Widevine CDM.
     vp9_profile2_codecs_.push_back("vp09.02.10.10");
 
     // AV1 codec string: https://aomediacodec.github.io/av1-isobmff/#codecsparam
@@ -291,7 +291,7 @@ class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
         default_command_line, switches::kDisableComponentUpdate, command_line);
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
-    // TODO(crbug.com/1243903): WhatsNewUI might be causing timeouts.
+    // TODO(crbug.com/40787541): WhatsNewUI might be causing timeouts.
     command_line->AppendSwitch(switches::kNoFirstRun);
 
     feature_list_.InitWithFeaturesAndParameters(enabled_features_,
@@ -495,7 +495,7 @@ class EncryptedMediaSupportedTypesTest : public InProcessBrowserTest {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
     // On Windows & Linux platforms, HEVC support is detected through the GPU
     // capabilities which won't indicate support when running the tests.
-    // TODO(crbug/1327470): Fix this so that we can inject HEVC support on
+    // TODO(crbug.com/40226210): Fix this so that we can inject HEVC support on
     // Windows.
     EXPECT_UNSUPPORTED(hevc_supported);
 #elif BUILDFLAG(IS_MAC)
@@ -885,7 +885,7 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesClearKeyTest, Audio_WebM) {
                                             video_mp4_hevc_codecs()));
 }
 
-// TODO(crbug.com/1451037): Flaky on "Mac12 Tests" builder.
+// TODO(crbug.com/40915599): Flaky on "Mac12 Tests" builder.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_Video_MP4 DISABLED_Video_MP4
 #else
@@ -1125,7 +1125,7 @@ IN_PROC_BROWSER_TEST_F(EncryptedMediaSupportedTypesExternalClearKeyTest,
       kExternalClearKey, kAudioWebMMimeType, video_mp4_hevc_codecs()));
 }
 
-// TODO(crbug.com/1451037): Flaky on "Mac12 Tests" builder.
+// TODO(crbug.com/40915599): Flaky on "Mac12 Tests" builder.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_Video_MP4 DISABLED_Video_MP4
 #else

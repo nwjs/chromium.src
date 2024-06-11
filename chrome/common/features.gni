@@ -42,10 +42,12 @@ declare_args() {
   # * CertificateManagement/CACertificatesWithConstraints.yaml
   # * CertificateManagement/CADistrustedCertificates.yaml
   # * CertificateManagement/CAHintCertificates.yaml
-  # * CertificateManagement/CAPlatformIntegrationEnabled.yaml
+  # * CertificateManagement/CAPlatformIntegrationEnabled.yaml (The
+  # CAPlatformIntegrationEnabled policy is not available on ChromeOS as there
+  # is no "platform" certificate store to integrate with.)
   #
   chrome_certificate_policies_supported =
-      is_mac || is_win || is_linux || is_android
+      is_mac || is_win || is_linux || is_android || is_chromeos
 
   # Platforms for which Chrome supports a certificate management UI that
   # shows the Chrome Root Store. This is specific to the v2 UI that is
@@ -60,6 +62,8 @@ declare_args() {
   # Enables usage of notifications via Chrome's MessageCenter.
   enable_chrome_notifications = is_mac || is_win || is_linux || is_fuchsia
 
+  # TODO(crbug.com/41481724): Remove this flag and corresponding build
+  # conditions.
   # Disable Click to Call on Fuchsia.
   enable_click_to_call = !is_fuchsia
 
@@ -111,6 +115,7 @@ chrome_grit_defines = [
   "enable_extensions=$enable_extensions",
   "enable_hangout_services_extension=$enable_hangout_services_extension",
   "enable_ink=$enable_ink",
+  "enable_pdf_ink2=$enable_pdf_ink2",
   "enable_nacl=$enable_nacl",
   "enable_dice_support=$enable_dice_support",
   "enable_pdf=$enable_pdf",

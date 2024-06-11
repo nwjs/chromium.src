@@ -32,7 +32,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/bookmarks/managed_bookmark_service_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
-#include "chrome/browser/image_service/image_service_factory.h"
+#include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/incognito_helpers.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/reading_list/android/reading_list_manager.h"
@@ -1059,7 +1059,7 @@ void BookmarkBridge::DeleteBookmark(
 }
 
 void BookmarkBridge::DeleteBookmarkImpl(const BookmarkNode* node, int type) {
-  // TODO(crbug.com/1425438): Switch to an early returns after debugging why
+  // TODO(crbug.com/40063642): Switch to an early returns after debugging why
   // this is called with a nullptr.
   if (!node) {
     LOG(ERROR) << "Deleting null bookmark, type:" << type;
@@ -1067,7 +1067,7 @@ void BookmarkBridge::DeleteBookmarkImpl(const BookmarkNode* node, int type) {
     return;
   }
 
-  // TODO(crbug.com/1425438): Switch back to a D/CHECK after debugging
+  // TODO(crbug.com/40063642): Switch back to a D/CHECK after debugging
   // why this is called with an uneditable node.
   // See https://crbug.com/981172.
   if (!IsEditable(node)) {
@@ -1088,7 +1088,8 @@ void BookmarkBridge::DeleteBookmarkImpl(const BookmarkNode* node, int type) {
     std::set<GURL> removed_urls;
     // Observer must be trigger prior, the underlying BookmarkNode* will be
     // deleted immediately after the delete call.
-    BookmarkNodeRemoved(reading_list_parent, index, node, removed_urls);
+    BookmarkNodeRemoved(reading_list_parent, index, node, removed_urls,
+                        FROM_HERE);
 
     // Inside the Delete method, node will be destroyed and node->url will be
     // also destroyed. This causes heap-use-after-free at
@@ -1097,15 +1098,15 @@ void BookmarkBridge::DeleteBookmarkImpl(const BookmarkNode* node, int type) {
     GURL url(node->url());
     reading_list_manager->Delete(url);
   } else {
-    bookmark_model_->Remove(node,
-                            bookmarks::metrics::BookmarkEditSource::kUser);
+    bookmark_model_->Remove(node, bookmarks::metrics::BookmarkEditSource::kUser,
+                            FROM_HERE);
   }
 }
 
 void BookmarkBridge::RemoveAllUserBookmarks(JNIEnv* env) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(IsLoaded());
-  bookmark_model_->RemoveAllUserBookmarks();
+  bookmark_model_->RemoveAllUserBookmarks(FROM_HERE);
   local_or_syncable_reading_list_manager_->DeleteAll();
   if (account_reading_list_manager_) {
     account_reading_list_manager_->DeleteAll();
@@ -1363,7 +1364,7 @@ ScopedJavaLocalRef<jobject> BookmarkBridge::CreateJavaBookmark(
     read = local_or_syncable_reading_list_manager_->GetReadStatus(node);
   }
 
-  // TODO(crbug.com/1467559): Folders need to use most recent child's time for
+  // TODO(crbug.com/40924440): Folders need to use most recent child's time for
   // date_last_used.
   return Java_BookmarkBridge_createBookmarkItem(
       env, node->id(), type, GetTitle(node), url, node->is_folder(), parent_id,
@@ -1478,7 +1479,7 @@ const BookmarkNode* BookmarkBridge::GetParentNode(const BookmarkNode* node) {
 }
 
 int BookmarkBridge::GetBookmarkType(const BookmarkNode* node) {
-  // TODO(crbug.com/1150559) return the wrong type when the backend is not
+  // TODO(crbug.com/40157934) return the wrong type when the backend is not
   // loaded?
   if (partner_bookmarks_shim_->IsLoaded() &&
       partner_bookmarks_shim_->IsPartnerBookmark(node))
@@ -1606,7 +1607,8 @@ void BookmarkBridge::BookmarkNodeAdded(const BookmarkNode* parent,
 void BookmarkBridge::BookmarkNodeRemoved(const BookmarkNode* parent,
                                          size_t old_index,
                                          const BookmarkNode* node,
-                                         const std::set<GURL>& removed_urls) {
+                                         const std::set<GURL>& removed_urls,
+                                         const base::Location& location) {
   if (!IsLoaded() || !java_bookmark_model_ ||
       suppress_observer_notifications_) {
     return;
@@ -1619,7 +1621,8 @@ void BookmarkBridge::BookmarkNodeRemoved(const BookmarkNode* parent,
 }
 
 void BookmarkBridge::BookmarkAllUserNodesRemoved(
-    const std::set<GURL>& removed_urls) {
+    const std::set<GURL>& removed_urls,
+    const base::Location& location) {
   if (!IsLoaded() || !java_bookmark_model_ ||
       suppress_observer_notifications_) {
     return;

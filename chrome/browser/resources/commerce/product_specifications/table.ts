@@ -2,9 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'chrome://resources/cr_elements/cr_auto_img/cr_auto_img.js';
+import './product_selector.js';
+
+import type {DomRepeatEvent} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {getTemplate} from './table.html.js';
+import type {UrlListEntry} from './utils.js';
 
 /** Describes a row in a ProductSpecs table. */
 export interface TableRow {
@@ -13,7 +18,7 @@ export interface TableRow {
 }
 /** Describes a column in a ProductSpecs table. */
 export interface TableColumn {
-  title: string;
+  selectedItem: UrlListEntry;
 }
 
 /** Element for rendering a ProductSpecs table. */
@@ -35,6 +40,18 @@ export class TableElement extends PolymerElement {
 
   columns: TableColumn[];
   rows: TableRow[];
+
+  private onSelectedUrlChange_(
+      e: DomRepeatEvent<TableColumn, CustomEvent<{url: string}>>) {
+    this.dispatchEvent(new CustomEvent('url-change', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        url: e.detail.url,
+        index: e.model.index,
+      },
+    }));
+  }
 }
 
 declare global {

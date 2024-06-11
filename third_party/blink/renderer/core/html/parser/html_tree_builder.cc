@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/html_template_element.h"
 #include "third_party/blink/renderer/core/html/parser/atomic_html_token.h"
 #include "third_party/blink/renderer/core/html/parser/html_document_parser.h"
@@ -973,8 +974,9 @@ void HTMLTreeBuilder::ProcessStartTagForInBody(AtomicHTMLToken* token) {
     case HTMLTag::kTr:
       ParseError(token);
       break;
-    case HTMLTag::kPermission:
-      if (RuntimeEnabledFeatures::PermissionElementEnabled()) {
+    case HTMLTag::kPermissionOrUnknown:
+      if (RuntimeEnabledFeatures::PermissionElementEnabled(
+              tree_.OwnerDocumentForCurrentNode().GetExecutionContext())) {
         tree_.ReconstructTheActiveFormattingElements();
         tree_.InsertSelfClosingHTMLElementDestroyingToken(token);
         frameset_ok_ = false;
@@ -1552,6 +1554,9 @@ void HTMLTreeBuilder::ProcessStartTag(AtomicHTMLToken* token) {
           return;
         }
         case HTMLTag::kInput:
+          UseCounter::Count(tree_.CurrentNode()->GetDocument(),
+                            WebFeature::kHTMLInputInSelect);
+          [[fallthrough]];
         case HTMLTag::kKeygen:
         case HTMLTag::kTextarea: {
           ParseError(token);

@@ -161,8 +161,7 @@ void GetOrigins(JNIEnv* env,
     if (settings_it.GetContentSetting() == default_content_setting)
       continue;
     if (managedOnly &&
-        HostContentSettingsMap::GetProviderTypeFromSource(settings_it.source) !=
-            HostContentSettingsMap::ProviderType::POLICY_PROVIDER) {
+        settings_it.source != content_settings::ProviderType::kPolicyProvider) {
       continue;
     }
     const std::string origin = settings_it.primary_pattern.ToString();
@@ -302,37 +301,31 @@ bool GetBooleanForContentSetting(
 bool IsContentSettingManaged(
     const JavaParamRef<jobject>& jbrowser_context_handle,
     ContentSettingsType content_settings_type) {
-  std::string source;
   HostContentSettingsMap* content_settings =
       GetHostContentSettingsMap(jbrowser_context_handle);
-  content_settings->GetDefaultContentSetting(content_settings_type, &source);
-  HostContentSettingsMap::ProviderType provider =
-      content_settings->GetProviderTypeFromSource(source);
-  return provider == HostContentSettingsMap::POLICY_PROVIDER;
+  content_settings::ProviderType provider;
+  content_settings->GetDefaultContentSetting(content_settings_type, &provider);
+  return provider == content_settings::ProviderType::kPolicyProvider;
 }
 
 bool IsContentSettingManagedByCustodian(
     const JavaParamRef<jobject>& jbrowser_context_handle,
     ContentSettingsType content_settings_type) {
-  std::string source;
   HostContentSettingsMap* content_settings =
       GetHostContentSettingsMap(jbrowser_context_handle);
-  content_settings->GetDefaultContentSetting(content_settings_type, &source);
-  HostContentSettingsMap::ProviderType provider =
-      content_settings->GetProviderTypeFromSource(source);
-  return provider == HostContentSettingsMap::SUPERVISED_PROVIDER;
+  content_settings::ProviderType provider;
+  content_settings->GetDefaultContentSetting(content_settings_type, &provider);
+  return provider == content_settings::ProviderType::kSupervisedProvider;
 }
 
 bool IsContentSettingUserModifiable(
     const JavaParamRef<jobject>& jbrowser_context_handle,
     ContentSettingsType content_settings_type) {
-  std::string source;
   HostContentSettingsMap* content_settings =
       GetHostContentSettingsMap(jbrowser_context_handle);
-  content_settings->GetDefaultContentSetting(content_settings_type, &source);
-  HostContentSettingsMap::ProviderType provider =
-      content_settings->GetProviderTypeFromSource(source);
-  return provider >= HostContentSettingsMap::PREF_PROVIDER;
+  content_settings::ProviderType provider;
+  content_settings->GetDefaultContentSetting(content_settings_type, &provider);
+  return provider >= content_settings::ProviderType::kPrefProvider;
 }
 
 }  // anonymous namespace
@@ -516,7 +509,7 @@ static void JNI_WebsitePreferenceBridge_GetChosenObjects(
         ConvertUTF8ToJavaString(env, serialized);
 
     jboolean jis_managed =
-        object->source == content_settings::SETTING_SOURCE_POLICY;
+        object->source == content_settings::SettingSource::kPolicy;
 
     Java_WebsitePreferenceBridge_insertChosenObjectInfoIntoList(
         env, list, content_settings_type, jorigin, jname, jserialized,
@@ -1022,7 +1015,7 @@ static void JNI_WebsitePreferenceBridge_GetContentSettingsExceptions(
     Java_WebsitePreferenceBridge_addContentSettingExceptionToList(
         env, list, content_settings_type, ConvertUTF8ToJavaString(env, origin),
         ConvertUTF8ToJavaString(env, entry.secondary_pattern.ToString()),
-        entry.GetContentSetting(), ConvertUTF8ToJavaString(env, entry.source),
+        entry.GetContentSetting(), static_cast<int>(entry.source),
         hasExpiration, expirationInDays,
         /*is_embargoed=*/false);
   }
@@ -1042,7 +1035,8 @@ static void JNI_WebsitePreferenceBridge_GetContentSettingsExceptions(
     Java_WebsitePreferenceBridge_addContentSettingExceptionToList(
         env, list, content_settings_type,
         ConvertUTF8ToJavaString(env, embargoed_origin_pattern), jembedder,
-        CONTENT_SETTING_BLOCK, /*source=*/ScopedJavaLocalRef<jstring>(),
+        CONTENT_SETTING_BLOCK,
+        static_cast<int>(content_settings::ProviderType::kNone),
         /*isTemporary=*/false,
         /*expiration=*/0, /*is_embargoed=*/true);
   }

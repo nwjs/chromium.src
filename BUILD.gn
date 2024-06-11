@@ -297,7 +297,7 @@ group("gn_all") {
     if (enable_pdf) {
       deps += [
         "//pdf/pdfium/fuzzers",
-        "//third_party/pdfium/samples:pdfium_test",
+        "//third_party/pdfium/testing:pdfium_test",
       ]
     }
 
@@ -1116,22 +1116,24 @@ if (use_blink && !is_cronet_build) {
         "//third_party/blink/tools:wpt_tests_isolate",
       ]
     }
-    script_test("content_shell_wpt") {
+    script_test("headless_shell_wpt") {
       script = "//third_party/blink/tools/run_wpt_tests.py"
       args = [
         "--test-type",
         "testharness",
+        "reftest",
         "crashtest",
-        "--product=content_shell",
+        "print-reftest",
+        "--product=headless_shell",
         "--no-virtual-tests",
+        "--no-wpt-internal",
         "--no-show-results",
         "--zero-tests-executed-ok",
-        "--no-retry-failures",
-        "--exit-after-n-crashes-or-timeouts=400",
       ]
       data_deps = [
         ":blink_web_tests_expectations",
         ":blink_web_tests_support_data",
+        "//chrome:chrome",
         "//chrome/test/chromedriver:chromedriver_server",
         "//third_party/blink/tools:wpt_tests_isolate",
       ]
@@ -1690,7 +1692,7 @@ if (!is_ios && !is_android && !is_castos && !is_cronet_build) {
     if (!is_chromeos_ash) {
       deps += [ "//v8:v8_shell($v8_snapshot_toolchain)" ]
       if (enable_pdf) {
-        deps += [ "//third_party/pdfium/samples:pdfium_test" ]
+        deps += [ "//third_party/pdfium/testing:pdfium_test" ]
       }
     }
 

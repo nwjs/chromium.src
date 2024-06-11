@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/process/internal_linux.h"
 
 #include <limits.h>
@@ -64,7 +69,7 @@ pid_t ProcDirSlotToPid(const char* d_name) {
   pid_t pid;
   std::string pid_string(d_name);
   if (!StringToInt(pid_string, &pid)) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return 0;
   }
   return pid;
@@ -77,7 +82,6 @@ bool ReadProcFile(const FilePath& file, std::string* buffer) {
   ScopedAllowBlocking scoped_allow_blocking;
 
   if (!ReadFileToString(file, buffer)) {
-    DLOG(WARNING) << "Failed to read " << file.MaybeAsASCII();
     return false;
   }
   return !buffer->empty();
@@ -112,12 +116,12 @@ size_t ReadProcStatusAndGetKbFieldAsSizeT(pid_t pid, std::string_view field) {
     std::vector<std::string_view> split_value_str =
         SplitStringPiece(value_str, " ", TRIM_WHITESPACE, SPLIT_WANT_ALL);
     if (split_value_str.size() != 2 || split_value_str[1] != "kB") {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return 0;
     }
     size_t value;
     if (!StringToSizeT(split_value_str[0], &value)) {
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return 0;
     }
     return value;
@@ -174,7 +178,7 @@ bool ParseProcStats(const std::string& stats_data,
       close_parens_idx == std::string::npos ||
       open_parens_idx > close_parens_idx) {
     DLOG(WARNING) << "Failed to find matched parens in '" << stats_data << "'";
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return false;
   }
   open_parens_idx++;

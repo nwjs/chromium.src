@@ -67,6 +67,7 @@
 #include "third_party/blink/public/common/messaging/transferable_message.h"
 #include "third_party/blink/public/common/navigation/navigation_params.h"
 #include "third_party/blink/public/common/page/launching_process_state.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/common/widget/device_emulation_params.h"
 #include "third_party/blink/public/mojom/blob/blob.mojom-blink.h"
 #include "third_party/blink/public/mojom/blob/data_element.mojom-blink.h"
@@ -319,7 +320,7 @@ const cc::OverscrollBehavior kOverscrollBehaviorContain =
 const cc::OverscrollBehavior kOverscrollBehaviorNone =
     cc::OverscrollBehavior(cc::OverscrollBehavior::Type::kNone);
 
-class WebFrameTest : public testing::Test {
+class WebFrameTest : public PageTestBase {
  protected:
   WebFrameTest()
       : base_url_("http://internal.test/"),
@@ -508,7 +509,6 @@ class WebFrameTest : public testing::Test {
   std::string not_base_url_;
   std::string chrome_url_;
 
-  test::TaskEnvironment task_environment_;
   ScopedTestingPlatformSupport<TestingPlatformSupport> platform_;
   url::ScopedSchemeRegistryForTests scoped_registry_;
 };
@@ -8128,10 +8128,13 @@ class TestDidNavigateCommitTypeWebFrameClient
   ~TestDidNavigateCommitTypeWebFrameClient() override = default;
 
   // frame_test_helpers::TestWebFrameClient:
-  void DidFinishSameDocumentNavigation(WebHistoryCommitType type,
-                                       bool is_synchronously_committed,
-                                       mojom::blink::SameDocumentNavigationType,
-                                       bool is_client_redirect) override {
+  void DidFinishSameDocumentNavigation(
+      WebHistoryCommitType type,
+      bool is_synchronously_committed,
+      mojom::blink::SameDocumentNavigationType,
+      bool is_client_redirect,
+      const std::optional<blink::SameDocNavigationScreenshotDestinationToken>&
+          screenshot_destination) override {
     last_commit_type_ = type;
   }
 
@@ -14579,6 +14582,40 @@ TEST_F(WebFrameSimTest, SetModifiedFeaturesInOverrideContext) {
   override_context =
       frame->GetFrame()->DomWindow()->GetRuntimeFeatureStateOverrideContext();
   EXPECT_EQ(override_context->GetOverrideValuesForTesting(), modified_features);
+}
+
+TEST_F(WebFrameTest, IframeMoveBeforeConnectedSubframeCount) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+
+  WebViewImpl* web_view = web_view_helper.GetWebView();
+  web_view->Resize(gfx::Size(800, 800));
+  auto* frame = web_view->MainFrameImpl()->GetFrame();
+  InitializeWithHTML(*frame, R"HTML(
+    <!DOCTYPE html>
+    <body>
+      <div id=oldParent><iframe></iframe></div>
+      <div id=newParent></div>
+    </body>
+  )HTML");
+
+  frame->View()->UpdateAllLifecyclePhasesForTest();
+
+  Element* body = frame->GetDocument()->body();
+  Element* iframe = frame->GetDocument()->QuerySelector(AtomicString("iframe"));
+  Element* old_parent =
+      frame->GetDocument()->getElementById(AtomicString("oldParent"));
+  Element* new_parent =
+      frame->GetDocument()->getElementById(AtomicString("newParent"));
+
+  EXPECT_EQ(body->ConnectedSubframeCount(), 1u);
+  EXPECT_EQ(old_parent->ConnectedSubframeCount(), 1u);
+  EXPECT_EQ(new_parent->ConnectedSubframeCount(), 0u);
+
+  new_parent->moveBefore(iframe, nullptr, ASSERT_NO_EXCEPTION);
+  EXPECT_EQ(body->ConnectedSubframeCount(), 1u);
+  EXPECT_EQ(old_parent->ConnectedSubframeCount(), 0u);
+  EXPECT_EQ(new_parent->ConnectedSubframeCount(), 1u);
 }
 
 }  // namespace blink

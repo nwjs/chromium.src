@@ -170,7 +170,8 @@ class DialogClientViewTest : public test::WidgetTest {
         : parent_(parent) {}
 
     // DialogDelegateView:
-    gfx::Size CalculatePreferredSize() const override {
+    gfx::Size CalculatePreferredSize(
+        const SizeBounds& /*available_size*/) const override {
       return parent_->preferred_size_;
     }
     gfx::Size GetMinimumSize() const override { return parent_->min_size_; }
@@ -558,7 +559,7 @@ TEST_F(DialogClientViewTest, IgnorePossiblyUnintendedClicks_ClickAfterShown) {
   EXPECT_TRUE(widget()->IsClosed());
 }
 
-// TODO(https://crbug.com/1449221): investigate the tests on ChromeOS and
+// TODO(crbug.com/40269697): investigate the tests on ChromeOS and
 // fuchsia
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
 class DesktopDialogClientViewTest : public DialogClientViewTest {

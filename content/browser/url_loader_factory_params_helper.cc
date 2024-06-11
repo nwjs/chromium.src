@@ -12,11 +12,11 @@
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
-#include "content/browser/runtime_feature_state/runtime_feature_state_document_data.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/runtime_feature_state/runtime_feature_state_document_data.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
@@ -254,9 +254,9 @@ URLLoaderFactoryParamsHelper::CreateForPrefetch(
 }
 
 // static
-// TODO(crbug.com/1231019): make sure client_security_state is no longer nullptr
-// anywhere.
-// TODO(crbug.com/1386190): Investigate whether to support cookie setting
+// TODO(crbug.com/40190528): make sure client_security_state is no longer
+// nullptr anywhere.
+// TODO(crbug.com/40247160): Investigate whether to support cookie setting
 // overrides (hardcoded empty set used for now).
 network::mojom::URLLoaderFactoryParamsPtr
 URLLoaderFactoryParamsHelper::CreateForWorker(
@@ -299,7 +299,7 @@ URLLoaderFactoryParamsHelper::CreateForWorker(
 }
 
 // static
-// TODO(crbug.com/1386190): Investigate whether to support cookie setting
+// TODO(crbug.com/40247160): Investigate whether to support cookie setting
 // overrides (hardcoded empty set used for now).
 network::mojom::URLLoaderFactoryParamsPtr
 URLLoaderFactoryParamsHelper::CreateForEarlyHintsPreload(
@@ -312,7 +312,7 @@ URLLoaderFactoryParamsHelper::CreateForEarlyHintsPreload(
         trust_token_observer,
     mojo::PendingRemote<network::mojom::SharedDictionaryAccessObserver>
         shared_dictionary_observer) {
-  // TODO(crbug.com/1225556): Consider not using the speculative
+  // TODO(crbug.com/40188470): Consider not using the speculative
   // RenderFrameHostImpl to create URLLoaderNetworkServiceObserver.
   // In general we should avoid using speculative RenderFrameHostImpl
   // to fill URLLoaderFactoryParams because some parameters can be calculated

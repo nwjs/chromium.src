@@ -39,6 +39,7 @@
 #include "third_party/blink/renderer/core/layout/table/table_layout_utils.h"
 #include "third_party/blink/renderer/core/layout/unpositioned_float.h"
 #include "third_party/blink/renderer/core/mathml/mathml_element.h"
+#include "third_party/blink/renderer/core/mathml/mathml_table_cell_element.h"
 #include "third_party/blink/renderer/core/mathml_names.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 
@@ -648,11 +649,9 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
     abort_when_bfc_block_offset_updated_ = true;
   }
 
-  if (Style().HasLineClamp() &&
-      (Style().HasStandardLineClamp() ||
-       Style().IsDeprecatedWebkitBoxWithVerticalLineClamp())) {
+  if (Style().HasLineClamp()) {
     line_clamp_data_.UpdateLinesFromStyle(Style().LineClamp());
-  } else if (Style().HasLineClamp()) {
+  } else if (Style().WebkitLineClamp() != 0) {
     UseCounter::Count(Node().GetDocument(),
                       WebFeature::kWebkitLineClampWithoutWebkitBox);
   }
@@ -2931,7 +2930,9 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
           !IsParallelWritingMode(constraint_space.GetWritingMode(),
                                  child_writing_direction.GetWritingMode()))) {
     SetOrthogonalFallbackInlineSize(Style(), child, &builder);
-  } else if (ShouldBlockContainerChildStretchAutoInlineSize(child)) {
+  } else if ((RuntimeEnabledFeatures::LayoutBlockButtonEnabled() &&
+              child.IsInline()) ||
+             ShouldBlockContainerChildStretchAutoInlineSize(child)) {
     builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchImplicit);
   }
 
@@ -3420,8 +3421,8 @@ void BlockLayoutAlgorithm::HandleRubyText(BlockNode ruby_text_child) {
 
   LayoutUnit ruby_text_box_top;
   const RubyPosition block_start_position = Style().IsFlippedLinesWritingMode()
-                                                ? RubyPosition::kAfter
-                                                : RubyPosition::kBefore;
+                                                ? RubyPosition::kUnder
+                                                : RubyPosition::kOver;
   if (Style().GetRubyPosition() == block_start_position) {
     LayoutUnit last_line_ruby_text_bottom = ruby_text_box.BlockEndOffset();
 

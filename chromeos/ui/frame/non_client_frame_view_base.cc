@@ -99,7 +99,7 @@ int NonClientFrameViewBase::NonClientTopBorderHeight() const {
       window_state_type == chromeos::WindowStateType::kNormal;
   // The frame should not occupy the window area when it's in fullscreen,
   // not visible, disabled, in immersive mode or in tablet mode.
-  // TODO(crbug.com/1385920): Support NonClientFrameViewAshImmersiveHelper on
+  // TODO(crbug.com/40879470): Support NonClientFrameViewAshImmersiveHelper on
   // Lacros so that we can remove InTabletMode() && IsMaximized() condition.
   if (frame_->IsFullscreen() || !GetFrameEnabled() ||
       header_view_->in_immersive_mode() ||
@@ -149,8 +149,9 @@ views::View::Views NonClientFrameViewBase::GetChildrenInZOrder() {
   return header_view_->GetFrameHeader()->GetAdjustedChildrenInZOrder(this);
 }
 
-gfx::Size NonClientFrameViewBase::CalculatePreferredSize() const {
-  gfx::Size pref = frame_->client_view()->GetPreferredSize({});
+gfx::Size NonClientFrameViewBase::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  gfx::Size pref = frame_->client_view()->GetPreferredSize(available_size);
   gfx::Rect bounds(0, 0, pref.width(), pref.height());
   return frame_->non_client_view()
       ->GetWindowBoundsForClientBounds(bounds)

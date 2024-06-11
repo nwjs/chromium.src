@@ -114,14 +114,13 @@ import java.util.Map;
     ChromeFeatureList.WEB_FEED_SORT,
     ChromeFeatureList.WEB_FEED_ONBOARDING,
     ChromeFeatureList.FEED_USER_INTERACTION_RELIABILITY_REPORT,
-    // TODO(crbug.com/1353777): Disabling the feature explicitly, because native is not
+    // TODO(crbug.com/40858677): Disabling the feature explicitly, because native is not
     // available to provide a default value. This should be enabled if the feature is enabled by
     // default or removed if the flag is removed.
     ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS,
+    ChromeFeatureList.FEED_CONTAINMENT
 })
-@EnableFeatures({
-    ChromeFeatureList.KID_FRIENDLY_CONTENT_FEED,
-})
+@EnableFeatures({ChromeFeatureList.KID_FRIENDLY_CONTENT_FEED})
 public class FeedSurfaceCoordinatorTest {
     private static final @SurfaceType int SURFACE_TYPE = SurfaceType.NEW_TAB_PAGE;
     private static final long SURFACE_CREATION_TIME_NS = 1234L;

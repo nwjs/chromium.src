@@ -65,8 +65,8 @@ extensions::ComponentLoader* GetComponentLoader(Profile* profile) {
 }  // namespace
 
 EmbeddedA11yExtensionLoader::ExtensionInfo::ExtensionInfo(
-    const std::string& extension_id,
-    const std::string& extension_path,
+    const std::string extension_id,
+    const std::string extension_path,
     const base::FilePath::CharType* extension_manifest_file,
     bool should_localize)
     : extension_id(extension_id),
@@ -217,9 +217,15 @@ void EmbeddedA11yExtensionLoader::MaybeInstallExtension(
   }
 
   base::FilePath resources_path;
+#if BUILDFLAG(IS_MAC)
+  base::FilePath root_path;
+  CHECK(base::PathService::Get(base::DIR_ASSETS, &root_path));
+  resources_path = root_path.Append("resources");
+#else
   if (!base::PathService::Get(chrome::DIR_RESOURCES, &resources_path)) {
     NOTREACHED();
   }
+#endif
 
   base::FilePath::StringType common_path;
 #if BUILDFLAG(IS_WIN)

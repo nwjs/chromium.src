@@ -91,7 +91,7 @@ INSTANTIATE_TEST_SUITE_P(All,
                          ReadWriteCardsUiControllerTest,
                          /*IsMahiEnabled()=*/testing::Bool());
 
-TEST_P(ReadWriteCardsUiControllerTest, SetQuickAnswersView) {
+TEST_P(ReadWriteCardsUiControllerTest, SetQuickAnswersUi) {
   ReadWriteCardsUiController controller;
 
   gfx::Rect context_menu_bounds =
@@ -100,87 +100,106 @@ TEST_P(ReadWriteCardsUiControllerTest, SetQuickAnswersView) {
 
   ASSERT_FALSE(controller.widget_for_test());
 
-  views::View* test_view = controller.SetQuickAnswersView(
+  views::View* test_view = controller.SetQuickAnswersUi(
       std::make_unique<TestReadWriteCardsView>(controller));
 
   EXPECT_TRUE(controller.widget_for_test());
   EXPECT_TRUE(controller.widget_for_test()->IsVisible());
 
-  auto* qa_view = controller.GetQuickAnswersViewForTest();
+  auto* qa_view = controller.GetQuickAnswersUiForTest();
   EXPECT_EQ(test_view, qa_view);
   EXPECT_EQ(context_menu_bounds, qa_view->context_menu_bounds_for_test());
 
-  controller.RemoveQuickAnswersView();
+  controller.RemoveQuickAnswersUi();
   EXPECT_FALSE(controller.widget_for_test());
-  EXPECT_FALSE(controller.GetQuickAnswersViewForTest());
+  EXPECT_FALSE(controller.GetQuickAnswersUiForTest());
 }
 
-TEST_P(ReadWriteCardsUiControllerTest, SetMahiView) {
+TEST_P(ReadWriteCardsUiControllerTest, Layout) {
+  constexpr int kContextMenuY = 200;
+  // There is `kQuickAnswersAndMahiSpacing` (10px) between a context menu and a
+  // widget. 190 is a borderline value.
+  constexpr int kQuickAnswersMaximumHeight = 190;
+
+  ReadWriteCardsUiController controller;
+
+  controller.SetContextMenuBounds(
+      gfx::Rect(gfx::Point(500, kContextMenuY), gfx::Size(kDefaultWidth, 140)));
+  controller.SetQuickAnswersUi(CreateViewWithHeight(
+      controller, /*height=*/100, kQuickAnswersMaximumHeight));
+
+  views::Widget* widget = controller.widget_for_test();
+  ASSERT_TRUE(widget);
+  EXPECT_LT(widget->GetWindowBoundsInScreen().y(), kContextMenuY)
+      << "Widget should be positioned above the context menu.";
+}
+
+TEST_P(ReadWriteCardsUiControllerTest, SetMahiUi) {
   ReadWriteCardsUiController controller;
   EXPECT_FALSE(controller.widget_for_test());
 
   views::View* test_view =
-      controller.SetMahiView(std::make_unique<views::View>());
+      controller.SetMahiUi(std::make_unique<views::View>());
 
   EXPECT_TRUE(controller.widget_for_test());
   EXPECT_TRUE(controller.widget_for_test()->IsVisible());
-  EXPECT_EQ(test_view, controller.GetMahiViewForTest());
+  EXPECT_EQ(test_view, controller.GetMahiUiForTest());
 
-  controller.RemoveMahiView();
+  controller.RemoveMahiUi();
   EXPECT_FALSE(controller.widget_for_test());
-  EXPECT_FALSE(controller.GetMahiViewForTest());
+  EXPECT_FALSE(controller.GetMahiUiForTest());
 }
 
 TEST_P(ReadWriteCardsUiControllerTest, SetQuickAnswersAndMahiView) {
   ReadWriteCardsUiController controller;
   EXPECT_FALSE(controller.widget_for_test());
 
-  views::View* test_quick_answers_view = controller.SetQuickAnswersView(
+  views::View* test_quick_answers_view = controller.SetQuickAnswersUi(
       std::make_unique<TestReadWriteCardsView>(controller));
 
   views::View* test_mahi_view =
-      controller.SetMahiView(std::make_unique<views::View>());
+      controller.SetMahiUi(std::make_unique<views::View>());
 
   EXPECT_TRUE(controller.widget_for_test());
   EXPECT_TRUE(controller.widget_for_test()->IsVisible());
-  EXPECT_EQ(test_quick_answers_view, controller.GetQuickAnswersViewForTest());
-  EXPECT_EQ(test_mahi_view, controller.GetMahiViewForTest());
+  EXPECT_EQ(test_quick_answers_view, controller.GetQuickAnswersUiForTest());
+  EXPECT_EQ(test_mahi_view, controller.GetMahiUiForTest());
 
-  controller.RemoveQuickAnswersView();
+  controller.RemoveQuickAnswersUi();
 
   // The widget should still show since mahi view is still visible.
   EXPECT_TRUE(controller.widget_for_test());
   EXPECT_TRUE(controller.widget_for_test()->IsVisible());
-  EXPECT_FALSE(controller.GetQuickAnswersViewForTest());
-  EXPECT_EQ(test_mahi_view, controller.GetMahiViewForTest());
+  EXPECT_FALSE(controller.GetQuickAnswersUiForTest());
+  EXPECT_EQ(test_mahi_view, controller.GetMahiUiForTest());
 
-  test_quick_answers_view = controller.SetQuickAnswersView(
+  test_quick_answers_view = controller.SetQuickAnswersUi(
       std::make_unique<TestReadWriteCardsView>(controller));
 
   EXPECT_TRUE(controller.widget_for_test());
   EXPECT_TRUE(controller.widget_for_test()->IsVisible());
-  EXPECT_EQ(test_quick_answers_view, controller.GetQuickAnswersViewForTest());
-  EXPECT_EQ(test_mahi_view, controller.GetMahiViewForTest());
+  EXPECT_EQ(test_quick_answers_view, controller.GetQuickAnswersUiForTest());
+  EXPECT_EQ(test_mahi_view, controller.GetMahiUiForTest());
 
-  controller.RemoveMahiView();
+  controller.RemoveMahiUi();
 
   // The widget should still show since quick answers view is still visible.
   EXPECT_TRUE(controller.widget_for_test());
   EXPECT_TRUE(controller.widget_for_test()->IsVisible());
-  EXPECT_EQ(test_quick_answers_view, controller.GetQuickAnswersViewForTest());
-  EXPECT_FALSE(controller.GetMahiViewForTest());
+  EXPECT_EQ(test_quick_answers_view, controller.GetQuickAnswersUiForTest());
+  EXPECT_FALSE(controller.GetMahiUiForTest());
 
-  controller.RemoveQuickAnswersView();
+  controller.RemoveQuickAnswersUi();
 
   EXPECT_FALSE(controller.widget_for_test());
-  EXPECT_FALSE(controller.GetQuickAnswersViewForTest());
+  EXPECT_FALSE(controller.GetQuickAnswersUiForTest());
 }
 
 TEST_P(ReadWriteCardsUiControllerTest, ViewUpdateBounds) {
   ReadWriteCardsUiController controller;
   EXPECT_FALSE(controller.widget_for_test());
 
-  ReadWriteCardsView* test_view = controller.SetQuickAnswersView(
+  ReadWriteCardsView* test_view = controller.SetQuickAnswersUi(
       std::make_unique<TestReadWriteCardsView>(controller));
   TestReadWriteCardsView* read_write_cards_view =
       views::AsViewClass<TestReadWriteCardsView>(test_view);
@@ -201,7 +220,7 @@ TEST_P(ReadWriteCardsUiControllerTest, WidgetBoundsDefault) {
   controller.SetContextMenuBounds(context_menu_bounds);
 
   int view_height = 80;
-  controller.SetMahiView(CreateViewWithHeight(controller, view_height));
+  controller.SetMahiUi(CreateViewWithHeight(controller, view_height));
   ASSERT_TRUE(controller.widget_for_test());
   gfx::Rect widget_bounds = controller.widget_for_test()->GetRestoredBounds();
 
@@ -228,7 +247,7 @@ TEST_P(ReadWriteCardsUiControllerTest, WidgetBoundsBelowContextMenu) {
   controller.SetContextMenuBounds(context_menu_bounds);
 
   int view_height = 80;
-  controller.SetQuickAnswersView(CreateViewWithHeight(controller, view_height));
+  controller.SetQuickAnswersUi(CreateViewWithHeight(controller, view_height));
   ASSERT_TRUE(controller.widget_for_test());
   gfx::Rect widget_bounds = controller.widget_for_test()->GetRestoredBounds();
 
@@ -253,8 +272,8 @@ TEST_P(ReadWriteCardsUiControllerTest, WidgetBoundsForBoth) {
 
   int mahi_height = 80;
   int qa_height = 90;
-  controller.SetMahiView(CreateViewWithHeight(controller, mahi_height));
-  controller.SetQuickAnswersView(CreateViewWithHeight(controller, qa_height));
+  controller.SetMahiUi(CreateViewWithHeight(controller, mahi_height));
+  controller.SetQuickAnswersUi(CreateViewWithHeight(controller, qa_height));
   ASSERT_TRUE(controller.widget_for_test());
   gfx::Rect widget_bounds = controller.widget_for_test()->GetRestoredBounds();
 
@@ -265,7 +284,7 @@ TEST_P(ReadWriteCardsUiControllerTest, WidgetBoundsForBoth) {
   EXPECT_EQ(mahi_height + qa_height + kQuickAnswersAndMahiSpacing,
             widget_bounds.height());
 
-  controller.RemoveQuickAnswersView();
+  controller.RemoveQuickAnswersUi();
   widget_bounds = controller.widget_for_test()->GetRestoredBounds();
 
   // Widget is still positioned above context menu.
@@ -274,7 +293,7 @@ TEST_P(ReadWriteCardsUiControllerTest, WidgetBoundsForBoth) {
 
   EXPECT_EQ(mahi_height, widget_bounds.height());
 
-  controller.RemoveMahiView();
+  controller.RemoveMahiUi();
   EXPECT_FALSE(controller.widget_for_test());
 }
 
@@ -287,7 +306,7 @@ TEST_P(ReadWriteCardsUiControllerTest, WidgetBoundsWithExtraReservedHeight) {
   controller.SetContextMenuBounds(context_menu_bounds);
 
   int view_height = 80;
-  controller.SetQuickAnswersView(
+  controller.SetQuickAnswersUi(
       CreateViewWithHeight(controller, view_height, /*maximum_height=*/120));
   ASSERT_TRUE(controller.widget_for_test());
   gfx::Rect widget_bounds = controller.widget_for_test()->GetRestoredBounds();
@@ -311,9 +330,9 @@ TEST_P(ReadWriteCardsUiControllerTest, ChildViewsPosition) {
   int mahi_height = 80;
   int qa_height = 90;
   auto* mahi_view =
-      controller.SetMahiView(CreateViewWithHeight(controller, mahi_height));
-  auto* qa_view = controller.SetQuickAnswersView(
-      CreateViewWithHeight(controller, qa_height));
+      controller.SetMahiUi(CreateViewWithHeight(controller, mahi_height));
+  auto* qa_view =
+      controller.SetQuickAnswersUi(CreateViewWithHeight(controller, qa_height));
   auto* widget = controller.widget_for_test();
   ASSERT_TRUE(widget);
   gfx::Rect widget_bounds = widget->GetRestoredBounds();
@@ -339,6 +358,57 @@ TEST_P(ReadWriteCardsUiControllerTest, ChildViewsPosition) {
   // Mahi view is above Quick Answers view.
   EXPECT_EQ(0u, contents_view->GetIndexOf(mahi_view));
   EXPECT_EQ(1u, contents_view->GetIndexOf(qa_view));
+}
+
+TEST_P(ReadWriteCardsUiControllerTest, GetTraversableViewsByUpDownKeys) {
+  ReadWriteCardsUiController controller;
+
+  EXPECT_TRUE(controller.GetTraversableViewsByUpDownKeys().empty());
+
+  gfx::Rect context_menu_bounds =
+      gfx::Rect(gfx::Point(500, 250), gfx::Size(kDefaultWidth, 140));
+  controller.SetContextMenuBounds(context_menu_bounds);
+
+  constexpr int kMahiHeight = 80;
+  constexpr int kQuickAnswersHeight = 80;
+  views::View* test_mahi_view =
+      controller.SetMahiUi(CreateViewWithHeight(controller, kMahiHeight));
+
+  EXPECT_EQ(1u, controller.GetTraversableViewsByUpDownKeys().size());
+  EXPECT_EQ(test_mahi_view,
+            controller.GetTraversableViewsByUpDownKeys().front());
+
+  views::View* test_qa_view = controller.SetQuickAnswersUi(
+      CreateViewWithHeight(controller, kQuickAnswersHeight));
+
+  // Quick Answers view should be placed before Mahi view when widget is above
+  // context menu.
+  ASSERT_TRUE(controller.widget_above_context_menu_for_test());
+
+  EXPECT_EQ(2u, controller.GetTraversableViewsByUpDownKeys().size());
+  EXPECT_EQ(test_qa_view, controller.GetTraversableViewsByUpDownKeys().front());
+  EXPECT_EQ(test_mahi_view,
+            controller.GetTraversableViewsByUpDownKeys().back());
+
+  context_menu_bounds.set_y(10);
+  controller.SetContextMenuBounds(context_menu_bounds);
+
+  // Quick Answers view should be placed after Mahi view when widget is below
+  // context menu.
+  ASSERT_FALSE(controller.widget_above_context_menu_for_test());
+
+  EXPECT_EQ(2u, controller.GetTraversableViewsByUpDownKeys().size());
+  EXPECT_EQ(test_mahi_view,
+            controller.GetTraversableViewsByUpDownKeys().front());
+  EXPECT_EQ(test_qa_view, controller.GetTraversableViewsByUpDownKeys().back());
+
+  controller.RemoveMahiUi();
+
+  EXPECT_EQ(1u, controller.GetTraversableViewsByUpDownKeys().size());
+  EXPECT_EQ(test_qa_view, controller.GetTraversableViewsByUpDownKeys().front());
+
+  controller.RemoveQuickAnswersUi();
+  EXPECT_TRUE(controller.GetTraversableViewsByUpDownKeys().empty());
 }
 
 }  // namespace chromeos::mahi

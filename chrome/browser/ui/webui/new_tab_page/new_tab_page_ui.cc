@@ -20,9 +20,7 @@
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/cart/cart_handler.h"
-#include "chrome/browser/image_service/image_service_factory.h"
 #include "chrome/browser/new_tab_page/feature_promo_helper/new_tab_page_feature_promo_helper.h"
-#include "chrome/browser/new_tab_page/modules/feed/feed_handler.h"
 #include "chrome/browser/new_tab_page/modules/file_suggestion/file_suggestion_handler.h"
 #include "chrome/browser/new_tab_page/modules/history_clusters/history_clusters.mojom.h"
 #include "chrome/browser/new_tab_page/modules/history_clusters/history_clusters_page_handler.h"
@@ -33,6 +31,7 @@
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption_page_handler.h"
 #include "chrome/browser/new_tab_page/modules/v2/tab_resumption/tab_resumption_page_handler.h"
 #include "chrome/browser/new_tab_page/new_tab_page_util.h"
+#include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -104,6 +103,10 @@
 #if !defined(OFFICIAL_BUILD)
 #include "chrome/browser/ui/webui/new_tab_page/foo/foo_handler.h"
 #endif
+
+#if BUILDFLAG(ENABLE_FEED_V2)
+#include "chrome/browser/new_tab_page/modules/feed/feed_handler.h"
+#endif  // BUILDFLAG(ENABLE_FEED_V2)
 
 using content::BrowserContext;
 using content::WebContents;
@@ -279,6 +282,10 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   source->AddBoolean("mostRelevantTabResumptionEnabled",
                      base::FeatureList::IsEnabled(
                          ntp_features::kNtpMostRelevantTabResumptionModule));
+  source->AddBoolean(
+      "mostRelevantTabResumptionDeviceIconEnabled",
+      base::FeatureList::IsEnabled(
+          ntp_features::kNtpMostRelevantTabResumptionModuleDeviceIcon));
 
   static constexpr webui::LocalizedString kStrings[] = {
       {"doneButton", IDS_DONE},
@@ -459,7 +466,15 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       {"modulesDriveInfo", IDS_NTP_MODULES_DRIVE_INFO},
       {"modulesDummyTitle", IDS_NTP_MODULES_DUMMY_TITLE},
       {"modulesFeedTitle", IDS_NTP_MODULES_FEED_TITLE},
+      {"modulesTodayCalendarHeader", IDS_NTP_MODULES_TODAY_CALENDAR_HEADER},
+      {"modulesTodayCalendarDisableButtonText",
+       IDS_NTP_MODULES_TODAY_CALENDAR_DISABLE_BUTTON_TEXT},
       {"modulesGoogleCalendarTitle", IDS_NTP_MODULES_GOOGLE_CALENDAR_TITLE},
+      {"modulesGoogleCalendarDisableButtonText",
+       IDS_NTP_MODULES_GOOGLE_CALENDAR_DISABLE_BUTTON_TEXT},
+      {"modulesOutlookCalendarTitle", IDS_NTP_MODULES_OUTLOOK_CALENDAR_TITLE},
+      {"modulesOutlookCalendarDisableButtonText",
+       IDS_NTP_MODULES_OUTLOOK_CALENDAR_DISABLE_BUTTON_TEXT},
       {"modulesKaleidoscopeTitle", IDS_NTP_MODULES_KALEIDOSCOPE_TITLE},
       {"modulesPhotosInfo", IDS_NTP_MODULES_PHOTOS_INFO},
       {"modulesPhotosSentence", IDS_NTP_MODULES_PHOTOS_MEMORIES_TITLE},
@@ -646,8 +661,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
           base::FeatureList::IsEnabled(
               ntp_features::kNtpChromeCartInHistoryClusterModule));
 
-  webui::SetupChromeRefresh2023(source);
-
   SearchboxHandler::SetupWebUIDataSource(
       source, profile,
       /*enable_voice_search=*/true,
@@ -697,8 +710,6 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
   source->AddBoolean(
       "modulesVisibleManagedByPolicy",
       profile_->GetPrefs()->IsManagedPreference(prefs::kNtpModulesVisible));
-  source->AddBoolean("customizeChromeEnabled",
-                     customize_chrome::IsSidePanelEnabled());
   bool wallpaper_search_button_enabled =
       base::FeatureList::IsEnabled(ntp_features::kNtpWallpaperSearchButton) &&
       customize_chrome::IsWallpaperSearchEnabledForProfile(profile_);
@@ -751,13 +762,11 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
       ntp_custom_background_service_.get());
 
   // Create and register customize chrome entry on unified side panel
-  if (customize_chrome::IsSidePanelEnabled()) {
     auto* customize_chrome_tab_helper =
         CustomizeChromeTabHelper::FromWebContents(web_contents());
     if (customize_chrome_tab_helper) {
       customize_chrome_tab_helper->CreateAndRegisterEntry();
     }
-  }
 
   // Populates the load time data with basic info.
   OnColorProviderChanged();
@@ -768,10 +777,6 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
 WEB_UI_CONTROLLER_TYPE_IMPL(NewTabPageUI)
 
 NewTabPageUI::~NewTabPageUI() {
-  if (!customize_chrome::IsSidePanelEnabled()) {
-    return;
-  }
-
   // Deregister customize chrome entry on unified side panel, unless the
   // WebContents is showing another NewTabPageUI (e.g. in case of reloads).
   if (auto* web_ui = web_contents()->GetWebUI()) {
@@ -909,8 +914,10 @@ void NewTabPageUI::BindInterface(
 
 void NewTabPageUI::BindInterface(
     mojo::PendingReceiver<ntp::feed::mojom::FeedHandler> pending_receiver) {
+#if BUILDFLAG(ENABLE_FEED_V2)
   feed_handler_ =
       ntp::FeedHandler::Create(std::move(pending_receiver), profile_);
+#endif  // BUILDFLAG(ENABLE_FEED_V2)
 }
 
 #if !defined(OFFICIAL_BUILD)

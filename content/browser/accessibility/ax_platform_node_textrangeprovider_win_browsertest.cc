@@ -2929,19 +2929,18 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
   EXPECT_UIA_TEXTRANGE_EQ(text_range_provider,
                           L"Before frame\nText in iframe\nAfter frame");
 
-  // Traversing by word should include trailing whitespace.
   EXPECT_UIA_MOVE(text_range_provider, TextUnit_Word,
                   /*count*/ 2,
                   /*expected_text*/ L"Text ",
                   /*expected_count*/ 2);
   EXPECT_UIA_MOVE(text_range_provider, TextUnit_Word,
                   /*count*/ -1,
-                  /*expected_text*/ L"frame\n",
+                  /*expected_text*/ L"frame",
                   /*expected_count*/ -1);
   EXPECT_UIA_MOVE_ENDPOINT_BY_UNIT(
       text_range_provider, TextPatternRangeEndpoint_End, TextUnit_Character,
       /*count*/ 2,
-      /*expected_text*/ L"frame\nTe",
+      /*expected_text*/ L"frame\nT",
       /*expected_count*/ 2);
   EXPECT_UIA_MOVE(text_range_provider, TextUnit_Character,
                   /*count*/ 7,
@@ -2965,7 +2964,7 @@ IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                           L"Before frame\nText in iframe\nAfter frame");
 }
 
-// TODO(https://crbug.com/1338169): This test is flaky.
+// TODO(crbug.com/40848898): This test is flaky.
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        DISABLED_OutOfProcessIFrameTraversal) {
   GURL main_url(embedded_test_server()->GetURL(
@@ -3580,7 +3579,7 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 // Flaky.
-// TODO(https://crbug.com/1132248): Re-enable.
+// TODO(crbug.com/40721846): Re-enable.
 IN_PROC_BROWSER_TEST_F(AXPlatformNodeTextRangeProviderWinBrowserTest,
                        DISABLED_IframeSelect) {
   LoadInitialAccessibilityTreeFromHtmlFilePath(

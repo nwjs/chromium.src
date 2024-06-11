@@ -887,6 +887,84 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   }
 }
 
+// Tests that the extensions menu is dynamically updated when there is a
+// navigation while the menu is opened.
+TEST_F(ExtensionsMenuMainPageViewUnitTest, NavigationWhenMainPageIsOpen) {
+  auto extension_A =
+      InstallExtensionWithHostPermissions("Extension A", {"<all_urls>"});
+  auto extension_B = InstallExtensionWithHostPermissions(
+      "Extension B", {"*://www.other.com/"});
+
+  web_contents_tester()->NavigateAndCommit(GURL("http://www.site.com"));
+
+  // Withhold extension A's host permissions and add a site access
+  // request.
+  WithholdHostPermissions(extension_A.get());
+  AddSiteAccessRequest(*extension_A,
+                       browser()->tab_strip_model()->GetActiveWebContents());
+
+  ShowMenu();
+
+  // Retrieve menu views for testing.
+  ExtensionMenuItemView* extension_A_item = menu_items()[0];
+  ExtensionMenuItemView* extension_b_item = menu_items()[1];
+  ASSERT_EQ(extension_A_item->primary_action_button_for_testing()
+                ->label_text_for_testing(),
+            u"Extension A");
+  ASSERT_EQ(extension_b_item->primary_action_button_for_testing()
+                ->label_text_for_testing(),
+            u"Extension B");
+  views::View* requests_access_container =
+      main_page()->GetRequestsAccessContainerForTesting();
+
+  // Verify subheader text has the current site, request access section shows
+  // extension A request and extension items have the site access text based on
+  // their access.
+  ASSERT_EQ(main_page()->GetSubheaderSubtitleTextForTesting(), u"site.com");
+  EXPECT_TRUE(requests_access_container->GetVisible());
+  EXPECT_THAT(GetExtensionsInRequestAccessSection(),
+              testing::ElementsAre(extension_A->id()));
+  EXPECT_EQ(extension_A_item->site_permissions_button_for_testing()->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_EXTENSIONS_MENU_MAIN_PAGE_EXTENSION_SITE_ACCESS_ON_CLICK));
+  EXPECT_EQ(extension_b_item->site_permissions_button_for_testing()->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_EXTENSIONS_MENU_MAIN_PAGE_EXTENSION_SITE_ACCESS_NONE));
+
+  // Navigate to a same-origin site.
+  web_contents_tester()->NavigateAndCommit(GURL(("http://www.site.com/path")));
+  LayoutMenuIfNecessary();
+
+  // Verify subheader text has the new site, request access section still shows
+  // the extension A request and extension items have the same site access text.
+  ASSERT_EQ(main_page()->GetSubheaderSubtitleTextForTesting(), u"site.com");
+  EXPECT_TRUE(requests_access_container->GetVisible());
+  EXPECT_THAT(GetExtensionsInRequestAccessSection(),
+              testing::ElementsAre(extension_A->id()));
+  EXPECT_EQ(extension_A_item->site_permissions_button_for_testing()->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_EXTENSIONS_MENU_MAIN_PAGE_EXTENSION_SITE_ACCESS_ON_CLICK));
+  EXPECT_EQ(extension_b_item->site_permissions_button_for_testing()->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_EXTENSIONS_MENU_MAIN_PAGE_EXTENSION_SITE_ACCESS_NONE));
+
+  // Navigate to a cross-origin site.
+  web_contents_tester()->NavigateAndCommit(GURL(("http://www.other.com")));
+  LayoutMenuIfNecessary();
+
+  // Verify subheader text has the new site, request access section is not
+  // visible (requests are reset on cross-origin navigations) and extension
+  // items updated their site access text based on their access.
+  ASSERT_EQ(main_page()->GetSubheaderSubtitleTextForTesting(), u"other.com");
+  EXPECT_FALSE(requests_access_container->GetVisible());
+  EXPECT_EQ(extension_A_item->site_permissions_button_for_testing()->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_EXTENSIONS_MENU_MAIN_PAGE_EXTENSION_SITE_ACCESS_ON_CLICK));
+  EXPECT_EQ(extension_b_item->site_permissions_button_for_testing()->GetText(),
+            l10n_util::GetStringUTF16(
+                IDS_EXTENSIONS_MENU_MAIN_PAGE_EXTENSION_SITE_ACCESS_ON_SITE));
+}
+
 // Verifies the pin button appears on the menu item, in place of context menu
 // button when state is normal, when an extension is pinned.
 TEST_F(ExtensionsMenuMainPageViewUnitTest, PinnedExtensions) {
@@ -974,10 +1052,10 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest, DisableAndEnableExtension) {
 
 // Tests that when an extension is reloaded it remains visible in the extensions
 // menu.
-// TODO(crbug.com/1390952): Verify context menu button shows the correct icon as
-// pinned state is also preserved when a reload happens. Add this functionality
-// when showing pin icon instead of context menu when extension is pinned is
-// added.
+// TODO(crbug.com/40879945): Verify context menu button shows the correct icon
+// as pinned state is also preserved when a reload happens. Add this
+// functionality when showing pin icon instead of context menu when extension is
+// pinned is added.
 TEST_F(ExtensionsMenuMainPageViewUnitTest, ReloadExtension) {
   // The extension must have a manifest to be reloaded.
   extensions::TestExtensionDir extension_directory;
@@ -1311,40 +1389,9 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   EXPECT_TRUE(text_container->children()[1]->GetVisible());
 }
 
-// Tests that all the containers in the message section are hidden when the user
-// can customize the extensions site access but no extension is requesting site
-// access.
-TEST_F(ExtensionsMenuMainPageViewUnitTest,
-       MessageSection_UserCustomizedAccess_NoExtensions) {
-  // Install extensions that cannot request site access in the menu because
-  // they don't request host permissions, or because they are granted host
-  // permissions by enterprise.
-  InstallExtensionWithHostPermissions("Extension", {});
-  InstallEnterpriseExtension("Enterprise extension",
-                             /*host_permissions=*/{"<all_urls>"});
-
-  const GURL url("http://www.example.com");
-  web_contents_tester()->NavigateAndCommit(url);
-
-  ShowMenu();
-  views::View* text_container = main_page()->GetTextContainerForTesting();
-  views::View* reload_container = main_page()->GetReloadContainerForTesting();
-  views::View* requests_access_container =
-      main_page()->GetRequestsAccessContainerForTesting();
-
-  // Message section is hidden (all containers are not visible) when user can
-  // customize the site access of each extension, but no extension is requesting
-  // site access.
-  ASSERT_EQ(GetUserSiteSetting(url),
-            PermissionsManager::UserSiteSetting::kCustomizeByExtension);
-  EXPECT_FALSE(text_container->GetVisible());
-  EXPECT_FALSE(reload_container->GetVisible());
-  EXPECT_FALSE(requests_access_container->GetVisible());
-}
-
 // Test that the message section only displays the requests access container
 // when the user can customize the extensions site access and at least 1+
-// extensios are requesting site access.
+// extensios added a site access request.
 TEST_F(ExtensionsMenuMainPageViewUnitTest,
        MessageSection_UserCustomizedAccess_Extensions) {
   // Install two extension that requests host permissions.
@@ -1355,6 +1402,8 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
 
   const GURL url("http://www.example.com");
   web_contents_tester()->NavigateAndCommit(url);
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
 
   // By default, user can customize the site access of each extension and site
   // access will be granted
@@ -1373,9 +1422,17 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   EXPECT_FALSE(reload_container->GetVisible());
   EXPECT_FALSE(requests_access_container->GetVisible());
 
-  // Message section shows request access container with extension A
-  // when its site access is withheld.
+  // Message section is hidden (all containers are not visible) when extensions
+  // with withheld access hasn't added a site access request.
   WithholdHostPermissions(extension_A.get());
+  WithholdHostPermissions(extension_B.get());
+  EXPECT_FALSE(text_container->GetVisible());
+  EXPECT_FALSE(reload_container->GetVisible());
+  EXPECT_FALSE(requests_access_container->GetVisible());
+
+  // Message section shows request access container with extension A when
+  // extension A added a site access request.
+  AddSiteAccessRequest(*extension_A, web_contents);
   LayoutMenuIfNecessary();
   EXPECT_FALSE(text_container->GetVisible());
   EXPECT_FALSE(reload_container->GetVisible());
@@ -1383,15 +1440,68 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   EXPECT_THAT(GetExtensionsInRequestAccessSection(),
               testing::ElementsAre(extension_A->id()));
 
-  // Message section shows requests access container with extension A if its
-  // site access is still withheld when any other extension is updated.
-  // Extension B is not included because it has granted site access.
-  UpdateUserSiteAccess(*extension_B.get(),
-                       browser()->tab_strip_model()->GetActiveWebContents(),
-                       extensions::PermissionsManager::UserSiteAccess::kOnSite);
+  // Message section shows request access container with extension A and B when
+  // both extensions added site access requests.
+  AddSiteAccessRequest(*extension_B, web_contents);
   LayoutMenuIfNecessary();
   EXPECT_FALSE(text_container->GetVisible());
   EXPECT_FALSE(reload_container->GetVisible());
+  EXPECT_TRUE(requests_access_container->GetVisible());
+  EXPECT_THAT(GetExtensionsInRequestAccessSection(),
+              testing::ElementsAre(extension_A->id(), extension_B->id()));
+
+  // Message section shows request access container with extension B when
+  // extension A removed its site access request.
+  RemoveSiteAccessRequest(*extension_A, web_contents);
+  LayoutMenuIfNecessary();
+  EXPECT_FALSE(text_container->GetVisible());
+  EXPECT_FALSE(reload_container->GetVisible());
+  EXPECT_TRUE(requests_access_container->GetVisible());
+  EXPECT_THAT(GetExtensionsInRequestAccessSection(),
+              testing::ElementsAre(extension_B->id()));
+
+  // Message section is hidden (all containers are not visible) when extension B
+  // removed its site access request.
+  RemoveSiteAccessRequest(*extension_B, web_contents);
+  EXPECT_FALSE(text_container->GetVisible());
+  EXPECT_FALSE(reload_container->GetVisible());
+  EXPECT_FALSE(requests_access_container->GetVisible());
+}
+
+// Tests that an extension's requests access container removes an extension's
+// request when the extension is granted site access.
+TEST_F(ExtensionsMenuMainPageViewUnitTest,
+       MessageSection_UserCustomizedAccess_ExtensionGrantedSiteAccess) {
+  // Install two extension that requests host permissions.
+  auto extension_A = InstallExtensionWithHostPermissions(
+      "Extension A", {"*://www.example.com/*"});
+  auto extension_B =
+      InstallExtensionWithHostPermissions("Extension B", {"<all_urls>"});
+  WithholdHostPermissions(extension_A.get());
+  WithholdHostPermissions(extension_B.get());
+
+  const GURL url("http://www.example.com");
+  web_contents_tester()->NavigateAndCommit(url);
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  ShowMenu();
+  views::View* requests_access_container =
+      main_page()->GetRequestsAccessContainerForTesting();
+
+  // Add site access requests for both extensions and verify they are both
+  // visible on the request access container.
+  AddSiteAccessRequest(*extension_A, web_contents);
+  AddSiteAccessRequest(*extension_B, web_contents);
+  EXPECT_TRUE(requests_access_container->GetVisible());
+  EXPECT_THAT(GetExtensionsInRequestAccessSection(),
+              testing::ElementsAre(extension_A->id(), extension_B->id()));
+
+  // Grant site access to extension B and verify request access container only
+  // has extension A, since extension's B request was removed once the extension
+  // gained access to the site.
+  UpdateUserSiteAccess(*extension_B, web_contents,
+                       PermissionsManager::UserSiteAccess::kOnSite);
   EXPECT_TRUE(requests_access_container->GetVisible());
   EXPECT_THAT(GetExtensionsInRequestAccessSection(),
               testing::ElementsAre(extension_A->id()));
@@ -1403,8 +1513,11 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
       InstallExtensionWithHostPermissions("Extension", {"<all_urls>"});
   WithholdHostPermissions(extension.get());
 
+  // Navigate to a site and add a site access request for the extension.
   const GURL url("http://www.example.com");
   web_contents_tester()->NavigateAndCommit(url);
+  AddSiteAccessRequest(*extension,
+                       browser()->tab_strip_model()->GetActiveWebContents());
 
   ShowMenu();
   views::View* requests_access_container =
@@ -1415,7 +1528,7 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   base::UserActionTester user_action_tester;
   auto* permissions = PermissionsManager::Get(profile());
 
-  // When extension is requesting site access:
+  // When extension added a site access request:
   //   - message section (menu) includes extension and is visible.
   //   - request access button (toolbar) includes extension.
   //   - action has not been run.
@@ -1461,12 +1574,15 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
       InstallExtensionWithHostPermissions("Extension", {"<all_urls>"});
   WithholdHostPermissions(extension.get());
 
+  // Navigate to a site and add a site access request for the extension.
   const GURL url("http://www.example.com");
   web_contents_tester()->NavigateAndCommit(url);
+  AddSiteAccessRequest(*extension,
+                       browser()->tab_strip_model()->GetActiveWebContents());
 
   ShowMenu();
 
-  // When extension is requesting site access:
+  // When extension added a site access request:
   //   - message section (menu) includes extension and is visible.
   //   - request access button (toolbar) includes extension.
   EXPECT_TRUE(
@@ -1503,14 +1619,57 @@ TEST_F(ExtensionsMenuMainPageViewUnitTest,
   web_contents_tester()->NavigateAndCommit(GURL("http://other-url.com"));
   web_contents_tester()->NavigateAndCommit(url);
 
-  // Navigating to the same url should show again the extension requesting
-  // access, since dismiss is only one time tab permission:
-  //   - message section (menu) includes extension and is visible.
-  //   - request access button (toolbar) includes extension.
-  EXPECT_TRUE(
+  // Navigating to the same url should not show again the request, since
+  // requests are reset on cross-origin navigation.
+  //   - message section (menu) does not include extension and is hidden
+  //   - request access button (toolbar) does not include extension.
+  EXPECT_FALSE(
       main_page()->GetRequestsAccessContainerForTesting()->GetVisible());
+  EXPECT_TRUE(GetExtensionsInRequestAccessSection().empty());
+  EXPECT_TRUE(GetExtensionsInRequestAccessButton().empty());
+}
+
+// Tests that the message section displays an extension with a site access
+// request even if it is not allowed to show requests on the toolbar (extensions
+// menu is not considered part of the toolbar for this).
+TEST_F(ExtensionsMenuMainPageViewUnitTest,
+       MessageSection_UserCustomizedAccess_RequestNotAllowedOnToolbar) {
+  auto extension =
+      InstallExtensionWithHostPermissions("Extension", {"<all_urls>"});
+  WithholdHostPermissions(extension.get());
+
+  // Navigate to a site and add a site access request for the extension.
+  const GURL url("http://www.example.com");
+  web_contents_tester()->NavigateAndCommit(url);
+  AddSiteAccessRequest(*extension,
+                       browser()->tab_strip_model()->GetActiveWebContents());
+
+  // By default, user can customize the site access of each extension and site
+  // access will be granted
+  ASSERT_EQ(GetUserSiteSetting(url),
+            PermissionsManager::UserSiteSetting::kCustomizeByExtension);
+
+  ShowMenu();
+  views::View* text_container = main_page()->GetTextContainerForTesting();
+  views::View* reload_container = main_page()->GetReloadContainerForTesting();
+  views::View* requests_access_container =
+      main_page()->GetRequestsAccessContainerForTesting();
+
+  // Message section shows request access container with extension.
+  LayoutMenuIfNecessary();
+  EXPECT_FALSE(text_container->GetVisible());
+  EXPECT_FALSE(reload_container->GetVisible());
+  EXPECT_TRUE(requests_access_container->GetVisible());
   EXPECT_THAT(GetExtensionsInRequestAccessSection(),
               testing::ElementsAre(extension->id()));
-  EXPECT_THAT(GetExtensionsInRequestAccessButton(),
+
+  // Message section shows request access container with extension even if
+  // requests are not allowed in the toolbar.
+  SitePermissionsHelper(profile()).SetShowAccessRequestsInToolbar(
+      extension->id(), false);
+  EXPECT_FALSE(text_container->GetVisible());
+  EXPECT_FALSE(reload_container->GetVisible());
+  EXPECT_TRUE(requests_access_container->GetVisible());
+  EXPECT_THAT(GetExtensionsInRequestAccessSection(),
               testing::ElementsAre(extension->id()));
 }

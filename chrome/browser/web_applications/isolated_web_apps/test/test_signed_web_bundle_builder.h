@@ -56,16 +56,18 @@ struct TestSignedWebBundle {
 class TestSignedWebBundleBuilder {
  public:
   explicit TestSignedWebBundleBuilder(
-      web_package::WebBundleSigner::KeyPair key_pair =
-          web_package::WebBundleSigner::KeyPair::CreateRandom(),
-      web_package::WebBundleSigner::ErrorsForTesting errors_for_testing = {});
+      web_package::WebBundleSigner::Ed25519KeyPair key_pair =
+          web_package::WebBundleSigner::Ed25519KeyPair::CreateRandom(),
+      web_package::WebBundleSigner::ErrorsForTesting errors_for_testing = {
+          /*integrity_block_errors=*/{},
+          /*signatures_errors=*/{}});
 
   static constexpr std::string_view kTestManifestUrl =
       "/.well-known/manifest.webmanifest";
   static constexpr std::string_view kTestIconUrl = "/256x256-green.png";
   static constexpr std::string_view kTestHtmlUrl = "/index.html";
 
-  // TODO(crbug.com/1434557): Use a struct instead when designated initializers
+  // TODO(crbug.com/40264793): Use a struct instead when designated initializers
   // are supported.
   class BuildOptions {
    public:
@@ -74,7 +76,8 @@ class TestSignedWebBundleBuilder {
     BuildOptions(BuildOptions&&);
     ~BuildOptions();
 
-    BuildOptions& SetKeyPair(web_package::WebBundleSigner::KeyPair key_pair) {
+    BuildOptions& SetKeyPair(
+        web_package::WebBundleSigner::Ed25519KeyPair key_pair) {
       key_pair_ = std::move(key_pair);
       return *this;
     }
@@ -110,7 +113,7 @@ class TestSignedWebBundleBuilder {
       return *this;
     }
 
-    web_package::WebBundleSigner::KeyPair key_pair_;
+    web_package::WebBundleSigner::Ed25519KeyPair key_pair_;
     base::Version version_;
     std::string app_name_;
     std::optional<GURL> primary_url_;
@@ -146,7 +149,7 @@ class TestSignedWebBundleBuilder {
       BuildOptions build_options = BuildOptions());
 
  private:
-  web_package::WebBundleSigner::KeyPair key_pair_;
+  web_package::WebBundleSigner::Ed25519KeyPair key_pair_;
   web_package::WebBundleSigner::ErrorsForTesting errors_for_testing_;
   web_package::WebBundleBuilder builder_;
 };

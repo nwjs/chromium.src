@@ -223,7 +223,7 @@ void LogCanAccessDataForOriginCrashKeys(
 // Checks whether a lock mismatch should be ignored to allow most visited tiles
 // to commit in third-party NTP processes.
 //
-// TODO(crbug.com/566091): This exception should be removed once these tiles
+// TODO(crbug.com/40447789): This exception should be removed once these tiles
 // can be loaded in OOPIFs on the NTP.
 bool AllowProcessLockMismatchForNTP(const ProcessLock& expected_lock,
                                     const ProcessLock& actual_lock) {
@@ -471,6 +471,16 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
     can_read_raw_cookies_ = false;
   }
 
+  void GrantOpaqueOriginForLoadDataWithBaseURL(const url::Origin& origin) {
+    CHECK(origin.opaque());
+    load_data_with_base_url_origin_set_.insert(origin);
+  }
+
+  bool IsOpaqueOriginForLoadDataWithBaseURL(const url::Origin& origin) {
+    CHECK(origin.opaque());
+    return base::Contains(load_data_with_base_url_origin_set_, origin);
+  }
+
   void GrantPermissionForMidi() { can_send_midi_ = true; }
 
   void GrantPermissionForMidiSysEx() {
@@ -691,6 +701,7 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   typedef std::map<base::FilePath, FilePermissionFlags> FileMap;
   typedef std::map<std::string, FilePermissionFlags> FileSystemMap;
   typedef std::set<base::FilePath> FileSet;
+  typedef std::set<url::Origin> OriginSet;
 
   // Maps URL schemes to commit/request policies the child process has been
   // granted. There is no provision for revoking.
@@ -702,11 +713,15 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   // been granted. There is no provision for revoking.
   OriginMap origin_map_;
 
-  // The set of files the child process is permited to upload to the web.
+  // The set of files the child process is permitted to upload to the web.
   FileMap file_permissions_;
 
   // The set of files the child process is permitted to load.
   FileSet request_file_set_;
+
+  // The set of opaque origins loaded with LoadDataWithBaseURL in the child
+  // process, which are allowed to bypass some navigation checks.
+  OriginSet load_data_with_base_url_origin_set_;
 
   int enabled_bindings_;
 
@@ -1217,6 +1232,32 @@ void ChildProcessSecurityPolicyImpl::RevokeReadRawCookies(int child_id) {
     return;
 
   state->second->RevokeReadRawCookies();
+}
+
+void ChildProcessSecurityPolicyImpl::GrantOpaqueOriginForLoadDataWithBaseURL(
+    int child_id,
+    const url::Origin& origin) {
+  base::AutoLock lock(lock_);
+
+  auto* state = GetSecurityState(child_id);
+  if (!state) {
+    return;
+  }
+
+  state->GrantOpaqueOriginForLoadDataWithBaseURL(origin);
+}
+
+bool ChildProcessSecurityPolicyImpl::IsOpaqueOriginForLoadDataWithBaseURL(
+    int child_id,
+    const url::Origin& origin) {
+  base::AutoLock lock(lock_);
+
+  auto* state = GetSecurityState(child_id);
+  if (!state) {
+    return false;
+  }
+
+  return state->IsOpaqueOriginForLoadDataWithBaseURL(origin);
 }
 
 bool ChildProcessSecurityPolicyImpl::CanRequestURL(
@@ -1768,13 +1809,7 @@ bool ChildProcessSecurityPolicyImpl::IsAccessAllowedForSandboxedProcess(
       // Sandboxed frame processes should only be able to host opaque origins,
       // and only those origins should ever be used as a source or initiator
       // origin in things like postMessage.
-      //
-      // TODO(crbug.com/325410297): Some extensions-layer callers of
-      // `HostsOrigin()` do not currently provide a proper opaque origin
-      // for sandboxed frames. Temporarily return true to avoid renderer kills,
-      // and flip this to `url_is_for_opaque_origin` once these callers are
-      // fixed.
-      return true;
+      return url_is_for_opaque_origin;
     case AccessType::kCanAccessDataForCommittedOrigin:
       // Sandboxed frames should never access passwords, storage, or other data
       // for any origin.
@@ -1846,7 +1881,7 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
         // while we debug why no BrowsingInstances were found (in
         // https://crbug.com/1148542), we'll allow requests with an acceptable
         // process lock to proceed.
-        // TODO(1148542): Remove this when known cases of having no
+        // TODO(crbug.com/40731345): Remove this when known cases of having no
         // BrowsingInstance IDs are solved.
         url::Origin origin(url::Origin::Create(url));
         bool matches_origin_keyed_process =
@@ -1936,7 +1971,7 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
         // require COOP/COEP handling, to pass in their COOP/COEP information
         // so it can be used here instead of the values in
         // |actual_process_lock|.
-        // TODO(crbug.com/1271197): The code below is subtly incorrect in cases
+        // TODO(crbug.com/40205612): The code below is subtly incorrect in cases
         // where actual_process_lock.is_pdf() is true, since in the case of PDFs
         // the lock is intended to prevent access to the lock's site/origin,
         // while still allowing the navigation to commit.
@@ -1976,7 +2011,7 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
 
           // Make an exception to allow most visited tiles to commit in
           // third-party NTP processes.
-          // TODO(crbug.com/566091): This exception should be removed once
+          // TODO(crbug.com/40447789): This exception should be removed once
           // these tiles can be loaded in OOPIFs on the NTP.
           if (AllowProcessLockMismatchForNTP(expected_process_lock,
                                              actual_process_lock)) {
@@ -2025,8 +2060,8 @@ bool ChildProcessSecurityPolicyImpl::CanAccessMaybeOpaqueOrigin(
           // Skip these checks on the IO thread, since we can't use
           // RenderProcessHost or ShouldLockProcessToSite() there.
           //
-          // TODO(crbug.com/764958): Remove this once this is reachable only on
-          // the UI thread.
+          // TODO(crbug.com/40539942): Remove this once this is reachable only
+          // on the UI thread.
           if (!ShouldRestrictCanAccessDataForOriginToUIThread() &&
               BrowserThread::CurrentlyOn(BrowserThread::IO)) {
             return true;
@@ -2950,7 +2985,7 @@ ChildProcessSecurityPolicyImpl::ParseIsolatedOrigins(
   std::vector<IsolatedOriginPattern> patterns;
   patterns.reserve(origin_strings.size());
 
-  for (const std::string_view& origin_string : origin_strings) {
+  for (std::string_view origin_string : origin_strings) {
     patterns.emplace_back(origin_string);
   }
 

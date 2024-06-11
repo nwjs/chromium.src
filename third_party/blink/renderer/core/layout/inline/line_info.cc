@@ -6,6 +6,7 @@
 
 #include "base/containers/adapters.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_break_token.h"
+#include "third_party/blink/renderer/core/layout/inline/inline_item_result_ruby_column.h"
 #include "third_party/blink/renderer/core/layout/inline/inline_node.h"
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_view.h"
@@ -67,6 +68,7 @@ void LineInfo::Reset() {
   is_ruby_base_ = false;
   is_ruby_text_ = false;
   may_have_text_combine_or_ruby_item_ = false;
+  may_have_ruby_overhang_ = false;
   allow_hang_for_alignment_ = false;
 }
 
@@ -174,14 +176,25 @@ unsigned LineInfo::EndTextOffset() const {
   return ItemsData().text_content.length();
 }
 
-unsigned LineInfo::InflowEndOffset() const {
+unsigned LineInfo::InflowEndOffsetInternal(bool skip_forced_break) const {
   for (const auto& item_result : base::Reversed(Results())) {
     DCHECK(item_result.item);
     const InlineItem& item = *item_result.item;
+    if (skip_forced_break && item.Type() == InlineItem::kControl &&
+        ItemsData().text_content[item.StartOffset()] == kNewlineCharacter) {
+      continue;
+    }
     if (item.Type() == InlineItem::kText ||
         item.Type() == InlineItem::kControl ||
         item.Type() == InlineItem::kAtomicInline) {
       return item_result.EndOffset();
+    } else if (item_result.IsRubyColumn()) {
+      const LineInfo& base_line = item_result.ruby_column->base_line;
+      unsigned end_offset =
+          base_line.InflowEndOffsetInternal(skip_forced_break);
+      if (end_offset != base_line.StartOffset()) {
+        return end_offset;
+      }
     }
   }
   return StartOffset();

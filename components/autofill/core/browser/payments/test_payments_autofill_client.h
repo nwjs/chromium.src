@@ -5,18 +5,29 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_TEST_PAYMENTS_AUTOFILL_CLIENT_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_TEST_PAYMENTS_AUTOFILL_CLIENT_H_
 
+#include "base/memory/raw_ref.h"
+#include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
+#include "components/autofill/core/browser/payments/legal_message_line.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
+#include "components/autofill/core/browser/payments/test/test_credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
 
-namespace autofill::payments {
+namespace autofill {
+
+class AutofillClient;
+class CreditCardCvcAuthenticator;
+class CreditCardOtpAuthenticator;
+class VirtualCardEnrollmentManager;
+
+namespace payments {
 
 class PaymentsWindowManager;
 
 // This class is for easier writing of tests. It is owned by TestAutofillClient.
 class TestPaymentsAutofillClient : public PaymentsAutofillClient {
  public:
-  TestPaymentsAutofillClient();
+  explicit TestPaymentsAutofillClient(AutofillClient* client);
   TestPaymentsAutofillClient(const TestPaymentsAutofillClient&) = delete;
   TestPaymentsAutofillClient& operator=(const TestPaymentsAutofillClient&) =
       delete;
@@ -36,9 +47,18 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
       const std::vector<MigratableCreditCard>& migratable_credit_cards,
       PaymentsAutofillClient::LocalCardMigrationCallback
           start_migrating_cards_callback) override;
+  void ConfirmSaveIbanLocally(
+      const Iban& iban,
+      bool should_show_prompt,
+      PaymentsAutofillClient::SaveIbanPromptCallback callback) override;
+  void ConfirmUploadIbanToCloud(
+      const Iban& iban,
+      LegalMessageLines legal_message_lines,
+      bool should_show_prompt,
+      PaymentsAutofillClient::SaveIbanPromptCallback callback) override;
+
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   TestPaymentsNetworkInterface* GetPaymentsNetworkInterface() override;
-
   void ShowAutofillProgressDialog(
       AutofillProgressDialogType autofill_progress_dialog_type,
       base::OnceClosure cancel_callback) override;
@@ -50,6 +70,10 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
       const CardUnmaskChallengeOption& challenge_option,
       base::WeakPtr<OtpUnmaskDelegate> delegate) override;
   PaymentsWindowManager* GetPaymentsWindowManager() override;
+  VirtualCardEnrollmentManager* GetVirtualCardEnrollmentManager() override;
+  CreditCardCvcAuthenticator& GetCvcAuthenticator() override;
+  CreditCardOtpAuthenticator* GetOtpAuthenticator() override;
+  TestCreditCardRiskBasedAuthenticator* GetRiskBasedAuthenticator() override;
 
   void set_migration_card_selections(
       const std::vector<std::string>& migration_card_selection) {
@@ -70,6 +94,19 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   bool show_otp_input_dialog() { return show_otp_input_dialog_; }
   void ResetShowOtpInputDialog() { show_otp_input_dialog_ = false; }
 
+  bool ConfirmSaveIbanLocallyWasCalled() const {
+    return confirm_save_iban_locally_called_;
+  }
+
+  bool offer_to_save_iban_bubble_was_shown() const {
+    return offer_to_save_iban_bubble_was_shown_;
+  }
+
+  bool ConfirmUploadIbanToCloudWasCalled() const {
+    return confirm_upload_iban_to_cloud_called_ &&
+           !legal_message_lines_.empty();
+  }
+
   const AutofillErrorDialogContext& autofill_error_dialog_context() {
     return autofill_error_dialog_context_;
   }
@@ -79,7 +116,20 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
     payments_window_manager_ = std::move(payments_window_manager);
   }
 
+  void set_virtual_card_enrollment_manager(
+      std::unique_ptr<VirtualCardEnrollmentManager> vcem);
+
+  void set_otp_authenticator(
+      std::unique_ptr<CreditCardOtpAuthenticator> authenticator);
+
+  bool risk_based_authentication_invoked() {
+    return risk_based_authenticator_ &&
+           risk_based_authenticator_->authenticate_invoked();
+  }
+
  private:
+  const raw_ref<AutofillClient> client_;
+
   std::unique_ptr<TestPaymentsNetworkInterface> payments_network_interface_;
 
   std::vector<std::string> migration_card_selection_;
@@ -89,6 +139,15 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   bool autofill_error_dialog_shown_ = false;
 
   bool show_otp_input_dialog_ = false;
+
+  bool confirm_save_iban_locally_called_ = false;
+  bool confirm_upload_iban_to_cloud_called_ = false;
+
+  // Populated if IBAN save was offered. True if bubble was shown, false
+  // otherwise.
+  bool offer_to_save_iban_bubble_was_shown_ = false;
+
+  LegalMessageLines legal_message_lines_;
 
   // Context parameters that are used to display an error dialog during card
   // number retrieval. This context will have information that the autofill
@@ -100,8 +159,25 @@ class TestPaymentsAutofillClient : public PaymentsAutofillClient {
   AutofillErrorDialogContext autofill_error_dialog_context_;
 
   std::unique_ptr<PaymentsWindowManager> payments_window_manager_;
+
+  // `virtual_card_enrollment_manager_` must be destroyed before
+  // `payments_network_interface_` because the former keeps a reference to the
+  // latter.
+  // TODO(crbug.com/41489024): Remove the reference to
+  // `payments_network_interface_` in `virtual_card_enrollment_manager_`.
+  std::unique_ptr<VirtualCardEnrollmentManager>
+      virtual_card_enrollment_manager_;
+
+  std::unique_ptr<CreditCardCvcAuthenticator> cvc_authenticator_;
+
+  std::unique_ptr<CreditCardOtpAuthenticator> otp_authenticator_;
+
+  std::unique_ptr<TestCreditCardRiskBasedAuthenticator>
+      risk_based_authenticator_;
 };
 
-}  // namespace autofill::payments
+}  // namespace payments
+
+}  // namespace autofill
 
 #endif  // COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_TEST_PAYMENTS_AUTOFILL_CLIENT_H_

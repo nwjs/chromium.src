@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/arc/input_overlay/display_overlay_controller.h"
 
+#include <cstdint>
 #include <vector>
 
 #include "ash/public/cpp/arc_game_controls_flag.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/ash/arc/input_overlay/ui/editing_list.h"
 #include "chrome/browser/ash/arc/input_overlay/ui/input_mapping_view.h"
 #include "chrome/browser/ash/arc/input_overlay/util.h"
+#include "components/ukm/test_ukm_recorder.h"
 #include "ui/aura/window.h"
 #include "ui/events/event_constants.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -225,11 +227,15 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestFocusCycler) {
   // These UIs are never destroyed or re-created before finishing the test.
   auto* editing_list = GetEditingList();
   auto* editing_list_widget = editing_list->GetWidget();
+  auto* input_mapping_widget = input_mapping_view_->GetWidget();
 
   // Editing list should be activated after the Game Dashboard (GD) main menu
   // closed. This is to simulate the reality since there is no GD main menu in
   // the test.
   editing_list_widget->Activate();
+
+  CheckAccessibilityTree(
+      std::vector<views::Widget*>{editing_list_widget, input_mapping_widget});
 
   // Case 1: in edit mode default view. The tab focus will cycle between the
   // editing list and input mapping. Press key tab to the last element of the
@@ -271,6 +277,9 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestFocusCycler) {
       /*button_options_visible=*/true, /*delete_edit_menu_visible=*/false);
 
   auto* button_options_menu = GetButtonOptionsMenu();
+  auto* button_options_widget = button_options_menu->GetWidget();
+  CheckAccessibilityTree(
+      std::vector<views::Widget*>{button_options_widget, input_mapping_widget});
 
   auto* options_focus_manager = button_options_menu->GetFocusManager();
   EXPECT_FALSE(mapping_focus_manager->GetFocusedView());
@@ -293,6 +302,9 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestFocusCycler) {
       /*input_mapping_visible=*/true, /*editing_list_visible=*/true,
       /*button_options_visible=*/false, /*delete_edit_menu_visible=*/false);
 
+  CheckAccessibilityTree(
+      std::vector<views::Widget*>{editing_list_widget, input_mapping_widget});
+
   // Case 3: show delete-edit menu. The tab focus cycles among the delete-edit
   // menu, editing list and input mapping.
   HoverAtActionViewListItem(/*index=*/1u);
@@ -301,6 +313,9 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestFocusCycler) {
       /*button_options_visible=*/false, /*delete_edit_menu_visible=*/true);
 
   auto* delete_edit_shortcut = GetDeleteEditShortcut();
+  auto* delete_edit_widget = delete_edit_shortcut->GetWidget();
+  CheckAccessibilityTree(std::vector<views::Widget*>{
+      editing_list_widget, delete_edit_widget, input_mapping_widget});
 
   auto* delete_edit_focus_manager = delete_edit_shortcut->GetFocusManager();
   EXPECT_FALSE(mapping_focus_manager->GetFocusedView());
@@ -384,6 +399,7 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestDeleteEditMenu) {
 
 TEST_F(EditModeDisplayOverlayControllerTest, TestHistograms) {
   base::HistogramTester histograms;
+  ukm::TestAutoSetUkmRecorder ukm_recorder;
 
   // Check button options histograms.
   const std::string button_options_histogram_name =
@@ -398,6 +414,9 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestHistograms) {
                         ButtonOptionsMenuFunction::kDone);
   VerifyHistogramValues(histograms, button_options_histogram_name,
                         expected_button_options_histogram_values);
+  VerifyButtonOptionsMenuFunctionTriggeredUkmEvent(
+      ukm_recorder, /*expected_entry_size=*/1u, /*index=*/0u,
+      static_cast<int64_t>(ButtonOptionsMenuFunction::kDone));
 
   ShowButtonOptionsMenu(move_action_);
   PressDeleteButtonOnButtonOptionsMenu();
@@ -405,6 +424,9 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestHistograms) {
                         ButtonOptionsMenuFunction::kDelete);
   VerifyHistogramValues(histograms, button_options_histogram_name,
                         expected_button_options_histogram_values);
+  VerifyButtonOptionsMenuFunctionTriggeredUkmEvent(
+      ukm_recorder, /*expected_entry_size=*/2u, /*index=*/1u,
+      static_cast<int64_t>(ButtonOptionsMenuFunction::kDelete));
 
   // Check editing list histograms.
   const std::string editing_list_histogram_name =
@@ -415,6 +437,9 @@ TEST_F(EditModeDisplayOverlayControllerTest, TestHistograms) {
                         EditingListFunction::kDone);
   VerifyHistogramValues(histograms, editing_list_histogram_name,
                         expected_editing_list_histogram_values);
+  VerifyEditingListFunctionTriggeredUkmEvent(
+      ukm_recorder, /*expected_entry_size=*/1u,
+      static_cast<int64_t>(EditingListFunction::kDone));
 }
 
 }  // namespace arc::input_overlay

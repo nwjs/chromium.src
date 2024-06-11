@@ -67,6 +67,7 @@
 #include "components/optimization_guide/proto/models.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_prefs/user_prefs.h"
+#include "components/variations/service/variations_service.h"
 #include "components/variations/synthetic_trials.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -76,6 +77,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/commerce/price_tracking/android/price_tracking_notification_bridge.h"
+#include "chrome/browser/optimization_guide/android/optimization_guide_bridge.h"
 #include "chrome/browser/optimization_guide/android/optimization_guide_tab_url_provider_android.h"
 #else
 #include "chrome/browser/optimization_guide/optimization_guide_tab_url_provider.h"
@@ -289,6 +291,18 @@ OptimizationGuideKeyedService::~OptimizationGuideKeyedService() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 }
 
+#if BUILDFLAG(IS_ANDROID)
+base::android::ScopedJavaLocalRef<jobject>
+OptimizationGuideKeyedService::GetJavaObject() {
+  if (!android_bridge_) {
+    android_bridge_ =
+        std::make_unique<optimization_guide::android::OptimizationGuideBridge>(
+            this);
+  }
+  return android_bridge_->GetJavaObject();
+}
+#endif
+
 download::BackgroundDownloadService*
 OptimizationGuideKeyedService::BackgroundDownloadServiceProvider() {
   Profile* profile = Profile::FromBrowserContext(browser_context_);
@@ -443,6 +457,7 @@ void OptimizationGuideKeyedService::Initialize() {
               url_loader_factory, g_browser_process->local_state(),
               IdentityManagerFactory::GetForProfile(profile),
               std::move(service_controller), this,
+              on_device_component_manager_->GetWeakPtr(),
               optimization_guide_logger_.get(),
               model_quality_logs_uploader_service_
                   ? model_quality_logs_uploader_service_->GetWeakPtr()
@@ -457,7 +472,7 @@ void OptimizationGuideKeyedService::Initialize() {
   // Some previous paths were written in incorrect locations. Delete the
   // old paths.
   //
-  // TODO(crbug.com/1328981): Remove this code in 05/2023 since it should be
+  // TODO(crbug.com/40842340): Remove this code in 05/2023 since it should be
   // assumed that all clients that had the previous path have had their previous
   // stores deleted.
   DeleteOldStorePaths(profile_path);
@@ -569,6 +584,21 @@ void OptimizationGuideKeyedService::CanApplyOptimizationOnDemand(
   hints_manager_->CanApplyOptimizationOnDemand(urls, optimization_types,
                                                request_context, callback,
                                                request_context_metadata);
+}
+
+bool OptimizationGuideKeyedService::CanCreateOnDeviceSession(
+    optimization_guide::ModelBasedCapabilityKey feature,
+    raw_ptr<optimization_guide::OnDeviceModelEligibilityReason> debug_reason) {
+  if (!model_execution_manager_) {
+    if (debug_reason) {
+      *debug_reason = optimization_guide::OnDeviceModelEligibilityReason::
+          kFeatureNotEnabled;
+    }
+    return false;
+  }
+
+  return model_execution_manager_->CanCreateOnDeviceSession(feature,
+                                                            debug_reason);
 }
 
 std::unique_ptr<optimization_guide::OptimizationGuideModelExecutor::Session>
@@ -685,14 +715,23 @@ bool OptimizationGuideKeyedService::ShouldFeatureBeCurrentlyEnabledForUser(
       ->ShouldFeatureBeCurrentlyEnabledForUser(feature);
 }
 
-bool OptimizationGuideKeyedService::ShouldFeatureBeCurrentlyAllowedForLogging(
+bool OptimizationGuideKeyedService::ShouldFeatureBeCurrentlyAllowedForFeedback(
     optimization_guide::UserVisibleFeatureKey feature) const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  if (!model_execution_features_controller_) {
-    return false;
+
+  // If logging is enabled, feedback is always also enabled.
+  if (model_execution_features_controller_ &&
+      model_execution_features_controller_
+          ->ShouldFeatureBeCurrentlyAllowedForLogging(feature)) {
+    return true;
   }
-  return model_execution_features_controller_
-      ->ShouldFeatureBeCurrentlyAllowedForLogging(feature);
+
+  // Otherwise, feedback is disabled, with one exception: On dogfood clients,
+  // feedback is always enabled (as long as the feature is enabled).
+  auto* variations_service = g_browser_process->variations_service();
+  bool is_dogfood_client =
+      !!variations_service && variations_service->IsLikelyDogfoodClient();
+  return is_dogfood_client && ShouldFeatureBeCurrentlyEnabledForUser(feature);
 }
 
 bool OptimizationGuideKeyedService::ShouldShowExperimentalAIPromo() const {

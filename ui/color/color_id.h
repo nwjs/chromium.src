@@ -195,6 +195,7 @@
   E_CPONLY(kColorSysStateHeaderHover) \
   E_CPONLY(kColorSysStateHeaderHoverInactive) \
   E_CPONLY(kColorSysStateHeaderSelect) \
+  E_CPONLY(kColorSysStateInactiveRing) \
   /* Effects. */ \
   E_CPONLY(kColorSysShadow) \
   /* AI. */ \
@@ -241,9 +242,10 @@
   \
   /* Further UI element colors */ \
   E_CPONLY(kColorAppMenuProfileRowBackground) \
-  E_CPONLY(kColorAppMenuProfileRowBackgroundHovered) \
   E_CPONLY(kColorAppMenuProfileRowChipBackground) \
   E_CPONLY(kColorAppMenuProfileRowChipHovered) \
+  E_CPONLY(kColorAppMenuRowBackgroundHovered) \
+  E_CPONLY(kColorAppMenuUpgradeRowBackground) \
   E_CPONLY(kColorAvatarHeaderArt) \
   E_CPONLY(kColorAvatarIconGuest) \
   E_CPONLY(kColorAvatarIconIncognito) \
@@ -393,17 +395,9 @@
   E_CPONLY(kColorNotificationInputForeground) \
   E_CPONLY(kColorNotificationInputPlaceholderForeground) \
   E_CPONLY(kColorOverlayScrollbarFill) \
-  E_CPONLY(kColorOverlayScrollbarFillDark) \
-  E_CPONLY(kColorOverlayScrollbarFillLight) \
   E_CPONLY(kColorOverlayScrollbarFillHovered) \
-  E_CPONLY(kColorOverlayScrollbarFillHoveredDark) \
-  E_CPONLY(kColorOverlayScrollbarFillHoveredLight) \
   E_CPONLY(kColorOverlayScrollbarStroke) \
-  E_CPONLY(kColorOverlayScrollbarStrokeDark) \
-  E_CPONLY(kColorOverlayScrollbarStrokeLight) \
   E_CPONLY(kColorOverlayScrollbarStrokeHovered) \
-  E_CPONLY(kColorOverlayScrollbarStrokeHoveredDark) \
-  E_CPONLY(kColorOverlayScrollbarStrokeHoveredLight) \
   E_CPONLY(kColorProgressBar) \
   E_CPONLY(kColorProgressBarBackground) \
   E_CPONLY(kColorProgressBarPaused) \

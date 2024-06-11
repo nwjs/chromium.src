@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/test/test_suite.h"
 
 #include <signal.h>
@@ -92,9 +97,9 @@
 #include "base/debug/handle_hooks_win.h"
 #endif  // BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(USE_PARTITION_ALLOC)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC)
 #include "base/allocator/partition_alloc_support.h"
-#endif  // BUILDFLAG(USE_PARTITION_ALLOC)
+#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC)
 
 #if GTEST_HAS_DEATH_TEST
 #include "base/gtest_prod_util.h"
@@ -124,7 +129,7 @@ class DisableMaybeTests : public testing::EmptyTestEventListener {
 class ResetCommandLineBetweenTests : public testing::EmptyTestEventListener {
  public:
   ResetCommandLineBetweenTests() : old_command_line_(CommandLine::NO_PROGRAM) {
-    // TODO(crbug.com/1123627): Remove this after A/B test is done.
+    // TODO(crbug.com/40053215): Remove this after A/B test is done.
     // Workaround a test-specific race conditon with StatisticsRecorder lock
     // initialization checking CommandLine by ensuring it's created here (when
     // we start the test process), rather than in some arbitrary test. This
@@ -195,9 +200,9 @@ class FeatureListScopedToEachTest : public testing::EmptyTestEventListener {
 
     *CommandLine::ForCurrentProcess() = new_command_line;
 
-    // TODO(https://crbug.com/1413674): Enable PartitionAlloc in unittests with
+    // TODO(crbug.com/40255771): Enable PartitionAlloc in unittests with
     // ASAN.
-#if BUILDFLAG(USE_PARTITION_ALLOC) && !defined(ADDRESS_SANITIZER)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC) && !defined(ADDRESS_SANITIZER)
     allocator::PartitionAllocSupport::Get()->ReconfigureAfterFeatureListInit(
         "",
         /*configure_dangling_pointer_detector=*/true);
@@ -558,11 +563,11 @@ void TestSuite::Initialize() {
   base::debug::AsanService::GetInstance()->Initialize();
 #endif
 
-  // TODO(https://crbug.com/1400058): Enable BackupRefPtr in unittests on
+  // TODO(crbug.com/40250141): Enable BackupRefPtr in unittests on
   // Android too. Same for ASAN.
-  // TODO(https://crbug.com/1413674): Enable PartitionAlloc in unittests with
+  // TODO(crbug.com/40255771): Enable PartitionAlloc in unittests with
   // ASAN.
-#if BUILDFLAG(USE_PARTITION_ALLOC) && !defined(ADDRESS_SANITIZER)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC) && !defined(ADDRESS_SANITIZER)
   allocator::PartitionAllocSupport::Get()->ReconfigureForTests();
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -578,7 +583,7 @@ void TestSuite::Initialize() {
 #if BUILDFLAG(DCHECK_IS_CONFIGURABLE)
   // Default the configurable DCHECK level to FATAL when running death tests'
   // child process, so that they behave as expected.
-  // TODO(crbug.com/1057995): Remove this in favor of the codepath in
+  // TODO(crbug.com/40120934): Remove this in favor of the codepath in
   // FeatureList::SetInstance() when/if OnTestStart() TestEventListeners
   // are fixed to be invoked in the child process as expected.
   if (command_line->HasSwitch("gtest_internal_run_death_test"))
@@ -690,12 +695,11 @@ void TestSuite::PreInitialize() {
   // fork() but before exec() is unsafe. Using the threadsafe style by default
   // alleviates these concerns.
   //
-  // However, the threasafe style does not work reliably on Android, so that
-  // will keep the default of "fast". See https://crbug.com/815537,
-  // https://github.com/google/googletest/issues/1496, and
-  // https://github.com/google/googletest/issues/2093.
-  // TODO(danakj): Determine if all death tests should be skipped on Android
-  // (many already are, such as for DCHECK-death tests).
+  // However, the threadsafe style does not work reliably on Android, so for
+  // that we will keep the default of "fast". For more information, see:
+  // https://crbug.com/41372437#comment12.
+  // TODO(https://crbug.com/41372437): Use "threadsafe" on Android once it is
+  // supported.
 #if !BUILDFLAG(IS_ANDROID)
   GTEST_FLAG_SET(death_test_style, "threadsafe");
 #endif

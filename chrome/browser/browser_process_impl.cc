@@ -51,6 +51,7 @@
 #include "chrome/browser/devtools/remote_debugging_server.h"
 #include "chrome/browser/download/download_request_limiter.h"
 #include "chrome/browser/download/download_status_updater.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/gpu/gpu_mode_manager.h"
 #include "chrome/browser/icon_manager.h"
@@ -102,6 +103,7 @@
 #include "components/crash/core/common/crash_key.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
 #include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_filter_constants.h"
+#include "components/fingerprinting_protection_filter/browser/fingerprinting_protection_filter_features.h"
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -153,6 +155,7 @@
 #include "base/win/windows_version.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/os_crypt/app_bound_encryption_provider_win.h"
+#include "components/app_launch_prefetch/app_launch_prefetch.h"
 #include "components/os_crypt/async/browser/dpapi_key_provider.h"
 #elif BUILDFLAG(IS_MAC)
 #include "chrome/browser/chrome_browser_main_mac.h"
@@ -408,6 +411,9 @@ void BrowserProcessImpl::Init() {
   usb_system_tray_icon_ = std::make_unique<UsbStatusIcon>();
 #endif  // BUILDFLAG(IS_CHROMEOS)
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+  features_ = GlobalFeatures::CreateGlobalFeatures();
+  features_->Init();
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -442,7 +448,7 @@ BrowserProcessImpl::~BrowserProcessImpl() {
 #if !BUILDFLAG(IS_ANDROID)
 void BrowserProcessImpl::StartTearDown() {
   TRACE_EVENT0("shutdown", "BrowserProcessImpl::StartTearDown");
-  // TODO(crbug.com/560486): Fix the tests that make the check of
+  // TODO(crbug.com/41222012): Fix the tests that make the check of
   // |tearing_down_| necessary in IsShuttingDown().
   tearing_down_ = true;
   DCHECK(IsShuttingDown());
@@ -840,8 +846,9 @@ BrowserProcessImpl::extension_event_router_forwarder() {
 NotificationUIManager* BrowserProcessImpl::notification_ui_manager() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 #if BUILDFLAG(ENABLE_CHROME_NOTIFICATIONS)
-  if (!created_notification_ui_manager_)
+  if (!created_notification_ui_manager_ && !shutting_down_) {
     CreateNotificationUIManager();
+  }
   return notification_ui_manager_.get();
 #else
   return nullptr;
@@ -967,7 +974,7 @@ IntranetRedirectDetector* BrowserProcessImpl::intranet_redirect_detector() {
 
 const std::string& BrowserProcessImpl::GetApplicationLocale() {
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
-  // TODO(crbug.com/1033644): Remove #if.
+  // TODO(crbug.com/40663419): Remove #if.
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 #endif
   DCHECK(!locale_.empty());
@@ -1057,6 +1064,15 @@ os_crypt_async::OSCryptAsync* BrowserProcessImpl::os_crypt_async() {
   return os_crypt_async_.get();
 }
 
+void BrowserProcessImpl::set_additional_os_crypt_async_provider_for_test(
+    size_t precedence,
+    std::unique_ptr<os_crypt_async::KeyProvider> provider) {
+  CHECK(!additional_provider_for_test_);
+  CHECK(!os_crypt_async_);
+  additional_provider_for_test_.emplace(
+      std::make_pair(precedence, std::move(provider)));
+}
+
 BuildState* BrowserProcessImpl::GetBuildState() {
 #if !BUILDFLAG(IS_ANDROID)
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -1144,8 +1160,8 @@ subresource_filter::RulesetService*
 BrowserProcessImpl::fingerprinting_protection_ruleset_service() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!created_fingerprinting_protection_ruleset_service_ &&
-      base::FeatureList::IsEnabled(
-          features::kEnableFingerprintingProtectionBlocklist)) {
+      base::FeatureList::IsEnabled(fingerprinting_protection_filter::features::
+                                       kEnableFingerprintingProtectionFilter)) {
     CreateFingerprintingProtectionRulesetService();
   }
   return fingerprinting_protection_ruleset_service_.get();
@@ -1155,7 +1171,7 @@ StartupData* BrowserProcessImpl::startup_data() {
   return startup_data_;
 }
 
-// TODO(crbug.com/1052397): Revisit once build flag switch of lacros-chrome is
+// TODO(crbug.com/40118868): Revisit once build flag switch of lacros-chrome is
 // complete.
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
 void BrowserProcessImpl::StartAutoupdateTimer() {
@@ -1337,8 +1353,16 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
   std::vector<std::pair<size_t, std::unique_ptr<os_crypt_async::KeyProvider>>>
       providers;
 
+  if (additional_provider_for_test_) {
+    // Explicitly move the KeyProvider but leave the std::optional holding the
+    // pair, this ensures it can only be set once in testing.
+    providers.push_back(
+        std::make_pair(std::get<0>(*additional_provider_for_test_),
+                       std::move(std::get<1>(*additional_provider_for_test_))));
+  }
+
 #if BUILDFLAG(IS_WIN)
-  // TODO(crbug.com/1373092): For Windows, continue to add providers behind
+  // TODO(crbug.com/40241934): For Windows, continue to add providers behind
   // features, as support for them is added.
   if (base::FeatureList::IsEnabled(features::kEnableDPAPIEncryptionProvider)) {
     // The DPAPI key provider requires OSCrypt::Init to have already been called
@@ -1449,8 +1473,8 @@ void BrowserProcessImpl::CreateSafeBrowsingService() {
         safe_browsing::GetSafeBrowsingServiceFactory());
   }
 
-  // TODO(crbug/925153): Port consumers of the |safe_browsing_service_| to use
-  // the interface in components/safe_browsing, and remove this cast.
+  // TODO(crbug.com/41437292): Port consumers of the |safe_browsing_service_| to
+  // use the interface in components/safe_browsing, and remove this cast.
   safe_browsing_service_ = static_cast<safe_browsing::SafeBrowsingService*>(
       safe_browsing::SafeBrowsingServiceInterface::CreateSafeBrowsingService());
   if (safe_browsing_service_)
@@ -1594,13 +1618,13 @@ void BrowserProcessImpl::Unpin() {
 
   chrome::ShutdownIfNeeded();
 
-  // TODO(crbug.com/967603): remove when root cause is found.
+  // TODO(crbug.com/40629374): remove when root cause is found.
   CHECK_EQ(BrowserList::GetInstance()->size(), 0u);
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 // Mac is currently not supported.
-// TODO(crbug.com/1052397): Revisit once build flag switch of lacros-chrome is
+// TODO(crbug.com/40118868): Revisit once build flag switch of lacros-chrome is
 // complete.
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
 
@@ -1639,7 +1663,8 @@ void BrowserProcessImpl::RestartBackgroundInstance() {
   }
 
 #if BUILDFLAG(IS_WIN)
-  new_cl->AppendArg(switches::kPrefetchArgumentBrowserBackground);
+  new_cl->AppendArgNative(app_launch_prefetch::GetPrefetchSwitch(
+      app_launch_prefetch::SubprocessType::kBrowserBackground));
 #endif  // BUILDFLAG(IS_WIN)
 
   DLOG(WARNING) << "Shutting down current instance of the browser.";

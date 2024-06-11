@@ -94,7 +94,7 @@ using extensions::mojom::ManifestLocation;
 
 namespace extensions {
 
-using extensions::service_worker_test_utils::TestRegistrationObserver;
+using extensions::service_worker_test_utils::TestServiceWorkerContextObserver;
 
 namespace {
 
@@ -366,8 +366,8 @@ ExtensionBrowserTest::ExtensionBrowserTest(ContextType context_type)
       set_chromeos_user_(true),
 #endif
       context_type_(context_type),
-      // TODO(crbug/1427323): Move this ScopedCurrentChannel down into tests
-      // that specifically require it.
+      // TODO(crbug.com/40261741): Move this ScopedCurrentChannel down into
+      // tests that specifically require it.
       current_channel_(version_info::Channel::UNKNOWN),
       override_prompt_for_external_extensions_(
           FeatureSwitch::prompt_for_external_extensions(),
@@ -533,11 +533,11 @@ const Extension* ExtensionBrowserTest::LoadExtension(
     loader.set_install_param(options.install_param);
   }
 
-  std::unique_ptr<TestRegistrationObserver> registration_observer;
+  std::unique_ptr<TestServiceWorkerContextObserver> registration_observer;
 
   if (options.wait_for_registration_stored) {
     registration_observer =
-        std::make_unique<TestRegistrationObserver>(profile_);
+        std::make_unique<TestServiceWorkerContextObserver>(profile_);
   }
 
   scoped_refptr<const Extension> extension =

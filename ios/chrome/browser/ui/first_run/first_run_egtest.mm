@@ -389,11 +389,16 @@ void DismissDefaultBrowserAndOmniboxPositionSelectionScreens() {
           isRunningTest:@selector
           (testHistorySyncShownWithEquallyWeightedButtonsOnCapabilitiesFetchTimeout
               )] ||
-      [self isRunningTest:@selector(testHistorySyncShownAfterSignIn)]) {
+      [self
+          isRunningTest:@selector
+          (testHistorySyncShownWithEquallyWeightedButtonsOnCapabilitiesFetchTimeoutThenDeclined
+              )]) {
     config.features_enabled.push_back(
         switches::kMinorModeRestrictionsForHistorySyncOptIn);
-    config.features_enabled.push_back(
-        switches::kUseSystemCapabilitiesForMinorModeRestrictions);
+  }
+  if ([self isRunningTest:@selector(testHistorySyncShownAfterSignIn)]) {
+    config.features_disabled.push_back(
+        switches::kMinorModeRestrictionsForHistorySyncOptIn);
   }
 
   return config;
@@ -548,7 +553,7 @@ void DismissDefaultBrowserAndOmniboxPositionSelectionScreens() {
 }
 
 // Tests to turn off UMA, and open the UMA dialog to turn it back on.
-// TODO(crbug.com/1487756): Test fails on official builds.
+// TODO(crbug.com/40073685): Test fails on official builds.
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #define MAYBE_testUMAUncheckedAndCheckItAgain \
   DISABLED_testUMAUncheckedAndCheckItAgain
@@ -892,7 +897,7 @@ void DismissDefaultBrowserAndOmniboxPositionSelectionScreens() {
 
 #pragma mark - Supervised User
 
-// TODO(crbug.com/1476928): This test is failing.
+// TODO(crbug.com/40070867): This test is failing.
 // Tests FRE with UMA default value and with sign-in for a supervised user.
 - (void)DISABLED_testWithUMACheckedAndSigninSupervised {
   // Add a fake supervised identity to the device.
@@ -1115,14 +1120,76 @@ void DismissDefaultBrowserAndOmniboxPositionSelectionScreens() {
               chrome_test_util::ButtonWithBackgroundColor(backgroundColorName),
               chrome_test_util::SigninScreenPromoSecondaryButtonMatcher(), nil)]
       assertWithMatcher:grey_sufficientlyVisible()];
+  // Accept History Sync.
+  [[self elementInteractionWithGreyMatcher:
+             chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()
+                      scrollViewIdentifier:
+                          kPromoStyleScrollViewAccessibilityIdentifier]
+      performAction:grey_tap()];
+  // Verify that latency metrics are recorded later for when the capability is
+  // not immediately available.
+  GREYAssertNil([MetricsAppInterface
+                    expectUniqueSampleWithCount:1
+                                      forBucket:false
+                                   forHistogram:@"Signin.AccountCapabilities."
+                                                @"ImmediatelyAvailable"],
+                @"Incorrect immediate availability histogram");
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectTotalCount:1
+              forHistogram:@"Signin.AccountCapabilities.UserVisibleLatency"],
+      @"Failed to record user visibile latency histogram");
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectTotalCount:1
+              forHistogram:@"Signin.AccountCapabilities.FetchLatency"],
+      @"Fetch latency should not be recorded on immediate availability.");
+  // Verify that History Sync buttons metrics are recorded.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(
+                                          signin_metrics::SyncButtonsType::
+                                              kHistorySyncEqualWeighted)
+                         forHistogram:@"Signin.SyncButtons.Shown"],
+      @"Failed to record History Sync button type histogram.");
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(
+                                          signin_metrics::SyncButtonClicked::
+                                              kHistorySyncOptInEqualWeighted)
+                         forHistogram:@"Signin.SyncButtons.Clicked"],
+      @"Failed to record History Sync buttons clicked histogram.");
+}
+
+// Tests that the History Sync Opt-In screen for users with unknown minor mode
+// restrictions status, if declined, will have metrics correctly recorded.
+- (void)
+    testHistorySyncShownWithEquallyWeightedButtonsOnCapabilitiesFetchTimeoutThenDeclined {
+  // Add identity without setting capabilities.
+  FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
+  [SigninEarlGrey addFakeIdentity:fakeIdentity withUnknownCapabilities:YES];
+  // Accept sign-in.
+  [[self elementInteractionWithGreyMatcher:
+             chrome_test_util::SigninScreenPromoPrimaryButtonMatcher()
+                      scrollViewIdentifier:
+                          kPromoStyleScrollViewAccessibilityIdentifier]
+      performAction:grey_tap()];
+  [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail
+                                        consent:signin::ConsentLevel::kSignin];
+  // Wait for the History Sync Opt-In screen.
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:
+          grey_accessibilityID(kHistorySyncViewAccessibilityIdentifier)];
   // Decline History Sync.
   [[self elementInteractionWithGreyMatcher:
              chrome_test_util::SigninScreenPromoSecondaryButtonMatcher()
                       scrollViewIdentifier:
                           kPromoStyleScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
-  // Verify that latency metrics are recorded later for when the system
-  // capability is not immediately available.
+  // Verify that latency metrics are recorded later for when the capability is
+  // not immediately available.
   GREYAssertNil([MetricsAppInterface
                     expectUniqueSampleWithCount:1
                                       forBucket:false
@@ -1269,6 +1336,14 @@ void DismissDefaultBrowserAndOmniboxPositionSelectionScreens() {
                           kPromoStyleScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that History Sync buttons metrics are recorded.
+  GREYAssertNil(
+      [MetricsAppInterface
+          expectUniqueSampleWithCount:1
+                            forBucket:static_cast<int>(
+                                          signin_metrics::SyncButtonsType::
+                                              kHistorySyncNotEqualWeighted)
+                         forHistogram:@"Signin.SyncButtons.Shown"],
+      @"Failed to record History Sync button type histogram.");
   GREYAssertNil(
       [MetricsAppInterface
           expectUniqueSampleWithCount:1
@@ -1444,7 +1519,7 @@ void DismissDefaultBrowserAndOmniboxPositionSelectionScreens() {
   GREYAssertTrue(
       [SigninEarlGrey isSelectedTypeEnabled:syncer::UserSelectableType::kTabs],
       @"Tabs sync should be enabled.");
-  // TODO(crbug.com/1467853): Verify that sync consent is granted.
+  // TODO(crbug.com/40068130): Verify that sync consent is granted.
   // Verify that MSBB consent is granted.
   GREYAssertTrue(
       [ChromeEarlGrey
@@ -1483,7 +1558,7 @@ void DismissDefaultBrowserAndOmniboxPositionSelectionScreens() {
   GREYAssertFalse(
       [SigninEarlGrey isSelectedTypeEnabled:syncer::UserSelectableType::kTabs],
       @"Tabs sync should be disabled.");
-  // TODO(crbug.com/1467853): Verify that sync consent is not granted.
+  // TODO(crbug.com/40068130): Verify that sync consent is not granted.
   // Verify that MSBB consent is not granted.
   GREYAssertFalse(
       [ChromeEarlGrey

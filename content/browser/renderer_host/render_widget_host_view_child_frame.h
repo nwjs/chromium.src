@@ -60,7 +60,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
       public RenderFrameMetadataProvider::Observer,
       public viz::HostFrameSinkClient {
  public:
-  // TODO(crbug.com/1182855): Pass multi-screen info from the parent.
+  // TODO(crbug.com/40170974): Pass multi-screen info from the parent.
   static RenderWidgetHostViewChildFrame* Create(
       RenderWidgetHost* widget,
       const display::ScreenInfos& parent_screen_infos);
@@ -147,7 +147,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
       const gfx::PointF& point) override;
   bool TransformPointToCoordSpaceForView(
       const gfx::PointF& point,
-      RenderWidgetHostViewBase* target_view,
+      RenderWidgetHostViewInput* target_view,
       gfx::PointF* transformed_point) override;
   void DidNavigate() override;
   gfx::PointF TransformRootPointToViewCoordSpace(
@@ -202,7 +202,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
     return frame_connector_;
   }
 
-  RenderWidgetHostViewBase* GetParentView() override;
+  RenderWidgetHostViewBase* GetParentViewInput() override;
 
   void RegisterFrameSinkId();
   void UnregisterFrameSinkId();

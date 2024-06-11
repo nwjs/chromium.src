@@ -68,11 +68,11 @@
 #include "chrome/updater/persisted_data.h"
 #include "chrome/updater/prefs.h"
 #include "chrome/updater/test/integration_tests_impl.h"
+#include "chrome/updater/test/unit_test_util.h"
+#include "chrome/updater/test/unit_test_util_win.h"
 #include "chrome/updater/updater_branding.h"
 #include "chrome/updater/updater_scope.h"
 #include "chrome/updater/updater_version.h"
-#include "chrome/updater/util/unit_test_util.h"
-#include "chrome/updater/util/unit_test_util_win.h"
 #include "chrome/updater/util/util.h"
 #include "chrome/updater/util/win_util.h"
 #include "chrome/updater/win/setup/setup_util.h"
@@ -328,11 +328,7 @@ void CheckInstallation(UpdaterScope scope,
     ASSERT_EQ(task_info.exec_actions.size(), 1u);
     EXPECT_EQ(
         task_info.exec_actions[0].arguments,
-        base::StrCat({L"--wake ", IsSystemInstall(scope) ? L"--system " : L"",
-                      L"--enable-logging "
-                      L"--vmodule=*/components/winhttp/*=1,"
-                      L"*/components/update_client/*=2,"
-                      L"*/chrome/updater/*=2"}));
+        base::StrCat({L"--wake", IsSystemInstall(scope) ? L" --system" : L""}));
 
     EXPECT_EQ(task_info.trigger_types,
               TaskScheduler::TriggerType::TRIGGER_TYPE_HOURLY |
@@ -406,13 +402,6 @@ base::Process LaunchOfflineInstallProcess(bool is_legacy_install,
     std::vector<std::wstring> install_cmd_args = {
         base::CommandLine::QuoteForCommandLineToArgvW(exe_path.value()),
 
-        build_legacy_switch(updater::kEnableLoggingSwitch),
-
-        // This switch and its value must be connected by '=' because logging
-        // switch does not support legacy format.
-        base::StrCat({build_legacy_switch(updater::kLoggingModuleSwitch), L"=",
-                      base::ASCIIToWide(updater::kLoggingModuleSwitchValue)}),
-
         IsSystemInstall(install_scope)
             ? build_legacy_switch(updater::kSystemSwitch)
             : L"",
@@ -434,10 +423,6 @@ base::Process LaunchOfflineInstallProcess(bool is_legacy_install,
 
   auto launch_offline_install = [&] {
     base::CommandLine install_cmd(exe_path);
-
-    install_cmd.AppendSwitch(kEnableLoggingSwitch);
-    install_cmd.AppendSwitchASCII(kLoggingModuleSwitch,
-                                  kLoggingModuleSwitchValue);
     if (IsSystemInstall(install_scope)) {
       install_cmd.AppendSwitch(kSystemSwitch);
     }
@@ -492,7 +477,7 @@ void CallDispatchMethod(
       GetDispId(dispatch, method_name), IID_NULL, LOCALE_USER_DEFAULT,
       DISPATCH_METHOD, &dp, nullptr, nullptr, nullptr));
 
-  base::ranges::for_each(params, [&](auto& param) { ::VariantClear(&param); });
+  base::ranges::for_each(params, [](auto& param) { ::VariantClear(&param); });
   return;
 }
 
@@ -563,8 +548,10 @@ void RunOfflineInstallWithManifest(UpdaterScope scope,
   const std::wstring offline_dir_guid(
       L"{7B3A5597-DDEA-409B-B900-4C3D2A94A75C}");
   const HKEY root = UpdaterScopeToHKeyRoot(scope);
+  const std::wstring app_clients_key = GetAppClientsKey(kTestAppID);
   const std::wstring app_client_state_key = GetAppClientStateKey(kTestAppID);
 
+  EXPECT_TRUE(DeleteRegKey(root, app_clients_key));
   EXPECT_TRUE(DeleteRegKey(root, app_client_state_key));
 
   const std::optional<base::FilePath> updater_exe =
@@ -592,42 +579,45 @@ void RunOfflineInstallWithManifest(UpdaterScope scope,
   test::EventHolder event_holder(IsElevatedWithUACOn()
                                      ? CreateEveryoneWaitableEventForTest()
                                      : test::CreateWaitableEventForTest());
-  EXPECT_TRUE(base::WriteFile(
-      batch_script_path,
-      [](UpdaterScope scope, const std::string& app_client_state_key,
-         const std::wstring& event_name) -> std::string {
-        const std::string reg_hive = IsSystemInstall(scope) ? "HKLM" : "HKCU";
+  EXPECT_TRUE(base::WriteFile(batch_script_path, [&]() -> std::string {
+    const std::string reg_hive = IsSystemInstall(scope) ? "HKLM" : "HKCU";
+    const std::string app_client_state_key_utf8 =
+        base::WideToUTF8(app_client_state_key);
 
-        base::CommandLine post_install_cmd(
-            GetTestProcessCommandLine(scope, GetTestName()));
-        post_install_cmd.AppendSwitchNative(
-            IsElevatedWithUACOn() ? kTestEventToSignalIfMediumIntegrity
-                                  : kTestEventToSignal,
-            event_name);
-        std::vector<std::string> commands;
-        const struct {
-          const char* value_name;
-          const char* type;
-          const std::string value;
-        } reg_items[5] = {
-            {"InstallerResult", "REG_DWORD", "0"},
-            {"InstallerError", "REG_DWORD", "0"},
-            {"InstallerExtraCode1", "REG_DWORD", "0"},
-            {"InstallerResultUIString", "REG_SZ", "CoolApp"},
-            {"InstallerSuccessLaunchCmdLine", "REG_SZ",
-             base::WideToASCII(post_install_cmd.GetCommandLineString())},
-        };
-        for (const auto& reg_item : reg_items) {
-          commands.push_back(base::StringPrintf(
-              "REG.exe ADD \"%s\\%s\" /v %s /t %s /d %s /f /reg:32",
-              reg_hive.c_str(), app_client_state_key.c_str(),
-              reg_item.value_name, reg_item.type,
-              base::WideToASCII(base::CommandLine::QuoteForCommandLineToArgvW(
-                                    base::ASCIIToWide(reg_item.value)))
-                  .c_str()));
-        }
-        return base::JoinString(commands, "\n");
-      }(scope, base::WideToASCII(app_client_state_key), event_holder.name)));
+    base::CommandLine post_install_cmd(
+        GetTestProcessCommandLine(scope, GetTestName()));
+    post_install_cmd.AppendSwitchNative(
+        IsElevatedWithUACOn() ? kTestEventToSignalIfMediumIntegrity
+                              : kTestEventToSignal,
+        event_holder.name);
+    std::vector<std::string> commands;
+    const struct {
+      const std::string subkey;
+      const char* value_name;
+      const char* type;
+      const std::string value;
+    } reg_items[] = {
+        {base::WideToUTF8(app_clients_key), "pv", "REG_SZ",
+         kTestPV.GetString()},
+        {app_client_state_key_utf8, "InstallerResult", "REG_DWORD", "0"},
+        {app_client_state_key_utf8, "InstallerError", "REG_DWORD", "0"},
+        {app_client_state_key_utf8, "InstallerExtraCode1", "REG_DWORD", "0"},
+        {app_client_state_key_utf8, "InstallerResultUIString", "REG_SZ",
+         "CoolApp"},
+        {app_client_state_key_utf8, "InstallerSuccessLaunchCmdLine", "REG_SZ",
+         base::WideToASCII(post_install_cmd.GetCommandLineString())},
+    };
+    for (const auto& reg_item : reg_items) {
+      commands.push_back(base::StringPrintf(
+          "REG.exe ADD \"%s\\%s\" /v %s /t %s /d %s /f /reg:32",
+          reg_hive.c_str(), reg_item.subkey.c_str(), reg_item.value_name,
+          reg_item.type,
+          base::WideToASCII(base::CommandLine::QuoteForCommandLineToArgvW(
+                                base::ASCIIToWide(reg_item.value)))
+              .c_str()));
+    }
+    return base::JoinString(commands, "\n");
+  }()));
 
   const base::FilePath& app_installer =
       offline_app_dir.AppendASCII(kAppInstallerName);
@@ -636,8 +626,8 @@ void RunOfflineInstallWithManifest(UpdaterScope scope,
   int64_t app_installer_size = 0;
   EXPECT_TRUE(base::GetFileSize(app_installer, &app_installer_size));
   const std::string manifest = base::StringPrintfNonConstexpr(
-      manifest_format.c_str(), kTestAppID, kTestPV.GetString().c_str(),
-      kAppInstallerName, app_installer_size, kAppInstallerName);
+      manifest_format.c_str(), kTestAppID, /*pv=*/"", kAppInstallerName,
+      app_installer_size, kAppInstallerName);
   EXPECT_TRUE(base::WriteFile(manifest_path, manifest));
 
   // Trigger offline install.

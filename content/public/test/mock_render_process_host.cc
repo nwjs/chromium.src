@@ -30,8 +30,6 @@
 #include "content/public/browser/android/child_process_importance.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/global_request_id.h"
-#include "content/public/browser/notification_service.h"
-#include "content/public/browser/notification_types.h"
 #include "content/public/browser/render_process_host_priority_client.h"
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/site_instance.h"
@@ -114,8 +112,14 @@ void MockRenderProcessHost::SimulateRenderProcessExit(
   termination_info.renderer_has_visible_clients = VisibleClientCount() > 0;
 #endif
 
+  within_process_died_observer_ = true;
   for (auto& observer : observers_)
     observer.RenderProcessExited(this, termination_info);
+  within_process_died_observer_ = false;
+
+  if (delayed_cleanup_) {
+    Cleanup();
+  }
 }
 
 void MockRenderProcessHost::SimulateReady() {
@@ -290,6 +294,12 @@ MockRenderProcessHost::RegisterBlockStateChangedCallback(
 }
 
 void MockRenderProcessHost::Cleanup() {
+  if (within_process_died_observer_) {
+    delayed_cleanup_ = true;
+    return;
+  }
+  delayed_cleanup_ = false;
+
   if (listeners_.IsEmpty() && !deletion_callback_called_) {
     if (IsInitializedAndNotDead()) {
       ChildProcessTerminationInfo termination_info;
@@ -419,8 +429,8 @@ void MockRenderProcessHost::UnregisterRenderFrameHost(
 
 void MockRenderProcessHost::ForEachRenderFrameHost(
     base::FunctionRef<void(RenderFrameHost*)> on_render_frame_host) {
-  // TODO(crbug.com/652474): Clean up MockRenderProcessHost usage and merge this
-  // implementation with RenderProcessHostImpl::ForEachRenderFrameHost().
+  // TODO(crbug.com/40487508): Clean up MockRenderProcessHost usage and merge
+  // this implementation with RenderProcessHostImpl::ForEachRenderFrameHost().
   for (auto rfh_id : render_frame_host_id_set_) {
     RenderFrameHostImpl* rfh = RenderFrameHostImpl::FromID(rfh_id);
     // Note that some RenderFrameHosts in the set may not be found by FromID if

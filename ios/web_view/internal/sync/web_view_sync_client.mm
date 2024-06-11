@@ -104,8 +104,9 @@ WebViewSyncClient::WebViewSyncClient(
           /*plus_address_webdata_service=*/nullptr,
           /*TODO(crbug.com/330201909) implement on iOS
              product_specifications_service= */
-          nullptr);
-  // TODO(crbug.com/1434661): introduce ios webview version of
+          nullptr,
+          /*data_sharing_service=*/nullptr);
+  // TODO(crbug.com/40264840): introduce ios webview version of
   // TrustedVaultServiceFactory.
   trusted_vault_client_ = std::make_unique<WebViewTrustedVaultClient>();
 }
@@ -220,4 +221,9 @@ void WebViewSyncClient::SetPasswordSyncAllowedChangeCb(
   // IsPasswordSyncAllowed() doesn't change on //ios/web_view/.
 }
 
+void WebViewSyncClient::RegisterTrustedVaultAutoUpgradeSyntheticFieldTrial(
+    const syncer::TrustedVaultAutoUpgradeSyntheticFieldTrialGroup& group) {
+  // This code might be reached but synthetic field trials are not supported on
+  // iOS webview.
+}
 }  // namespace ios_web_view

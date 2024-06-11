@@ -205,8 +205,15 @@ void TapSecondaryActionButton() {
                  @"Test did not switch to incognito");
 }
 
+// Tests the "Remove" action of the Most Visited context menu, and the "Undo"
 // action.
-- (void)testMostVisitedRemoveUndo {
+// TODO(crbug.com/337064665): Test is flaky on simluator. Re-enable when fixed.
+#if TARGET_IPHONE_SIMULATOR
+#define MAYBE_testMostVisitedRemoveUndo FLAKY_testMostVisitedRemoveUndo
+#else
+#define MAYBE_testMostVisitedRemoveUndo testMostVisitedRemoveUndo
+#endif
+- (void)MAYBE_testMostVisitedRemoveUndo {
   [self setupMostVisitedTileLongPress];
   const GURL pageURL = self.testServer->GetURL(kPageURL);
   NSString* pageTitle = base::SysUTF8ToNSString(kPageTitle);
@@ -275,7 +282,7 @@ void TapSecondaryActionButton() {
 
 // Tests that the "All Set" module is shown after completing all Set Up List
 // Hero Cell modules in the Magic Stack.
-// TODO(crbug.com/1520954): Test is flaky, re-enable when fixed.
+// TODO(crbug.com/41493926): Test is flaky, re-enable when fixed.
 - (void)DISABLED_testMagicStackSetUpListCompleteAllItems {
   [self prepareToTestSetUpListInMagicStack];
 

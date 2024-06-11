@@ -69,11 +69,11 @@ BASE_FEATURE(kLauncherImageSearchIndexingLimit,
 
 BASE_FEATURE(kLauncherSystemInfoAnswerCards,
              "LauncherSystemInfoAnswerCards",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLauncherManateeForKeyboardShortcuts,
-             "LauncherManateeForKeyboardShortcuts",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLauncherSearchFileScan,
+             "kLauncherSearchFileScan",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // TODO(b/330386392): kLauncherGameSearch can be removed because if there's no
 // payload, there will be no result.
@@ -95,7 +95,7 @@ bool IsLauncherFuzzyMatchAcrossProvidersEnabled() {
   return base::FeatureList::IsEnabled(kLauncherFuzzyMatchAcrossProviders);
 }
 
-bool isLauncherFuzzyMatchForOmniboxEnabled() {
+bool IsLauncherFuzzyMatchForOmniboxEnabled() {
   return base::FeatureList::IsEnabled(kLauncherFuzzyMatchForOmnibox);
 }
 
@@ -103,12 +103,12 @@ bool isLauncherFuzzyMatchForOmniboxEnabled() {
 bool IsLauncherImageSearchEnabled() {
   return base::FeatureList::IsEnabled(
              ash::features::kFeatureManagementLocalImageSearch) &&
-         base::FeatureList::IsEnabled(kLauncherImageSearch) &&
-         base::FeatureList::IsEnabled(kICASupportedByHardware);
+         base::FeatureList::IsEnabled(kLauncherImageSearch);
 }
 
 bool IsLauncherImageSearchIcaEnabled() {
-  return base::FeatureList::IsEnabled(kLauncherImageSearchIca);
+  return base::FeatureList::IsEnabled(kLauncherImageSearchIca) &&
+         base::FeatureList::IsEnabled(kICASupportedByHardware);
 }
 
 bool IsLauncherImageSearchOcrEnabled() {
@@ -119,12 +119,12 @@ bool IsLauncherImageSearchIndexingLimitEnabled() {
   return base::FeatureList::IsEnabled(kLauncherImageSearchIndexingLimit);
 }
 
-bool isLauncherSystemInfoAnswerCardsEnabled() {
+bool IsLauncherSystemInfoAnswerCardsEnabled() {
   return base::FeatureList::IsEnabled(kLauncherSystemInfoAnswerCards);
 }
 
-bool isLauncherManateeForKeyboardShortcutsEnabled() {
-  return base::FeatureList::IsEnabled(kLauncherManateeForKeyboardShortcuts);
+bool IsLauncherSearchFileScanEnabled() {
+  return base::FeatureList::IsEnabled(kLauncherSearchFileScan);
 }
 
 }  // namespace search_features

@@ -209,7 +209,7 @@ const CGFloat kGroupColorViewSize = 18;
   // title and close button.
   return YES;
 }
-// TODO(crbug.com/1511982): Add the accessibility custom actions.
+// TODO(crbug.com/41484563): Add the accessibility custom actions.
 
 #pragma mark - Public
 
@@ -450,7 +450,7 @@ const CGFloat kGroupColorViewSize = 18;
   }
 
   _state = state;
-  // TODO(crbug.com/1501837): Add the accessibility value for selected and
+  // TODO(crbug.com/40942154): Add the accessibility value for selected and
   // unselected states.
   self.accessibilityValue = nil;
   _closeTapTargetButton.enabled = ![self isInSelectionMode];

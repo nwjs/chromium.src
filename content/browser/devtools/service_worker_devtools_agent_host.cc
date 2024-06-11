@@ -231,8 +231,7 @@ bool ServiceWorkerDevToolsAgentHost::AttachSession(DevToolsSession* session,
   session->CreateAndAddHandler<protocol::InspectorHandler>();
   session->CreateAndAddHandler<protocol::NetworkHandler>(
       GetId(), devtools_worker_token_, GetIOContext(), base::DoNothing(),
-      session->GetClient()->MayReadLocalFiles(),
-      session->GetClient()->IsTrusted());
+      session->GetClient());
 
   session->CreateAndAddHandler<protocol::FetchHandler>(
       GetIOContext(),
@@ -385,7 +384,7 @@ ServiceWorkerDevToolsAgentHost::CreateNetworkFactoryParamsForDevTools() {
   RenderProcessHost* rph = RenderProcessHost::FromID(worker_process_id_);
   const url::Origin origin = url::Origin::Create(url_);
   const auto* version = context_wrapper_->GetLiveVersion(version_id_);
-  // TODO(crbug.com/1231019): make sure client_security_state is no longer
+  // TODO(crbug.com/40190528): make sure client_security_state is no longer
   // nullptr anywhere.
   auto factory = URLLoaderFactoryParamsHelper::CreateForWorker(
       rph, origin, version->key().ToPartialNetIsolationInfo(),

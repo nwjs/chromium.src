@@ -98,6 +98,11 @@ class GraphBuilder final {
   int32_t SerializeTensorWithBuffer(base::span<const DataType> buffer,
                                     base::span<const int32_t> dimensions);
 
+  // Serializes temporary tensor for casting the data type of input operand or
+  // decomposing WebNN operation that isn't supported in TFLite schema.
+  int32_t SerializeTemporaryTensor(base::span<const int32_t> dimensions,
+                                   ::tflite::TensorType tensor_type);
+
   uint32_t GetOperatorCodeIndex(::tflite::BuiltinOperator code);
 
   // Returns the Operand corresponding to an `operand_id` from `graph_info_`.
@@ -112,8 +117,8 @@ class GraphBuilder final {
   // `builtin_options`, or neither.
   OperatorOffset SerializeUnaryOperation(
       ::tflite::BuiltinOperator code,
-      uint64_t input_operand_id,
-      uint64_t output_operand_id,
+      int32_t input_tensor_index,
+      int32_t output_tensor_index,
       ::tflite::BuiltinOptions builtin_options_type =
           ::tflite::BuiltinOptions_NONE,
       flatbuffers::Offset<void> builtin_options = 0);
@@ -122,6 +127,23 @@ class GraphBuilder final {
       ::tflite::TensorType input_tensor_type,
       int32_t output_tensor_index,
       ::tflite::TensorType output_tensor_type);
+
+  // A helper function is used by WebNN binary operation direct or emulated
+  // implementation.
+  OperatorOffset SerializeBinaryOperation(::tflite::BuiltinOperator code,
+                                          int32_t lhs_tensor_index,
+                                          int32_t rhs_tensor_index,
+                                          int32_t output_tensor_index);
+
+  // This function is called by `SerializeLinear` to serialize WebNN linear or
+  // used to emulate WebNN operation that isn't supported in TFLite schema.
+  OperatorOffset SerializeLinearOperation(
+      base::span<const int32_t> input_dimensions,
+      ::tflite::TensorType input_tensor_type,
+      int32_t input_tensor_index,
+      int32_t output_tensor_index,
+      float alpha,
+      float beta);
 
   // This function is called by `SerializeTranspose` to serialize WebNN
   // transpose operator or used to insert a tempary operator to transpose
@@ -153,8 +175,7 @@ class GraphBuilder final {
   base::expected<OperatorOffset, std::string> SerializeConv2d(
       const mojom::Conv2d& conv2d);
   OperatorOffset SerializeConcat(const mojom::Concat& concat);
-  base::expected<OperatorOffset, std::string> SerializeElementWiseBinary(
-      const mojom::ElementWiseBinary& op);
+  OperatorOffset SerializeElementWiseBinary(const mojom::ElementWiseBinary& op);
   base::expected<OperatorOffset, std::string> SerializeElementWiseUnary(
       const mojom::ElementWiseUnary& op);
   base::expected<OperatorOffset, std::string> SerializeElu(
@@ -163,29 +184,38 @@ class GraphBuilder final {
       const mojom::Gather& gather);
   base::expected<OperatorOffset, std::string> SerializeGemm(
       const mojom::Gemm& gemm);
+  OperatorOffset SerializeHardSigmoid(const mojom::HardSigmoid& hard_sigmoid);
   OperatorOffset SerializeHardSwish(const mojom::HardSwish& hard_swish);
   OperatorOffset SerializeLeakyRelu(const mojom::LeakyRelu& leaky_relu);
+  OperatorOffset SerializeLinear(const mojom::Linear& linear);
   OperatorOffset SerializeLogicalNot(
       const mojom::ElementWiseUnary& logical_not);
+  OperatorOffset SerializeMatmul(const mojom::Matmul& matmul);
   base::expected<OperatorOffset, std::string> SerializePad(
       const mojom::Pad& pad);
   base::expected<OperatorOffset, std::string> SerializePool2d(
       const mojom::Pool2d& pool2d);
+  base::expected<OperatorOffset, std::string> SerializePrelu(
+      const mojom::Prelu& prelu);
   base::expected<OperatorOffset, std::string> SerializeReduce(
       const mojom::Reduce& reduce);
   OperatorOffset SerializeRelu(const mojom::Relu& relu);
   base::expected<OperatorOffset, std::string> SerializeResample2d(
       const mojom::Resample2d& resample2d);
   base::expected<OperatorOffset, std::string> SerializeReshape(
-      const mojom::Reshape& reshape);
+      uint64_t input_operand_id,
+      uint64_t output_operand_id);
   OperatorOffset SerializeSigmoid(const mojom::Sigmoid& sigmoid);
   base::expected<OperatorOffset, std::string> SerializeSlice(
       const mojom::Slice& slice);
   OperatorOffset SerializeSoftmax(const mojom::Softmax& softmax);
+  OperatorOffset SerializeSoftplus(const mojom::Softplus& softplus);
   base::expected<OperatorOffset, std::string> SerializeSplit(
       const mojom::Split& split);
+  OperatorOffset SerializeTan(const mojom::ElementWiseUnary& tan);
   OperatorOffset SerializeTanh(const mojom::Tanh& tanh);
   OperatorOffset SerializeTranspose(const mojom::Transpose& transpose);
+  OperatorOffset SerializeWhere(const mojom::Where& where);
 
   // No further methods may be called on this class after calling this method
   // because the buffer of `buffer_` is now owned by the detached buffer.

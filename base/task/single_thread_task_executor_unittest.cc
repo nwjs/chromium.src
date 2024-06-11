@@ -186,7 +186,7 @@ std::ostream& operator<<(std::ostream& os, TaskType type) {
       os << "SLEEP";
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       os << "Unknown TaskType";
       break;
   }
@@ -515,7 +515,7 @@ class SingleThreadTaskExecutorTypedTest
         break;
 #endif  // BUILDFLAG(IS_APPLE)
     }
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return "";
   }
 };
@@ -1289,7 +1289,7 @@ TEST_P(SingleThreadTaskExecutorTypedTest, RunLoopQuitOrderAfter) {
 // accumulated in the pipe per two posts, so we should repeat 128K times to
 // reproduce the bug.
 #if BUILDFLAG(IS_CHROMEOS)
-// TODO(crbug.com/1188497): This test is unreasonably slow on CrOS and flakily
+// TODO(crbug.com/40754898): This test is unreasonably slow on CrOS and flakily
 // times out (100x slower than other platforms which take < 1s to complete
 // it).
 #define MAYBE_RecursivePostsDoNotFloodPipe DISABLED_RecursivePostsDoNotFloodPipe
@@ -1692,7 +1692,7 @@ TEST(SingleThreadTaskExecutorTest,
   run_loop.Run();
 }
 
-// TODO(https://crbug.com/890016): Enable once multiple layers of nested loops
+// TODO(crbug.com/40595757): Enable once multiple layers of nested loops
 // works.
 TEST(SingleThreadTaskExecutorTest,
      DISABLED_UnwindingMultipleSubPumpsDoesntStarveApplicationTasks) {

@@ -32,6 +32,8 @@
   const TabGroup* _tabGroup;
   // Array of all pictures of the group.
   NSMutableArray<GroupTabInfo*>* _tabGroupInfos;
+  // Item to fetch pictures.
+  TabGroupItem* _groupItem;
 }
 
 - (instancetype)
@@ -93,12 +95,11 @@
     _consumer = consumer;
     _tabGroup = tabGroup;
     _webStateList = webStateList;
-    TabGroupItem* groupItem =
-        [[TabGroupItem alloc] initWithTabGroup:_tabGroup
-                                  webStateList:_webStateList];
+    _groupItem = [[TabGroupItem alloc] initWithTabGroup:_tabGroup
+                                           webStateList:_webStateList];
     __weak CreateTabGroupMediator* weakSelf = self;
-    [groupItem fetchGroupTabInfos:^(TabGroupItem* item,
-                                    NSArray<GroupTabInfo*>* groupTabInfos) {
+    [_groupItem fetchGroupTabInfos:^(TabGroupItem* item,
+                                     NSArray<GroupTabInfo*>* groupTabInfos) {
       [weakSelf setGroupTabInfos:groupTabInfos];
       [weakSelf updateConsumer];
     }];
@@ -115,7 +116,7 @@
 
 #pragma mark - TabGroupCreationMutator
 
-// TODO(crbug.com/1501837): Rename the function to better match what it does.
+// TODO(crbug.com/40942154): Rename the function to better match what it does.
 - (void)createNewGroupWithTitle:(NSString*)title
                           color:(tab_groups::TabGroupColorId)colorID
                      completion:(void (^)())completion {
@@ -142,9 +143,13 @@
       int index = GetWebStateIndex(_webStateList, WebStateSearchCriteria{
                                                       .identifier = identifier,
                                                   });
-      tabIndexes.insert(index);
+      if (index != WebStateList::kInvalidIndex) {
+        tabIndexes.insert(index);
+      }
     }
-    _webStateList->CreateGroup(tabIndexes, visualData);
+    if (!tabIndexes.empty()) {
+      _webStateList->CreateGroup(tabIndexes, visualData);
+    }
   }
   completion();
 }

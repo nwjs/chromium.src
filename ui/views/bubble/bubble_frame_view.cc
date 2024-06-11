@@ -145,8 +145,12 @@ BubbleFrameView::~BubbleFrameView() = default;
 // static
 std::unique_ptr<Label> BubbleFrameView::CreateDefaultTitleLabel(
     const std::u16string& title_text) {
-  return CreateLabelWithContextAndStyle(title_text, style::CONTEXT_DIALOG_TITLE,
-                                        style::STYLE_PRIMARY);
+  std::unique_ptr<Label> label = CreateLabelWithContextAndStyle(
+      title_text, style::CONTEXT_DIALOG_TITLE, style::STYLE_PRIMARY);
+  if (base::FeatureList::IsEnabled(features::kBubbleFrameViewTitleIsHeading)) {
+    label->GetViewAccessibility().SetRole(ax::mojom::Role::kHeading);
+  }
+  return label;
 }
 
 // static
@@ -491,9 +495,11 @@ std::optional<double> BubbleFrameView::GetProgress() const {
   return std::nullopt;
 }
 
-gfx::Size BubbleFrameView::CalculatePreferredSize() const {
+gfx::Size BubbleFrameView::CalculatePreferredSize(
+    const SizeBounds& available_size) const {
   // Get the preferred size of the client area.
-  gfx::Size client_size = GetWidget()->client_view()->GetPreferredSize({});
+  gfx::Size client_size =
+      GetWidget()->client_view()->GetPreferredSize(available_size);
   // Expand it to include the bubble border and space for the arrow.
   return GetWindowBoundsForClientBounds(gfx::Rect(client_size)).size();
 }
@@ -760,10 +766,13 @@ gfx::Insets BubbleFrameView::GetFootnoteMargins() const {
 
 void BubbleFrameView::SetPreferredArrowAdjustment(
     BubbleFrameView::PreferredArrowAdjustment adjustment) {
+  if (preferred_arrow_adjustment_ == adjustment) {
+    return;
+  }
+
   preferred_arrow_adjustment_ = adjustment;
-  // Changing |preferred_arrow_adjustment| will affect window bounds. Therefore
-  // this effect is handled during window resizing.
-  OnPropertyChanged(&preferred_arrow_adjustment_, kPropertyEffectsNone);
+  // Changing |preferred_arrow_adjustment| will affect window bounds.
+  OnPropertyChanged(&preferred_arrow_adjustment_, kPropertyEffectsLayout);
 }
 
 BubbleFrameView::PreferredArrowAdjustment
@@ -1034,8 +1043,9 @@ void BubbleFrameView::OffsetArrowIfOutOfBounds(
 
 int BubbleFrameView::GetFrameWidthForClientWidth(int client_width) const {
   // Note that GetMinimumSize() for multiline Labels is typically 0.
-  const int title_bar_width = title()->GetMinimumSize().width() +
-                              GetTitleLabelInsetsFromFrame().width();
+  const int title_bar_width =
+      GetTitleLabelInsetsFromFrame().width() +
+      (HasWindowTitle() ? title()->GetMinimumSize().width() : 0);
   const int client_area_width = client_width + content_margins_.width();
   const int frame_width =
       std::max(title_bar_width, client_area_width) + GetMainImageLeftInsets();

@@ -92,10 +92,10 @@ TEST_F(PowerEventObserverTest, LockBeforeSuspend) {
   test_api.CompositingDidCommit(compositor);
   observer_->OnLockAnimationsComplete();
 
-  // Verify that CompositingStarted and CompositingEnded observed before
+  // Verify that CompositingStarted and CompositingAckDeprecated observed before
   // CompositingDidCommit are ignored.
   test_api.CompositingStarted(compositor);
-  test_api.CompositingEnded(compositor);
+  test_api.CompositingAckDeprecated(compositor);
   EXPECT_EQ(1, client->num_pending_suspend_readiness_callbacks());
   EXPECT_EQ(1, GetNumVisibleCompositors());
 
@@ -109,7 +109,7 @@ TEST_F(PowerEventObserverTest, LockBeforeSuspend) {
   EXPECT_EQ(1, client->num_pending_suspend_readiness_callbacks());
   EXPECT_EQ(1, GetNumVisibleCompositors());
 
-  test_api.CompositingEnded(compositor);
+  test_api.CompositingAckDeprecated(compositor);
   EXPECT_EQ(0, client->num_pending_suspend_readiness_callbacks());
   EXPECT_EQ(0, GetNumVisibleCompositors());
 
@@ -256,7 +256,7 @@ TEST_F(PowerEventObserverTest, DelaySuspendForCompositing_MultiDisplay) {
   observer_->OnLockAnimationsComplete();
 
   test_api.CompositingStarted(secondary_compositor);
-  test_api.CompositingEnded(secondary_compositor);
+  test_api.CompositingAckDeprecated(secondary_compositor);
 
   EXPECT_EQ(1, client->num_pending_suspend_readiness_callbacks());
   EXPECT_EQ(2, GetNumVisibleCompositors());
@@ -267,7 +267,7 @@ TEST_F(PowerEventObserverTest, DelaySuspendForCompositing_MultiDisplay) {
   test_api.CompositeFrame(secondary_compositor);
 
   // Even though compositing for one display is done, changes to compositor
-  // visibility, and suspend readines state should be delayed until compositing
+  // visibility, and suspend readiness state should be delayed until compositing
   // for the other display finishes.
   EXPECT_EQ(1, client->num_pending_suspend_readiness_callbacks());
   EXPECT_EQ(2, GetNumVisibleCompositors());
@@ -303,7 +303,7 @@ TEST_F(PowerEventObserverTest,
   test_api.CompositeFrame(primary_compositor);
 
   // Even though compositing for one display is done, changes to compositor
-  // visibility, and suspend readines state should be delayed until compositing
+  // visibility, and suspend readiness state should be delayed until compositing
   // for the other display finishes.
   EXPECT_EQ(1, client->num_pending_suspend_readiness_callbacks());
   EXPECT_EQ(2, GetNumVisibleCompositors());
@@ -588,7 +588,7 @@ TEST_F(PowerEventObserverTest, DisplayRemovedDuringWallpaperAnimation) {
   base::RunLoop().RunUntilIdle();
 
   // Start suspend and verify the suspend proceeds when the primary window's
-  // compositors go throug two compositing cycles.
+  // compositors go through two compositing cycles.
   observer_->SuspendImminent(power_manager::SuspendImminent_Reason_OTHER);
 
   ui::Compositor* compositor =
@@ -655,7 +655,8 @@ TEST_F(PowerEventObserverTest, LockOnLidCloseWhenDocked) {
     if (docked) {
       displays.push_back(external_display.get());
     }
-    Shell::Get()->projecting_observer()->OnDisplayModeChanged(displays);
+    Shell::Get()->projecting_observer()->OnDisplayConfigurationChanged(
+        displays);
   };
 
   SetCanLockScreen(true);
@@ -713,7 +714,7 @@ TEST_F(LockOnSuspendUsageTest, LockOnSuspendUsage) {
               1)));
 }
 
-// TODO(crbug.com/1425006): Test is failing on "Linux ChromiumOS MSan Tests".
+// TODO(crbug.com/40898491): Test is failing on "Linux ChromiumOS MSan Tests".
 #if defined(MEMORY_SANITIZER)
 #define MAYBE_No_ShouldLockScreenAutomatically \
   DISABLED_No_ShouldLockScreenAutomatically

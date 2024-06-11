@@ -53,7 +53,6 @@
 #include "third_party/blink/renderer/modules/webgl/webgl_uniform_location.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_vertex_array_object_base.h"
 #include "third_party/blink/renderer/platform/bindings/name_client.h"
-#include "third_party/blink/renderer/platform/bindings/no_alloc_direct_call_host.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/drawing_buffer.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgl_image_conversion.h"
@@ -138,16 +137,13 @@ class ScopedRGBEmulationColorMask {
 };
 
 class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
-                                                 public DrawingBuffer::Client,
-                                                 public NoAllocDirectCallHost {
+                                                 public DrawingBuffer::Client {
  public:
   WebGLRenderingContextBase(const WebGLRenderingContextBase&) = delete;
   WebGLRenderingContextBase& operator=(const WebGLRenderingContextBase&) =
       delete;
 
   ~WebGLRenderingContextBase() override;
-
-  NoAllocDirectCallHost* AsNoAllocDirectCallHost() final;
 
   HTMLCanvasElement* canvas() const {
     if (Host()->IsOffscreenCanvas())
@@ -1043,13 +1039,12 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   template <typename T>
   class TypedExtensionTracker final : public ExtensionTracker {
    public:
-    TypedExtensionTracker(Member<T>& extension_field, ExtensionFlags flags)
-        : ExtensionTracker(flags), extension_field_(extension_field) {}
+    explicit TypedExtensionTracker(ExtensionFlags flags)
+        : ExtensionTracker(flags) {}
 
     WebGLExtension* GetExtension(WebGLRenderingContextBase* context) override {
       if (!extension_) {
         extension_ = MakeGarbageCollected<T>(context);
-        extension_field_ = extension_;
       }
 
       return extension_.Get();
@@ -1079,11 +1074,6 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
     }
 
    private:
-    // RAW_PTR_EXCLUSION: `Member<T>` denotes a type managed by Oilpan, and is
-    // contained in a type managed by Oilpan, i.e. not managed by
-    // PartitionAlloc.
-    // TODO(crbug/325359457): Make it non-reference.
-    RAW_PTR_EXCLUSION Member<T>& extension_field_;
     // ExtensionTracker holds it's own reference to the extension to ensure
     // that it is not deleted before this object's destructor is called
     Member<T> extension_;
@@ -1094,10 +1084,9 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   HashSet<String> disabled_extensions_;
 
   template <typename T>
-  void RegisterExtension(Member<T>& extension_ptr,
-                         ExtensionFlags flags = kApprovedExtension) {
+  void RegisterExtension(ExtensionFlags flags = kApprovedExtension) {
     extensions_.push_back(
-        MakeGarbageCollected<TypedExtensionTracker<T>>(extension_ptr, flags));
+        MakeGarbageCollected<TypedExtensionTracker<T>>(flags));
   }
 
   bool ExtensionSupportedAndAllowed(const ExtensionTracker*);

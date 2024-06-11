@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/webui/app_management/app_management_page_handler_base.h"
 #include "chrome/browser/ui/webui/app_management/app_management_page_handler_factory.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/apps/mojom/app_notification_handler.mojom-forward.h"
+#include "chrome/browser/ui/webui/ash/settings/pages/apps/mojom/app_parental_controls_handler.mojom-forward.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/device/display_settings/display_settings_provider.mojom.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/device/input_device_settings/input_device_settings_provider.mojom.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/files/google_drive_page_handler_factory.h"
@@ -33,6 +34,7 @@
 #include "chromeos/ash/services/cellular_setup/public/mojom/esim_manager.mojom-forward.h"
 #include "chromeos/ash/services/connectivity/public/mojom/passpoint.mojom-forward.h"
 #include "chromeos/ash/services/hotspot_config/public/mojom/cros_hotspot_config.mojom-forward.h"
+#include "chromeos/ash/services/ime/public/mojom/input_method_user_data.mojom.h"
 #include "chromeos/ash/services/nearby/public/mojom/nearby_share_settings.mojom.h"
 #include "chromeos/components/in_session_auth/mojom/in_session_auth.mojom.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom-forward.h"
@@ -124,6 +126,12 @@ class OSSettingsUI : public ui::MojoWebUIController {
   void BindInterface(
       mojo::PendingReceiver<app_notification::mojom::AppNotificationsHandler>
           receiver);
+
+  // Instantiates implementor of the mojom::AppParentalControlsHandler mojo
+  // interface passing the pending receiver that will be internally bound.
+  void BindInterface(
+      mojo::PendingReceiver<
+          app_parental_controls::mojom::AppParentalControlsHandler> receiver);
 
   // Instantiates implementor of the mojom::AppPermissionsHandler mojo interface
   // passing the pending receiver that will be internally bound.
@@ -219,6 +227,11 @@ class OSSettingsUI : public ui::MojoWebUIController {
   // Binds HidPreservingBluetoothStateController service.
   void BindInterface(
       mojo::PendingReceiver<ash::mojom::HidPreservingBluetoothStateController>
+          receiver);
+
+  // Binds InputMethodUserDataService service.
+  void BindInterface(
+      mojo::PendingReceiver<ash::ime::mojom::InputMethodUserDataService>
           receiver);
 
  private:

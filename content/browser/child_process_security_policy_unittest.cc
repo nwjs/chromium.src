@@ -1216,7 +1216,7 @@ TEST_P(ChildProcessSecurityPolicyTest, RemoveRace) {
 // removal process. It is intended to simulate pending tasks that could be
 // run on each thread during removal.
 //
-// TODO(crbug.com/1286533): Refactor the test to avoid calls to
+// TODO(crbug.com/40210893): Refactor the test to avoid calls to
 // CanAccessDataForOrigin on the IO thread, by checking for the presence of
 // security state instead.
 TEST_P(ChildProcessSecurityPolicyTest, RemoveRace_CanAccessDataForOrigin) {
@@ -1348,7 +1348,7 @@ TEST_P(ChildProcessSecurityPolicyTest, RemoveRace_CanAccessDataForOrigin) {
 // removal process. It is intended to simulate pending tasks that could be
 // run on each thread during removal.
 //
-// TODO(crbug.com/1286533): Refactor the test to avoid calls to
+// TODO(crbug.com/40210893): Refactor the test to avoid calls to
 // CanAccessDataForOrigin on the IO thread, by checking for the presence of
 // security state instead.
 TEST_P(ChildProcessSecurityPolicyTest, HandleExtendsSecurityStateLifetime) {
@@ -1751,9 +1751,7 @@ TEST_P(ChildProcessSecurityPolicyTest, SandboxedProcessEnforcements) {
   // origin.
   EXPECT_TRUE(p->CanAccessOrigin(kRendererID, opaque_foo_origin,
                                  AccessType::kHostsOrigin));
-  // TODO(crbug.com/325410297): Non-opaque origins are temporarily allowed to
-  // pass kHostsOrigin checks. Fix this and flip this expectation to false.
-  EXPECT_TRUE(
+  EXPECT_FALSE(
       p->CanAccessOrigin(kRendererID, foo_origin, AccessType::kHostsOrigin));
   EXPECT_FALSE(
       p->CanAccessOrigin(kRendererID, bar_origin, AccessType::kHostsOrigin));

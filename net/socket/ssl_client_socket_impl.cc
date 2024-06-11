@@ -794,7 +794,7 @@ int SSLClientSocketImpl::Init() {
 
   SSL_set_shed_handshake_config(ssl_.get(), 1);
 
-  // TODO(https://crbug.com/775438), if |ssl_config_.privacy_mode| is enabled,
+  // TODO(crbug.com/40089326), if |ssl_config_.privacy_mode| is enabled,
   // this should always continue with no client certificate.
   if (ssl_config_.privacy_mode == PRIVACY_MODE_ENABLED_WITHOUT_CLIENT_CERTS) {
     send_client_cert_ = true;
@@ -804,7 +804,7 @@ int SSLClientSocketImpl::Init() {
   }
 
   if (context_->config().ech_enabled) {
-    // TODO(https://crbug.com/1509597): Enable this unconditionally.
+    // TODO(crbug.com/41482204): Enable this unconditionally.
     SSL_set_enable_ech_grease(ssl_.get(), 1);
   }
   if (!ssl_config_.ech_config_list.empty()) {
@@ -820,8 +820,7 @@ int SSLClientSocketImpl::Init() {
     }
   }
 
-  SSL_set_permute_extensions(ssl_.get(), base::FeatureList::IsEnabled(
-                                             features::kPermuteTLSExtensions));
+  SSL_set_permute_extensions(ssl_.get(), 1);
 
   return OK;
 }
@@ -983,7 +982,7 @@ int SSLClientSocketImpl::DoHandshakeComplete(int result) {
   // too large. See
   // https://boringssl-review.googlesource.com/c/boringssl/+/34948.
   //
-  // TODO(https://crbug.com/958638): It is also a step in making TLS 1.3 client
+  // TODO(crbug.com/41456237): It is also a step in making TLS 1.3 client
   // certificate alerts less unreliable.
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,

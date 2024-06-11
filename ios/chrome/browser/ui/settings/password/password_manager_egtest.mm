@@ -1621,10 +1621,10 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 // storing just about enough passwords to ensure filling more than one page on
 // any device. To limit the effect of (2), custom large scrolling steps are
 // added to the usual scrolling actions.
-// TODO(crbug.com/1442985): This test is flaky.
+// TODO(crbug.com/40910877): This test is flaky.
 - (void)FLAKY_testManyPasswords {
   if ([ChromeEarlGrey isIPadIdiom]) {
-    // TODO(crbug.com/906551): Enable the test on iPad once the bug is fixed.
+    // TODO(crbug.com/40602996): Enable the test on iPad once the bug is fixed.
     EARL_GREY_TEST_DISABLED(@"Disabled for iPad.");
   }
 
@@ -1770,7 +1770,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 // Test that when user types text in search field, passwords and blocked
 // items are filtered out and "save passwords" switch is removed.
 - (void)testSearchPasswords {
-  // TODO(crbug.com/1067818): Test doesn't pass on iPad device or simulator.
+  // TODO(crbug.com/40683159): Test doesn't pass on iPad device or simulator.
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_SKIPPED(
         @"This test doesn't pass on iPad device or simulator.");
@@ -1814,16 +1814,17 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 }
 
 // Test search and delete all passwords and blocked items.
-// TODO(crbug.com/1441783): Flaky.
+// TODO(crbug.com/40910165): Flaky.
 - (void)DISABLED_testSearchAndDeleteAllPasswords {
   SaveExamplePasswordForms();
   SaveExampleBlockedFormsToProfileStore();
 
   OpenPasswordManager();
 
-  // TODO(crbug.com/922511): Comment out because currently activating the search
-  // bar will hide the "Edit" button in the top toolbar. Recover this when the
-  // "Edit" button is moved to the bottom toolbar in the new Settings UI.
+  // TODO(crbug.com/40609735): Comment out because currently activating the
+  // search bar will hide the "Edit" button in the top toolbar. Recover this
+  // when the "Edit" button is moved to the bottom toolbar in the new Settings
+  // UI.
   //  [[EarlGrey selectElementWithMatcher:SearchTextField()]
   //      performAction:grey_replaceText(@"u")];
   //  [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
@@ -1886,9 +1887,10 @@ void OpenPasswordManagerWidgetPromoInstructions() {
   SaveExamplePasswordForms();
   OpenPasswordManager();
 
-  // TODO(crbug.com/922511): Comment out because currently activating the search
-  // bar will hide the "Edit" button in the top toolbar. Recover this when the
-  // "Edit" button is moved to the bottom toolbar in the new Settings UI.
+  // TODO(crbug.com/40609735): Comment out because currently activating the
+  // search bar will hide the "Edit" button in the top toolbar. Recover this
+  // when the "Edit" button is moved to the bottom toolbar in the new Settings
+  // UI.
   //  [[EarlGrey selectElementWithMatcher:SearchTextField()]
   //      performAction:grey_replaceText(@"2")];
 
@@ -1904,9 +1906,10 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       performAction:grey_tap()];
 
   // Filter results in nothing.
-  // TODO(crbug.com/922511): Comment out because currently activating the search
-  // bar will hide the "Edit" button in the top toolbar. Recover this when the
-  // "Edit" button is moved to the bottom toolbar in the new Settings UI.
+  // TODO(crbug.com/40609735): Comment out because currently activating the
+  // search bar will hide the "Edit" button in the top toolbar. Recover this
+  // when the "Edit" button is moved to the bottom toolbar in the new Settings
+  // UI.
   //  [GetInteractionForPasswordEntry(@"example11.com, user1")
   //      assertWithMatcher:grey_nil()];
   //  [GetInteractionForPasswordEntry(@"example12.com, user2")
@@ -1917,7 +1920,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
       performAction:grey_tap()];
 
   // Remove filter search term.
-  // TODO(crbug.com/1454514): Revert to grey_clearText when fixed in EG.
+  // TODO(crbug.com/40916973): Revert to grey_clearText when fixed in EG.
   [[EarlGrey selectElementWithMatcher:SearchTextField()]
       performAction:grey_replaceText(@"")];
 
@@ -2084,7 +2087,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
                                           @"concrete username1", kDefaultSite)]
       assertWithMatcher:grey_textFieldValue(@"concrete username1")];
 
-  // TODO(crbug.com/1454514): Revert to grey_clearText when fixed in EG.
+  // TODO(crbug.com/40916973): Revert to grey_clearText when fixed in EG.
   [[EarlGrey selectElementWithMatcher:UsernameTextfieldForUsernameAndSites(
                                           @"concrete username1", kDefaultSite)]
       performAction:grey_replaceText(@"")];
@@ -2215,7 +2218,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 }
 
 // Tests the add password flow from the toolbar button.
-// TODO(crbug.com/1411944): Flaky, please re-enable once fixed.
+// TODO(crbug.com/40255054): Flaky, please re-enable once fixed.
 - (void)DISABLED_testAddNewPasswordCredential {
   OpenPasswordManager();
 
@@ -2349,7 +2352,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 // Tests that when a new credential is saved or an existing one is updated via
 // the add credential flow, the VC auto scrolls to the newly created or the
 // updated entry.
-// TODO(crbug.com/1377079): Flaky, please re-enable once fixed.
+// TODO(crbug.com/40874087): Flaky, please re-enable once fixed.
 - (void)testAutoScroll {
   for (int i = 0; i < 20; i++) {
     NSString* username = [NSString stringWithFormat:@"username %d", i];
@@ -2524,7 +2527,7 @@ void OpenPasswordManagerWidgetPromoInstructions() {
 // Tests that the duplicate credential section alert is shown when the user adds
 // a credential that has the same website as that of an existing credential
 // (does not contain username).
-// TODO(crbug.com/1474949): Fix flaky test & re-enable.
+// TODO(crbug.com/40279461): Fix flaky test & re-enable.
 #if TARGET_OS_SIMULATOR
 #define MAYBE_testDuplicatedCredentialWithNoUsername \
   DISABLED_testDuplicatedCredentialWithNoUsername

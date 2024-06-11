@@ -187,6 +187,7 @@ source_set("eg_app_support+eg2") {
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/tabs/model",
     "//ios/chrome/test/app:test_support",
+    "//ios/web/public",
     "//ios/web/public/navigation",
   ]
 }
@@ -221,9 +222,9 @@ source_set("eg2_tests") {
     "//components/strings",
     "//components/supervised_user/core/common:features",
     "//components/sync/base:features",
+    "//components/variations",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/bookmarks/model:bookmark_model_type",
-    "//ios/chrome/browser/parcel_tracking:features",
     "//ios/chrome/browser/policy/model:constants",
     "//ios/chrome/browser/policy/model:eg_test_support+eg2",
     "//ios/chrome/browser/policy/model:policy_util",

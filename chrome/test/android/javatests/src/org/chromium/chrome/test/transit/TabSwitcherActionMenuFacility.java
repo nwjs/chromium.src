@@ -15,8 +15,8 @@ import static org.chromium.base.test.transit.ViewElement.scopedViewElement;
 import static org.chromium.base.test.transit.ViewElement.sharedViewElement;
 
 import org.chromium.base.test.transit.Elements;
-import org.chromium.base.test.transit.StationFacility;
-import org.chromium.base.test.transit.TransitStation;
+import org.chromium.base.test.transit.Facility;
+import org.chromium.base.test.transit.Station;
 import org.chromium.base.test.transit.Trip;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.chrome.R;
@@ -24,7 +24,7 @@ import org.chromium.chrome.browser.hub.HubFieldTrial;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 
 /** The action menu opened when long pressing the tab switcher button in a {@link PageStation}. */
-public class TabSwitcherActionMenuFacility extends StationFacility<PageStation> {
+public class TabSwitcherActionMenuFacility extends Facility<PageStation> {
     public static final ViewElement APP_MENU_LIST = sharedViewElement(withId(R.id.app_menu_list));
     // withId() cannot differentiate items because android:id is id/menu_item_text for all items.
     public static final ViewElement CLOSE_TAB_MENU_ITEM =
@@ -56,10 +56,9 @@ public class TabSwitcherActionMenuFacility extends StationFacility<PageStation> 
     }
 
     /** Select the "Close tab" menu option to close the current Tab. */
-    public <T extends TransitStation> T selectCloseTab(Class<T> expectedDestination) {
+    public <T extends Station> T selectCloseTab(Class<T> expectedDestination) {
         T destination;
-        TabModelSelector tabModelSelector =
-                mStation.getTestRule().getActivity().getTabModelSelector();
+        TabModelSelector tabModelSelector = mHostStation.getActivity().getTabModelSelector();
         if (tabModelSelector.getCurrentModel().getCount() <= 1) {
             if (tabModelSelector.isIncognitoSelected()) {
                 // No tabs left, so closing the last will either take us to a normal tab, or the tab
@@ -68,20 +67,20 @@ public class TabSwitcherActionMenuFacility extends StationFacility<PageStation> 
                     if (HubFieldTrial.isHubEnabled()) {
                         destination =
                                 expectedDestination.cast(
-                                        new HubTabSwitcherStation(mStation.getTestRule()));
+                                        new HubTabSwitcherStation(mHostStation.getTestRule()));
                     } else {
                         destination =
                                 expectedDestination.cast(
-                                        new RegularTabSwitcherStation(mStation.getTestRule()));
+                                        new RegularTabSwitcherStation(mHostStation.getTestRule()));
                     }
                 } else {
                     destination =
                             expectedDestination.cast(
                                     PageStation.newPageStationBuilder()
-                                            .withActivityTestRule(mStation.getTestRule())
+                                            .withActivityTestRule(mHostStation.getTestRule())
                                             .withIncognito(false)
-                                            .withIsOpeningTab(false)
-                                            .withIsSelectingTab(true)
+                                            .withIsOpeningTabs(0)
+                                            .withIsSelectingTabs(1)
                                             .build());
                 }
             } else {
@@ -89,11 +88,11 @@ public class TabSwitcherActionMenuFacility extends StationFacility<PageStation> 
                 if (HubFieldTrial.isHubEnabled()) {
                     destination =
                             expectedDestination.cast(
-                                    new HubTabSwitcherStation(mStation.getTestRule()));
+                                    new HubTabSwitcherStation(mHostStation.getTestRule()));
                 } else {
                     destination =
                             expectedDestination.cast(
-                                    new RegularTabSwitcherStation(mStation.getTestRule()));
+                                    new RegularTabSwitcherStation(mHostStation.getTestRule()));
                 }
             }
         } else {
@@ -101,38 +100,37 @@ public class TabSwitcherActionMenuFacility extends StationFacility<PageStation> 
             destination =
                     expectedDestination.cast(
                             PageStation.newPageStationBuilder()
-                                    .withActivityTestRule(mStation.getTestRule())
+                                    .withActivityTestRule(mHostStation.getTestRule())
                                     .withIncognito(tabModelSelector.isIncognitoSelected())
-                                    .withIsOpeningTab(false)
-                                    .withIsSelectingTab(true)
+                                    .withIsOpeningTabs(0)
+                                    .withIsSelectingTabs(1)
                                     .build());
         }
 
-        return Trip.travelSync(mStation, destination, () -> CLOSE_TAB_MENU_ITEM.perform(click()));
+        return Trip.travelSync(
+                mHostStation, destination, () -> CLOSE_TAB_MENU_ITEM.perform(click()));
     }
 
     /** Select the "New tab" menu option to open a new Tab. */
-    public PageStation selectNewTab() {
-        PageStation destination =
-                PageStation.newPageStationBuilder()
-                        .withActivityTestRule(mStation.getTestRule())
-                        .withIncognito(false)
-                        .withIsOpeningTab(true)
-                        .withIsSelectingTab(true)
+    public NewTabPageStation selectNewTab() {
+        NewTabPageStation destination =
+                NewTabPageStation.newBuilder()
+                        .withActivityTestRule(mHostStation.getTestRule())
+                        .withIsOpeningTabs(1)
+                        .withIsSelectingTabs(1)
                         .build();
-        return Trip.travelSync(mStation, destination, () -> NEW_TAB_MENU_ITEM.perform(click()));
+        return Trip.travelSync(mHostStation, destination, () -> NEW_TAB_MENU_ITEM.perform(click()));
     }
 
     /** Select the "New Incognito tab" menu option to open a new incognito Tab. */
-    public PageStation selectNewIncognitoTab() {
-        PageStation destination =
-                PageStation.newPageStationBuilder()
-                        .withActivityTestRule(mStation.getTestRule())
-                        .withIncognito(true)
-                        .withIsOpeningTab(true)
-                        .withIsSelectingTab(true)
+    public IncognitoNewTabPageStation selectNewIncognitoTab() {
+        IncognitoNewTabPageStation destination =
+                IncognitoNewTabPageStation.newBuilder()
+                        .withActivityTestRule(mHostStation.getTestRule())
+                        .withIsOpeningTabs(1)
+                        .withIsSelectingTabs(1)
                         .build();
         return Trip.travelSync(
-                mStation, destination, () -> NEW_INCOGNITO_TAB_MENU_ITEM.perform(click()));
+                mHostStation, destination, () -> NEW_INCOGNITO_TAB_MENU_ITEM.perform(click()));
     }
 }

@@ -112,7 +112,6 @@ BASE_DECLARE_FEATURE(kNoPreReadMainDll);
 BASE_DECLARE_FEATURE(kNotificationOneTapUnsubscribe);
 #endif
 
-BASE_DECLARE_FEATURE(kOmniboxTriggerForNoStatePrefetch);
 BASE_DECLARE_FEATURE(kOmniboxTriggerForPrerender2);
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -151,10 +150,7 @@ BASE_DECLARE_FEATURE(kTriggerNetworkDataMigration);
 BASE_DECLARE_FEATURE(kTabCaptureBlueBorderCrOS);
 #endif
 
-#if BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kUseOsCryptAsyncForCookieEncryption);
-#endif
-
 BASE_DECLARE_FEATURE(kWebUsbDeviceDetection);
 
 }  // namespace features

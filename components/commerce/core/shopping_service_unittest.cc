@@ -440,18 +440,19 @@ TEST_P(ShoppingServiceTest, TestRecentUrls_NoDuplicates) {
   std::string url2 = "http://example.com/bar";
   MockWebWrapper web2(GURL(url2), false);
 
-  ASSERT_EQ(0u, shopping_service_->GetRecentlyViewedWebWrapperUrls().size());
+  ASSERT_EQ(
+      0u, shopping_service_->GetUrlInfosForRecentlyViewedWebWrappers().size());
 
   OnWebWrapperSwitched(&web1);
 
   std::vector<UrlInfo> urls =
-      shopping_service_->GetRecentlyViewedWebWrapperUrls();
+      shopping_service_->GetUrlInfosForRecentlyViewedWebWrappers();
   ASSERT_EQ(1u, urls.size());
   ASSERT_EQ(urls[0].url, GURL(url1));
 
   OnWebWrapperSwitched(&web2);
 
-  urls = shopping_service_->GetRecentlyViewedWebWrapperUrls();
+  urls = shopping_service_->GetUrlInfosForRecentlyViewedWebWrappers();
   ASSERT_EQ(2u, urls.size());
   ASSERT_EQ(urls[0].url, GURL(url2));
   ASSERT_EQ(urls[1].url, GURL(url1));
@@ -460,7 +461,7 @@ TEST_P(ShoppingServiceTest, TestRecentUrls_NoDuplicates) {
   // There should still only be one instance.
   OnWebWrapperSwitched(&web1);
 
-  urls = shopping_service_->GetRecentlyViewedWebWrapperUrls();
+  urls = shopping_service_->GetUrlInfosForRecentlyViewedWebWrappers();
   ASSERT_EQ(2u, urls.size());
   ASSERT_EQ(urls[0].url, GURL(url1));
   ASSERT_EQ(urls[1].url, GURL(url2));
@@ -479,7 +480,8 @@ TEST_P(ShoppingServiceTest, TestRecentUrls_MaxCount) {
   std::string url2 = "http://example.com/bar";
   MockWebWrapper web2(GURL(url2), false);
 
-  ASSERT_EQ(10u, shopping_service_->GetRecentlyViewedWebWrapperUrls().size());
+  ASSERT_EQ(
+      10u, shopping_service_->GetUrlInfosForRecentlyViewedWebWrappers().size());
 }
 
 TEST_P(ShoppingServiceTest, TestRecentUrls_CacheEntriesRetained) {
@@ -707,6 +709,114 @@ TEST_P(ShoppingServiceTest,
   // Close the "tab" and make sure the cache is empty.
   WebWrapperDestroyed(&web);
   ASSERT_EQ(0, GetProductInfoCacheOpenURLCount(GURL(kProductUrl)));
+}
+
+// The on-demand api should not be triggered in the case where we have an
+// explicit negative signal from the page.
+TEST_P(ShoppingServiceTest, TestProductInfoWithFallback_NoOnDemandCalls) {
+  MockWebWrapper web(GURL(kProductUrl), false);
+
+  // Assume the page has already loaded for the navigation. This is usually the
+  // case for single-page webapps.
+  web.SetIsFirstLoadForNavigationFinished(true);
+
+  opt_guide_->SetResponse(GURL(kProductUrl), OptimizationType::PRICE_TRACKING,
+                          OptimizationGuideDecision::kFalse,
+                          OptimizationMetadata());
+
+  // The on-demand api should only ever be called once in this test.
+  EXPECT_CALL(*GetMockOptGuideDecider(), CanApplyOptimizationOnDemand).Times(0);
+
+  DidNavigatePrimaryMainFrame(&web);
+  // If the page was already loaded, assume the js has time to run now.
+  SimulateProductInfoLocalExtractionTaskFinished();
+
+  // By this point there should be something in the cache.
+  ASSERT_EQ(1, GetProductInfoCacheOpenURLCount(GURL(kProductUrl)));
+
+  // We should be able to access the cached data.
+  CommerceInfoCache::CacheEntry* entry =
+      GetCache().GetEntryForUrl(GURL(kProductUrl));
+  ASSERT_FALSE(entry == nullptr);
+  ASSERT_FALSE(entry->run_product_info_on_demand);
+
+  // Querying for the info multiple times should not trigger the on-demand api.
+  base::RunLoop run_loop;
+  shopping_service_->GetProductInfoForUrl(
+      GURL(kProductUrl), base::BindOnce(
+                             [](base::RunLoop* run_loop, const GURL& url,
+                                const std::optional<const ProductInfo>& info) {
+                               ASSERT_EQ(kProductUrl, url.spec());
+                               ASSERT_FALSE(info.has_value());
+                               run_loop->Quit();
+                             },
+                             &run_loop));
+  run_loop.Run();
+
+  // Close the "tab" and make sure the cache is empty.
+  WebWrapperDestroyed(&web);
+  ASSERT_EQ(0, GetProductInfoCacheOpenURLCount(GURL(kProductUrl)));
+}
+
+// If there's a reference to the url in the cache and opt guide doesn't know
+// about the url, we should be allowed to call the on-demand api.
+TEST_P(ShoppingServiceTest,
+       TestProductInfoWithFallback_CallsOnDemandOnce_RefInCache) {
+  // The on-demand api should not be called if there isn't a page open and
+  // there isn't a reference in the cache.
+  EXPECT_CALL(*GetMockOptGuideDecider(), CanApplyOptimizationOnDemand).Times(0);
+
+  opt_guide_->SetResponse(GURL(kProductUrl), OptimizationType::PRICE_TRACKING,
+                          OptimizationGuideDecision::kUnknown,
+                          OptimizationMetadata());
+
+  base::RunLoop run_loop;
+  shopping_service_->GetProductInfoForUrl(
+      GURL(kProductUrl), base::BindOnce(
+                             [](base::RunLoop* run_loop, const GURL& url,
+                                const std::optional<const ProductInfo>& info) {
+                               ASSERT_EQ(kProductUrl, url.spec());
+                               ASSERT_FALSE(info.has_value());
+                               run_loop->Quit();
+                             },
+                             &run_loop));
+  run_loop.Run();
+
+  // We shouldn't have a cache entry.
+  ASSERT_TRUE(GetCache().GetEntryForUrl(GURL(kProductUrl)) == nullptr);
+
+  // Add a ref to the url - this could be a page loading or another feature.
+  GetCache().AddRef(GURL(kProductUrl));
+
+  CommerceInfoCache::CacheEntry* entry =
+      GetCache().GetEntryForUrl(GURL(kProductUrl));
+  ASSERT_FALSE(entry == nullptr);
+  ASSERT_TRUE(entry->run_product_info_on_demand);
+
+  // We should now be allowed to call the on-demand api when product info is
+  // requested.
+  EXPECT_CALL(*GetMockOptGuideDecider(), CanApplyOptimizationOnDemand).Times(1);
+
+  OptimizationMetadata meta = opt_guide_->BuildPriceTrackingResponse(
+      kTitle, "", kOfferId, kClusterId, kCountryCode);
+  opt_guide_->AddOnDemandShoppingResponse(
+      GURL(kProductUrl), OptimizationGuideDecision::kTrue, meta);
+
+  // By this point there should be something in the cache.
+  ASSERT_EQ(1, GetProductInfoCacheOpenURLCount(GURL(kProductUrl)));
+
+  // Querying for the info multiple times should not trigger the on-demand api.
+  base::RunLoop run_loop2;
+  shopping_service_->GetProductInfoForUrl(
+      GURL(kProductUrl), base::BindOnce(
+                             [](base::RunLoop* run_loop, const GURL& url,
+                                const std::optional<const ProductInfo>& info) {
+                               ASSERT_EQ(kProductUrl, url.spec());
+                               ASSERT_TRUE(info.has_value());
+                               run_loop->Quit();
+                             },
+                             &run_loop2));
+  run_loop2.Run();
 }
 
 // Test that merchant info is processed correctly.

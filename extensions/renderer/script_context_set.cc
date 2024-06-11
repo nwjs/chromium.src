@@ -30,11 +30,6 @@
 #include "v8/include/v8-isolate.h"
 #include "v8/include/v8-object.h"
 
-#if BUILDFLAG(ENABLE_PDF)
-#include "base/feature_list.h"
-#include "pdf/pdf_features.h"
-#endif  // BUILDFLAG(ENABLE_PDF)
-
 namespace extensions {
 
 namespace {
@@ -94,7 +89,7 @@ ScriptContext* ScriptContextSet::Register(
   } else if (effective_context_type == mojom::ContextType::kWebPage &&
              !is_webview && context_data.IsIsolatedApplication()) {
     host_id.type = mojom::HostID::HostType::kControlledFrameEmbedder;
-    // TODO(crbug.com/1517392): Improve how we derive origin for controlled
+    // TODO(crbug.com/41490370): Improve how we derive origin for controlled
     // frame embedders in renderer.
     host_id.id = "";
     if (frame_url.has_scheme()) {
@@ -324,8 +319,7 @@ mojom::ContextType ScriptContextSet::ClassifyJavaScriptContext(
 #if BUILDFLAG(ENABLE_PDF)
       // The PDF Viewer extension in a webview needs to be a privileged
       // extension in order to load.
-      if (base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif) &&
-          extension->id() == extension_misc::kPdfExtensionId) {
+      if (extension->id() == extension_misc::kPdfExtensionId) {
         return mojom::ContextType::kPrivilegedExtension;
       }
 #endif  // BUILDFLAG(ENABLE_PDF)

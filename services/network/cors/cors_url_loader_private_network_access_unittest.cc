@@ -850,7 +850,7 @@ TEST_F(CorsURLLoaderPrivateNetworkAccessTest, DoesNotShareCache) {
 // Network Access. The `*PolicyWarnPreflight*` variants test what happens when
 // a preflight was attempted before noticing the private network access.
 //
-// TODO(https://crbug.com/1268378): Remove these tests once the policy is never
+// TODO(crbug.com/40204695): Remove these tests once the policy is never
 // set to `kPreflightWarn` anymore.
 
 // This test verifies that when:
@@ -1386,7 +1386,7 @@ TEST_F(CorsURLLoaderPrivateNetworkAccessTest, PolicyWarnPreflightNetError) {
       histogram_tester.GetAllSamples(kPreflightErrorHistogramName),
       ElementsAre(
           MakeBucket(mojom::CorsError::kInvalidResponse, 1),
-          // TODO(https://crbug.com/1290390): This should not be logged.
+          // TODO(crbug.com/40212338): This should not be logged.
           MakeBucket(mojom::CorsError::kUnexpectedPrivateNetworkAccess, 1)));
   EXPECT_THAT(histogram_tester.GetAllSamples(kPreflightWarningHistogramName),
               IsEmpty());
@@ -1452,7 +1452,7 @@ TEST_F(CorsURLLoaderPrivateNetworkAccessTest, PolicyWarnPreflightCorsError) {
       histogram_tester.GetAllSamples(kPreflightErrorHistogramName),
       ElementsAre(
           MakeBucket(mojom::CorsError::kPreflightMissingAllowOriginHeader, 1),
-          // TODO(https://crbug.com/1290390): This should not be logged.
+          // TODO(crbug.com/40212338): This should not be logged.
           MakeBucket(mojom::CorsError::kUnexpectedPrivateNetworkAccess, 1)));
   EXPECT_THAT(histogram_tester.GetAllSamples(kPreflightWarningHistogramName),
               IsEmpty());

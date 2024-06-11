@@ -117,7 +117,8 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
   std::optional<double> GetProgress() const;
 
   // View:
-  gfx::Size CalculatePreferredSize() const override;
+  gfx::Size CalculatePreferredSize(
+      const SizeBounds& available_size) const override;
   gfx::Size GetMinimumSize() const override;
   gfx::Size GetMaximumSize() const override;
   void Layout(PassKey) override;
@@ -163,7 +164,7 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
   void SetPreferredArrowAdjustment(PreferredArrowAdjustment adjustment);
   PreferredArrowAdjustment GetPreferredArrowAdjustment() const;
 
-  // TODO(crbug.com/1007604): remove this in favor of using
+  // TODO(crbug.com/40100380): remove this in favor of using
   // Widget::InitParams::accept_events. In the mean time, don't add new uses of
   // this flag.
   bool hit_test_transparent() const { return hit_test_transparent_; }

@@ -130,6 +130,7 @@ import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
 import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.content_settings.CookieControlsMode;
+import org.chromium.components.content_settings.ProviderType;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.location.LocationUtils;
 import org.chromium.components.permissions.nfc.NfcSystemLevelSetting;
@@ -381,7 +382,7 @@ public class SiteSettingsTest {
                         "primary.com",
                         "secondary1.com",
                         ContentSettingValues.ALLOW,
-                        "preference",
+                        ProviderType.PREF_PROVIDER,
                         30,
                         false));
         site.addEmbeddedPermission(
@@ -390,7 +391,7 @@ public class SiteSettingsTest {
                         "primary.com",
                         "secondary3.com",
                         ContentSettingValues.ALLOW,
-                        "preference",
+                        ProviderType.PREF_PROVIDER,
                         30,
                         false));
 
@@ -909,7 +910,7 @@ public class SiteSettingsTest {
                 settingsActivity,
                 CookieControlsMode.BLOCK_THIRD_PARTY,
                 ToggleButtonState.EnabledUnchecked);
-        // TODO(crbug.com/1449833): fix this assertion.
+        // TODO(crbug.com/40064993): fix this assertion.
         // onView(getManagedViewMatcher(/* activeView= */ true)).check(matches(isDisplayed()));
         onView(getManagedViewMatcher(/* activeView= */ false)).check(matches(not(isDisplayed())));
         settingsActivity.finish();
@@ -944,7 +945,7 @@ public class SiteSettingsTest {
                 settingsActivity,
                 CookieControlsMode.BLOCK_THIRD_PARTY,
                 ToggleButtonState.EnabledUnchecked);
-        // TODO(crbug.com/1449833): fix this assertion.
+        // TODO(crbug.com/40064993): fix this assertion.
         // onView(getManagedViewMatcher(/* activeView= */ true)).check(matches(isDisplayed()));
         onView(getManagedViewMatcher(/* activeView= */ false)).check(matches(not(isDisplayed())));
         settingsActivity.finish();
@@ -2740,7 +2741,8 @@ public class SiteSettingsTest {
         testTwoStateToggleDisabledByPolicy(SiteSettingsCategory.Type.JAVASCRIPT);
         testTwoStateToggleDisabledByPolicy(SiteSettingsCategory.Type.POPUPS);
         testTwoStateToggleDisabledByPolicy(SiteSettingsCategory.Type.DEVICE_LOCATION);
-        // TODO(crbug/1385889): add a test for sensors once crash in the sensors settings page is
+        // TODO(crbug.com/40879457): add a test for sensors once crash in the sensors settings page
+        // is
         // resolved.
     }
 

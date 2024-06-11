@@ -180,7 +180,7 @@ BOOL ShouldDismissKeyboardOnScroll() {
 }
 
 - (void)loadView {
-  // TODO(crbug.com/1365374): Check why largeIconService not available in
+  // TODO(crbug.com/40866206): Check why largeIconService not available in
   // incognito.
   if (self.largeIconService) {
     _carouselAttributeProvider = [[FaviconAttributesProvider alloc]
@@ -1089,13 +1089,13 @@ BOOL ShouldDismissKeyboardOnScroll() {
 #pragma mark - UIScrollViewDelegate
 
 - (void)scrollViewDidScroll:(UIScrollView*)scrollView {
-  // TODO(crbug.com/733650): Default to the dragging check once it's been tested
-  // on trunk.
+  // TODO(crbug.com/41325585): Default to the dragging check once it's been
+  // tested on trunk.
   if (!scrollView.dragging)
     return;
 
-  // TODO(crbug.com/911534): The following call chain ultimately just dismisses
-  // the keyboard, but involves many layers of plumbing, and should be
+  // TODO(crbug.com/40604984): The following call chain ultimately just
+  // dismisses the keyboard, but involves many layers of plumbing, and should be
   // refactored.
   if (self.forwardsScrollEvents)
     [self.delegate autocompleteResultConsumerDidScroll:self];
@@ -1222,7 +1222,7 @@ BOOL ShouldDismissKeyboardOnScroll() {
   return carouselItems;
 }
 
-// TODO(crbug.com/1365374): Move to a mediator.
+// TODO(crbug.com/40866206): Move to a mediator.
 - (void)fetchFaviconForCarouselItem:(CarouselItem*)carouselItem {
   __weak OmniboxPopupCarouselCell* weakCell = self.carouselCell;
   __weak CarouselItem* weakItem = carouselItem;

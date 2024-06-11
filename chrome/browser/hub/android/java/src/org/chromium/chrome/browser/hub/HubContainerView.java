@@ -11,6 +11,7 @@ import android.widget.FrameLayout;
 
 /** Container view for the Hub. */
 public class HubContainerView extends FrameLayout implements RunOnNextLayout {
+    private static final String TAG = "HubContainerView";
     private final RunOnNextLayoutDelegate mRunOnNextLayoutDelegate;
 
     /** Default {@link FrameLayout} constructor. */

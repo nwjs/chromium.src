@@ -31,7 +31,7 @@
 #include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/browser/test_browser_autofill_manager.h"
 #include "components/autofill/core/browser/test_personal_data_manager.h"
-#include "components/autofill/core/browser/ui/mock_autofill_popup_delegate.h"
+#include "components/autofill/core/browser/ui/mock_autofill_suggestion_delegate.h"
 #include "components/autofill/core/browser/ui/mock_fast_checkout_client.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/form_interactions_flow.h"
@@ -121,7 +121,8 @@ class TestChromeAutofillClient : public ChromeAutofillClient {
   InjectMockAutofillSaveCardBottomSheetBridge() {
     auto mock = std::make_unique<MockAutofillSaveCardBottomSheetBridge>();
     auto* pointer = mock.get();
-    SetAutofillSaveCardBottomSheetBridgeForTesting(std::move(mock));
+    GetPaymentsAutofillClient()->SetAutofillSaveCardBottomSheetBridgeForTesting(
+        std::move(mock));
     return pointer;
   }
 
@@ -275,9 +276,9 @@ TEST_F(ChromeAutofillClientTest,
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-// Test that the hats service is called with the expected params.
-// Note that Surveys are only launched on Desktop.
-TEST_F(ChromeAutofillClientTest, TriggerUserPerceptionOfAutofillSurvey) {
+// Test that the hats service is called with the expected params for different
+// surveys. Note that Surveys are only launched on Desktop.
+TEST_F(ChromeAutofillClientTest, TriggerUserPerceptionOfAutofillAddressSurvey) {
   MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
       HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
           profile(), base::BindRepeating(&BuildMockHatsService)));
@@ -291,7 +292,26 @@ TEST_F(ChromeAutofillClientTest, TriggerUserPerceptionOfAutofillSurvey) {
                   kHatsSurveyTriggerAutofillAddressUserPerception, _, _,
                   expected_bits, Ref(field_filling_stats_data), _, _, _, _, _));
 
-  client()->TriggerUserPerceptionOfAutofillSurvey(field_filling_stats_data);
+  client()->TriggerUserPerceptionOfAutofillSurvey(FillingProduct::kAddress,
+                                                  field_filling_stats_data);
+}
+
+TEST_F(ChromeAutofillClientTest,
+       TriggerUserPerceptionOfAutofillCreditCardSurvey) {
+  MockHatsService* mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile(), base::BindRepeating(&BuildMockHatsService)));
+  EXPECT_CALL(*mock_hats_service, CanShowAnySurvey)
+      .WillRepeatedly(Return(true));
+
+  const SurveyStringData field_filling_stats_data;
+  EXPECT_CALL(*mock_hats_service,
+              LaunchDelayedSurveyForWebContents(
+                  kHatsSurveyTriggerAutofillCreditCardUserPerception, _, _, _,
+                  Ref(field_filling_stats_data), _, _, _, _, _));
+
+  client()->TriggerUserPerceptionOfAutofillSurvey(FillingProduct::kCreditCard,
+                                                  field_filling_stats_data);
 }
 
 TEST_F(ChromeAutofillClientTest,
@@ -338,12 +358,12 @@ TEST_F(ChromeAutofillClientTest, AutofillManualFallbackIPH_IsShown) {
 }
 
 TEST_F(ChromeAutofillClientTest,
-       AutofillManualFallbackIPH_HideOnShowAutofillPopup) {
-  auto delegate = std::make_unique<MockAutofillPopupDelegate>();
+       AutofillManualFallbackIPH_HideOnShowAutofillSuggestions) {
+  auto delegate = std::make_unique<MockAutofillSuggestionDelegate>();
 
   EXPECT_CALL(*autofill_field_promo_controller_manual_fallback(), Hide);
-  client()->ShowAutofillPopup(AutofillClient::PopupOpenArgs(),
-                              delegate->GetWeakPtr());
+  client()->ShowAutofillSuggestions(AutofillClient::PopupOpenArgs(),
+                                    delegate->GetWeakPtr());
 
   // Showing the Autofill Popup is an asynchronous task.
   task_environment()->RunUntilIdle();

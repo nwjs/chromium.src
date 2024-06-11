@@ -61,7 +61,9 @@ class COMPONENT_EXPORT(URL) GURL {
   GURL(const GURL& other);
   GURL(GURL&& other) noexcept;
 
-  // The strings to this constructor should be UTF-8 / UTF-16.
+  // The strings to this constructor should be UTF-8 / UTF-16. They will be
+  // parsed and canonicalized. For example, the host is lower cased, and
+  // characters may be percent-encoded or percent-decoded to normalize the URL.
   explicit GURL(std::string_view url_string);
   explicit GURL(std::u16string_view url_string);
 

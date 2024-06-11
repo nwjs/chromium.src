@@ -33,6 +33,7 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/login/login_state/login_state.h"
+#include "chromeos/ash/components/standalone_browser/lacros_selection.h"
 #include "chromeos/ash/components/system/fake_statistics_provider.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/crosapi/cpp/crosapi_constants.h"
@@ -43,6 +44,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/ui_base_features.h"
 
 namespace crosapi {
 
@@ -204,8 +206,7 @@ TEST_F(BrowserLauncherTest, BackgroundWorkPreLaunch) {
 
   // Add feature and check if it's reflected to `params`.
   base::test::ScopedFeatureList scoped_features;
-  scoped_features.InitAndEnableFeature(
-      browser_util::kLacrosForkZygotesAtLoginScreen);
+  scoped_features.InitAndEnableFeature(features::kLacrosResourcesFileSharing);
 
   BrowserLauncher::LaunchParamsFromBackground params;
   base::test::TestFuture<void> future;
@@ -214,7 +215,7 @@ TEST_F(BrowserLauncherTest, BackgroundWorkPreLaunch) {
       /*launching_at_login_screen=*/false, future.GetCallback(), params);
 
   EXPECT_TRUE(future.Wait());
-  EXPECT_TRUE(params.enable_fork_zygotes_at_login_screen);
+  EXPECT_TRUE(params.enable_resource_file_sharing);
 }
 
 TEST_F(BrowserLauncherTest, BackgroundWorkPreLaunchOnLaunchingAtLoginScreen) {
@@ -225,8 +226,7 @@ TEST_F(BrowserLauncherTest, BackgroundWorkPreLaunchOnLaunchingAtLoginScreen) {
 
   // Add feature and check if it's reflected to `params`.
   base::test::ScopedFeatureList scoped_features;
-  scoped_features.InitAndEnableFeature(
-      browser_util::kLacrosForkZygotesAtLoginScreen);
+  scoped_features.InitAndEnableFeature(features::kLacrosResourcesFileSharing);
 
   BrowserLauncher::LaunchParamsFromBackground params;
   base::test::TestFuture<void> future;
@@ -235,7 +235,7 @@ TEST_F(BrowserLauncherTest, BackgroundWorkPreLaunchOnLaunchingAtLoginScreen) {
       /*launching_at_login_screen=*/true, future.GetCallback(), params);
 
   EXPECT_TRUE(future.Wait());
-  EXPECT_TRUE(params.enable_fork_zygotes_at_login_screen);
+  EXPECT_TRUE(params.enable_resource_file_sharing);
 }
 
 // TODO(elkurin): Add kLacrosChromeAdditionalArgsFile unit test.
@@ -253,7 +253,7 @@ TEST_F(BrowserLauncherTest, Launch) {
 
   constexpr bool launching_at_login_screen = false;
   browser_launcher()->Launch(lacros_path, launching_at_login_screen,
-                             browser_util::LacrosSelection::kRootfs,
+                             ash::standalone_browser::LacrosSelection::kRootfs,
                              /*mojo_disconneciton_cb=*/{},
                              /*is_keep_alive_enabled=*/false,
                              future.GetCallback());
@@ -284,7 +284,7 @@ TEST_F(BrowserLauncherTest, LaunchAtLoginScreen) {
 
   constexpr bool launching_at_login_screen = true;
   browser_launcher()->Launch(lacros_path, launching_at_login_screen,
-                             browser_util::LacrosSelection::kRootfs,
+                             ash::standalone_browser::LacrosSelection::kRootfs,
                              /*mojo_disconneciton_cb=*/{},
                              /*is_keep_alive_enabled=*/false,
                              future.GetCallback());
@@ -347,7 +347,7 @@ TEST_F(BrowserLauncherTest, ShutdownRequestedDuringLaunch) {
   // screen.
   constexpr bool launching_at_login_screen = false;
   browser_launcher()->Launch(base::FilePath(), launching_at_login_screen,
-                             browser_util::LacrosSelection::kRootfs,
+                             ash::standalone_browser::LacrosSelection::kRootfs,
                              /*mojo_disconneciton_cb=*/{},
                              /*is_keep_alive_enabled=*/false,
                              future.GetCallback());

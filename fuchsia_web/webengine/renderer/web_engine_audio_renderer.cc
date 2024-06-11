@@ -163,7 +163,7 @@ void WebEngineAudioRenderer::InitializeStream() {
   // AAC streams require bitstream conversion. Without it the demuxer may
   // produce decoded stream without ADTS headers which are required for AAC
   // streams in AudioConsumer.
-  // TODO(crbug.com/1120095): Reconsider this logic.
+  // TODO(crbug.com/40145747): Reconsider this logic.
   if (demuxer_stream_->audio_decoder_config().codec() ==
       media::AudioCodec::kAAC) {
     demuxer_stream_->EnableBitstreamConverter();
@@ -331,13 +331,13 @@ void WebEngineAudioRenderer::SetVolume(float volume) {
 
 void WebEngineAudioRenderer::SetLatencyHint(
     std::optional<base::TimeDelta> latency_hint) {
-  // TODO(crbug.com/1131116): Implement at some later date after we've vetted
+  // TODO(crbug.com/40150050): Implement at some later date after we've vetted
   // the API shape and usefulness outside of fuchsia.
   NOTIMPLEMENTED();
 }
 
 void WebEngineAudioRenderer::SetPreservesPitch(bool preserves_pitch) {
-  // TODO(crbug.com/1368392): Implement this.
+  // TODO(crbug.com/40868390): Implement this.
   NOTIMPLEMENTED();
 }
 

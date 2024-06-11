@@ -519,7 +519,7 @@ void InterstitialHTMLSource::StartDataRequest(
     const GURL& request_url,
     const content::WebContents::Getter& wc_getter,
     content::URLDataSource::GotDataCallback callback) {
-  // TODO(crbug/1009127): Simplify usages of |path| since |request_url| is
+  // TODO(crbug.com/40050262): Simplify usages of |path| since |request_url| is
   // available.
   const std::string path =
       content::URLDataSource::URLToRequestPath(request_url);
@@ -577,7 +577,7 @@ void InterstitialHTMLSource::StartDataRequest(
         IDR_SECURITY_INTERSTITIAL_UI_HTML);
   }
   scoped_refptr<base::RefCountedString> html_bytes = new base::RefCountedString;
-  html_bytes->data().assign(html.begin(), html.end());
+  html_bytes->as_string() = html;
   std::move(callback).Run(html_bytes.get());
 }
 

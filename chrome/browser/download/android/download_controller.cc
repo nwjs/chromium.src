@@ -32,6 +32,8 @@
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/offline_pages/android/offline_page_bridge.h"
 #include "chrome/browser/permissions/permission_update_message_controller_android.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_android.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/grit/branded_strings.h"
@@ -168,7 +170,7 @@ static void JNI_DownloadController_OnAcquirePermissionResult(
     JNIEnv* env,
     jlong callback_id,
     jboolean granted,
-    const JavaParamRef<jstring>& jpermission_to_update) {
+    std::string& permission_to_update) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(callback_id);
 
@@ -178,16 +180,41 @@ static void JNI_DownloadController_OnAcquirePermissionResult(
     return;
   }
 
-  std::string permission_to_update;
-  if (jpermission_to_update) {
-    permission_to_update =
-        base::android::ConvertJavaStringToUTF8(env, jpermission_to_update);
-  }
   // Convert java long long int to c++ pointer, take ownership.
   std::unique_ptr<DownloadController::AcquirePermissionCallback> cb(
       reinterpret_cast<DownloadController::AcquirePermissionCallback*>(
           callback_id));
   std::move(*cb).Run(granted, permission_to_update);
+}
+
+static void JNI_DownloadController_CancelDownload(JNIEnv* env,
+                                                  Profile* profile,
+                                                  std::string& download_guid) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  DownloadManager* download_manager = profile->GetDownloadManager();
+  if (download_manager) {
+    DownloadItem* download = download_manager->GetDownloadByGuid(download_guid);
+    if (download) {
+      download->Cancel(/*user_cancel=*/false);
+    }
+  }
+}
+
+static void JNI_DownloadController_DownloadUrl(JNIEnv* env,
+                                               std::string& url,
+                                               Profile* profile) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  DownloadManager* download_manager = profile->GetDownloadManager();
+  if (download_manager) {
+    auto dl_params = std::make_unique<download::DownloadUrlParameters>(
+        GURL(url),
+        TRAFFIC_ANNOTATION_WITHOUT_PROTO("Download via toolbar menu"));
+    dl_params->set_content_initiated(false);
+    dl_params->set_download_source(download::DownloadSource::TOOLBAR_MENU);
+    download_manager->DownloadUrl(std::move(dl_params));
+  }
 }
 
 // static
@@ -349,6 +376,7 @@ void DownloadController::OnDownloadStarted(DownloadItem* download_item) {
       ShouldOpenPdfInline(download_item)) {
     content::WebContents* web_contents =
         content::DownloadItemUtils::GetWebContents(download_item);
+    bool has_tab = false;
     if (web_contents) {
       TabAndroid* tab = TabAndroid::FromWebContents(web_contents);
       if (tab) {
@@ -357,7 +385,11 @@ void DownloadController::OnDownloadStarted(DownloadItem* download_item) {
             DownloadManagerService::CreateJavaDownloadInfo(env, download_item);
         Java_DownloadController_onPdfDownloadStarted(env, tab->GetJavaObject(),
                                                      j_item);
+        has_tab = true;
       }
+    }
+    if (!has_tab) {
+      download_item->Cancel(/*user_cancel=*/false);
     }
   }
 

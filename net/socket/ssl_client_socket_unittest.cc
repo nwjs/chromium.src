@@ -2361,7 +2361,7 @@ TEST_F(SSLClientSocketTest, LegacyTLSVersions) {
   // through TLS 1.1, these values are just passed through to the BoringSSL API,
   // which means the underlying protocol version numbers can be used here.
   //
-  // TODO(https://crbug.com/1416295): Ideally SSLConfig would just take an enum,
+  // TODO(crbug.com/40893435): Ideally SSLConfig would just take an enum,
   // at which point this test can be removed.
   for (uint16_t version : {SSL3_VERSION, TLS1_VERSION, TLS1_1_VERSION}) {
     SCOPED_TRACE(version);
@@ -5378,7 +5378,7 @@ TEST_F(SSLClientSocketTest, SSLOverSSLBadCertificate) {
   ASSERT_TRUE(client->GetSSLInfo(&ssl_info));
   EXPECT_EQ(ssl_info.cert_status, expired_result.cert_status);
 
-  // TODO(https://crbug.com/912383): The server sees
+  // TODO(crbug.com/41430308): The server sees
   // ERR_BAD_SSL_CLIENT_AUTH_CERT because its peer (the client) alerts it with
   // bad_certificate. The alert-mapping code assumes it is running on a client,
   // so it translates bad_certificate to ERR_BAD_SSL_CLIENT_AUTH_CERT, which

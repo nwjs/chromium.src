@@ -10,10 +10,11 @@
 #include "components/autofill/core/browser/autofill_ablation_study.h"
 #include "components/autofill/core/browser/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/autofill_plus_address_delegate.h"
+#include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
-#include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
+#include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/version_info/channel.h"
 
@@ -25,12 +26,14 @@ AutofillClient::PopupOpenArgs::PopupOpenArgs(
     base::i18n::TextDirection text_direction,
     std::vector<Suggestion> suggestions,
     AutofillSuggestionTriggerSource trigger_source,
-    int32_t form_control_ax_id)
+    int32_t form_control_ax_id,
+    PopupAnchorType anchor_type)
     : element_bounds(element_bounds),
       text_direction(text_direction),
       suggestions(std::move(suggestions)),
       trigger_source(trigger_source),
-      form_control_ax_id(form_control_ax_id) {}
+      form_control_ax_id(form_control_ax_id),
+      anchor_type(anchor_type) {}
 AutofillClient::PopupOpenArgs::PopupOpenArgs(
     const AutofillClient::PopupOpenArgs&) = default;
 AutofillClient::PopupOpenArgs::PopupOpenArgs(AutofillClient::PopupOpenArgs&&) =
@@ -91,18 +94,6 @@ MerchantPromoCodeManager* AutofillClient::GetMerchantPromoCodeManager() {
   return nullptr;
 }
 
-CreditCardCvcAuthenticator* AutofillClient::GetCvcAuthenticator() {
-  return nullptr;
-}
-
-CreditCardOtpAuthenticator* AutofillClient::GetOtpAuthenticator() {
-  return nullptr;
-}
-
-CreditCardRiskBasedAuthenticator* AutofillClient::GetRiskBasedAuthenticator() {
-  return nullptr;
-}
-
 payments::PaymentsAutofillClient* AutofillClient::GetPaymentsAutofillClient() {
   return nullptr;
 }
@@ -124,23 +115,6 @@ profile_metrics::BrowserProfileType AutofillClient::GetProfileType() const {
 FastCheckoutClient* AutofillClient::GetFastCheckoutClient() {
   return nullptr;
 }
-
-void AutofillClient::ShowUnmaskAuthenticatorSelectionDialog(
-    const std::vector<CardUnmaskChallengeOption>& challenge_options,
-    base::OnceCallback<void(const std::string&)>
-        confirm_unmask_challenge_option_callback,
-    base::OnceClosure cancel_unmasking_closure) {
-}
-
-void AutofillClient::DismissUnmaskAuthenticatorSelectionDialog(
-    bool server_success) {
-}
-
-VirtualCardEnrollmentManager*
-AutofillClient::GetVirtualCardEnrollmentManager() {
-  return nullptr;
-}
-
 void AutofillClient::ShowVirtualCardEnrollDialog(
     const VirtualCardEnrollmentFields& virtual_card_enrollment_fields,
     base::OnceClosure accept_virtual_card_callback,
@@ -178,9 +152,6 @@ bool AutofillClient::CloseWebauthnDialog() {
   return false;
 }
 
-void AutofillClient::OfferVirtualCardOptions(
-    const std::vector<raw_ptr<CreditCard, VectorExperimental>>& candidates,
-    base::OnceCallback<void(const std::string&)> callback) {}
 #else
 void AutofillClient::ConfirmAccountNameFixFlow(
     base::OnceCallback<void(const std::u16string&)> callback) {
@@ -213,15 +184,11 @@ void AutofillClient::ConfirmSaveCreditCardToCloud(
     UploadSaveCardPromptCallback callback) {
 }
 
-void AutofillClient::ConfirmSaveIbanLocally(const Iban& iban,
-                                            bool should_show_prompt,
-                                            SaveIbanPromptCallback callback) {}
-
-void AutofillClient::ConfirmUploadIbanToCloud(
-    const Iban& iban,
-    LegalMessageLines legal_message_lines,
-    bool should_show_prompt,
-    SaveIbanPromptCallback callback) {}
+bool AutofillClient::ShowTouchToFillIban(
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const autofill::Iban> ibans_to_suggest) {
+  return false;
+}
 
 void AutofillClient::UpdateOfferNotification(
     const AutofillOfferData* offer,
@@ -254,6 +221,7 @@ bool AutofillClient::ShouldFormatForLargeKeyboardAccessory() const {
 }
 
 void AutofillClient::TriggerUserPerceptionOfAutofillSurvey(
+    FillingProduct filling_product,
     const std::map<std::string, std::string>& field_filling_stats_data) {
   NOTIMPLEMENTED();
 }
@@ -274,6 +242,11 @@ std::optional<AutofillClient::PopupScreenLocation>
 AutofillClient::GetPopupScreenLocation() const {
   NOTIMPLEMENTED();
   return std::nullopt;
+}
+
+base::span<const Suggestion> AutofillClient::GetAutofillSuggestions() const {
+  NOTIMPLEMENTED();
+  return {};
 }
 
 void AutofillClient::set_test_addresses(

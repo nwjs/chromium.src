@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator.h"
-#import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator+Testing.h"
 
 #import <MaterialComponents/MaterialSnackbar.h>
 
@@ -79,6 +78,7 @@
 #import "ios/chrome/browser/ui/ntp/feed_sign_in_promo_delegate.h"
 #import "ios/chrome/browser/ui/ntp/feed_top_section/feed_top_section_coordinator.h"
 #import "ios/chrome/browser/ui/ntp/feed_wrapper_view_controller.h"
+#import "ios/chrome/browser/ui/ntp/home_start_data_source.h"
 #import "ios/chrome/browser/ui/ntp/incognito/incognito_view_controller.h"
 #import "ios/chrome/browser/ui/ntp/logo_vendor.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
@@ -88,6 +88,7 @@
 #import "ios/chrome/browser/ui/ntp/new_tab_page_component_factory_protocol.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller_delegate.h"
+#import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator+Testing.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_delegate.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_feature.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_follow_delegate.h"
@@ -121,6 +122,7 @@
                                      FeedMenuCoordinatorDelegate,
                                      FeedSignInPromoDelegate,
                                      FeedWrapperViewControllerDelegate,
+                                     HomeStartDataSource,
                                      IdentityManagerObserverBridgeDelegate,
                                      NewTabPageContentDelegate,
                                      NewTabPageDelegate,
@@ -205,7 +207,7 @@
 @property(nonatomic, assign) DiscoverFeedService* discoverFeedService;
 
 // Metrics recorder for actions relating to the feed.
-@property(nonatomic, strong) FeedMetricsRecorder* feedMetricsRecorder;
+@property(nonatomic, weak) FeedMetricsRecorder* feedMetricsRecorder;
 
 // The header view controller containing the fake omnibox and logo.
 @property(nonatomic, strong)
@@ -382,6 +384,8 @@
   }
   self.feedWrapperViewController = nil;
   self.feedViewController = nil;
+  self.feedMetricsRecorder.followDelegate = nil;
+  self.feedMetricsRecorder.NTPMetricsDelegate = nil;
   self.feedMetricsRecorder = nil;
 
   [self.feedExpandedPref setObserver:nil];
@@ -455,19 +459,11 @@
 }
 
 - (void)locationBarWillResignFirstResponder {
-  // Do not trigger defocus animation if the user is already navigating away
-  // from the NTP.
-  if (self.visible) {
-    [self.NTPViewController omniboxWillResignFirstResponder];
-  }
+  [self.NTPViewController omniboxWillResignFirstResponder];
 }
 
 - (void)locationBarDidResignFirstResponder {
-  // Do not trigger defocus animation if the user is already navigating away
-  // from the NTP.
-  if (self.visible) {
-    [self.NTPViewController omniboxDidResignFirstResponder];
-  }
+  [self.NTPViewController omniboxDidResignFirstResponder];
 }
 
 - (void)constrainFeedHeaderManagementButtonNamedGuide {
@@ -531,6 +527,9 @@
   if (_selectedFeed == selectedFeed) {
     return;
   }
+  // Updates the NTP state with the newly selected feed.
+  [self saveNTPState];
+
   // Tell Metrics Recorder the feed has changed.
   [self.feedMetricsRecorder recordFeedTypeChangedFromFeed:_selectedFeed];
   _selectedFeed = selectedFeed;
@@ -667,7 +666,7 @@
 
   self.headerViewController.isGoogleDefaultSearchEngine =
       [self isGoogleDefaultSearchEngine];
-  // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
+  // TODO(crbug.com/40670043): Use HandlerForProtocol after commands protocol
   // clean up.
   self.headerViewController.dispatcher =
       static_cast<id<ApplicationCommands, BrowserCoordinatorCommands,
@@ -686,9 +685,9 @@
 // Configures `self.contentSuggestionsCoordiantor`.
 - (void)configureContentSuggestionsCoordinator {
   self.contentSuggestionsCoordinator.webState = self.webState;
-  self.contentSuggestionsCoordinator.NTPDelegate = self;
   self.contentSuggestionsCoordinator.delegate = self;
   self.contentSuggestionsCoordinator.NTPMetricsDelegate = self;
+  self.contentSuggestionsCoordinator.homeStartDataSource = self;
   [self.contentSuggestionsCoordinator start];
 }
 
@@ -705,7 +704,9 @@
 
 // Configures `self.feedMetricsRecorder`.
 - (void)configureFeedMetricsRecorder {
-  self.feedMetricsRecorder.feedControlDelegate = self;
+  CHECK(self.webState);
+  self.feedMetricsRecorder.NTPState =
+      NewTabPageTabHelper::FromWebState(self.webState)->GetNTPState();
   self.feedMetricsRecorder.followDelegate = self;
   self.feedMetricsRecorder.NTPMetricsDelegate = self;
 }
@@ -799,10 +800,23 @@
   [self.NTPMetricsRecorder recordIdentityDiscTapped];
   id<ApplicationCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), ApplicationCommands);
+
   BOOL isSignedIn =
       self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
-  if (isSignedIn || ![self isSignInAllowed]) {
+  if (![self isSignInAllowed]) {
     [handler showSettingsFromViewController:self.baseViewController];
+  } else if (isSignedIn) {
+    if (base::FeatureList::IsEnabled(kIdentityDiscAccountSwitch)) {
+      // "Instant signin" works as a quick account-switching UI.
+      ShowSigninCommand* const switchAccountCommand = [[ShowSigninCommand alloc]
+          initWithOperation:AuthenticationOperation::kInstantSignin
+                accessPoint:signin_metrics::AccessPoint::
+                                ACCESS_POINT_NTP_IDENTITY_DISC];
+      [handler showSignin:switchAccountCommand
+          baseViewController:self.baseViewController];
+    } else {
+      [handler showSettingsFromViewController:self.baseViewController];
+    }
   } else {
     ShowSigninCommand* const showSigninCommand = [[ShowSigninCommand alloc]
         initWithOperation:AuthenticationOperation::kSheetSigninAndHistorySync
@@ -871,7 +885,7 @@
 #pragma mark - FeedControlDelegate
 
 - (FollowingFeedSortType)followingFeedSortType {
-  // TODO(crbug.com/1352935): Add a DCHECK to make sure the coordinator isn't
+  // TODO(crbug.com/40858105): Add a DCHECK to make sure the coordinator isn't
   // stopped when we check this. That would require us to use the NTPHelper to
   // get this information.
   return (FollowingFeedSortType)self.prefService->GetInteger(
@@ -925,6 +939,9 @@
   // Scroll position resets when changing the feed, so we set it back to what it
   // was.
   [self.NTPViewController setContentOffsetToTopOfFeedOrLess:scrollPosition];
+
+  // Updates the NTP state for the newly selected sort type.
+  [self saveNTPState];
 }
 
 - (BOOL)shouldFeedBeVisible {
@@ -1033,7 +1050,7 @@
             accessPoint:signin_metrics::AccessPoint::
                             ACCESS_POINT_NTP_FEED_BOTTOM_PROMO];
   [handler showSignin:command baseViewController:self.NTPViewController];
-  // TODO(crbug.com/1455963): Strictly speaking this should record a bucket
+  // TODO(crbug.com/40066051): Strictly speaking this should record a bucket
   // other than kShowSyncFlow. But I don't think we care too much about this
   // particular histogram, just rename the bucket after launch.
   [self.feedMetricsRecorder
@@ -1095,7 +1112,6 @@
   // feed, which could have been changed when a new web state was
   // inserted.
   [self.feedHeaderViewController updateForSelectedFeed];
-  self.feedMetricsRecorder.feedControlDelegate = self;
   self.feedMetricsRecorder.followDelegate = self;
 }
 
@@ -1107,7 +1123,7 @@
   if (!self.started) {
     return;
   }
-  // TODO(crbug.com/1406940): Investigate why this order is correct. Intuition
+  // TODO(crbug.com/40252945): Investigate why this order is correct. Intuition
   // would be that the layout update should happen before telling UIKit to
   // relayout.
   [self.containedViewController.view setNeedsLayout];
@@ -1185,14 +1201,28 @@
 
 #pragma mark - NewTabPageMetricsDelegate
 
-- (void)recentTabTileOpened {
+- (void)recentTabTileOpenedAtIndex:(NSUInteger)index {
+  RecordMagicStackClick(ContentSuggestionsModuleType::kTabResumption,
+                        [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kReturnToRecentTab,
                    [self isStartSurface]);
+  RecordMagicStackTabResumptionClick(true, [self isStartSurface], index);
 }
 
-- (void)distantTabResumptionOpened {
+- (void)distantTabResumptionOpenedAtIndex:(NSUInteger)index {
+  RecordMagicStackClick(ContentSuggestionsModuleType::kTabResumption,
+                        [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kOpenDistantTabResumption,
                    [self isStartSurface]);
+  RecordMagicStackTabResumptionClick(false, [self isStartSurface], index);
+}
+
+- (void)recentTabTileDisplayedAtIndex:(NSUInteger)index {
+  LogTabResumptionImpression(true, [self isStartSurface], index);
+}
+
+- (void)distantTabResumptionDisplayedAtIndex:(NSUInteger)index {
+  LogTabResumptionImpression(false, [self isStartSurface], index);
 }
 
 - (void)feedArticleOpened {
@@ -1204,6 +1234,8 @@
 }
 
 - (void)shortcutTileOpened {
+  RecordMagicStackClick(ContentSuggestionsModuleType::kShortcuts,
+                        [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kShortcuts, [self isStartSurface]);
 }
 
@@ -1212,10 +1244,14 @@
 }
 
 - (void)safetyCheckOpened {
+  RecordMagicStackClick(ContentSuggestionsModuleType::kSafetyCheck,
+                        [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kSafetyCheck, [self isStartSurface]);
 }
 
 - (void)parcelTrackingOpened {
+  RecordMagicStackClick(ContentSuggestionsModuleType::kParcelTracking,
+                        [self isStartSurface]);
   RecordHomeAction(IOSHomeActionType::kParcelTracking, [self isStartSurface]);
 }
 
@@ -1345,7 +1381,7 @@
     case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
     case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
       // If sign-in becomes disabled, the sign-in promo must be disabled too.
-      // TODO(crbug.com/1479446): The sign-in promo should just be hidden
+      // TODO(crbug.com/40280872): The sign-in promo should just be hidden
       // instead of resetting the hierarchy.
       [self updateNTPForFeed];
       [self setContentOffsetToTop];
@@ -1555,6 +1591,7 @@
   CHECK(self.webState);
 
   self.visible = visible;
+  self.NTPViewController.NTPVisible = visible;
 
   if (!self.browser->GetBrowserState()->IsOffTheRecord()) {
     if (visible) {
@@ -1584,7 +1621,7 @@
     }
     // Check if feed is visible before reporting NTP visibility as the feed
     // needs to be visible in order to use for metrics.
-    // TODO(crbug.com/1373650) Move isFeedVisible check to the metrics recorder
+    // TODO(crbug.com/40871863) Move isFeedVisible check to the metrics recorder
     if ([self isFeedVisible]) {
       [self.feedMetricsRecorder recordNTPDidChangeVisibility:visible];
     }

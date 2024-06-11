@@ -60,7 +60,7 @@ class NATIVE_THEME_EXPORT NativeTheme {
   // The part to be painted / sized.
   enum Part {
     kCheckbox,
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
     kFrameTopArea,
@@ -287,16 +287,8 @@ class NATIVE_THEME_EXPORT NativeTheme {
     std::optional<SkColor> track_color;
   };
 
-  enum class ScrollbarOverlayColorTheme {
-    kDefault = 0,
-    kLight = 1,
-    kDark = 2,
-  };
-
   struct ScrollbarThumbExtraParams {
     bool is_hovering = false;
-    ScrollbarOverlayColorTheme scrollbar_theme =
-        ScrollbarOverlayColorTheme::kDefault;
     // This allows clients to directly override the color values to support
     // element-specific web platform CSS.
     std::optional<SkColor> thumb_color;
@@ -318,8 +310,6 @@ class NATIVE_THEME_EXPORT NativeTheme {
   struct ScrollbarExtraParams {
     bool is_hovering = false;
     bool is_overlay = false;
-    ScrollbarOverlayColorTheme scrollbar_theme =
-        ScrollbarOverlayColorTheme::kDefault;
     ScrollbarOrientation orientation =
         ScrollbarOrientation::kVerticalOnRight;  // Used on Mac for drawing
                                                  // gradients.

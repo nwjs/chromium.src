@@ -410,9 +410,6 @@ const char kDerelictIdleTimeout[] = "derelict-idle-timeout";
 // tests as some tests may time out if the ARC container is throttled.
 const char kDisableArcCpuRestriction[] = "disable-arc-cpu-restriction";
 
-// Disables android user data wipe on opt out.
-const char kDisableArcDataWipe[] = "disable-arc-data-wipe";
-
 // Disables ARC Opt-in verification process and ARC is enabled by default.
 const char kDisableArcOptInVerification[] = "disable-arc-opt-in-verification";
 
@@ -473,7 +470,7 @@ const char kDisableRollbackOption[] = "disable-rollback-option";
 
 // Disables client certificate authentication on the sign-in frame on the Chrome
 // OS sign-in profile.
-// TODO(https://crbug.com/844022): Remove this flag when reaching endpoints that
+// TODO(crbug.com/41389560): Remove this flag when reaching endpoints that
 // request client certs does not hang anymore when there is no system token yet.
 const char kDisableSigninFrameClientCerts[] =
     "disable-signin-frame-client-certs";
@@ -1009,7 +1006,7 @@ const char kProfileRequiresPolicy[] = "profile-requires-policy";
 
 // SAML assertion consumer URL, used to detect when Gaia-less SAML flows end
 // (e.g. for SAML managed guest sessions)
-// TODO(984021): Remove when URL is sent by DMServer.
+// TODO(crbug.com/40636049): Remove when URL is sent by DMServer.
 const char kPublicAccountsSamlAclUrl[] = "public-accounts-saml-acl-url";
 
 // Adds fake Bluetooth devices to the quick settings menu for UI testing.
@@ -1047,7 +1044,7 @@ const char kRmaNotAllowed[] = "rma-not-allowed";
 const char kSafeMode[] = "safe-mode";
 
 // Password change url for SAML users.
-// TODO(941489): Remove when the bug is fixed.
+// TODO(crbug.com/40618074): Remove when the bug is fixed.
 const char kSamlPasswordChangeUrl[] = "saml-password-change-url";
 
 // New modular design for the shelf with apps separated into a hotseat UI and

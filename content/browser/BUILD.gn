@@ -762,8 +762,6 @@ source_set("browser") {
     "cookie_store/cookie_store_host.h",
     "cookie_store/cookie_store_manager.cc",
     "cookie_store/cookie_store_manager.h",
-    "coop_related_group.cc",
-    "coop_related_group.h",
     "data_url_loader_factory.cc",
     "data_url_loader_factory.h",
     "device/device_service.cc",
@@ -1162,6 +1160,8 @@ source_set("browser") {
     "interest_group/interest_group_permissions_checker.h",
     "interest_group/interest_group_priority_util.cc",
     "interest_group/interest_group_priority_util.h",
+    "interest_group/interest_group_real_time_report_util.cc",
+    "interest_group/interest_group_real_time_report_util.h",
     "interest_group/interest_group_storage.cc",
     "interest_group/interest_group_storage.h",
     "interest_group/interest_group_update.cc",
@@ -1367,8 +1367,6 @@ source_set("browser") {
     "network/cookie_store_factory.cc",
     "network/cross_origin_embedder_policy_reporter.cc",
     "network/cross_origin_embedder_policy_reporter.h",
-    "network/cross_origin_opener_policy_reporter.cc",
-    "network/cross_origin_opener_policy_reporter.h",
     "network/http_cache_backend_file_operations_factory.cc",
     "network/http_cache_backend_file_operations_factory.h",
     "network/network_errors_listing_ui.cc",
@@ -1550,6 +1548,8 @@ source_set("browser") {
     "preloading/prerender/prerender_navigation_utils.h",
     "preloading/prerender/prerender_new_tab_handle.cc",
     "preloading/prerender/prerender_new_tab_handle.h",
+    "preloading/prerender/prerender_no_vary_search_commit_deferring_condition.cc",
+    "preloading/prerender/prerender_no_vary_search_commit_deferring_condition.h",
     "preloading/prerender/prerender_subframe_navigation_throttle.cc",
     "preloading/prerender/prerender_subframe_navigation_throttle.h",
     "preloading/prerenderer.h",
@@ -1640,11 +1640,6 @@ source_set("browser") {
     "renderer_host/concurrent_navigations_commit_deferring_condition.h",
     "renderer_host/cookie_utils.cc",
     "renderer_host/cookie_utils.h",
-    "renderer_host/coop_swap_result.h",
-    "renderer_host/cross_origin_opener_policy_access_report_manager.cc",
-    "renderer_host/cross_origin_opener_policy_access_report_manager.h",
-    "renderer_host/cross_origin_opener_policy_status.cc",
-    "renderer_host/cross_origin_opener_policy_status.h",
     "renderer_host/cross_process_frame_connector.cc",
     "renderer_host/cross_process_frame_connector.h",
     "renderer_host/cursor_manager.cc",
@@ -1880,11 +1875,8 @@ source_set("browser") {
     "renderer_host/render_widget_host_view_aura.h",
     "renderer_host/render_widget_host_view_base.cc",
     "renderer_host/render_widget_host_view_base.h",
-    "renderer_host/render_widget_host_view_base_observer.cc",
-    "renderer_host/render_widget_host_view_base_observer.h",
     "renderer_host/render_widget_host_view_child_frame.cc",
     "renderer_host/render_widget_host_view_child_frame.h",
-    "renderer_host/render_widget_host_view_input.h",
     "renderer_host/render_widget_targeter.cc",
     "renderer_host/render_widget_targeter.h",
     "renderer_host/renderer_cancellation_throttle.cc",
@@ -1920,8 +1912,6 @@ source_set("browser") {
     "resource_context_impl.cc",
     "resource_context_impl.h",
     "resource_coordinator_service.cc",
-    "runtime_feature_state/runtime_feature_state_document_data.cc",
-    "runtime_feature_state/runtime_feature_state_document_data.h",
     "scheduler/browser_io_thread_delegate.cc",
     "scheduler/browser_io_thread_delegate.h",
     "scheduler/browser_task_executor.cc",
@@ -1956,6 +1946,15 @@ source_set("browser") {
     "screenlock_monitor/screenlock_monitor_device_source.h",
     "screenlock_monitor/screenlock_monitor_source.cc",
     "screenlock_monitor/screenlock_monitor_source.h",
+    "security/coop/coop_related_group.cc",
+    "security/coop/coop_related_group.h",
+    "security/coop/coop_swap_result.h",
+    "security/coop/cross_origin_opener_policy_access_report_manager.cc",
+    "security/coop/cross_origin_opener_policy_access_report_manager.h",
+    "security/coop/cross_origin_opener_policy_reporter.cc",
+    "security/coop/cross_origin_opener_policy_reporter.h",
+    "security/coop/cross_origin_opener_policy_status.cc",
+    "security/coop/cross_origin_opener_policy_status.h",
     "service_process_host_impl.cc",
     "service_worker/embedded_worker_instance.cc",
     "service_worker/embedded_worker_instance.h",
@@ -2100,6 +2099,8 @@ source_set("browser") {
     "speech/speech_recognition_dispatcher_host.h",
     "speech/speech_recognition_manager_impl.cc",
     "speech/speech_recognition_manager_impl.h",
+    "speech/speech_recognition_session.cc",
+    "speech/speech_recognition_session.h",
     "speech/speech_recognizer.h",
     "speech/speech_synthesis_impl.cc",
     "speech/speech_synthesis_impl.h",
@@ -2343,11 +2344,11 @@ source_set("browser") {
     ]
   }
 
-  # TODO(crbug.com/1327384): Remove `permissions_common`.
+  # TODO(crbug.com/40226169): Remove `permissions_common`.
   # DO NOT add unrelated entries to this block.
   deps += [ "//components/permissions:permissions_common" ]
 
-  # TODO(crbug.com/1327384): Remove `permission_util.*`.
+  # TODO(crbug.com/40226169): Remove `permission_util.*`.
   # DO NOT add unrelated entries to this block.
   sources += [
     "permissions/permission_util.cc",
@@ -2641,6 +2642,10 @@ source_set("browser") {
     ]
   } else if (is_ios) {
     sources += [
+      "accessibility/browser_accessibility_ios.h",
+      "accessibility/browser_accessibility_ios.mm",
+      "accessibility/browser_accessibility_manager_ios.h",
+      "accessibility/browser_accessibility_manager_ios.mm",
       "child_process_launcher_helper_ios.mm",
       "date_time_chooser/ios/date_time_chooser_coordinator.h",
       "date_time_chooser/ios/date_time_chooser_coordinator.mm",
@@ -2664,6 +2669,10 @@ source_set("browser") {
       "renderer_host/popup_menu_helper_ios.mm",
       "renderer_host/render_widget_host_view_ios.h",
       "renderer_host/render_widget_host_view_ios.mm",
+      "renderer_host/render_widget_host_view_ios_uiview.h",
+      "renderer_host/render_widget_host_view_ios_uiview.mm",
+      "renderer_host/render_widget_host_view_ios_uiview_textinput.h",
+      "renderer_host/render_widget_host_view_ios_uiview_textinput.mm",
       "renderer_host/web_menu_runner_ios.h",
       "renderer_host/web_menu_runner_ios.mm",
       "speech/tts_ios.mm",
@@ -2821,12 +2830,8 @@ source_set("browser") {
       "speech/tts_win.cc",
       "utility_sandbox_delegate_win.cc",
     ]
-    defines += [
-      # This prevents the inclusion of atlhost.h which paired
-      # with the windows 8 sdk it does the wrong thing.
-      "__ATLHOST_H__",
-    ]
     deps += [
+      "//components/app_launch_prefetch",
       "//content/utility:delegate_data",
       "//services/screen_ai/public/cpp:utilities",
       "//third_party/blink/public/common:font_unique_name_table_proto",
@@ -3047,6 +3052,7 @@ source_set("browser") {
       "android/content_url_loader_factory.cc",
       "android/content_url_loader_factory.h",
       "android/content_view_statics.cc",
+      "android/content_web_feature_usage_utils_android.cc",
       "android/devtools_auth.cc",
       "android/dialog_overlay_impl.cc",
       "android/dialog_overlay_impl.h",

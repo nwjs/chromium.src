@@ -26,6 +26,13 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
+<enum name="AdaptationReason">
+  <int value="0" label="kUserSelection"/>
+  <int value="1" label="kResolutionChange"/>
+  <int value="2" label="kNetworkUpgrade"/>
+  <int value="3" label="kNetworkDowngrade"/>
+</enum>
+
 <enum name="ApplySubCaptureTargetResult">
   <int value="0" label="Ok"/>
   <int value="1" label="TimedOut"/>
@@ -1592,6 +1599,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="https:-like URL to Wired Display"/>
   <int value="4" label="cast: URL to Chromecast"/>
   <int value="5" label="cast-dial: URL to DIAL"/>
+  <int value="6" label="remote-playback: URL"/>
 </enum>
 
 <enum name="PresentationUrlType">

@@ -6,11 +6,12 @@
 #include <string>
 #include <vector>
 
-#include "build/build_config.h"
+#include "partition_alloc/build_config.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_freelist_entry.h"
 #include "partition_alloc/partition_page.h"
 #include "partition_alloc/partition_root.h"
+#include "partition_alloc/use_death_tests.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 // With *SAN, PartitionAlloc is rerouted to malloc().
@@ -19,9 +20,7 @@
 namespace partition_alloc::internal {
 namespace {
 
-// Death tests misbehave on Android, crbug.com/1240184
-#if !BUILDFLAG(IS_ANDROID) && defined(GTEST_HAS_DEATH_TEST) && \
-    PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
+#if PA_USE_DEATH_TESTS() && PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
 
 TEST(HardeningTest, PartialCorruption) {
   std::string important_data("very important");
@@ -91,8 +90,7 @@ TEST(HardeningTest, MetadataPointerCrashing) {
   // Crashes, because |metadata| points inside the metadata area.
   EXPECT_DEATH(root.Alloc(kAllocSize), "");
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && defined(GTEST_HAS_DEATH_TEST) &&
-        // PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
+#endif  // PA_USE_DEATH_TESTS() && PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
 
 // Below test also misbehaves on Android; as above, death tests don't
 // quite work (crbug.com/1240184), and having free slot bitmaps enabled
@@ -119,7 +117,7 @@ TEST(HardeningTest, SuccessfulCorruption) {
   root.get_freelist_dispatcher()->EmplaceAndInitForTest(
       root.ObjectToSlotStart(data), to_corrupt, true);
 
-#if BUILDFLAG(USE_FREESLOT_BITMAP)
+#if PA_BUILDFLAG(USE_FREESLOT_BITMAP)
   // This part crashes with freeslot bitmap because it detects freelist
   // corruptions, which is rather desirable behavior.
   EXPECT_DEATH_IF_SUPPORTED(root.Alloc(kAllocSize), "");
@@ -134,13 +132,12 @@ TEST(HardeningTest, SuccessfulCorruption) {
   void* new_data2 = root.Alloc(kAllocSize);
   // Now we have a pointer to the middle of an existing allocation.
   EXPECT_EQ(new_data2, to_corrupt);
-#endif  // BUILDFLAG(USE_FREESLOT_BITMAP)
+#endif  // PA_BUILDFLAG(USE_FREESLOT_BITMAP)
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(USE_FREELIST_POOL_OFFSETS)
-#if !BUILDFLAG(IS_ANDROID) && defined(GTEST_HAS_DEATH_TEST) && \
-    PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
+#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
+#if PA_USE_DEATH_TESTS() && PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
 TEST(HardeningTest, ConstructPoolOffsetFromStackPointerCrashing) {
   int num_to_corrupt = 12345;
   int* to_corrupt = &num_to_corrupt;
@@ -179,8 +176,7 @@ TEST(HardeningTest, PoolOffsetMetadataPointerCrashing) {
   // Crashes, because |metadata| points inside the metadata area.
   EXPECT_DEATH(root.Alloc(kAllocSize), "");
 }
-#endif  // !BUILDFLAG(IS_ANDROID) && defined(GTEST_HAS_DEATH_TEST) &&
-        // PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
+#endif  // PA_USE_DEATH_TESTS() && PA_CONFIG(HAS_FREELIST_SHADOW_ENTRY)
 
 #if !BUILDFLAG(IS_ANDROID)
 
@@ -205,7 +201,7 @@ TEST(HardeningTest, PoolOffsetSuccessfulCorruption) {
   root.get_freelist_dispatcher()->EmplaceAndInitForTest(
       root.ObjectToSlotStart(data), to_corrupt, true);
 
-#if BUILDFLAG(USE_FREESLOT_BITMAP)
+#if PA_BUILDFLAG(USE_FREESLOT_BITMAP)
   // This part crashes with freeslot bitmap because it detects freelist
   // corruptions, which is rather desirable behavior.
   EXPECT_DEATH_IF_SUPPORTED(root.Alloc(kAllocSize), "");
@@ -220,10 +216,10 @@ TEST(HardeningTest, PoolOffsetSuccessfulCorruption) {
   void* new_data2 = root.Alloc(kAllocSize);
   // Now we have a pointer to the middle of an existing allocation.
   EXPECT_EQ(new_data2, to_corrupt);
-#endif  // BUILDFLAG(USE_FREESLOT_BITMAP)
+#endif  // PA_BUILDFLAG(USE_FREESLOT_BITMAP)
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
-#endif  // USE_FREELIST_POOL_OFFSETS
+#endif  // PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
 }  // namespace
 }  // namespace partition_alloc::internal
 

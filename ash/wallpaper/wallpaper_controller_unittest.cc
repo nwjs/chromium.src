@@ -34,6 +34,7 @@
 #include "ash/system/time/calendar_unittest_utils.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_util.h"
+#include "ash/utility/forest_util.h"
 #include "ash/wallpaper/sea_pen_wallpaper_manager.h"
 #include "ash/wallpaper/test_sea_pen_wallpaper_manager_session_delegate.h"
 #include "ash/wallpaper/test_wallpaper_controller_client.h"
@@ -1090,7 +1091,6 @@ TEST_P(WallpaperControllerTest, Client) {
   controller_->Init(empty_path, empty_path, empty_path, empty_path);
 
   EXPECT_EQ(0u, client_.open_count());
-  EXPECT_TRUE(controller_->CanOpenWallpaperPicker());
   controller_->OpenWallpaperPickerIfAllowed();
   EXPECT_EQ(1u, client_.open_count());
 }
@@ -1159,6 +1159,8 @@ TEST_P(WallpaperControllerTest, WallpaperMovementDuringUnlock) {
   // that will animate in on top of the old one.
   controller->CreateEmptyWallpaperForTesting();
 
+  const bool forest_enabled = IsForestFeatureEnabled();
+
   // In this state we have a wallpaper views stored in
   // LockScreenWallpaperContainer.
   WallpaperWidgetController* widget_controller =
@@ -1168,8 +1170,13 @@ TEST_P(WallpaperControllerTest, WallpaperMovementDuringUnlock) {
   EXPECT_TRUE(widget_controller->IsAnimating());
   EXPECT_EQ(0, ChildCountForContainer(kWallpaperId));
   EXPECT_EQ(1, ChildCountForContainer(kLockScreenWallpaperId));
-  // There must be three layers, shield, original and old layers.
-  ASSERT_EQ(3u, wallpaper_view()->layer()->parent()->children().size());
+  if (forest_enabled) {
+    // There must be four layers: shield, underlay, original and old layers.
+    ASSERT_EQ(4u, wallpaper_view()->layer()->parent()->children().size());
+  } else {
+    // There must be three layers: shield, original and old layers.
+    ASSERT_EQ(3u, wallpaper_view()->layer()->parent()->children().size());
+  }
 
   // Before the wallpaper's animation completes, user unlocks the screen, which
   // moves the wallpaper to the back.
@@ -1177,16 +1184,25 @@ TEST_P(WallpaperControllerTest, WallpaperMovementDuringUnlock) {
 
   // Ensure that widget has moved.
   EXPECT_EQ(1, ChildCountForContainer(kWallpaperId));
-  // There must be two layers, original and old layers while animating.
-  ASSERT_EQ(2u, wallpaper_view()->layer()->parent()->children().size());
+  // The shield layer is gone during an active session.
+  if (forest_enabled) {
+    ASSERT_EQ(3u, wallpaper_view()->layer()->parent()->children().size());
+  } else {
+    ASSERT_EQ(2u, wallpaper_view()->layer()->parent()->children().size());
+  }
   EXPECT_EQ(0, ChildCountForContainer(kLockScreenWallpaperId));
 
   // Finish the new wallpaper animation.
   RunDesktopControllerAnimation();
 
-  // Now there is one wallpaper and layer.
   EXPECT_EQ(1, ChildCountForContainer(kWallpaperId));
-  ASSERT_EQ(1u, wallpaper_view()->layer()->parent()->children().size());
+  if (forest_enabled) {
+    // Now there is one wallpaper and two layers: underlay and original.
+    ASSERT_EQ(2u, wallpaper_view()->layer()->parent()->children().size());
+  } else {
+    // Now there is one wallpaper and the original layer.
+    ASSERT_EQ(1u, wallpaper_view()->layer()->parent()->children().size());
+  }
   EXPECT_EQ(0, ChildCountForContainer(kLockScreenWallpaperId));
 }
 
@@ -1896,7 +1912,6 @@ TEST_P(WallpaperControllerTest, SetAndRemovePolicyWallpaper) {
   // shown in the login screen.
   ClearWallpaper();
   ClearLogin();
-  controller_->ClearPrefChangeObserverForTesting();
   controller_->ShowUserWallpaper(kAccountId1);
   RunAllTasksUntilIdle();
   EXPECT_EQ(controller_->GetWallpaperType(), WallpaperType::kPolicy);
@@ -2298,7 +2313,7 @@ TEST_P(WallpaperControllerTest, LoadsSeaPenWallpaperWithInvalidUserFilePath) {
       /*max_deviation=*/1));
 }
 
-// TODO(https://crbug.com/1511896): Flaky on linux-chromeos-rel.
+// TODO(crbug.com/41484478): Flaky on linux-chromeos-rel.
 TEST_P(WallpaperControllerTest, DISABLED_SetSeaPenWallpaperFromFile) {
   SimulateUserLogin(kAccountId1);
   TestWallpaperControllerObserver observer(controller_);
@@ -2800,12 +2815,6 @@ TEST_P(WallpaperControllerTest, IgnoreWallpaperRequestInKioskMode) {
   EXPECT_EQ(0, GetWallpaperCount());
   EXPECT_FALSE(
       pref_manager_->GetUserWallpaperInfo(kAccountId1, &wallpaper_info));
-}
-
-// Disable the wallpaper setting for public session since it is ephemeral.
-TEST_P(WallpaperControllerTest, NotShowWallpaperSettingInPublicSession) {
-  SimulateUserLogin("public_session", user_manager::UserType::kPublicAccount);
-  EXPECT_FALSE(controller_->ShouldShowWallpaperSetting());
 }
 
 TEST_P(WallpaperControllerTest, IgnoreWallpaperRequestWhenPolicyIsEnforced) {
@@ -3408,11 +3417,23 @@ TEST_P(WallpaperControllerTest, WallpaperBlurDuringLockScreenTransition) {
       controller_->GetWallpaperType()));
   ASSERT_FALSE(controller_->IsWallpaperBlurredForLockState());
 
-  ASSERT_EQ(2u, wallpaper_view()->layer()->parent()->children().size());
-  EXPECT_EQ(ui::LAYER_TEXTURED,
-            wallpaper_view()->layer()->parent()->children()[0]->type());
-  EXPECT_EQ(ui::LAYER_TEXTURED,
-            wallpaper_view()->layer()->parent()->children()[1]->type());
+  const bool forest_enabled = IsForestFeatureEnabled();
+  if (forest_enabled) {
+    // There are three layers: underlay, original and old layers.
+    ASSERT_EQ(3u, wallpaper_view()->layer()->parent()->children().size());
+    EXPECT_EQ(ui::LAYER_SOLID_COLOR,
+              wallpaper_view()->layer()->parent()->children()[0]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[1]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[2]->type());
+  } else {
+    ASSERT_EQ(2u, wallpaper_view()->layer()->parent()->children().size());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[0]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[1]->type());
+  }
 
   // Simulate lock and unlock sequence.
   controller_->UpdateWallpaperBlurForLockState(true);
@@ -3421,24 +3442,48 @@ TEST_P(WallpaperControllerTest, WallpaperBlurDuringLockScreenTransition) {
 
   SetSessionState(SessionState::LOCKED);
   EXPECT_TRUE(controller_->IsWallpaperBlurredForLockState());
-  ASSERT_EQ(3u, wallpaper_view()->layer()->parent()->children().size());
-  EXPECT_EQ(ui::LAYER_SOLID_COLOR,
-            wallpaper_view()->layer()->parent()->children()[0]->type());
-  EXPECT_EQ(ui::LAYER_TEXTURED,
-            wallpaper_view()->layer()->parent()->children()[1]->type());
-  EXPECT_EQ(ui::LAYER_TEXTURED,
-            wallpaper_view()->layer()->parent()->children()[2]->type());
+  if (forest_enabled) {
+    // There are four layers: shield, underlay, original and old layers.
+    ASSERT_EQ(4u, wallpaper_view()->layer()->parent()->children().size());
+    EXPECT_EQ(ui::LAYER_SOLID_COLOR,
+              wallpaper_view()->layer()->parent()->children()[0]->type());
+    EXPECT_EQ(ui::LAYER_SOLID_COLOR,
+              wallpaper_view()->layer()->parent()->children()[1]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[2]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[3]->type());
+  } else {
+    ASSERT_EQ(3u, wallpaper_view()->layer()->parent()->children().size());
+    EXPECT_EQ(ui::LAYER_SOLID_COLOR,
+              wallpaper_view()->layer()->parent()->children()[0]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[1]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[2]->type());
+  }
 
   // Change of state to ACTIVE triggers post lock animation and
   // UpdateWallpaperBlur(false)
   SetSessionState(SessionState::ACTIVE);
   EXPECT_FALSE(controller_->IsWallpaperBlurredForLockState());
   EXPECT_EQ(2, observer.blur_changed_count());
-  ASSERT_EQ(2u, wallpaper_view()->layer()->parent()->children().size());
-  EXPECT_EQ(ui::LAYER_TEXTURED,
-            wallpaper_view()->layer()->parent()->children()[0]->type());
-  EXPECT_EQ(ui::LAYER_TEXTURED,
-            wallpaper_view()->layer()->parent()->children()[1]->type());
+  if (forest_enabled) {
+    // There are three layers: underlay, original and old layers.
+    ASSERT_EQ(3u, wallpaper_view()->layer()->parent()->children().size());
+    EXPECT_EQ(ui::LAYER_SOLID_COLOR,
+              wallpaper_view()->layer()->parent()->children()[0]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[1]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[2]->type());
+  } else {
+    ASSERT_EQ(2u, wallpaper_view()->layer()->parent()->children().size());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[0]->type());
+    EXPECT_EQ(ui::LAYER_TEXTURED,
+              wallpaper_view()->layer()->parent()->children()[1]->type());
+  }
 }
 
 TEST_P(WallpaperControllerTest, LockDuringOverview) {
@@ -4274,41 +4319,23 @@ TEST_P(WallpaperControllerTest, ShowWallpaperForEphemeralUser) {
 // which OOBE wallpaper flow should be used
 class WallpaperControllerOobeWallpaperTest
     : public WallpaperControllerTestBase,
-      public testing::WithParamInterface<std::tuple</*BootAnimation*/ bool,
-                                                    /*OobeJelly*/ bool,
-                                                    /*OobeJellyModal*/ bool>> {
+      public testing::WithParamInterface</*BootAnimation*/ bool> {
  public:
   WallpaperControllerOobeWallpaperTest() {
-    const bool boot_animation = std::get<0>(GetParam());
-    const bool oobe_jelly = std::get<1>(GetParam());
-    const bool oobe_jelly_modal = std::get<2>(GetParam());
-    scoped_feature_list_.InitWithFeatureStates(
-        {{features::kFeatureManagementOobeSimon, boot_animation},
-         {features::kOobeJelly, oobe_jelly},
-         {features::kOobeJellyModal, oobe_jelly_modal}});
+    const bool boot_animation = GetParam();
+    scoped_feature_list_.InitWithFeatureStates({
+        {features::kFeatureManagementOobeSimon, boot_animation},
+    });
   }
   ~WallpaperControllerOobeWallpaperTest() override = default;
-
-  // Populate meaningful test suffixes instead of /0, /1, etc.
-  struct PrintToStringParamName {
-    std::string operator()(
-        const testing::TestParamInfo<ParamType>& info) const {
-      std::stringstream ss;
-      ss << std::get<0>(info.param) << "_AND_" << std::get<1>(info.param)
-         << "_AND_" << std::get<2>(info.param);
-      return ss.str();
-    }
-  };
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    WallpaperControllerOobeWallpaperTest,
-    ::testing::Combine(::testing::Bool(), ::testing::Bool(), ::testing::Bool()),
-    WallpaperControllerOobeWallpaperTest::PrintToStringParamName());
+INSTANTIATE_TEST_SUITE_P(All,
+                         WallpaperControllerOobeWallpaperTest,
+                         /*BootAnimation*/ testing::Bool());
 
 TEST_P(WallpaperControllerOobeWallpaperTest, ShowOobeWallpaper) {
   controller_->ShowDefaultWallpaperForTesting();
@@ -5077,9 +5104,6 @@ TEST_P(WallpaperControllerAutoScheduleTest,
     return;
   }
 
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      features::kTimeOfDayWallpaperForcedAutoSchedule);
   const auto backdrop_image_data = TimeOfDayImageSet();
   client_.AddCollection(wallpaper_constants::kTimeOfDayWallpaperCollectionId,
                         backdrop_image_data);
@@ -5147,46 +5171,6 @@ TEST_P(WallpaperControllerAutoScheduleTest,
   ASSERT_TRUE(barrier.RunUntilNextWallpaperChange());
   EXPECT_THAT(Now() - simulated_start_time_, WallpaperChangeTimeNear(19));
   EXPECT_TRUE(wallpaper_has_color(kSunsetImageColor));
-}
-
-// TODO(b/309020135): Remove this test after
-// `kTimeOfDayWallpaperForcedAutoSchedule` is launched.
-TEST_P(WallpaperControllerAutoScheduleTest,
-       DoesNotUpdateTimeOfDayWallpaperWithAutoColorModeOff) {
-  if (!IsTimeOfDayEnabled()) {
-    return;
-  }
-
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      {}, {features::kTimeOfDayWallpaperForcedAutoSchedule});
-  const auto backdrop_image_data = TimeOfDayImageSet();
-  client_.AddCollection(wallpaper_constants::kTimeOfDayWallpaperCollectionId,
-                        backdrop_image_data);
-
-  SimulateUserLogin(kAccountId1);
-  Shell::Get()->dark_light_mode_controller()->SetAutoScheduleEnabled(false);
-
-  OnlineWallpaperParams params(
-      kAccountId1, wallpaper_constants::kTimeOfDayWallpaperCollectionId,
-      WALLPAPER_LAYOUT_CENTER_CROPPED,
-      /*preview_mode=*/false, /*from_user=*/true,
-      /*daily_refresh_enabled=*/false,
-      wallpaper_constants::kDefaultTimeOfDayWallpaperUnitId, /*variants=*/{});
-  for (const backdrop::Image& backdrop_image : backdrop_image_data) {
-    params.variants.emplace_back(backdrop_image.asset_id(),
-                                 GURL(backdrop_image.image_url()),
-                                 backdrop_image.image_type());
-  }
-
-  base::test::TestFuture<bool> future;
-  controller_->SetOnlineWallpaper(params, future.GetCallback());
-  ASSERT_TRUE(future.Get());
-
-  TestWallpaperControllerObserver observer(controller_);
-  // 7 P.M.
-  task_environment()->FastForwardBy(base::Hours(17));
-  EXPECT_EQ(observer.wallpaper_changed_count(), 0);
 }
 
 TEST_P(WallpaperControllerTest,

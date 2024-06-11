@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/test/gtest_util.h"
@@ -1122,7 +1123,7 @@ TEST_F(WidgetOwnsNativeWidgetTest, IdempotentClose) {
   RunPendingMessages();
 }
 
-// Test for CLIENT_OWNS_WIDGET. The client holds a unique_ptr<Widget>.
+// Tests for CLIENT_OWNS_WIDGET. The client holds a unique_ptr<Widget>.
 // The NativeWidget will be destroyed when the platform window is closed.
 using ClientOwnsWidgetTest = WidgetOwnershipTest;
 
@@ -1138,6 +1139,54 @@ TEST_F(ClientOwnsWidgetTest, Ownership) {
 
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(state()->native_widget_deleted);
+}
+
+class WidgetDestroyCounter : public WidgetObserver {
+ public:
+  explicit WidgetDestroyCounter(Widget* widget)
+      : widget_(widget->GetWeakPtr()) {
+    widget_->AddObserver(this);
+  }
+  ~WidgetDestroyCounter() override {
+    if (widget_) {
+      widget_->RemoveObserver(this);
+    }
+  }
+
+  int widget_destroying_count() const { return widget_destroying_count_; }
+
+  int widget_destroyed_count() const { return widget_destroyed_count_; }
+
+ private:
+  // WidgetObserver:
+  void OnWidgetDestroying(Widget* widget) override {
+    ++widget_destroying_count_;
+  }
+
+  void OnWidgetDestroyed(Widget* widget) override { ++widget_destroyed_count_; }
+
+  base::WeakPtr<Widget> widget_;
+  int widget_destroying_count_ = 0;
+  int widget_destroyed_count_ = 0;
+};
+
+TEST_F(ClientOwnsWidgetTest, NotificationsTest) {
+  auto widget = std::make_unique<OwnershipTestWidget>(state());
+  Widget::InitParams params = CreateParamsForTestWidget();
+  params.native_widget = CreatePlatformNativeWidgetImpl(
+      widget.get(), kStubCapture, &state()->native_widget_deleted);
+  params.ownership = Widget::InitParams::CLIENT_OWNS_WIDGET;
+  widget->Init(std::move(params));
+  auto observer = std::make_unique<WidgetDestroyCounter>(widget.get());
+  widget->Close();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(observer->widget_destroying_count(), 1);
+  EXPECT_EQ(observer->widget_destroyed_count(), 1);
+  widget.reset();
+  EXPECT_TRUE(state()->widget_deleted);
+  // The destroying & destroyed notifications should only happen once.
+  EXPECT_EQ(observer->widget_destroying_count(), 1);
+  EXPECT_EQ(observer->widget_destroyed_count(), 1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1200,7 +1249,7 @@ class WidgetWithDestroyedNativeViewOrNativeWidgetTest
         test_name += "WidgetOwnsNativeWidget";
         break;
       case Widget::InitParams::CLIENT_OWNS_WIDGET:
-        test_name += "ClientOwnsNativeWidget";
+        test_name += "ClientOwnsWidget";
         break;
       case Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET:
         // Note: We don't test for this case in
@@ -3859,7 +3908,7 @@ TEST_F(DesktopWidgetTest, ValidDuringOnNativeWidgetDestroyingFromClose) {
   EXPECT_EQ(gfx::Rect(), observer.bounds());
   base::RunLoop().RunUntilIdle();
 // Broken on Linux. See http://crbug.com/515379.
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if !(BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
   EXPECT_EQ(screen_rect, observer.bounds());
@@ -5485,6 +5534,12 @@ class WidgetSetAspectRatioTest
   }
 
   void TearDown() override {
+    // `ViewAccessibility` objects have some references to the `widget` which
+    // must be updated when the widget is freed. The function that is in charge
+    // of clearing these lists however (`OnNativeWidgetDestroying`), is never
+    // called in this test suite because we use a `MockNativeWindow` rather than
+    // a `NativeWindow`. So we make sure this clean up happens manually.
+    widget()->OnNativeWidgetDestroying();
     native_widget_.reset();
     widget()->Close();
     widget_.reset();

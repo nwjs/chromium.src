@@ -14,7 +14,7 @@ namespace autofill {
 
 class AutofillField;
 class CreditCard;
-struct FormFieldData;
+class FormFieldData;
 
 // Returns the appropriate `credit_card` value based on `field_type` to fill
 // into `field`, and an empty string if no value could be found for the given
@@ -33,7 +33,7 @@ std::u16string GetFillingValueForCreditCard(
 // date version of the form and can be different from the
 // `autofill_fields`. `form_fields` are used to check if the cached field
 // is still present in the form on the renderer side.
-// TODO(crbug.com/1331312): Remove FormFieldData parameter.
+// TODO(crbug.com/40227496): Remove FormFieldData parameter.
 bool WillFillCreditCardNumber(
     base::span<const FormFieldData> fields,
     base::span<const std::unique_ptr<AutofillField>> autofill_fields,

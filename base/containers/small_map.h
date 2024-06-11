@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #ifndef BASE_CONTAINERS_SMALL_MAP_H_
 #define BASE_CONTAINERS_SMALL_MAP_H_
 
@@ -492,8 +497,8 @@ class small_map {
     }
 
     size_t i = static_cast<size_t>(position.array_iter_ - array_);
-    // TODO(crbug.com/817982): When we have a checked iterator, this CHECK might
-    // not be necessary.
+    // TODO(crbug.com/40565371): When we have a checked iterator, this CHECK
+    // might not be necessary.
     CHECK_LE(i, size_);
     array_[i].~value_type();
     --size_;

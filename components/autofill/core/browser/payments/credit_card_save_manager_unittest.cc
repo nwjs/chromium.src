@@ -23,6 +23,8 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/autofill/core/browser/address_data_manager.h"
+#include "components/autofill/core/browser/address_data_manager_test_api.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
@@ -35,8 +37,10 @@
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/payments/test_credit_card_save_manager.h"
 #include "components/autofill/core/browser/payments/test_legal_message_line.h"
+#include "components/autofill/core/browser/payments/test_payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/test_payments_network_interface.h"
 #include "components/autofill/core/browser/payments/test_virtual_card_enrollment_manager.h"
+#include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_credit_card_save_strike_database.h"
 #include "components/autofill/core/browser/strike_databases/payments/test_strike_database.h"
@@ -147,6 +151,10 @@ class MockPaymentsDataManager : public TestPaymentsDataManager {
 
 class MockPaymentsAutofillClient : public payments::TestPaymentsAutofillClient {
  public:
+  explicit MockPaymentsAutofillClient(AutofillClient* client)
+      : payments::TestPaymentsAutofillClient(client) {}
+  ~MockPaymentsAutofillClient() override = default;
+
   MOCK_METHOD(void, CreditCardUploadCompleted, (bool card_saved), (override));
   MOCK_METHOD(bool, IsSaveCardPromptVisible, (), (const override));
   MOCK_METHOD(void, HideSaveCardPromptPrompt, (), (override));
@@ -159,17 +167,11 @@ class MockAutofillClient : public TestAutofillClient {
   MockAutofillClient() {
     set_personal_data_manager(std::make_unique<TestPersonalDataManager>());
     TestPersonalDataManager* pdm = GetPersonalDataManager();
-    pdm->set_payments_data_manager(std::make_unique<MockPaymentsDataManager>(
-        base::BindRepeating(&PersonalDataManager::NotifyPersonalDataObserver,
-                            base::Unretained(pdm))));
+    pdm->set_payments_data_manager(std::make_unique<MockPaymentsDataManager>());
     set_payments_autofill_client(
-        std::make_unique<MockPaymentsAutofillClient>());
+        std::make_unique<MockPaymentsAutofillClient>(this));
   }
   ~MockAutofillClient() override = default;
-  MOCK_METHOD(VirtualCardEnrollmentManager*,
-              GetVirtualCardEnrollmentManager,
-              (),
-              (override));
 };
 
 class MockVirtualCardEnrollmentManager
@@ -202,7 +204,8 @@ class CreditCardSaveManagerTest : public testing::Test {
     autofill_client_.SetPrefs(test::PrefServiceForTesting());
     autofill_client_.set_test_strike_database(
         std::make_unique<TestStrikeDatabase>());
-    personal_data().set_auto_accept_address_imports_for_testing(true);
+    test_api(personal_data().address_data_manager())
+        .set_auto_accept_address_imports(true);
     personal_data().SetPrefService(autofill_client_.GetPrefs());
     personal_data().SetSyncServiceForTest(&sync_service_);
     autofill_driver_ = std::make_unique<TestAutofillDriver>(&autofill_client_);
@@ -211,12 +214,10 @@ class CreditCardSaveManagerTest : public testing::Test {
             std::make_unique<payments::TestPaymentsNetworkInterface>(
                 autofill_client_.GetURLLoaderFactory(),
                 autofill_client_.GetIdentityManager(), &personal_data()));
-    virtual_card_enrollment_manager_ =
+    payments_client().set_virtual_card_enrollment_manager(
         std::make_unique<MockVirtualCardEnrollmentManager>(
             autofill_client_.GetPersonalDataManager(),
-            &payments_network_interface(), &autofill_client_);
-    ON_CALL(autofill_client_, GetVirtualCardEnrollmentManager())
-        .WillByDefault(Return(virtual_card_enrollment_manager_.get()));
+            &payments_network_interface(), &autofill_client_));
     credit_card_save_manager_ = new TestCreditCardSaveManager(
         autofill_driver_.get(), &autofill_client_, &personal_data());
     credit_card_save_manager_->SetCreditCardUploadEnabled(true);
@@ -300,7 +301,7 @@ class CreditCardSaveManagerTest : public testing::Test {
     }
     form.fields.push_back(CreateTestFormField("Card Number", "cardnumber", "",
                                               FormControlType::kInputText, ""));
-    form.fields.back().is_focusable = !options.is_from_non_focusable_form;
+    form.fields.back().set_is_focusable(!options.is_from_non_focusable_form);
     form.fields.push_back(CreateTestFormField("Expiration Date", "ccmonth", "",
                                               FormControlType::kInputText));
     form.fields.push_back(
@@ -436,8 +437,6 @@ class CreditCardSaveManagerTest : public testing::Test {
   std::unique_ptr<TestBrowserAutofillManager> browser_autofill_manager_;
   syncer::TestSyncService sync_service_;
   MockAutofillClient autofill_client_;
-  std::unique_ptr<MockVirtualCardEnrollmentManager>
-      virtual_card_enrollment_manager_;
   // TODO(crbug.com/40818490): Refactor to use the real CreditCardSaveManager.
   // Ends up getting owned (and destroyed) by TestFormDataImporter:
   raw_ptr<TestCreditCardSaveManager> credit_card_save_manager_;
@@ -454,7 +453,7 @@ class CreditCardSaveManagerTest : public testing::Test {
 };
 
 // Tests that credit card data are saved for forms on https
-// TODO(crbug.com/666704): Flaky on android_n5x_swarming_rel bot.
+// TODO(crbug.com/40494359): Flaky on android_n5x_swarming_rel bot.
 #if BUILDFLAG(IS_ANDROID)
 #define MAYBE_ImportFormDataCreditCardHTTPS \
   DISABLED_ImportFormDataCreditCardHTTPS
@@ -467,7 +466,7 @@ TEST_F(CreditCardSaveManagerTest, MAYBE_ImportFormDataCreditCardHTTPS) {
 }
 
 // Tests that credit card data are saved for forms on http
-// TODO(crbug.com/666704): Flaky on android_n5x_swarming_rel bot.
+// TODO(crbug.com/40494359): Flaky on android_n5x_swarming_rel bot.
 #if BUILDFLAG(IS_ANDROID)
 #define MAYBE_ImportFormDataCreditCardHTTP DISABLED_ImportFormDataCreditCardHTTP
 #else
@@ -479,7 +478,7 @@ TEST_F(CreditCardSaveManagerTest, MAYBE_ImportFormDataCreditCardHTTP) {
 }
 
 // Tests that credit card data are saved when autocomplete=off for CC field.
-// TODO(crbug.com/666704): Flaky on android_n5x_swarming_rel bot.
+// TODO(crbug.com/40494359): Flaky on android_n5x_swarming_rel bot.
 #if BUILDFLAG(IS_ANDROID)
 #define MAYBE_CreditCardSavedWhenAutocompleteOff \
   DISABLED_CreditCardSavedWhenAutocompleteOff
@@ -495,7 +494,7 @@ TEST_F(CreditCardSaveManagerTest, MAYBE_CreditCardSavedWhenAutocompleteOff) {
       CreditCardFormOptions().with_is_https(false));
 
   // Set "autocomplete=off" for cardnumber field.
-  form.fields[1].should_autocomplete = false;
+  form.fields[1].set_should_autocomplete(false);
 
   std::vector<FormData> forms(1, form);
   FormsSeen(forms);
@@ -559,7 +558,7 @@ TEST_F(CreditCardSaveManagerTest, CreditCardDisabledDoesNotSave) {
   histogram_tester.ExpectTotalCount("Autofill.CardUploadDecisionMetric", 0);
 }
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_OnlyCountryInAddresses) {
@@ -590,16 +589,9 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_OnlyCountryInAddresses) {
   EXPECT_FALSE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
   EXPECT_TRUE(credit_card_save_manager_->CreditCardWasUploaded());
 #if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillEnablePaymentsAndroidBottomSheetAccountEmail)) {
-    EXPECT_THAT(
-        payments_network_interface().client_behavior_signals_in_request(),
-        ElementsAre(ClientBehaviorConstants::kShowAccountEmailInLegalMessage));
-  } else {
-    EXPECT_TRUE(payments_network_interface()
-                    .client_behavior_signals_in_request()
-                    .empty());
-  }
+  EXPECT_THAT(
+      payments_network_interface().client_behavior_signals_in_request(),
+      ElementsAre(ClientBehaviorConstants::kShowAccountEmailInLegalMessage));
 #else
   EXPECT_TRUE(payments_network_interface()
                   .client_behavior_signals_in_request()
@@ -608,7 +600,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_OnlyCountryInAddresses) {
 
   // Verify that even though the full address profile was saved, only the
   // country was included in the upload details request to payments.
-  EXPECT_EQ(1U, personal_data().GetProfiles().size());
+  EXPECT_EQ(1U, personal_data().address_data_manager().GetProfiles().size());
   AutofillProfile only_country(AddressCountryCode("US"));
   EXPECT_EQ(1U,
             payments_network_interface().addresses_in_upload_details().size());
@@ -619,7 +611,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_OnlyCountryInAddresses) {
              only_country));
 
   // Server did not send a server_id, expect copy of card is not stored.
-  EXPECT_TRUE(personal_data().GetCreditCards().empty());
+  EXPECT_TRUE(personal_data().payments_data_manager().GetCreditCards().empty());
 
   // Verify that the correct histogram entry (and only that) was logged.
   ExpectUniqueCardUploadDecision(histogram_tester,
@@ -631,9 +623,9 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_OnlyCountryInAddresses) {
   UserHasAcceptedCardUpload({});
   // We should find that full addresses are included in the UploadCard request,
   // even though only countries were included in GetUploadDetails.
-  EXPECT_THAT(
-      payments_network_interface().addresses_in_upload_card(),
-      testing::UnorderedElementsAreArray({*personal_data().GetProfiles()[0]}));
+  EXPECT_THAT(payments_network_interface().addresses_in_upload_card(),
+              testing::UnorderedElementsAreArray(
+                  {*personal_data().address_data_manager().GetProfiles()[0]}));
 }
 #endif
 
@@ -1205,7 +1197,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NotSavedLocally) {
   EXPECT_TRUE(credit_card_save_manager_->CreditCardWasUploaded());
 
   // Don't keep a copy of the card on this device.
-  EXPECT_TRUE(personal_data().GetCreditCards().empty());
+  EXPECT_TRUE(personal_data().payments_data_manager().GetCreditCards().empty());
 }
 
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_FeatureNotEnabled) {
@@ -1240,7 +1232,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_FeatureNotEnabled) {
   histogram_tester.ExpectTotalCount("Autofill.CardUploadDecisionMetric", 0);
 }
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CvcUnavailable) {
@@ -1283,7 +1275,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CvcUnavailable) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CvcInvalidLength) {
@@ -1323,7 +1315,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CvcInvalidLength) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_MultipleCvcFields) {
@@ -1379,7 +1371,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_MultipleCvcFields) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoCvcFieldOnForm) {
@@ -1433,7 +1425,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoCvcFieldOnForm) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -1491,7 +1483,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -1551,7 +1543,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -1609,7 +1601,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoProfileAvailable) {
@@ -1646,7 +1638,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoProfileAvailable) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoRecentlyUsedProfile) {
@@ -1695,7 +1687,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoRecentlyUsedProfile) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -1735,14 +1727,14 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoNameAvailable) {
   // Add a profile without a name to the PersonalDataManager.
   AutofillProfile profile(AddressCountryCode("US"));
   profile.SetRawInfo(ADDRESS_HOME_ZIP, u"77401");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -1780,11 +1772,6 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoNameAvailable) {
 #if BUILDFLAG(IS_ANDROID)
 TEST_F(CreditCardSaveManagerTest,
        AttemptToOfferCardUploadSave_AutofillEnableBottomSheetAccountEmail) {
-  // Setting the flag to enable the new bubble for Save Card UI.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      features::kAutofillEnablePaymentsAndroidBottomSheetAccountEmail);
-
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
   FormsSeen(std::vector<FormData>(1, credit_card_form));
@@ -1808,51 +1795,13 @@ TEST_F(CreditCardSaveManagerTest,
               testing::Contains(
                   ClientBehaviorConstants::kShowAccountEmailInLegalMessage));
 }
-
-TEST_F(CreditCardSaveManagerTest,
-       AttemptToOfferCardUploadSave_AutofillDisableBottomSheetAccountEmail) {
-  // Setting the flag to disable the new bubble for Save Card UI.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillEnablePaymentsAndroidBottomSheetAccountEmail);
-
-  FormData credit_card_form = CreateTestCreditCardFormData();
-  FormsSeen(std::vector<FormData>(1, credit_card_form));
-
-  credit_card_form.fields[0].set_value(u"Jane Doe");
-  credit_card_form.fields[1].set_value(u"4111111111111111");
-  credit_card_form.fields[2].set_value(ASCIIToUTF16(test::NextMonth()));
-  credit_card_form.fields[3].set_value(ASCIIToUTF16(test::NextYear()));
-  credit_card_form.fields[4].set_value(u"123");
-  FormSubmitted(credit_card_form);
-
-  EXPECT_FALSE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
-  EXPECT_TRUE(credit_card_save_manager_->CreditCardWasUploaded());
-
-  // Confirm that client_behavior_signals vector does not contain the
-  // FasterAndProtected signal.
-  std::vector<ClientBehaviorConstants> client_behavior_signals_in_request =
-      payments_network_interface().client_behavior_signals_in_request();
-  EXPECT_THAT(client_behavior_signals_in_request,
-              testing::Not(testing::Contains(
-                  ClientBehaviorConstants::kShowAccountEmailInLegalMessage)));
-}
 #endif  // BUILDFLAG(IS_ANDROID)
 
 TEST_F(CreditCardSaveManagerTest,
        AttemptToOfferCardUploadSave_SendSaveCvcSignalIfOfferingToSaveCvc) {
   // Set up the flags to enable the Tos for Save Card CVC UI.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {features::kAutofillEnableCvcStorageAndFilling},
-#if BUILDFLAG(IS_ANDROID)
-      /*disabled_features=*/
-      { features::kAutofillEnablePaymentsAndroidBottomSheetAccountEmail }
-#else
-      /*disabled_features=*/{}
-#endif  // BUILDFLAG(IS_ANDROID)
-  );
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillEnableCvcStorageAndFilling);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -1873,39 +1822,6 @@ TEST_F(CreditCardSaveManagerTest,
   EXPECT_THAT(client_behavior_signals_in_request,
               testing::Contains(ClientBehaviorConstants::kOfferingToSaveCvc));
 }
-
-#if BUILDFLAG(IS_ANDROID)
-TEST_F(
-    CreditCardSaveManagerTest,
-    AttemptToOfferCardUploadSave_SendSaveCvcSignalWhenEnabledAccountEmailInLegalMessage) {
-  // Set up the flags to enable the Tos for Save Card CVC UI.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {features::kAutofillEnableCvcStorageAndFilling,
-       features::kAutofillEnablePaymentsAndroidBottomSheetAccountEmail},
-      /*disabled_features=*/{});
-
-  // Set up our credit card form data.
-  FormData credit_card_form = CreateTestCreditCardFormData();
-  FormsSeen(std::vector<FormData>(1, credit_card_form));
-
-  // Edit the data, and submit.
-  credit_card_form.fields[0].set_value(u"Jane Doe");
-  credit_card_form.fields[1].set_value(u"4111111111111111");
-  credit_card_form.fields[2].set_value(ASCIIToUTF16(test::NextMonth()));
-  credit_card_form.fields[3].set_value(ASCIIToUTF16(test::NextYear()));
-  credit_card_form.fields[4].set_value(u"123");
-  FormSubmitted(credit_card_form);
-
-  // Confirm that client_behavior_signals vector does contain the
-  // OfferingToSaveCvc signal.
-  std::vector<ClientBehaviorConstants> client_behavior_signals_in_request =
-      payments_network_interface().client_behavior_signals_in_request();
-  EXPECT_THAT(client_behavior_signals_in_request,
-              testing::Contains(ClientBehaviorConstants::kOfferingToSaveCvc));
-}
-#endif  // BUILDFLAG(IS_ANDROID)
 
 TEST_F(CreditCardSaveManagerTest,
        AttemptToOfferCardUploadSave_DoNotSendSaveCvcSignalIfCvcEmpty) {
@@ -2001,7 +1917,7 @@ TEST_F(CreditCardSaveManagerTest,
                   ClientBehaviorConstants::kOfferingToSaveCvc)));
 }
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -2045,7 +1961,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_ZipCodesConflict) {
@@ -2096,7 +2012,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_ZipCodesConflict) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -2107,13 +2023,13 @@ TEST_F(CreditCardSaveManagerTest,
   profile1.set_guid("00000000-0000-0000-0000-000000000001");
   profile1.SetInfo(NAME_FULL, u"Jane Doe", "en-US");
   profile1.SetInfo(ADDRESS_HOME_ZIP, u"H3B2Y5", "en-US");
-  personal_data().AddProfile(profile1);
+  personal_data().address_data_manager().AddProfile(profile1);
 
   AutofillProfile profile2(AddressCountryCode("US"));
   profile2.set_guid("00000000-0000-0000-0000-000000000002");
   profile2.SetInfo(NAME_FULL, u"Jane Doe", "en-US");
   profile2.SetInfo(ADDRESS_HOME_ZIP, u"h3b 2y5", "en-US");
-  personal_data().AddProfile(profile2);
+  personal_data().address_data_manager().AddProfile(profile2);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -2145,7 +2061,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_ZipCodesHavePrefixMatch) {
@@ -2190,7 +2106,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_ZipCodesHavePrefixMatch) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoZipCodeAvailable) {
@@ -2237,7 +2153,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoZipCodeAvailable) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CCFormHasMiddleInitial) {
@@ -2281,7 +2197,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CCFormHasMiddleInitial) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoMiddleInitialInCCForm) {
@@ -2322,7 +2238,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NoMiddleInitialInCCForm) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -2367,7 +2283,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CCFormHasAddressMiddleName) {
@@ -2411,7 +2327,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_CCFormHasAddressMiddleName) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NamesCanMismatch) {
@@ -2464,7 +2380,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_NamesCanMismatch) {
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_IgnoreOldProfiles) {
@@ -2699,7 +2615,7 @@ TEST_F(
 #if !BUILDFLAG(IS_IOS)
   // Set the billing_customer_number to designate existence of a Payments
   // account.
-  personal_data().SetPaymentsCustomerData(
+  personal_data().test_payments_data_manager().SetPaymentsCustomerData(
       std::make_unique<PaymentsCustomerData>(/*customer_id=*/"123456"));
 
   // Create, fill and submit an address form in order to establish a recent
@@ -2748,7 +2664,7 @@ TEST_F(
 #if !BUILDFLAG(IS_IOS)
   // Set the billing_customer_number to designate existence of a Payments
   // account.
-  personal_data().SetPaymentsCustomerData(
+  personal_data().test_payments_data_manager().SetPaymentsCustomerData(
       std::make_unique<PaymentsCustomerData>(/*customer_id=*/"123456"));
 
   // Create, fill and submit an address form in order to establish a recent
@@ -2826,7 +2742,7 @@ TEST_F(
 
   // Set the billing_customer_number to designate existence of a Payments
   // account.
-  personal_data().SetPaymentsCustomerData(
+  personal_data().test_payments_data_manager().SetPaymentsCustomerData(
       std::make_unique<PaymentsCustomerData>(/*customer_id=*/"123456"));
 
   // Run through the form submit in exactly the same way (but now Chrome knows
@@ -3246,7 +3162,7 @@ TEST_F(
       CreditCardSaveManager::DetectedValue::USER_PROVIDED_EXPIRATION_DATE);
 }
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 TEST_F(CreditCardSaveManagerTest, UploadCreditCard_UploadDetailsFails) {
   // Anything other than "en-US" will cause GetUploadDetails to return a failure
@@ -3402,7 +3318,7 @@ TEST_F(CreditCardSaveManagerTest, DetectAddressName) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(NAME_FULL, u"John Smith", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3430,7 +3346,7 @@ TEST_F(CreditCardSaveManagerTest, DetectCardholderAndAddressNameIfMatching) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(NAME_FULL, u"John Smith", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3459,7 +3375,7 @@ TEST_F(CreditCardSaveManagerTest, DetectNoUniqueNameIfNamesConflict) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(NAME_FULL, u"John Smith", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3487,7 +3403,7 @@ TEST_F(CreditCardSaveManagerTest, DetectPostalCode) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(ADDRESS_HOME_ZIP, u"94043", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3515,11 +3431,11 @@ TEST_F(CreditCardSaveManagerTest, DetectNoUniquePostalCodeIfZipsConflict) {
   AutofillProfile profile1(AddressCountryCode("US"));
   profile1.set_guid("00000000-0000-0000-0000-000000000200");
   profile1.SetInfo(ADDRESS_HOME_ZIP, u"94043", "en-US");
-  personal_data().AddProfile(profile1);
+  personal_data().address_data_manager().AddProfile(profile1);
   AutofillProfile profile2(AddressCountryCode("US"));
   profile2.set_guid("00000000-0000-0000-0000-000000000201");
   profile2.SetInfo(ADDRESS_HOME_ZIP, u"95051", "en-US");
-  personal_data().AddProfile(profile2);
+  personal_data().address_data_manager().AddProfile(profile2);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3544,7 +3460,7 @@ TEST_F(CreditCardSaveManagerTest, DetectAddressLine) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(ADDRESS_HOME_LINE1, u"123 Testing St.", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3572,7 +3488,7 @@ TEST_F(CreditCardSaveManagerTest, DetectLocality) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3599,7 +3515,7 @@ TEST_F(CreditCardSaveManagerTest, DetectAdministrativeArea) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3627,7 +3543,7 @@ TEST_F(CreditCardSaveManagerTest, DetectCountryCode) {
   AutofillProfile profile(AddressCountryCode("US"));
   profile.set_guid("00000000-0000-0000-0000-000000000200");
   profile.SetInfo(ADDRESS_HOME_COUNTRY, u"US", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3653,7 +3569,7 @@ TEST_F(CreditCardSaveManagerTest, DetectCountryCode) {
 TEST_F(CreditCardSaveManagerTest, DetectHasGooglePaymentAccount) {
   // Set the billing_customer_number to designate existence of a Payments
   // account.
-  personal_data().SetPaymentsCustomerData(
+  personal_data().test_payments_data_manager().SetPaymentsCustomerData(
       std::make_unique<PaymentsCustomerData>(/*customer_id=*/"123456"));
 
   // Set up our credit card form data.
@@ -3686,7 +3602,7 @@ TEST_F(CreditCardSaveManagerTest, DetectEverythingAtOnce) {
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
   profile.SetInfo(ADDRESS_HOME_ZIP, u"94043", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3723,7 +3639,7 @@ TEST_F(CreditCardSaveManagerTest, DetectSubsetOfPossibleFields) {
   profile.SetInfo(NAME_FULL, u"John Smith", "en-US");
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile.SetInfo(ADDRESS_HOME_ZIP, u"94043", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3757,19 +3673,19 @@ TEST_F(CreditCardSaveManagerTest, DetectAddressComponentsAcrossProfiles) {
   AutofillProfile profile1(AddressCountryCode("US"));
   profile1.set_guid("00000000-0000-0000-0000-000000000200");
   profile1.SetInfo(ADDRESS_HOME_LINE1, u"123 Testing St.", "en-US");
-  personal_data().AddProfile(profile1);
+  personal_data().address_data_manager().AddProfile(profile1);
   AutofillProfile profile2(AddressCountryCode("US"));
   profile2.set_guid("00000000-0000-0000-0000-000000000201");
   profile2.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
-  personal_data().AddProfile(profile2);
+  personal_data().address_data_manager().AddProfile(profile2);
   AutofillProfile profile3(AddressCountryCode("US"));
   profile3.set_guid("00000000-0000-0000-0000-000000000202");
   profile3.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
-  personal_data().AddProfile(profile3);
+  personal_data().address_data_manager().AddProfile(profile3);
   AutofillProfile profile4(AddressCountryCode("US"));
   profile4.set_guid("00000000-0000-0000-0000-000000000203");
   profile4.SetInfo(ADDRESS_HOME_COUNTRY, u"US", "en-US");
-  personal_data().AddProfile(profile4);
+  personal_data().address_data_manager().AddProfile(profile4);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3795,7 +3711,7 @@ TEST_F(CreditCardSaveManagerTest, DetectAddressComponentsAcrossProfiles) {
             expected_detected_values);
 }
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -3810,7 +3726,7 @@ TEST_F(CreditCardSaveManagerTest,
   profile.SetInfo(ADDRESS_HOME_LINE1, u"123 Testing St.", "en-US");
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3867,7 +3783,7 @@ TEST_F(
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
   profile.SetInfo(ADDRESS_HOME_ZIP, u"94043", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3903,7 +3819,7 @@ TEST_F(
   profile.SetInfo(ADDRESS_HOME_LINE1, u"123 Testing St.", "en-US");
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -3925,7 +3841,7 @@ TEST_F(
   EXPECT_FALSE(credit_card_save_manager_->CreditCardWasUploaded());
 }
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -3969,7 +3885,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -3977,7 +3893,7 @@ TEST_F(CreditCardSaveManagerTest,
   // Add a profile without a name to the PersonalDataManager.
   AutofillProfile profile(AddressCountryCode("US"));
   profile.SetRawInfo(ADDRESS_HOME_ZIP, u"77401");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -4016,7 +3932,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -4065,7 +3981,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -4077,7 +3993,7 @@ TEST_F(CreditCardSaveManagerTest,
   profile.SetInfo(ADDRESS_HOME_LINE1, u"123 Testing St.", "en-US");
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -4111,7 +4027,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -4124,7 +4040,7 @@ TEST_F(CreditCardSaveManagerTest,
   profile1.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile1.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
   profile1.SetInfo(ADDRESS_HOME_ZIP, u"94043", "en-US");
-  personal_data().AddProfile(profile1);
+  personal_data().address_data_manager().AddProfile(profile1);
   AutofillProfile profile2(AddressCountryCode("US"));
   profile2.set_guid("00000000-0000-0000-0000-000000000201");
   profile2.SetInfo(NAME_FULL, u"Jane Doe", "en-US");
@@ -4132,7 +4048,7 @@ TEST_F(CreditCardSaveManagerTest,
   profile2.SetInfo(ADDRESS_HOME_CITY, u"Fake City", "en-US");
   profile2.SetInfo(ADDRESS_HOME_STATE, u"Stateland", "en-US");
   profile2.SetInfo(ADDRESS_HOME_ZIP, u"12345", "en-US");
-  personal_data().AddProfile(profile2);
+  personal_data().address_data_manager().AddProfile(profile2);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -4166,7 +4082,7 @@ TEST_F(CreditCardSaveManagerTest,
 }
 #endif
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 TEST_F(CreditCardSaveManagerTest,
@@ -4177,7 +4093,7 @@ TEST_F(CreditCardSaveManagerTest,
   profile.SetInfo(ADDRESS_HOME_LINE1, u"123 Testing St.", "en-US");
   profile.SetInfo(ADDRESS_HOME_CITY, u"Mountain View", "en-US");
   profile.SetInfo(ADDRESS_HOME_STATE, u"California", "en-US");
-  personal_data().AddProfile(profile);
+  personal_data().address_data_manager().AddProfile(profile);
 
   // Set up our credit card form data.
   FormData credit_card_form = CreateTestCreditCardFormData();
@@ -4229,7 +4145,7 @@ TEST_F(CreditCardSaveManagerTest, UploadCreditCard_UploadOfLocalCard) {
                           test::NextMonth().c_str(), test::NextYear().c_str(),
                           "1");
   local_card.set_record_type(CreditCard::RecordType::kLocalCard);
-  personal_data().AddCreditCard(local_card);
+  personal_data().payments_data_manager().AddCreditCard(local_card);
 
   // Create, fill and submit an address form in order to establish a recent
   // profile which can be selected for the upload request.
@@ -4321,7 +4237,7 @@ TEST_F(CreditCardSaveManagerTest,
                           test::NextMonth().c_str(), test::NextYear().c_str(),
                           "1");
   local_card.set_record_type(CreditCard::RecordType::kLocalCard);
-  personal_data().AddCreditCard(local_card);
+  personal_data().payments_data_manager().AddCreditCard(local_card);
 
   // Create, fill and submit an address form in order to establish a recent
   // profile which can be selected for the upload request.
@@ -4357,14 +4273,12 @@ TEST_F(CreditCardSaveManagerTest,
   histogram_tester.ExpectTotalCount("Autofill.UploadAcceptedCardOrigin", 0);
 }
 
-TEST_F(CreditCardSaveManagerTest,
-       UploadCreditCard_DoNotAddAnyFlagStatesToRequestIfExperimentsOff) {
-#if BUILDFLAG(IS_ANDROID)
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      features::kAutofillEnablePaymentsAndroidBottomSheetAccountEmail);
-#endif
-
+#if !BUILDFLAG(IS_ANDROID)
+// Android is skipped because the show email client behavior signal is always
+// sent.
+TEST_F(
+    CreditCardSaveManagerTest,
+    UploadCreditCard_DoNotAddAnyClientBehaviorSignalsToRequestIfExperimentsOff) {
   // Create, fill and submit an address form in order to establish a recent
   // profile which can be selected for the upload request.
   FormData address_form = CreateTestAddressFormData();
@@ -4392,6 +4306,7 @@ TEST_F(CreditCardSaveManagerTest,
                   .client_behavior_signals_in_request()
                   .empty());
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(CreditCardSaveManagerTest,
        UploadCreditCard_ShouldAddBillableServiceNumberInRequest) {
@@ -4424,7 +4339,7 @@ TEST_F(CreditCardSaveManagerTest,
        UploadCreditCard_ShouldAddBillingCustomerNumberInRequest) {
   // Set the billing_customer_number to designate existence of a Payments
   // account.
-  personal_data().SetPaymentsCustomerData(
+  personal_data().test_payments_data_manager().SetPaymentsCustomerData(
       std::make_unique<PaymentsCustomerData>(/*customer_id=*/"123456"));
 
   // Create, fill and submit an address form in order to establish a recent
@@ -4604,7 +4519,7 @@ TEST_F(CreditCardSaveManagerTest,
       AutofillMetrics::SaveTypeMetric::LOCAL, 1);
 }
 
-// TODO(crbug.com/1113034): Create an equivalent test for iOS, or skip
+// TODO(crbug.com/40710040): Create an equivalent test for iOS, or skip
 // permanently if the test doesn't apply to iOS flow.
 #if !BUILDFLAG(IS_IOS)
 // Tests that a card with max strikes does not offer save on mobile at all.
@@ -5068,7 +4983,7 @@ TEST_F(CreditCardSaveManagerTest, LocalSaveNotOfferedForSavedUnsupportedCard) {
                           test::NextMonth().c_str(), test::NextYear().c_str(),
                           "1");
   local_card.set_record_type(CreditCard::RecordType::kLocalCard);
-  personal_data().AddCreditCard(local_card);
+  personal_data().payments_data_manager().AddCreditCard(local_card);
 
   // Edit the data, and submit.
   credit_card_form.fields[0].set_value(u"Jane Doe");
@@ -5277,7 +5192,7 @@ TEST_P(SaveCvcTest, OnDidUploadCard_SaveServerCvc) {
 // during checkout.
 TEST_P(SaveCvcTest, ShouldNotOfferCvcSaveWithEmptyCvc) {
   CreditCard card = test::WithCvc(test::GetCreditCard());
-  personal_data().AddCreditCard(card);
+  personal_data().payments_data_manager().AddCreditCard(card);
 
   // We should not offer CVC save if the user entered empty CVC during
   // checkout.
@@ -5289,7 +5204,7 @@ TEST_P(SaveCvcTest, ShouldNotOfferCvcSaveWithEmptyCvc) {
 // Tests that we should only offer CVC Save if we have an existing
 // card that matches the card in the form.
 TEST_P(SaveCvcTest, ShouldNotOfferCvcSaveWithoutExistingCard) {
-  personal_data().ClearAllServerDataForTesting();
+  personal_data().payments_data_manager().ClearAllServerDataForTesting();
   personal_data().ClearAllLocalData();
   CreditCard local_card = test::WithCvc(test::GetCreditCard());
   CreditCard server_card = test::WithCvc(test::GetMaskedServerCard());
@@ -5307,7 +5222,7 @@ TEST_P(SaveCvcTest, ShouldNotOfferCvcSaveWithoutExistingCard) {
 // Tests that we should not offer CVC save with same CVC.
 TEST_P(SaveCvcTest, ShouldNotOfferCvcSaveWithSameCvc) {
   CreditCard local_card = test::WithCvc(test::GetCreditCard(), u"123");
-  personal_data().AddCreditCard(local_card);
+  personal_data().payments_data_manager().AddCreditCard(local_card);
   CreditCard server_card = test::WithCvc(test::GetMaskedServerCard(), u"123");
   personal_data().AddServerCreditCard(server_card);
 
@@ -5325,7 +5240,7 @@ TEST_P(SaveCvcTest, ShouldOfferCvcLocalSave) {
   prefs::SetPaymentCvcStorage(autofill_client_.GetPrefs(),
                               IsSaveCvcPrefEnabled());
   CreditCard card = test::WithCvc(test::GetCreditCard(), u"123");
-  personal_data().AddCreditCard(card);
+  personal_data().payments_data_manager().AddCreditCard(card);
   card.set_cvc(u"234");
   if (IsSaveCvcFeatureEnabled() && IsSaveCvcPrefEnabled()) {
     EXPECT_TRUE(credit_card_save_manager_->ShouldOfferCvcSave(
@@ -5452,7 +5367,7 @@ TEST_P(ProceedWithSavingIfApplicableTest, ProceedWithSavingIfApplicable_Cvc) {
   FormData form;
   FormStructure form_structure(form);
   CreditCard local_card = test::WithCvc(test::GetCreditCard(), u"123");
-  personal_data().AddCreditCard(local_card);
+  personal_data().payments_data_manager().AddCreditCard(local_card);
   local_card.set_cvc(u"234");
   credit_card_save_manager_->ProceedWithSavingIfApplicable(
       form_structure, local_card,
@@ -5482,7 +5397,7 @@ TEST_P(ProceedWithSavingIfApplicableTest,
                               IsSaveCvcPrefEnabled());
   FormStructure form_structure(CreateTestCreditCardFormData());
   CreditCard local_card = test::WithCvc(test::GetCreditCard(), u"123");
-  personal_data().AddCreditCard(local_card);
+  personal_data().payments_data_manager().AddCreditCard(local_card);
   CreditCard server_card = test::WithCvc(test::GetMaskedServerCard(), u"123");
   personal_data().AddServerCreditCard(server_card);
   local_card.set_cvc(u"234");
@@ -5506,7 +5421,7 @@ TEST_P(ProceedWithSavingIfApplicableTest,
                               IsSaveCvcPrefEnabled());
   FormStructure form_structure(CreateTestCreditCardFormData());
   CreditCard local_card = test::WithCvc(test::GetCreditCard(), u"123");
-  personal_data().AddCreditCard(local_card);
+  personal_data().payments_data_manager().AddCreditCard(local_card);
   CreditCard server_card = test::WithCvc(test::GetMaskedServerCard(), u"123");
   personal_data().AddServerCreditCard(server_card);
   server_card.set_cvc(u"234");
@@ -5595,8 +5510,9 @@ TEST_F(CreditCardSaveManagerTest,
 // prompt.
 TEST_F(CreditCardSaveManagerTest, InitVirtualCardEnroll) {
   EXPECT_CALL(payments_client(), HideSaveCardPromptPrompt);
-  EXPECT_CALL(autofill_client_, GetVirtualCardEnrollmentManager);
-  EXPECT_CALL(*virtual_card_enrollment_manager_, InitVirtualCardEnroll);
+  EXPECT_CALL(*static_cast<MockVirtualCardEnrollmentManager*>(
+                  payments_client().GetVirtualCardEnrollmentManager()),
+              InitVirtualCardEnroll);
   credit_card_save_manager_->InitVirtualCardEnroll(
       test::GetCreditCard(), payments::PaymentsNetworkInterface::
                                  GetDetailsForEnrollmentResponseDetails());
@@ -5721,8 +5637,9 @@ TEST_F(
                     GetDetailsForEnrollmentResponseDetails>
       arg_get_details_for_enrollment_response_details;
   EXPECT_CALL(payments_client(), CreditCardUploadCompleted(true));
-  EXPECT_CALL(autofill_client_, GetVirtualCardEnrollmentManager);
-  EXPECT_CALL(*virtual_card_enrollment_manager_, InitVirtualCardEnroll)
+  EXPECT_CALL(*static_cast<MockVirtualCardEnrollmentManager*>(
+                  payments_client().GetVirtualCardEnrollmentManager()),
+              InitVirtualCardEnroll)
       .WillOnce(
           DoAll(SaveArg<0>(&arg_credit_card),
                 SaveArg<1>(&arg_virtual_card_enrollment_source),
@@ -5777,8 +5694,9 @@ TEST_F(CreditCardSaveManagerWithDelayedVirtualCardEnrollTest,
       CreditCard::VirtualCardEnrollmentState::kUnenrolledAndEligible;
 
   EXPECT_CALL(payments_client(), CreditCardUploadCompleted(true));
-  EXPECT_CALL(autofill_client_, GetVirtualCardEnrollmentManager);
-  EXPECT_CALL(*virtual_card_enrollment_manager_, InitVirtualCardEnroll);
+  EXPECT_CALL(*static_cast<MockVirtualCardEnrollmentManager*>(
+                  payments_client().GetVirtualCardEnrollmentManager()),
+              InitVirtualCardEnroll);
 
   credit_card_save_manager_->OnDidUploadCard(
       AutofillClient::PaymentsRpcResult::kSuccess,
@@ -5836,8 +5754,9 @@ TEST_P(CreditCardSaveManagerWithDelayedVirtualCardEnrollTestParameterized,
   if (IsVirtualCardEnrollmentEnabled() &&
       GetEnrollmentState() ==
           CreditCard::VirtualCardEnrollmentState::kUnenrolledAndEligible) {
-    EXPECT_CALL(autofill_client_, GetVirtualCardEnrollmentManager);
-    EXPECT_CALL(*virtual_card_enrollment_manager_, InitVirtualCardEnroll)
+    EXPECT_CALL(*static_cast<MockVirtualCardEnrollmentManager*>(
+                    payments_client().GetVirtualCardEnrollmentManager()),
+                InitVirtualCardEnroll)
         .WillOnce(DoAll(SaveArg<0>(&arg_credit_card),
                         SaveArg<1>(&arg_virtual_card_enrollment_source)));
   }

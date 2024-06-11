@@ -707,7 +707,8 @@ class StorageAccessGrantPermissionContextAPIWithFedCMConnectionTest
   void SetUp() override {
     StorageAccessGrantPermissionContextTest::SetUp();
 
-    feature_list_.InitAndEnableFeature(::features::kFedCmWithStorageAccessAPI);
+    feature_list_.InitAndEnableFeature(
+        blink::features::kFedCmWithStorageAccessAPI);
 
     FederatedIdentityPermissionContextFactory::GetForProfile(profile())
         ->GrantSharingPermission(
@@ -745,7 +746,8 @@ TEST_F(StorageAccessGrantPermissionContextAPIWithFedCMConnectionTest,
                   ContentSettingsPattern::Wildcard(),
                   content_settings::ContentSettingToValue(
                       ContentSetting::CONTENT_SETTING_ASK),
-                  /*source=*/"default", /*incognito=*/false)));
+                  content_settings::ProviderType::kDefaultProvider,
+                  /*incognito=*/false)));
   EXPECT_THAT(page_specific_content_settings()->GetTwoSiteRequests(
                   ContentSettingsType::STORAGE_ACCESS),
               IsEmpty());

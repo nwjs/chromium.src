@@ -62,6 +62,8 @@ class VIEWS_EXPORT ViewAccessibility {
   // (see OverrideFocus, etc. below).
   virtual void GetAccessibleNodeData(ui::AXNodeData* node_data) const;
 
+  void NotifyEvent(ax::mojom::Event event_type, bool send_native_event = true);
+
   // Made to be overridden on platforms that need the temporary
   // `AtomicViewAXTreeManager` to enable more accessibility functionalities for
   // Views. See crbug.com/1468416 for more info.
@@ -172,13 +174,22 @@ class VIEWS_EXPORT ViewAccessibility {
   // AXPlatformNodeDelegate, which would lead to conflicts and confusion.
   // TODO(accessibility): Rename to GetRole once the ViewsAX project is
   // completed and we don't have ViewAXPlatformNodeDelegate anymore.
-  ax::mojom::Role GetViewAccessibilityRole() const;
+  ax::mojom::Role GetCachedRole() const;
 
-  // For the same reasons as GetViewAccessibilityRole, this function cannot
+  // For the same reasons as GetCachedRole, this function cannot
   // follow the established pattern and be named GetName()
   // TODO(accessibility): Rename to GetName once the ViewsAX project is
   // completed and we don't have ViewAXPlatformNodeDelegate anymore.
-  const std::string& GetViewAccessibilityName() const;
+  const std::string& GetCachedName() const;
+
+  // Returns the source type of the accessible name.
+  //
+  // This function cannot currently be named GetNameFrom() because of a function
+  // of the same name in AXPlatformNodeDelegate. ViewAXPlatformNodeDelegate
+  // extends both ViewAccessibility and AXPlatformNodeDelegate.
+  // TODO(accessibility): Rename to GetNameFrom once the ViewsAX project is
+  // completed and we don't have ViewAXPlatformNodeDelegate anymore.
+  ax::mojom::NameFrom GetCachedNameFrom() const;
 
   // Sets the accessible name to the specified string and source type.
   // To indicate that this view should never have an accessible name, e.g. to
@@ -215,7 +226,9 @@ class VIEWS_EXPORT ViewAccessibility {
 
   void SetIsSelected(bool selected);
 
-  // Hides this view from the accessibility APIs.
+  // Hides this view from the accessibility APIs. Keep in mind that this is not
+  // the sole determinant of whether the ignored state is set. See
+  // `UpdateIgnoredState`.
   void SetIsIgnored(bool is_ignored);
   virtual bool GetIsIgnored() const;
 
@@ -224,6 +237,9 @@ class VIEWS_EXPORT ViewAccessibility {
   void SetSetSize(int set_size);
   void ClearPosInSet();
   void ClearSetSize();
+
+  void SetActiveDescendant(views::View& view);
+  void ClearActiveDescendant();
 
   // Sets/gets whether or not this view should be marked as "enabled" for the
   // purpose exposing this state in the accessibility tree. As a general rule,
@@ -247,7 +263,10 @@ class VIEWS_EXPORT ViewAccessibility {
   // and confusion.
   // TODO(accessibility): Rename to GetDescription once the ViewsAX project is
   // completed and we don't have ViewAXPlatformNodeDelegate anymore.
-  std::u16string GetViewAccessibilityDescription() const;
+  std::u16string GetCachedDescription() const;
+
+  void SetCheckedState(ax::mojom::CheckedState checked_state);
+  void RemoveCheckedState();
 
   // Sets the platform-specific accessible name/title property of the
   // NativeViewAccessible window. This is needed on platforms where the name
@@ -280,6 +299,25 @@ class VIEWS_EXPORT ViewAccessibility {
   Widget* GetNextWindowFocus() const;
   Widget* GetPreviousWindowFocus() const;
 
+  void SetShowContextMenu(bool show_context_menu);
+
+  void SetState(ax::mojom::State state, bool is_enabled);
+
+  // Updates the focusable state of the `data_` object.
+  // The view is considered focusable if it is not set to never receive focus
+  // This function must be called whenever an attribute that can affect the
+  // focusable state changes
+  void UpdateFocusableState();
+
+  // This function recursively updates the focusable state of the `data_` member
+  // and that of the view's children. Then it updates the focusable state of the
+  // current view.
+  void UpdateFocusableStateRecursive();
+
+  // Updates the invisible state of the `data_` object. The view is considered
+  // invisible if it is not visible and its role is not kAlert.
+  void UpdateInvisibleState();
+
   // Override the child tree id.
   void OverrideChildTreeID(ui::AXTreeID tree_id);
   ui::AXTreeID GetChildTreeID() const;
@@ -296,7 +334,7 @@ class VIEWS_EXPORT ViewAccessibility {
   // instead of just "hello", and may interrupt any existing text being spoken.
   // However, the screen reader may also treat the two calls the same.
   // AnnounceText() is a deprecated alias for AnnounceAlert().
-  // TODO(crbug.com/1499368) - Migrate all callers of AnnounceText() to
+  // TODO(crbug.com/40287811) - Migrate all callers of AnnounceText() to
   // one of the other two methods.
   virtual void AnnounceAlert(const std::u16string& text);
   virtual void AnnouncePolitely(const std::u16string& text);
@@ -367,14 +405,24 @@ class VIEWS_EXPORT ViewAccessibility {
  protected:
   explicit ViewAccessibility(View* view);
 
-  // Used internally and by View.
-  virtual void NotifyAccessibilityEvent(ax::mojom::Event event_type);
+  virtual void FireNativeEvent(ax::mojom::Event event_type);
 
   // Used for testing. Called every time an accessibility event is fired.
   AccessibilityEventsCallback accessibility_events_callback_;
 
  private:
-  friend class View;
+  // Prune/Unprune all descendant views from the accessibility tree. We prune
+  // for two reasons: 1) The view has been explicitly marked as a leaf node, 2)
+  // The view is focusable and lacks focusable descendants (e.g. a button with a
+  // label and/or an image).
+  void PruneSubtree();
+  void UnpruneSubtree();
+
+  // Updates the ignored state of the `data_` object.
+  // The view is considered ignored if it should be ignored as per
+  // `should_be_ignored_`, or if it has been pruned (`pruned_`), or if its role
+  // is 'kNone'.
+  void UpdateIgnoredState();
 
   // Weak. Owns this.
   const raw_ptr<View> view_;
@@ -388,11 +436,7 @@ class VIEWS_EXPORT ViewAccessibility {
   // See also OverrideFocus() and GetFocusedDescendant().
   raw_ptr<AXVirtualView> focused_virtual_child_;
 
-  const ui::AXUniqueId unique_id_;
-
-  // Contains data set explicitly via OverrideRole etc. that
-  // overrides anything provided by GetAccessibleNodeData().
-  ui::AXNodeData override_data_;
+  const ui::AXUniqueId unique_id_{ui::AXUniqueId::Create()};
 
   // Contains data that is populated by the setters in this class.
   // This member is tied to the ViewsAX project. Which is introducing a new
@@ -417,6 +461,12 @@ class VIEWS_EXPORT ViewAccessibility {
 
   bool pruned_ = false;
 
+  // This is set to true when the view is explicitly marked as ignored by
+  // `SetIsIgnored`. It is not the only condition that will cause a view to have
+  // the ignored accessible state, as `pruned_` and `is_leaf_` can also cause
+  // this. See `UpdateIgnoredState`.
+  bool should_be_ignored_ = false;
+
   // Used by the Views system to help some assistive technologies, such as
   // screen readers, transition focus from one widget to another.
   base::WeakPtr<Widget> next_focus_ = nullptr;
@@ -432,18 +482,15 @@ class VIEWS_EXPORT ViewAccessibility {
   // View.
   bool needs_ax_tree_manager_ = false;
 
+  // Prevents accessibility events from being fired during initialization of
+  // the owning View.
+  bool pause_accessibility_events_ = false;
+
 #if defined(USE_AURA) && !BUILDFLAG(IS_CHROMEOS_ASH)
   // Each instance of ViewAccessibility that's associated with a root View
   // owns an ViewsAXTreeManager. For other Views, this should be nullptr.
   std::unique_ptr<views::ViewsAXTreeManager> ax_tree_manager_;
 #endif
-
-  // Prune/Unprune all descendant views from the accessibility tree. We prune
-  // for two reasons: 1) The view has been explicitly marked as a leaf node, 2)
-  // The view is focusable and lacks focusable descendants (e.g. a button with a
-  // label and/or an image).
-  void PruneSubtree();
-  void UnpruneSubtree();
 
   bool ignore_missing_widget_for_testing_ = false;
 };

@@ -462,8 +462,8 @@
 
 // Invoked when a link in the disclaimer is tapped.
 - (void)didTapURLInDisclaimer:(NSURL*)URL {
-  // TODO(crbug.com/1363906): Complete `didTapURLInDisclaimer` to bring users to
-  // Settings page.
+  // TODO(crbug.com/40238885): Complete `didTapURLInDisclaimer` to bring users
+  // to Settings page.
 }
 
 #pragma mark - ConfirmationAlertActionHandler
@@ -580,10 +580,12 @@
   // Docking promo handler.
   _displayHandlerPromos[promos_manager::Promo::DockingPromo] =
       [[DockingPromoDisplayHandler alloc]
-          initWithHandler:_dockingPromoCommandHandler];
+                   initWithHandler:_dockingPromoCommandHandler
+          showRemindMeLaterVersion:NO];
   _displayHandlerPromos[promos_manager::Promo::DockingPromoRemindMeLater] =
       [[DockingPromoDisplayHandler alloc]
-          initWithHandler:_dockingPromoCommandHandler];
+                   initWithHandler:_dockingPromoCommandHandler
+          showRemindMeLaterVersion:YES];
 
   // Default browser promo handler.
   _displayHandlerPromos[promos_manager::Promo::DefaultBrowser] =

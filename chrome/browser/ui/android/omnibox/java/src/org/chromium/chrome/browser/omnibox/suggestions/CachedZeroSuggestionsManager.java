@@ -199,6 +199,7 @@ public class CachedZeroSuggestionsManager {
                             classifications,
                             null,
                             null,
+                            null,
                             url,
                             GURL.emptyGURL(),
                             null,
@@ -208,6 +209,9 @@ public class CachedZeroSuggestionsManager {
                             groupId,
                             null,
                             false,
+                            null,
+                            false,
+                            null,
                             null);
             suggestions.add(suggestion);
         }

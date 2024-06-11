@@ -19,20 +19,20 @@
 namespace blink {
 namespace {
 
-WGPUTextureFormat VizToWGPUFormat(const viz::SharedImageFormat& format) {
+wgpu::TextureFormat VizToWGPUFormat(const viz::SharedImageFormat& format) {
   // This function provides the inverse mapping of `WGPUFormatToViz` (located in
   // webgpu_swap_buffer_provider.cc).
   if (format == viz::SinglePlaneFormat::kBGRA_8888) {
-    return WGPUTextureFormat_BGRA8Unorm;
+    return wgpu::TextureFormat::BGRA8Unorm;
   }
   if (format == viz::SinglePlaneFormat::kRGBA_8888) {
-    return WGPUTextureFormat_RGBA8Unorm;
+    return wgpu::TextureFormat::RGBA8Unorm;
   }
   if (format == viz::SinglePlaneFormat::kRGBA_F16) {
-    return WGPUTextureFormat_RGBA16Float;
+    return wgpu::TextureFormat::RGBA16Float;
   }
   NOTREACHED() << "Unexpected canvas format: " << format.ToString();
-  return WGPUTextureFormat_RGBA8Unorm;
+  return wgpu::TextureFormat::RGBA8Unorm;
 }
 
 }  // namespace
@@ -40,8 +40,8 @@ WGPUTextureFormat VizToWGPUFormat(const viz::SharedImageFormat& format) {
 // static
 scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromStaticBitmapImage(
     scoped_refptr<DawnControlClientHolder> dawn_control_client,
-    WGPUDevice device,
-    WGPUTextureUsage usage,
+    const wgpu::Device& device,
+    wgpu::TextureUsage usage,
     scoped_refptr<StaticBitmapImage> image,
     const SkImageInfo& info,
     const gfx::Rect& image_sub_rect,
@@ -101,8 +101,8 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromStaticBitmapImage(
 // static
 scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromCanvasResource(
     scoped_refptr<DawnControlClientHolder> dawn_control_client,
-    WGPUDevice device,
-    WGPUTextureUsage usage,
+    const wgpu::Device& device,
+    wgpu::TextureUsage usage,
     std::unique_ptr<RecyclableCanvasResource> recyclable_canvas_resource) {
   scoped_refptr<CanvasResource> canvas_resource =
       recyclable_canvas_resource->resource_provider()->ProduceCanvasResource(
@@ -115,14 +115,14 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromCanvasResource(
   gpu::SyncToken sync_token = canvas_resource->GetSyncToken();
   gfx::Size size = canvas_resource->Size();
 
-  WGPUTextureDescriptor desc = {};
-  desc.usage = usage;
-  desc.dimension = WGPUTextureDimension_2D;
-  desc.size.width = size.width();
-  desc.size.height = size.height();
-  desc.format = VizToWGPUFormat(canvas_resource->GetSharedImageFormat());
+  wgpu::TextureDescriptor tex_desc = {
+      .usage = usage,
+      .size = {base::checked_cast<uint32_t>(size.width()),
+               base::checked_cast<uint32_t>(size.height())},
+      .format = VizToWGPUFormat(canvas_resource->GetSharedImageFormat()),
+  };
   return base::AdoptRef(new WebGPUMailboxTexture(
-      std::move(dawn_control_client), device, desc, mailbox, sync_token,
+      std::move(dawn_control_client), device, tex_desc, mailbox, sync_token,
       gpu::webgpu::WEBGPU_MAILBOX_NONE,
       base::OnceCallback<void(const gpu::SyncToken&)>(),
       std::move(recyclable_canvas_resource)));
@@ -131,8 +131,8 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromCanvasResource(
 // static
 scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromExistingMailbox(
     scoped_refptr<DawnControlClientHolder> dawn_control_client,
-    WGPUDevice device,
-    const WGPUTextureDescriptor& desc,
+    const wgpu::Device& device,
+    const wgpu::TextureDescriptor& desc,
     const gpu::Mailbox& mailbox,
     const gpu::SyncToken& sync_token,
     gpu::webgpu::MailboxFlags mailbox_flags,
@@ -147,8 +147,8 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromExistingMailbox(
 //  static
 scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromVideoFrame(
     scoped_refptr<DawnControlClientHolder> dawn_control_client,
-    WGPUDevice device,
-    WGPUTextureUsage usage,
+    const wgpu::Device& device,
+    wgpu::TextureUsage usage,
     scoped_refptr<media::VideoFrame> video_frame) {
   auto context_provider = dawn_control_client->GetContextProviderWeakPtr();
   if (!context_provider ||
@@ -168,8 +168,9 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromVideoFrame(
       },
       context_provider, base::RetainedRef(video_frame));
 
-  WGPUTextureDescriptor desc = {};
-  desc.usage = WGPUTextureUsage_TextureBinding;
+  wgpu::TextureDescriptor desc = {
+      .usage = wgpu::TextureUsage::TextureBinding,
+  };
   return base::AdoptRef(
       new WebGPUMailboxTexture(std::move(dawn_control_client), device, desc,
                                video_frame->mailbox_holder(0).mailbox,
@@ -180,8 +181,8 @@ scoped_refptr<WebGPUMailboxTexture> WebGPUMailboxTexture::FromVideoFrame(
 
 WebGPUMailboxTexture::WebGPUMailboxTexture(
     scoped_refptr<DawnControlClientHolder> dawn_control_client,
-    WGPUDevice device,
-    const WGPUTextureDescriptor& desc,
+    const wgpu::Device& device,
+    const wgpu::TextureDescriptor& desc,
     const gpu::Mailbox& mailbox,
     const gpu::SyncToken& sync_token,
     gpu::webgpu::MailboxFlags mailbox_flags,
@@ -194,8 +195,6 @@ WebGPUMailboxTexture::WebGPUMailboxTexture(
       recyclable_canvas_resource_(std::move(recyclable_canvas_resource)) {
   DCHECK(dawn_control_client_->GetContextProviderWeakPtr());
 
-  dawn_control_client_->GetProcs().deviceReference(device_);
-
   gpu::webgpu::WebGPUInterface* webgpu =
       dawn_control_client_->GetContextProviderWeakPtr()
           ->ContextProvider()
@@ -205,21 +204,22 @@ WebGPUMailboxTexture::WebGPUMailboxTexture(
   webgpu->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
 
   // Produce and inject image to WebGPU texture
-  gpu::webgpu::ReservedTexture reservation =
-      webgpu->ReserveTexture(device_, &desc);
+  gpu::webgpu::ReservedTexture reservation = webgpu->ReserveTexture(
+      device_.Get(), reinterpret_cast<const WGPUTextureDescriptor*>(&desc));
   DCHECK(reservation.texture);
 
   wire_device_id_ = reservation.deviceId;
   wire_device_generation_ = reservation.deviceGeneration;
   wire_texture_id_ = reservation.id;
   wire_texture_generation_ = reservation.generation;
-  texture_ = reservation.texture;
+  texture_ = wgpu::Texture::Acquire(reservation.texture);
 
   // This may fail because gl_backing resource cannot produce dawn
   // representation.
   webgpu->AssociateMailbox(
       wire_device_id_, wire_device_generation_, wire_texture_id_,
-      wire_texture_generation_, desc.usage, desc.viewFormats,
+      wire_texture_generation_, static_cast<GLuint>(desc.usage),
+      reinterpret_cast<const WGPUTextureFormat*>(desc.viewFormats),
       base::checked_cast<GLuint>(desc.viewFormatCount), mailbox_flags, mailbox);
 }
 
@@ -272,8 +272,6 @@ void WebGPUMailboxTexture::SetCompletionSyncToken(const gpu::SyncToken& token) {
 
 WebGPUMailboxTexture::~WebGPUMailboxTexture() {
   Dissociate();
-  dawn_control_client_->GetProcs().textureRelease(texture_);
-  dawn_control_client_->GetProcs().deviceRelease(device_);
 }
 
 }  // namespace blink

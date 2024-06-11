@@ -123,8 +123,6 @@
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/notification_service.h"
-#include "content/public/browser/notification_types.h"
 #include "content/public/browser/storage_partition.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
@@ -438,7 +436,8 @@ void ExistingUserController::UpdateLoginDisplay(
   }
 
   if (LoginDisplayHostMojo::Get()) {
-    auto login_users = chrome_user_manager_util::FindLoginAllowedUsers(users);
+    auto login_users =
+        user_manager::UserManager::Get()->FindLoginAllowedUsersFrom(users);
     LoginDisplayHostMojo::Get()->SetUsers(login_users);
   }
 }
@@ -801,7 +800,7 @@ void ExistingUserController::OnAuthSuccess(const UserContext& user_context) {
           g_browser_process->local_state(), user_context.GetAccountId(),
           user_context.GetUserIDHash(),
           crosapi::browser_util::PolicyInitState::kAfterInit)) {
-    // TODO(crbug.com/1261730): Add an UMA.
+    // TODO(crbug.com/40799062): Add an UMA.
     LOG(WARNING) << "Restarting Chrome to resume move migration.";
     return;
   }

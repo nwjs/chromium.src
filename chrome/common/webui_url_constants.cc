@@ -4,7 +4,8 @@
 
 #include "chrome/common/webui_url_constants.h"
 
-#include "base/strings/string_piece.h"
+#include <string_view>
+
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/commerce/core/commerce_constants.h"
@@ -55,6 +56,7 @@ const char kChromeUIComponentsHost[] = "components";
 const char kChromeUIComponentsUrl[] = "chrome://components";
 const char kChromeUIConflictsHost[] = "conflicts";
 const char kChromeUIConstrainedHTMLTestURL[] = "chrome://constrained-test/";
+const char kChromeUIContentSettingsURL[] = "chrome://settings/content";
 const char kChromeUICookieSettingsURL[] = "chrome://settings/cookies";
 const char kChromeUICrashHost[] = "crash";
 const char kChromeUICrashesHost[] = "crashes";
@@ -257,7 +259,7 @@ const char kChromeUIWhatsNewURL[] = "chrome://whats-new/";
 const char kChromeUIWebuiGalleryHost[] = "webui-gallery";
 
 #if BUILDFLAG(IS_WIN)
-// TODO(crbug.com/1003960): Remove when issue is resolved.
+// TODO(crbug.com/40647483): Remove when issue is resolved.
 const char kChromeUIWelcomeWin10Host[] = "welcome-win10";
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -439,7 +441,7 @@ const char kChromeUIUrgentPasswordExpiryNotificationUrl[] =
 
 // Keep alphabetized.
 
-bool IsSystemWebUIHost(base::StringPiece host) {
+bool IsSystemWebUIHost(std::string_view host) {
   // Compares host instead of full URL for performance (the strings are
   // shorter).
   static const char* const kHosts[] = {
@@ -546,9 +548,9 @@ const char kChromeUILinuxProxyConfigHost[] = "linux-proxy-config";
 const char kChromeUISandboxHost[] = "sandbox";
 #endif
 
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_FUCHSIA) || \
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
     (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
 const char kChromeUIBrowserSwitchHost[] = "browser-switch";
 const char kChromeUIBrowserSwitchURL[] = "chrome://browser-switch/";
@@ -647,8 +649,7 @@ const char kTrackingProtectionSubPagePath[] = "/trackingProtection";
 const char kCookiesSubPagePath[] = "/cookies";
 #endif
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 const char kChromeUIWebAppSettingsURL[] = "chrome://app-settings/";
 const char kChromeUIWebAppSettingsHost[] = "app-settings";
 #endif
@@ -845,7 +846,7 @@ const size_t kNumberOfChromeInternalsPathURLs =
     std::size(kChromeInternalsPathURLs);
 
 const char* const kChromeDebugURLs[] = {
-    // TODO(crbug/1407149): make this list comprehensive
+    // TODO(crbug.com/40253037): make this list comprehensive
     blink::kChromeUIBadCastCrashURL,
     blink::kChromeUIBrowserCrashURL,
     blink::kChromeUIBrowserDcheckURL,

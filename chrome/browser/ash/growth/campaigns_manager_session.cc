@@ -11,6 +11,8 @@
 #include "base/logging.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_ash.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/ash/ownership/owner_settings_service_ash.h"
+#include "chrome/browser/ash/ownership/owner_settings_service_ash_factory.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
@@ -22,7 +24,6 @@
 #include "chromeos/ash/components/growth/campaigns_model.h"
 #include "components/app_constants/constants.h"
 #include "components/session_manager/session_manager_types.h"
-#include "url/gurl.h"
 
 namespace {
 
@@ -65,7 +66,7 @@ void MaybeTriggerSlot(growth::Slot slot) {
 
   const auto* payload = growth::GetPayloadBySlot(campaign, slot);
   if (!payload) {
-    LOG(ERROR) << "Invalid: Missing payload.";
+    // No payload for the targeted slot. It is valid for counterfactual control.
     return;
   }
 
@@ -78,15 +79,25 @@ void MaybeTriggerCampaignsWhenAppOpened() {
     return;
   }
 
+  auto* campaigns_manager = growth::CampaignsManager::Get();
+  CHECK(campaigns_manager);
+  campaigns_manager->SetTrigger(growth::TriggeringType::kAppOpened);
+
   MaybeTriggerSlot(growth::Slot::kNudge);
   MaybeTriggerSlot(growth::Slot::kNotification);
 }
 
 void MaybeTriggerCampaignsWhenCampaignsLoaded() {
+  if (!ash::features::IsGrowthCampaignsTriggerAtLoadComplete()) {
+    return;
+  }
+
   auto* campaigns_manager = growth::CampaignsManager::Get();
   CHECK(campaigns_manager);
+  campaigns_manager->SetTrigger(growth::TriggeringType::kCampaignsLoaded);
 
-  // TODO(b/318885858): Trigger nudge if nudge campaigns is matched.
+  MaybeTriggerSlot(growth::Slot::kNudge);
+  MaybeTriggerSlot(growth::Slot::kNotification);
 }
 
 const GURL FindActiveWebAppBrowser(Profile* profile,
@@ -114,6 +125,17 @@ const GURL FindActiveWebAppBrowser(Profile* profile,
   }
 
   return GURL::EmptyGURL();
+}
+
+bool IsBrowserApp(const std::string& app_id) {
+  return app_id == app_constants::kChromeAppId ||
+         app_id == app_constants::kAshDebugBrowserAppId ||
+         app_id == app_constants::kLacrosAppId;
+}
+
+bool IsAppActiveAndVisible(const apps::InstanceUpdate& update) {
+  return ((update.State() & apps::InstanceState::kActive) &&
+          (update.State() & apps::InstanceState::kVisible));
 }
 
 }  // namespace
@@ -159,12 +181,17 @@ void CampaignsManagerSession::OnSessionStateChanged() {
     return;
   }
 
-  auto* campaigns_manager = growth::CampaignsManager::Get();
-  CHECK(campaigns_manager);
-
-  campaigns_manager->LoadCampaigns(
-      base::BindOnce(&CampaignsManagerSession::OnLoadCampaignsCompleted,
-                     weak_ptr_factory_.GetWeakPtr()));
+  ash::OwnerSettingsServiceAsh* service =
+      ash::OwnerSettingsServiceAshFactory::GetForBrowserContext(GetProfile());
+  if (service) {
+    service->IsOwnerAsync(
+        base::BindOnce(&CampaignsManagerSession::OnOwnershipDetermined,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    // TODO: b/338085893 - Add metric to track the case that settings service
+    // is not available at this point.
+    LOG(ERROR) << "Owner settings service unavailable for the profile.";
+  }
 }
 
 void CampaignsManagerSession::OnInstanceUpdate(
@@ -174,33 +201,30 @@ void CampaignsManagerSession::OnInstanceUpdate(
     return;
   }
 
-  auto app_id = update.AppId();
-
-  if (app_id == app_constants::kChromeAppId ||
-      app_id == app_constants::kAshDebugBrowserAppId ||
-      app_id == app_constants::kLacrosAppId) {
-    // TODO: b/331975665 - handle browser app with URL targeting.
+  if (update.IsDestruction()) {
+    HandleAppInstanceDestruction(update);
     return;
   }
 
-  auto* campaigns_manager = growth::CampaignsManager::Get();
-  CHECK(campaigns_manager);
+  auto app_id = update.AppId();
+  // For browser app, the user can open a new tab or switch to an existing tab.
+  // The campaigns will be triggered when navigating to the target url.
+  if (IsBrowserApp(app_id)) {
+    if (ash::features::IsGrowthCampaignsTriggerByBrowserEnabled() &&
+        IsAppActiveAndVisible(update)) {
+      auto* campaigns_manager = growth::CampaignsManager::Get();
+      CHECK(campaigns_manager);
+
+      // TODO: b/339706247 - Set the app id and window on PrimaryPageChanged.
+      campaigns_manager->SetOpenedApp(app_id);
+      opened_window_ = update.Window();
+    }
+
+    return;
+  }
 
   if (update.IsCreation()) {
-    campaigns_manager->SetOpenedApp(app_id);
-    campaigns_manager->SetActiveUrl(
-        FindActiveWebAppBrowser(GetProfile(), app_id));
-    opened_window_ = update.Window();
-
-    MaybeTriggerCampaignsWhenAppOpened();
-  } else if (update.IsDestruction()) {
-    // TODO: b/330409492 - Maybe trigger a campaign when app is about to be
-    // destroyed.
-    if (app_id == campaigns_manager->GetOpenedAppId()) {
-      campaigns_manager->SetOpenedApp(std::string());
-      opened_window_ = nullptr;
-      active_url_ = GURL::EmptyGURL();
-    }
+    HandleAppInstanceCreation(update);
   }
 }
 
@@ -209,6 +233,21 @@ void CampaignsManagerSession::OnInstanceRegistryWillBeDestroyed(
   if (scoped_observation_.GetSource() == cache) {
     scoped_observation_.Reset();
   }
+}
+
+void CampaignsManagerSession::PrimaryPageChanged(const GURL& url) {
+  if (!ash::features::IsGrowthCampaignsTriggerByBrowserEnabled()) {
+    return;
+  }
+
+  auto* campaigns_manager = growth::CampaignsManager::Get();
+  CHECK(campaigns_manager);
+
+  if (!IsBrowserApp(campaigns_manager->GetOpenedAppId())) {
+    return;
+  }
+  campaigns_manager->SetActiveUrl(url);
+  MaybeTriggerCampaignsWhenAppOpened();
 }
 
 void CampaignsManagerSession::SetProfileForTesting(Profile* profile) {
@@ -253,10 +292,52 @@ void CampaignsManagerSession::SetupWindowObserver() {
   scoped_observation_.Observe(&proxy->InstanceRegistry());
 }
 
+void CampaignsManagerSession::OnOwnershipDetermined(bool is_user_owner) {
+  auto* campaigns_manager = growth::CampaignsManager::Get();
+  CHECK(campaigns_manager);
+
+  campaigns_manager->SetIsUserOwner(is_user_owner);
+
+  campaigns_manager->LoadCampaigns(
+      base::BindOnce(&CampaignsManagerSession::OnLoadCampaignsCompleted,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
 void CampaignsManagerSession::OnLoadCampaignsCompleted() {
   if (ash::features::IsGrowthCampaignsTriggerByAppOpenEnabled()) {
     SetupWindowObserver();
   }
 
   MaybeTriggerCampaignsWhenCampaignsLoaded();
+}
+
+void CampaignsManagerSession::HandleAppInstanceCreation(
+    const apps::InstanceUpdate& update) {
+  auto* campaigns_manager = growth::CampaignsManager::Get();
+  CHECK(campaigns_manager);
+
+  auto app_id = update.AppId();
+
+  campaigns_manager->SetOpenedApp(app_id);
+  campaigns_manager->SetActiveUrl(
+      FindActiveWebAppBrowser(GetProfile(), app_id));
+  opened_window_ = update.Window();
+
+  MaybeTriggerCampaignsWhenAppOpened();
+}
+
+void CampaignsManagerSession::HandleAppInstanceDestruction(
+    const apps::InstanceUpdate& update) {
+  // TODO: b/330409492 - Maybe trigger a campaign when app is about to be
+  // destroyed.
+  auto* campaigns_manager = growth::CampaignsManager::Get();
+  CHECK(campaigns_manager);
+
+  if (update.AppId() != campaigns_manager->GetOpenedAppId()) {
+    return;
+  }
+
+  campaigns_manager->SetOpenedApp(std::string());
+  opened_window_ = nullptr;
+  active_url_ = GURL::EmptyGURL();
 }

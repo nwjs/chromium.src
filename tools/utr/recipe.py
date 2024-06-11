@@ -26,6 +26,11 @@ logging.getLogger('markdown_it').setLevel(logging.WARNING)
 _THIS_DIR = pathlib.Path(__file__).resolve().parent
 _SRC_DIR = _THIS_DIR.parents[1]
 
+_RECLIENT_CLI = _SRC_DIR.joinpath('buildtools', 'reclient_cfgs',
+                                  'configure_reclient_cfgs.py')
+_SISO_CLI = _SRC_DIR.joinpath('build', 'config', 'siso', 'configure_siso.py')
+_DEFAULT_RBE_PROJECT = 'rbe-chrome-untrusted'
+
 RerunOption = namedtuple('RerunOption', ['prompt', 'properties'])
 
 
@@ -80,39 +85,52 @@ class LegacyRunner:
   updated to support and utilize that new mode if/when it's available.
   """
 
-  UTR_RECIPE_NAME = 'chromium/universal_test_runner'
-
   def __init__(self,
                recipes_py,
                builder_props,
+               project,
                bucket,
                builder,
-               swarming_server,
                tests,
                skip_compile,
                skip_test,
                skip_prompts,
-               build_dir=None):
+               build_dir=None,
+               additional_test_args=None):
     """Constructor for LegacyRunner
 
     Args:
       recipes_py: pathlib.Path to the root of the recipe bundle
       builder_props: Dict containing the props for the builder to run as.
+      project: Project name of the builder to run as.
       bucket: Bucket name of the builder to run as.
       builder: Builder name of the builder to run as.
-      swarming_server: Swarming server the builder runs on.
       tests: List of tests to run.
       skip_compile: If True, the UTR will only run the tests.
       skip_test: If True, the UTR will only compile.
       skip_prompts: If True, skip Y/N prompts for warnings.
       build_dir: pathlib.Path to the build dir to build in. Will use the UTR's
           default otherwise if needed.
+      additional_test_args: List of additional args to pass to the tests.
     """
     self._recipes_py = recipes_py
-    self._swarming_server = swarming_server
     self._skip_prompts = skip_prompts
     self._console_printer = console.Console()
     assert self._recipes_py.exists()
+
+    # It's probably safe to assume chromium implies chromium-swarm and chrome
+    # implies chrome-swarming. If it's not, cr-buildbucket.cfg attaches the
+    # swarming to each and every builder. So could use that instead.
+    self._swarming_server = 'chrome-swarming'
+    self._utr_recipe = 'chrome/universal_test_runner'
+    # Put all results in "try" realms. "try" should be writable for most devs,
+    # while other realms like "ci" likely aren't. "try" is generally where we
+    # confine untested code, so it's the best fit for our results here.
+    self._luci_realm = 'chrome:try'
+    if project == 'chromium':
+      self._swarming_server = 'chromium-swarm'
+      self._luci_realm = 'chromium:try'
+      self._utr_recipe = 'chromium/universal_test_runner'
 
     # Add UTR recipe props. Its schema is located at:
     # https://chromium.googlesource.com/chromium/tools/build/+/HEAD/recipes/recipes/chromium/universal_test_runner.proto
@@ -120,6 +138,9 @@ class LegacyRunner:
     input_props['checkout_path'] = str(_SRC_DIR)
     input_props['$recipe_engine/path'] = {'cache_dir': str(_SRC_DIR.parent)}
     input_props['test_names'] = tests
+    input_props['$build/chromium_swarming'] = {'task_realm': self._luci_realm}
+    if additional_test_args:
+      input_props['additional_test_args'] = additional_test_args
     if build_dir:
       input_props['build_dir'] = str(build_dir.absolute())
     # The recipe will overwrite this property so we have to put it preserve it
@@ -148,30 +169,58 @@ class LegacyRunner:
             },
         },
     }
+    # TODO(crbug.com/41492688): Ensure the chrome version for internal builders
+    # when they are added.
+    # Set reclient and siso to use untrusted even for imitating ci builders
+    if not '$build/reclient' in input_props:
+      input_props['$build/reclient'] = {}
+    input_props['$build/reclient']['instance'] = self._get_reclient_instance()
+    if not '$build/siso' in input_props:
+      input_props['$build/siso'] = {}
+    input_props['$build/siso']['project'] = self._get_siso_project()
     self._input_props = input_props
 
-  def _run(self, adapter, additional_props=None):
+  def _get_cmd_output(self, cmd):
+    p = subprocess.run(cmd,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT,
+                       text=True,
+                       check=False)
+    if p.returncode == 0:
+      return p.stdout.strip()
+    return ''
+
+  def _get_reclient_instance(self):
+    cmd = [
+        'python3',
+        str(_RECLIENT_CLI),
+        '--get-rbe-instance',
+    ]
+    return self._get_cmd_output(cmd) or _DEFAULT_RBE_PROJECT
+
+  def _get_siso_project(self):
+    cmd = [
+        'python3',
+        str(_SISO_CLI),
+        '--get-siso-project',
+    ]
+    return self._get_cmd_output(cmd) or _DEFAULT_RBE_PROJECT
+
+  def _run(self, adapter, rerun_props=None):
     """Internal implementation of invoking `recipes.py run`.
 
     Args:
       adapter: A output_adapter.Adapter for parsing recipe output.
-      additional_props: Dict containing additional props to pass to the recipe.
+      rerun_props: Dict containing additional props to pass to the recipe.
     Returns:
       Tuple of
         exit code of the `recipes.py` invocation,
         summary markdown of the `recipes.py` invocation,
-        a dict of additional_props the recipe should be re-invoked with
+        a dict of rerun_props the recipe should be re-invoked with
     """
     input_props = self._input_props.copy()
-    input_props.update(additional_props or {})
+    input_props['rerun_options'] = rerun_props or {}
     with tempfile.TemporaryDirectory() as tmp_dir:
-
-      # TODO(crbug.com/41492688): Support both chrome and chromium realms. Just
-      # hard-code 'chromium' for now.
-      # Put all results in "try" realms. "try" should be writable for most devs,
-      # while other realms like "ci" likely aren't. "try" is generally where we
-      # confine untested code, so it's the best fit for our results here.
-      rdb_realm = 'chromium:try'
 
       output_path = pathlib.Path(tmp_dir).joinpath('out.json')
       rerun_props_path = pathlib.Path(tmp_dir).joinpath('rerun_props.json')
@@ -181,7 +230,7 @@ class LegacyRunner:
           'stream',
           '-new',
           '-realm',
-          rdb_realm,
+          self._luci_realm,
           '--',
           self._recipes_py,
           'run',
@@ -189,7 +238,7 @@ class LegacyRunner:
           output_path,
           '--properties-file',
           '-',  # '-' means read from stdin
-          self.UTR_RECIPE_NAME,
+          self._utr_recipe,
       ]
       env = os.environ.copy()
       # This env var is read by both the cas and swarming recipe modules to
@@ -255,7 +304,7 @@ class LegacyRunner:
     Returns:
       Tuple of (exit code, error message) of the `recipes.py` invocation.
     """
-    props_to_use = None
+    rerun_props = None
     if filter_stdout:
       adapter = output_adapter.LegacyOutputAdapter()
     else:
@@ -264,7 +313,7 @@ class LegacyRunner:
     # final result. Put a cap on the amount of re-runs though, just in case.
     for _ in range(10):
       exit_code, failure_md, rerun_prop_options = self._run(
-          adapter, props_to_use)
+          adapter, rerun_props)
       # For in-line code snippets in markdown, style them as python. This
       # seems the least weird-looking.
       pretty_md = markdown.Markdown(failure_md, inline_code_lexer='python')
@@ -287,7 +336,7 @@ class LegacyRunner:
       self._console_printer.print(pretty_md)
       logging.warning('')
       if not self._skip_prompts:
-        props_to_use = get_prompt_resp(rerun_prop_options)
+        rerun_props = get_prompt_resp(rerun_prop_options)
       else:
         logging.warning(
             '[yellow]Proceeding despite the recipe warning due to the presence '
@@ -295,7 +344,7 @@ class LegacyRunner:
         if len(rerun_prop_options) < 1 or len(rerun_prop_options[0]) < 2:
           return 1, 'Received bad run options from the recipe'
         # Properties of the first option is the default path
-        props_to_use = rerun_prop_options[0].properties
-      if not props_to_use:
+        rerun_props = rerun_prop_options[0].properties
+      if not rerun_props:
         return exit_code, 'User-aborted due to warning'
     return 1, 'Exceeded too many recipe re-runs'

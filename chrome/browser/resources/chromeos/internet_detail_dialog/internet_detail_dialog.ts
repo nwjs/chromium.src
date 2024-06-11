@@ -128,6 +128,14 @@ export class InternetDetailDialogElement extends
         },
       },
 
+      isApnRevampAndPoliciesEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.valueExists('isApnRevampAndPoliciesEnabled') &&
+              loadTimeData.getBoolean('isApnRevampAndPoliciesEnabled');
+        },
+      },
+
       /**
        * Return true if custom APNs limit is reached.
        */
@@ -158,6 +166,7 @@ export class InternetDetailDialogElement extends
   private globalPolicy_: GlobalPolicy;
   private apnExpanded_: boolean;
   private isApnRevampEnabled_: boolean;
+  private isApnRevampAndPoliciesEnabled_: boolean;
   private isNumCustomApnsLimitReached_: boolean;
   private errorToastMessage_: string;
   private didSetFocus_: boolean = false;
@@ -441,6 +450,16 @@ export class InternetDetailDialogElement extends
     return getApnDisplayName(
         this.i18n.bind(this),
         managedProperties.typeProperties.cellular!.connectedApn);
+  }
+
+  private isApnManaged_(globalPolicy: GlobalPolicy|undefined): boolean {
+    if (!this.isApnRevampAndPoliciesEnabled_) {
+      return false;
+    }
+    if (!globalPolicy) {
+      return false;
+    }
+    return !globalPolicy.allowApnModification;
   }
 
   private showCellularSim_(managedProperties: ManagedProperties): boolean {
@@ -744,6 +763,19 @@ export class InternetDetailDialogElement extends
     const customApnList =
         this.managedProperties_.typeProperties.cellular.customApnList;
     return !!customApnList && customApnList.length >= MAX_NUM_CUSTOM_APNS;
+  }
+
+  private shouldDisableApnButtons_(): boolean {
+    if (!this.isApnRevampEnabled_) {
+      return true;
+    }
+
+    if (!this.isApnRevampAndPoliciesEnabled_) {
+      return this.isNumCustomApnsLimitReached_;
+    }
+
+    return this.isNumCustomApnsLimitReached_ ||
+        this.isApnManaged_(this.globalPolicy_);
   }
 
   private onShowErrorToast_(event: CustomEvent<string>) {

@@ -29,9 +29,6 @@
 #include "third_party/fp16/src/include/fp16.h"
 
 #if BUILDFLAG(IS_WIN)
-#include <DirectML.h>
-#include <wrl.h>
-
 #include "base/containers/fixed_flat_map.h"
 #include "services/webnn/dml/adapter.h"
 #include "services/webnn/dml/command_queue.h"
@@ -40,6 +37,11 @@
 #include "services/webnn/dml/graph_impl.h"
 #include "services/webnn/dml/test_base.h"
 #include "services/webnn/dml/utils.h"
+#include "third_party/microsoft_dxheaders/include/directml.h"
+
+// Windows SDK headers should be included after DirectX headers.
+#include <wrl.h>
+
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_MAC)
@@ -79,7 +81,8 @@ void BuildAndCompute(
   base::test::TestFuture<mojom::CreateContextResultPtr> create_context_future;
   webnn_provider_remote->CreateWebNNContext(
       mojom::CreateContextOptions::New(
-          device, mojom::CreateContextOptions::PowerPreference::kDefault),
+          device, mojom::CreateContextOptions::PowerPreference::kDefault,
+          /*thread_count_hint=*/0),
       create_context_future.GetCallback());
   mojom::CreateContextResultPtr create_context_result =
       create_context_future.Take();
@@ -272,6 +275,9 @@ void WebNNGraphImplBackendTest::SetUp() {
        // DML_GATHER_OPERATOR_DESC support for 1~8 dimensions was introduced in
        // DML_FEATURE_LEVEL_3_0.
        {"BuildAndComputeSingleOperatorGather", DML_FEATURE_LEVEL_3_0},
+       // DML_ACTIVATION_GELU_OPERATOR_DESC is supported in
+       // DML_FEATURE_LEVEL_5_1.
+       {"BuildAndComputeSingleOperatorGelu", DML_FEATURE_LEVEL_5_1},
        // DML_GEMM_OPERATOR_DESC support for 2 dimensions was introduced in
        // DML_FEATURE_LEVEL_4_0.
        {"BuildSingleOperatorGemmOnNpu", DML_FEATURE_LEVEL_4_0},
@@ -348,12 +354,11 @@ void WebNNGraphImplBackendTest::SetUp() {
       "BuildAndComputeSingleOperatorConcat",
       "BuildAndComputeConcatWithConstants",
       "BuildAndComputeSingleOperatorElementWiseBinary",
-      "BuildAndComputeSingleOperatorAveragePool2d",
-      "BuildAndComputeSingleOperatorL2Pool2d",
-      "BuildAndComputeSingleOperatorMaxPool2d",
+      "BuildAndComputeSingleOperatorElementWiseUnary",
+      "BuildAndComputeSingleOperatorLeakyRelu",
       "BuildAndComputeSingleOperatorRelu",
-      "BuildAndComputeSingleOperatorResample2d",
       "BuildAndComputeSingleOperatorSigmoid",
+      "BuildAndComputeSliceOperator",
       "BuildAndComputeSingleOperatorSoftsign",
       "BuildAndComputeSingleOperatorTanh",
       "BuildAndComputeSingleOperatorTranspose",
@@ -582,7 +587,6 @@ struct Activation {
   std::optional<float> leaky_relu_alpha;
   std::optional<float> linear_alpha;
   std::optional<float> linear_beta;
-  std::optional<float> softplus_steepness;
 };
 
 void BuildStandaloneActivation(GraphInfoBuilder& builder,
@@ -625,9 +629,7 @@ void BuildStandaloneActivation(GraphInfoBuilder& builder,
       builder.BuildSigmoid(input_operand_id, output_operand_id);
       return;
     case mojom::Activation::Tag::kSoftplus: {
-      CHECK(activation.softplus_steepness.has_value());
-      builder.BuildSoftplus(input_operand_id, output_operand_id,
-                            activation.softplus_steepness.value());
+      builder.BuildSoftplus(input_operand_id, output_operand_id);
       return;
     }
     case mojom::Activation::Tag::kSoftsign:
@@ -856,8 +858,7 @@ TEST_F(WebNNGraphImplBackendTest,
                    .dimensions = {1, 2, 1, 3},
                    .values = {0, 0, 100, 99, 100, 101}}}
         .TestFusingStandaloneActivation(
-            Activation{.kind = mojom::Activation::Tag::kSoftplus,
-                       .softplus_steepness = 3.0});
+            Activation{.kind = mojom::Activation::Tag::kSoftplus});
   }
   {
     // Test batchNormalization with 1-D input with activation = softsign.
@@ -1014,8 +1015,8 @@ TEST_F(WebNNGraphImplBackendTest, BuildSingleOperatorBatchNormalization) {
                                    .values = {0, 1}},
         .attributes = {.epsilon = 0,
                        .activation =
-                           Activation{.kind = mojom::Activation::Tag::kSoftplus,
-                                      .softplus_steepness = 3.0}},
+                           Activation{.kind =
+                                          mojom::Activation::Tag::kSoftplus}},
         .output = {.type = mojom::Operand::DataType::kFloat32,
                    .dimensions = {1, 2, 1, 3},
                    .values = {0, 0, 100, 99, 100, 101}}}
@@ -1494,16 +1495,15 @@ TEST_F(WebNNGraphImplBackendTest, FuseStandaloneActivationIntoConv2d) {
     Conv2dTester<float>{.type = mojom::Conv2d::Kind::kDirect,
                         .input = {.type = mojom::Operand::DataType::kFloat32,
                                   .dimensions = {1, 1, 2, 2},
-                                  .values = {5, 6, 7, 8}},
+                                  .values = {40, 48, 56, 64}},
                         .filter = {.type = mojom::Operand::DataType::kFloat32,
                                    .dimensions = {1, 1, 1, 1},
                                    .values = {1}},
                         .output = {.type = mojom::Operand::DataType::kFloat32,
                                    .dimensions = {1, 1, 2, 2},
-                                   .values = {5, 6, 7, 8}}}
+                                   .values = {40, 48, 56, 64}}}
         .TestFusingStandaloneActivation(
-            Activation{.kind = mojom::Activation::Tag::kSoftplus,
-                       .softplus_steepness = 8.0});
+            Activation{.kind = mojom::Activation::Tag::kSoftplus});
   }
   // Test conv2d with NCHW layout, float 32 data type, fusing with softsign
   // activation.
@@ -1907,16 +1907,16 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeSingleOperatorConv2d) {
     Conv2dTester<float>{
         .input = {.type = mojom::Operand::DataType::kFloat32,
                   .dimensions = {1, 1, 2, 2},
-                  .values = {5, 6, 7, 8}},
+                  .values = {40, 48, 56, 64}},
         .filter = {.type = mojom::Operand::DataType::kFloat32,
                    .dimensions = {1, 1, 1, 1},
                    .values = {1}},
         .attributes = {.activation =
-                           Activation{.kind = mojom::Activation::Tag::kSoftplus,
-                                      .softplus_steepness = 8.0}},
+                           Activation{.kind =
+                                          mojom::Activation::Tag::kSoftplus}},
         .output = {.type = mojom::Operand::DataType::kFloat32,
                    .dimensions = {1, 1, 2, 2},
-                   .values = {5, 6, 7, 8}}}
+                   .values = {40, 48, 56, 64}}}
         .Test();
   }
   // Test conv2d with NCHW input layout, OIHW filter layout, float 32 data type,
@@ -2770,7 +2770,7 @@ TEST_F(WebNNGraphImplBackendTest,
 
   // TODO(https://crbug.com/326356909): Enable these tests when using TFLite,
   // after adding support for other unary operators.
-#if !BUILDFLAG(WEBNN_USE_TFLITE)
+#if !BUILDFLAG(WEBNN_USE_TFLITE) && !BUILDFLAG(IS_MAC)
   {
     ElementWiseUnaryTester<uint8_t>{
         .input = {.type = mojom::Operand::DataType::kUint8,
@@ -2782,6 +2782,7 @@ TEST_F(WebNNGraphImplBackendTest,
                    .values = {1, 0, 1, 0, 0, 0}}}
         .Test(*this);
   }
+#endif  // !BUILDFLAG(WEBNN_USE_TFLITE) && !BUILDFLAG(IS_MAC)
   {
     ElementWiseUnaryTester<float>{
         .input = test_operand_info_float32_scalar,
@@ -2810,6 +2811,7 @@ TEST_F(WebNNGraphImplBackendTest,
         .output = test_operand_info_int32}
         .Test(*this);
   }
+#if !BUILDFLAG(WEBNN_USE_TFLITE) && !BUILDFLAG(IS_MAC)
   {
     ElementWiseUnaryTester<int8_t>{
         .input = test_operand_info_int8,
@@ -2824,7 +2826,7 @@ TEST_F(WebNNGraphImplBackendTest,
         .output = test_operand_info_uint8}
         .Test(*this);
   }
-#endif  // !BUILDFLAG(WEBNN_USE_TFLITE)
+#endif  // !BUILDFLAG(WEBNN_USE_TFLITE) && !BUILDFLAG(IS_MAC)
 
   {
     // Test Sqrt with 0-D scalar input.
@@ -2864,6 +2866,8 @@ TEST_F(WebNNGraphImplBackendTest,
                    .values = Float16FromFloat32({0, 2, 5, 4, 8, 7})}}
         .Test(*this);
   }
+#endif  // !BUILDFLAG(WEBNN_USE_TFLITE)
+#if !BUILDFLAG(WEBNN_USE_TFLITE)
   {
     ElementWiseUnaryTester<float>{
         .input = {.type = mojom::Operand::DataType::kFloat32,
@@ -2875,6 +2879,8 @@ TEST_F(WebNNGraphImplBackendTest,
                    .values = {0, 1, 0, 1, 1, -1}}}
         .Test(*this);
   }
+#endif  // !BUILDFLAG(WEBNN_USE_TFLITE)
+#if !BUILDFLAG(WEBNN_USE_TFLITE)
   {
     ElementWiseUnaryTester<float16>{
         .input = {.type = mojom::Operand::DataType::kFloat16,
@@ -2886,6 +2892,8 @@ TEST_F(WebNNGraphImplBackendTest,
                    .values = Float16FromFloat32({0, 1, 0, 1, 1, -1})}}
         .Test(*this);
   }
+#endif  // !BUILDFLAG(WEBNN_USE_TFLITE)
+#if !BUILDFLAG(WEBNN_USE_TFLITE)
   {
     ElementWiseUnaryTester<float>{
         .input = {.type = mojom::Operand::DataType::kFloat32,
@@ -2898,6 +2906,8 @@ TEST_F(WebNNGraphImplBackendTest,
                               std::numeric_limits<float>::infinity()}}}
         .Test(*this);
   }
+#endif  // !BUILDFLAG(WEBNN_USE_TFLITE)
+#if !BUILDFLAG(WEBNN_USE_TFLITE)
   {
     ElementWiseUnaryTester<float16>{
         .input = {.type = mojom::Operand::DataType::kFloat16,
@@ -2912,7 +2922,6 @@ TEST_F(WebNNGraphImplBackendTest,
         .Test(*this);
   }
 #endif  // !BUILDFLAG(WEBNN_USE_TFLITE)
-
   {
     ElementWiseUnaryTester<float>{
         .input = {.type = mojom::Operand::DataType::kFloat32,
@@ -2973,7 +2982,6 @@ TEST_F(WebNNGraphImplBackendTest,
         .Test(*this);
   }
 #endif  // !BUILDFLAG(WEBNN_USE_TFLITE)
-
   {
     ElementWiseUnaryTester<float>{
         .input = {.type = mojom::Operand::DataType::kFloat32,
@@ -2985,6 +2993,7 @@ TEST_F(WebNNGraphImplBackendTest,
                    .values = {log(0.f), log(3.f), log(10.f)}}}
         .Test(*this);
   }
+#if !BUILDFLAG(IS_MAC)
   {
     ElementWiseUnaryTester<float>{
         .input = {.type = mojom::Operand::DataType::kFloat32,
@@ -2996,6 +3005,7 @@ TEST_F(WebNNGraphImplBackendTest,
                    .values = {1, 0, -1.1, 2.2, 0, -2}}}
         .Test(*this);
   }
+#endif
   {
     ElementWiseUnaryTester<float>{
         .input = {.type = mojom::Operand::DataType::kFloat32,
@@ -4207,7 +4217,6 @@ struct UnaryOperatorTester {
   std::optional<float> leaky_relu_alpha;
   std::optional<float> linear_alpha;
   std::optional<float> linear_beta;
-  std::optional<float> softplus_steepness;
   OperandInfo<T> output;
   void Test(BuildAndComputeExpectation expectation =
                 BuildAndComputeExpectation::kSuccess) {
@@ -4228,6 +4237,9 @@ struct UnaryOperatorTester {
         CHECK(elu_alpha);
         builder.BuildElu(input_operand_id, output_operand_id,
                          elu_alpha.value());
+        break;
+      case mojom::Operation::Tag::kGelu:
+        builder.BuildGelu(input_operand_id, output_operand_id);
         break;
       case mojom::Operation::Tag::kHardSigmoid:
         builder.BuildHardSigmoid(input_operand_id, output_operand_id,
@@ -4257,9 +4269,7 @@ struct UnaryOperatorTester {
         builder.BuildSoftmax(input_operand_id, output_operand_id);
         break;
       case mojom::Operation::Tag::kSoftplus:
-        CHECK(softplus_steepness);
-        builder.BuildSoftplus(input_operand_id, output_operand_id,
-                              softplus_steepness.value());
+        builder.BuildSoftplus(input_operand_id, output_operand_id);
         break;
       case mojom::Operation::Tag::kSoftsign:
         builder.BuildSoftsign(input_operand_id, output_operand_id);
@@ -4462,56 +4472,16 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeSingleOperatorSigmoid) {
 // Test building and computing a graph with single operator softplus.
 TEST_F(WebNNGraphImplBackendTest, BuildAndComputeSingleOperatorSoftplus) {
   {
-    // Test softplus with steepness = 1.0.
+    // Test softplus operator.
     UnaryOperatorTester<float>{
         .tag = mojom::Operation::Tag::kSoftplus,
         .input = {.type = mojom::Operand::DataType::kFloat32,
                   .dimensions = {1, 1, 2, 3},
                   .values = {-100, -50, 40, 50, 100, 150}},
-        .softplus_steepness = 1.0,
         .output = {.type = mojom::Operand::DataType::kFloat32,
                    .dimensions = {1, 1, 2, 3},
                    .values = {0, 0, 40, 50, 100, 150}}}
         .Test();
-  }
-  {
-    // Test softplus with steepness = 5.0.
-    UnaryOperatorTester<float>{
-        .tag = mojom::Operation::Tag::kSoftplus,
-        .input = {.type = mojom::Operand::DataType::kFloat32,
-                  .dimensions = {1, 2, 2, 1},
-                  .values = {-10, -8, 8, 10}},
-        .softplus_steepness = 5.0,
-        .output = {.type = mojom::Operand::DataType::kFloat32,
-                   .dimensions = {1, 2, 2, 1},
-                   .values = {0, 0, 8, 10}}}
-        .Test();
-  }
-  {
-    // Test softplus with steepness = 10.0.
-    UnaryOperatorTester<float>{
-        .tag = mojom::Operation::Tag::kSoftplus,
-        .input = {.type = mojom::Operand::DataType::kFloat32,
-                  .dimensions = {1, 3, 2, 1},
-                  .values = {-10, -5, 7, 10, 15, 20}},
-        .softplus_steepness = 10.0,
-        .output = {.type = mojom::Operand::DataType::kFloat32,
-                   .dimensions = {1, 3, 2, 1},
-                   .values = {0, 0, 7, 10, 15, 20}}}
-        .Test();
-  }
-  {
-    // Test graph creation failure when steepness < 1.0.
-    UnaryOperatorTester<float>{
-        .tag = mojom::Operation::Tag::kSoftplus,
-        .input = {.type = mojom::Operand::DataType::kFloat32,
-                  .dimensions = {1, 1, 1, 1},
-                  .values = {200}},
-        .softplus_steepness = 0.5,
-        .output = {.type = mojom::Operand::DataType::kFloat32,
-                   .dimensions = {1, 1, 1, 1},
-                   .values = {200}}}
-        .Test(BuildAndComputeExpectation::kCreateGraphFailure);
   }
 }
 
@@ -5374,9 +5344,38 @@ TEST_F(WebNNGraphImplBackendTest, BuildAndComputeSingleOperatorGather) {
   }
 }
 
+// Test building and computing a graph with single operator gelu.
+TEST_F(WebNNGraphImplBackendTest, BuildAndComputeSingleOperatorGelu) {
+  // Test gelu with a 1d input.
+  {
+    UnaryOperatorTester<float>{
+        .tag = mojom::Operation::Tag::kGelu,
+        .input = {.type = mojom::Operand::DataType::kFloat32,
+                  .dimensions = {3},
+                  .values = {-1, 0, 1}},
+        .output = {.type = mojom::Operand::DataType::kFloat32,
+                   .dimensions = {3},
+                   .values = {-0.15865526383236372, 0, 0.8413447361676363}}}
+        .Test();
+  }
+
+  // Test gelu with a 4d input.
+  {
+    UnaryOperatorTester<float>{
+        .tag = mojom::Operation::Tag::kGelu,
+        .input = {.type = mojom::Operand::DataType::kFloat32,
+                  .dimensions = {1, 1, 1, 3},
+                  .values = {-1, 0, 1}},
+        .output = {.type = mojom::Operand::DataType::kFloat32,
+                   .dimensions = {1, 1, 1, 3},
+                   .values = {-0.15865526383236372, 0, 0.8413447361676363}}}
+        .Test();
+  }
+}
+
 struct GemmAttributes {
   std::optional<uint64_t> c_operand_id;
-  // TODO(crbug.com/1273291): Add test cases for below attributes.
+  // TODO(crbug.com/40206287): Add test cases for below attributes.
   float alpha = 1.0;
   float beta = 1.0;
   bool a_transpose = false;
@@ -6208,7 +6207,8 @@ TEST_F(WebNNGraphImplBackendTest, BuildOneGraphToComputeMultipleTimes) {
   webnn_provider_remote->CreateWebNNContext(
       mojom::CreateContextOptions::New(
           mojom::CreateContextOptions::Device::kGpu,
-          mojom::CreateContextOptions::PowerPreference::kDefault),
+          mojom::CreateContextOptions::PowerPreference::kDefault,
+          /*thread_count_hint=*/0),
       create_context_future.GetCallback());
   mojom::CreateContextResultPtr create_context_result =
       create_context_future.Take();

@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "ash/strings/grit/ash_strings.h"
+#include "base/notreached.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chromeos/ash/components/audio/audio_device.h"
@@ -93,7 +94,8 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
     const AudioDeviceList& hotplug_input_devices,
     const AudioDeviceList& hotplug_output_devices,
     const std::optional<std::string>& active_input_device_name,
-    const std::optional<std::string>& active_output_device_name) {
+    const std::optional<std::string>& active_output_device_name,
+    SwitchToDeviceCallback switch_to_device_callback) {
   // At least input or output has hotplug device.
   CHECK(!hotplug_input_devices.empty() || !hotplug_output_devices.empty());
 
@@ -101,6 +103,8 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
   std::u16string title_message_id;
   std::u16string body_message_id;
   std::vector<message_center::ButtonInfo> buttons_info;
+  AudioDeviceMetricsHandler::AudioSelectionNotificationEvents
+      notification_event;
 
   NotificationTemplate notification_template = GetNotificationTemplate(
       hotplug_input_devices, hotplug_output_devices, active_input_device_name,
@@ -117,6 +121,9 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
       devices_to_activate.push_back(hotplug_input_devices.front());
       buttons_info.emplace_back(
           l10n_util::GetStringUTF16(IDS_ASH_AUDIO_SELECTION_BUTTON_SWITCH));
+      notification_event =
+          AudioDeviceMetricsHandler::AudioSelectionNotificationEvents::
+              kNotificationWithInputOnlyDeviceShowsUp;
       break;
     case NotificationType::kSingleSourceWithOutputOnly:
       title_message_id = l10n_util::GetStringUTF16(
@@ -127,6 +134,9 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
       devices_to_activate.push_back(hotplug_output_devices.front());
       buttons_info.emplace_back(
           l10n_util::GetStringUTF16(IDS_ASH_AUDIO_SELECTION_BUTTON_SWITCH));
+      notification_event =
+          AudioDeviceMetricsHandler::AudioSelectionNotificationEvents::
+              kNotificationWithOutputOnlyDeviceShowsUp;
       break;
     case NotificationType::kSingleSourceWithInputAndOutput:
       title_message_id = l10n_util::GetStringUTF16(
@@ -139,6 +149,9 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
       devices_to_activate.push_back(hotplug_output_devices.front());
       buttons_info.emplace_back(
           l10n_util::GetStringUTF16(IDS_ASH_AUDIO_SELECTION_BUTTON_SWITCH));
+      notification_event =
+          AudioDeviceMetricsHandler::AudioSelectionNotificationEvents::
+              kNotificationWithBothInputAndOutputDevicesShowsUp;
       break;
     case NotificationType::kMultipleSources:
       title_message_id = l10n_util::GetStringUTF16(
@@ -150,13 +163,18 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
           base::UTF8ToUTF16(active_input_device_name.has_value()
                                 ? active_input_device_name.value()
                                 : ""),
-          base::UTF8ToUTF16(active_input_device_name.has_value()
+          base::UTF8ToUTF16(active_output_device_name.has_value()
                                 ? active_output_device_name.value()
                                 : ""));
       buttons_info.emplace_back(
           l10n_util::GetStringUTF16(IDS_ASH_AUDIO_SELECTION_BUTTON_SETTINGS));
+      notification_event =
+          AudioDeviceMetricsHandler::AudioSelectionNotificationEvents::
+              kNotificationWithMultipleSourcesDevicesShowsUp;
       break;
   }
+
+  audio_device_metrics_handler_.RecordNotificationEvents(notification_event);
 
   message_center::RichNotificationData optional_fields;
   optional_fields.buttons = buttons_info;
@@ -177,9 +195,9 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
       /*delegate=*/
       base::MakeRefCounted<message_center::HandleNotificationClickDelegate>(
           base::BindRepeating(
-              &AudioSelectionNotificationHandler::HandleNotificationClicked,
-              weak_ptr_factory_.GetWeakPtr(),
-              /*is_settings_button=*/false, devices_to_activate))};
+              &AudioSelectionNotificationHandler::HandleSwitchButtonClicked,
+              weak_ptr_factory_.GetWeakPtr(), devices_to_activate,
+              switch_to_device_callback, notification_template.type))};
   auto* message_center = message_center::MessageCenter::Get();
   message_center->RemoveNotification(notification.id(),
                                      /*by_user=*/false);
@@ -189,12 +207,49 @@ void AudioSelectionNotificationHandler::ShowAudioSelectionNotification(
   // TODO(zhangwenyu): Add metrics to record notification is displayed.
 }
 
-void AudioSelectionNotificationHandler::HandleNotificationClicked(
-    bool is_settings_button,
+void AudioSelectionNotificationHandler::HandleSwitchButtonClicked(
     const AudioDeviceList& devices_to_activate,
+    SwitchToDeviceCallback switch_to_device_callback,
+    NotificationType notification_type,
     std::optional<int> button_index) {
-  // TODO(zhangwenyu): Add metrics to record notification button clicked.
-  // TODO(zhangwenyu): Activate the devices when switch button is clicked.
+  if (!button_index.has_value()) {
+    // Do not do anything when notification body is clicked. If the button is
+    // clicked, the button_index will have a value.
+    return;
+  }
+
+  switch (notification_type) {
+    case NotificationType::kSingleSourceWithInputOnly:
+      audio_device_metrics_handler_.RecordNotificationEvents(
+          AudioDeviceMetricsHandler::AudioSelectionNotificationEvents::
+              kNotificationWithInputOnlyDeviceClicked);
+      break;
+    case NotificationType::kSingleSourceWithOutputOnly:
+      audio_device_metrics_handler_.RecordNotificationEvents(
+          AudioDeviceMetricsHandler::AudioSelectionNotificationEvents::
+              kNotificationWithOutputOnlyDeviceClicked);
+      break;
+    case NotificationType::kSingleSourceWithInputAndOutput:
+      audio_device_metrics_handler_.RecordNotificationEvents(
+          AudioDeviceMetricsHandler::AudioSelectionNotificationEvents::
+              kNotificationWithBothInputAndOutputDevicesClicked);
+      break;
+    case NotificationType::kMultipleSources:
+      // Do not record in this case. When the notification type is
+      // kMultipleSources, notification with settings button should display.
+      NOTREACHED();
+  }
+
+  // Activate audio devices.
+  for (const AudioDevice& device : devices_to_activate) {
+    switch_to_device_callback.Run(device, /*notify=*/true,
+                                  DeviceActivateType::kActivateByUser);
+  }
+
+  // Remove notification.
+  auto* message_center = message_center::MessageCenter::Get();
+  message_center->RemoveNotification(kAudioSelectionNotificationId,
+                                     /*by_user=*/true);
 }
 
 AudioSelectionNotificationHandler::NotificationTemplate

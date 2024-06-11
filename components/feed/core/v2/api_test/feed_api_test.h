@@ -9,10 +9,10 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/functional/callback_forward.h"
-#include "base/strings/string_piece.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
@@ -42,7 +42,6 @@
 #include "components/prefs/testing_pref_service.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
-#include "components/supervised_user/core/common/buildflags.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "net/http/http_status_code.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -77,8 +76,8 @@ std::string SerializedOfflineBadgeContent();
 
 feedwire::ThereAndBackAgainData MakeThereAndBackAgainData(int64_t id);
 
-std::string DatastoreEntryToString(base::StringPiece key,
-                                   base::StringPiece value);
+std::string DatastoreEntryToString(std::string_view key,
+                                   std::string_view value);
 
 class TestReliabilityLoggingBridge : public ReliabilityLoggingBridge {
  public:
@@ -155,9 +154,9 @@ class TestSurfaceBase : public feed::SurfaceRenderer {
 
   // FeedStream::FeedStreamSurface.
   void StreamUpdate(const feedui::StreamUpdate& stream_update) override;
-  void ReplaceDataStoreEntry(base::StringPiece key,
-                             base::StringPiece data) override;
-  void RemoveDataStoreEntry(base::StringPiece key) override;
+  void ReplaceDataStoreEntry(std::string_view key,
+                             std::string_view data) override;
+  void RemoveDataStoreEntry(std::string_view key) override;
   ReliabilityLoggingBridge& GetReliabilityLoggingBridge() override;
 
   // Test functions.
@@ -258,18 +257,10 @@ class TestFeedNetwork : public FeedNetwork {
       const AccountInfo& account_info,
       base::OnceCallback<void(QueryRequestResult)> callback) override;
 
-#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  void SendKidFriendlyApiRequest(
-      const supervised_user::GetDiscoverFeedRequest& request,
-      const AccountInfo& account_info,
-      base::OnceCallback<void(KidFriendlyQueryRequestResult)> callback)
-      override;
-#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
-
   void SendDiscoverApiRequest(
       NetworkRequestType request_type,
-      base::StringPiece api_path,
-      base::StringPiece method,
+      std::string_view api_path,
+      std::string_view method,
       std::string request_bytes,
       const AccountInfo& account_info,
       std::optional<RequestMetadata> request_metadata,
@@ -277,7 +268,7 @@ class TestFeedNetwork : public FeedNetwork {
 
   void SendAsyncDataRequest(
       const GURL& url,
-      base::StringPiece request_method,
+      std::string_view request_method,
       net::HttpRequestHeaders request_headers,
       std::string request_body,
       const AccountInfo& account_info,
@@ -442,11 +433,6 @@ class TestWireResponseTranslator : public WireResponseTranslator {
       StreamModelUpdateRequest::Source source,
       const AccountInfo& account_info,
       base::Time current_time) const override;
-  RefreshResponseData TranslateWireResponse(
-      supervised_user::GetDiscoverFeedResponse response,
-      StreamModelUpdateRequest::Source source,
-      const AccountInfo& account_info,
-      base::Time current_time) const override;
   void InjectResponse(std::unique_ptr<StreamModelUpdateRequest> response,
                       std::optional<std::string> session_id = std::nullopt);
   void InjectResponse(RefreshResponseData response_data);
@@ -543,11 +529,12 @@ class FeedApiTest : public testing::Test, public FeedStream::Delegate {
   TabGroupEnabledState GetTabGroupEnabledState() override;
   void ClearAll() override;
   AccountInfo GetAccountInfo() override;
+  bool IsSupervisedAccount() override;
   bool IsSigninAllowed() override;
   void PrefetchImage(const GURL& url) override;
   void RegisterExperiments(const Experiments& experiments) override {}
   void RegisterFollowingFeedFollowCountFieldTrial(size_t follow_count) override;
-  void RegisterFeedUserSettingsFieldTrial(base::StringPiece group) override;
+  void RegisterFeedUserSettingsFieldTrial(std::string_view group) override;
   std::string GetCountry() override;
 
   // For tests.
@@ -608,6 +595,7 @@ class FeedApiTest : public testing::Test, public FeedStream::Delegate {
   bool is_offline_ = false;
   AccountInfo account_info_ = TestAccountInfo();
   bool is_signin_allowed_ = true;
+  bool is_supervised_account_ = false;
   int prefetch_image_call_count_ = 0;
   std::vector<GURL> prefetched_images_;
   base::RepeatingClosure on_clear_all_;

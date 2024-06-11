@@ -726,6 +726,7 @@ static_library("test_support") {
     "test/scoped_default_font_description.h",
     "test/sk_color_eq.cc",
     "test/sk_color_eq.h",
+    "test/sk_gmock_support.h",
   ]
   if (is_apple) {
     sources += [ "image/image_unittest_util_apple.mm" ]
@@ -1054,5 +1055,20 @@ if (is_ios) {
   bundle_data_from_filelist("compositor_tests_bundle_data") {
     testonly = true
     filelist_name = "test/data/compositor/unit_tests_bundle_data.filelist"
+  }
+}
+
+if (is_android) {
+  java_cpp_features("ui_gfx_switches_srcjar") {
+    # External code should depend on ":ui_gfx_java" instead.
+    visibility = [ ":*" ]
+    sources = [ "switches.cc" ]
+    template = "android/java/src/org/chromium/ui/gfx/GfxSwitches.java.tmpl"
+  }
+
+  android_library("ui_gfx_java") {
+    # Right now, this only includes the Java features. But if we need more Java
+    # files, they should be added here as necessary.
+    srcjar_deps = [ ":ui_gfx_switches_srcjar" ]
   }
 }

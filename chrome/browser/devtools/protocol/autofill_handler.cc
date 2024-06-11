@@ -181,6 +181,7 @@ void AutofillHandler::SetAddresses(
     std::unique_ptr<SetAddressesCallback> callback) {
   if (!base::FeatureList::IsEnabled(
           autofill::features::kAutofillTestFormWithTestAddresses)) {
+    std::move(callback)->sendSuccess();
     return;
   }
 
@@ -203,7 +204,41 @@ void AutofillHandler::SetAddresses(
   std::optional<std::vector<autofill::AutofillProfile>> autofill_profiles =
       autofill::AutofillProfilesFromJSON(&profiles);
   if (autofill_profiles) {
+    const std::string locale = "en-US";
     for (const autofill::AutofillProfile& profile : *autofill_profiles) {
+      const std::u16string test_address_country =
+          profile.GetInfo(autofill::FieldType::ADDRESS_HOME_COUNTRY, locale);
+      // The current test address for Germany is based on the old model. If the
+      // new model is enabled we should not offer it in the list of
+      // available addresses.
+      // TODO(b/40270486): Offer a test address version for when the new model
+      // is enabled.
+      if (test_address_country == u"Germany" &&
+          base::FeatureList::IsEnabled(
+              autofill::features::kAutofillUseDEAddressModel)) {
+        continue;
+      }
+
+      // Similar to the case above. However for these countries we are already
+      // using the new model.
+      if (test_address_country == u"United States" &&
+          !base::FeatureList::IsEnabled(
+              autofill::features::kAutofillUseI18nAddressModel)) {
+        continue;
+      }
+
+      if (test_address_country == u"Brazil" &&
+          !base::FeatureList::IsEnabled(
+              autofill::features::kAutofillUseBRAddressModel)) {
+        continue;
+      }
+
+      if (test_address_country == u"Mexico" &&
+          !base::FeatureList::IsEnabled(
+              autofill::features::kAutofillUseMXAddressModel)) {
+        continue;
+      }
+
       test_address_for_countries.push_back(profile);
     }
   }
@@ -281,8 +316,8 @@ void AutofillHandler::OnFillOrPreviewDataModelForm(
             : u"";
     filled_fields_to_be_sent_to_devtools->push_back(
         protocol::Autofill::FilledField::Create()
-            .SetId(base::UTF16ToUTF8(autofill_field->id_attribute))
-            .SetName(base::UTF16ToUTF8(autofill_field->name_attribute))
+            .SetId(base::UTF16ToUTF8(autofill_field->id_attribute()))
+            .SetName(base::UTF16ToUTF8(autofill_field->name_attribute()))
             .SetValue(base::UTF16ToUTF8(filled_value))
             .SetHtmlType(std::string(autofill::FormControlTypeToString(
                 autofill_field->form_control_type())))

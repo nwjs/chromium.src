@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/trace_event/trace_event_etw_export_win.h"
 
 #include <windows.h>
@@ -92,7 +97,7 @@ namespace {
 //
 // The high 16 bits of the keyword have special semantics and should not be
 // set for enabling individual categories as they are reserved by winmeta.xml.
-// TODO(crbug.com/1497783): Move this to
+// TODO(crbug.com/40287173): Move this to
 // components/tracing/common/etw_export_win.cc once no longer used by
 // TraceEventETWExport.
 const char* const kFilteredEventGroupNames[] = {
@@ -327,7 +332,7 @@ void TraceEventETWExport::AddEvent(char phase,
         TlmMbcsStringField((args->names()[0]), (arg_values_string[0].c_str())),
         TlmMbcsStringField((args->names()[1]), (arg_values_string[1].c_str())));
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
   }
 }
 
@@ -500,8 +505,6 @@ uint64_t CategoryGroupToETWKeyword(std::string_view category_group_name) {
   return keyword;
 }
 
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
-
 perfetto::protos::gen::TrackEventConfig ETWKeywordToTrackEventConfig(
     uint64_t keyword) {
   perfetto::protos::gen::TrackEventConfig track_event_config;
@@ -525,8 +528,6 @@ perfetto::protos::gen::TrackEventConfig ETWKeywordToTrackEventConfig(
   }
   return track_event_config;
 }
-
-#endif  // BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
 
 }  // namespace trace_event
 }  // namespace base

@@ -9,12 +9,14 @@
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
+#include "chromeos/ash/components/nearby/presence/conversions/nearby_presence_conversions.h"
 #include "chromeos/ash/services/nearby/public/mojom/nearby_presence.mojom.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/status/status.h"
+#include "third_party/nearby/src/internal/interop/fake_device_provider.h"
 #include "third_party/nearby/src/presence/fake_presence_client.h"
 #include "third_party/nearby/src/presence/fake_presence_service.h"
 #include "third_party/nearby/src/presence/presence_client_impl.h"
@@ -27,7 +29,9 @@ const char kMacAddress[] = "AA:BB:CC:DD:EE:FF";
 
 const char kDeviceName[] = "Test's Chromebook";
 const char kAccountName[] = "test.tester@gmail.com";
-const char kProfileUrl[] = "https://example.com";
+const std::vector<uint8_t> kDeviceId = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
+                                        0xcd, 0xef, 0x01, 0x23, 0x45, 0x67,
+                                        0x89, 0xab, 0xcd, 0xef};
 const std::vector<uint8_t> kSecretId1 = {0x11, 0x11, 0x11, 0x11, 0x11, 0x11};
 const std::vector<uint8_t> kSecretId2 = {0x22, 0x22, 0x22, 0x22, 0x22, 0x22};
 const std::vector<uint8_t> kSecretId3 = {0x33, 0x33, 0x33, 0x33, 0x33, 0x33};
@@ -39,16 +43,16 @@ const long kSharedCredId3 = 333;
 ash::nearby::presence::mojom::MetadataPtr BuildTestMetadata() {
   ash::nearby::presence::mojom::MetadataPtr metadata =
       ash::nearby::presence::mojom::Metadata::New();
-  metadata->account_name = kAccountName;
   metadata->device_name = kDeviceName;
-  metadata->device_profile_url = kProfileUrl;
+  metadata->device_id = kDeviceId;
   return metadata;
 }
 
-::nearby::internal::Metadata BuildTestPresenceClientMetadata() {
-  ::nearby::internal::Metadata metadata;
-  metadata.set_bluetooth_mac_address(kMacAddress);
+::nearby::internal::DeviceIdentityMetaData BuildTestPresenceClientMetadata() {
+  ::nearby::internal::DeviceIdentityMetaData metadata;
   metadata.set_device_name(kDeviceName);
+  metadata.set_bluetooth_mac_address(kMacAddress);
+  metadata.set_device_id(std::string(kDeviceId.begin(), kDeviceId.end()));
   return metadata;
 }
 
@@ -105,7 +109,7 @@ class NearbyPresenceTest : public testing::Test,
   void CallStartScan(base::OnceClosure on_complete) {
     std::vector<ash::nearby::presence::mojom::IdentityType> type_vector;
     type_vector.push_back(
-        ash::nearby::presence::mojom::IdentityType::kIdentityTypePrivate);
+        ash::nearby::presence::mojom::IdentityType::kIdentityTypePrivateGroup);
     std::vector<mojom::PresenceScanFilterPtr> filters_vector;
     mojom::PresenceScanFilterPtr filter =
         ash::nearby::presence::mojom::PresenceScanFilter::New(
@@ -238,7 +242,8 @@ TEST_F(NearbyPresenceTest, RunStartScan_DeviceFoundCallback) {
   }
 
   EXPECT_TRUE(was_on_scan_started_called);
-  EXPECT_EQ(last_device_found_name_, device.GetMetadata().device_name());
+  EXPECT_EQ(last_device_found_name_,
+            device.GetDeviceIdentityMetadata().device_name());
   EXPECT_EQ(1, num_devices_found_);
 }
 
@@ -266,7 +271,8 @@ TEST_F(NearbyPresenceTest, RunStartScan_DeviceChangedCallback) {
   }
 
   EXPECT_TRUE(was_on_scan_started_called);
-  EXPECT_EQ(last_device_changed_name_, device.GetMetadata().device_name());
+  EXPECT_EQ(last_device_changed_name_,
+            device.GetDeviceIdentityMetadata().device_name());
   EXPECT_EQ(1, num_devices_changed_);
 }
 
@@ -294,18 +300,19 @@ TEST_F(NearbyPresenceTest, RunStartScan_DeviceLostCallback) {
   }
 
   EXPECT_TRUE(was_on_scan_started_called);
-  EXPECT_EQ(last_device_lost_name_, device.GetMetadata().device_name());
+  EXPECT_EQ(last_device_lost_name_,
+            device.GetDeviceIdentityMetadata().device_name());
   EXPECT_EQ(1, num_devices_lost_);
 }
 
 TEST_F(NearbyPresenceTest, RunUpdateLocalDeviceMetadata) {
   nearby_presence_->UpdateLocalDeviceMetadata(BuildTestMetadata());
 
-  ::nearby::internal::Metadata local_device_metadata =
-      fake_presence_service_->GetLocalDeviceMetadata();
-  EXPECT_EQ(kAccountName, local_device_metadata.account_name());
+  ::nearby::internal::DeviceIdentityMetaData local_device_metadata =
+      fake_presence_service_->GetDeviceIdentityMetaData();
   EXPECT_EQ(kDeviceName, local_device_metadata.device_name());
-  EXPECT_EQ(kProfileUrl, local_device_metadata.device_profile_url());
+  EXPECT_EQ(std::string(kDeviceId.begin(), kDeviceId.end()),
+            local_device_metadata.device_id());
 }
 
 TEST_F(NearbyPresenceTest,
@@ -472,6 +479,12 @@ TEST_F(NearbyPresenceTest, GetLocalSharedCredentials_Failure) {
             run_loop.Quit();
           }));
   run_loop.Run();
+}
+
+TEST_F(NearbyPresenceTest, GetLocalDeviceProvider) {
+  ::nearby::FakeDeviceProvider fake_device_provider;
+  fake_presence_service_->SetDeviceProvider(&fake_device_provider);
+  EXPECT_TRUE(nearby_presence_->GetLocalDeviceProvider());
 }
 
 }  // namespace ash::nearby::presence

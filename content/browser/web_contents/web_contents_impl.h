@@ -93,7 +93,7 @@
 #include "content/public/browser/android/child_process_importance.h"
 #endif
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_BUILDFLAG(USE_STARSCAN)
 #include "content/browser/starscan_load_observer.h"
 #endif
 
@@ -114,6 +114,10 @@ class SharedDictionaryAccessDetails;
 namespace service_manager {
 class InterfaceProvider;
 }  // namespace service_manager
+
+namespace ui {
+struct AXUpdatesAndEvents;
+}
 
 namespace content {
 class JavaScriptDialogDismissNotifier;
@@ -146,7 +150,6 @@ class WakeLockContextHost;
 class WebContentsDelegate;
 class WebContentsImpl;
 class WebContentsView;
-struct AXEventNotificationDetails;
 struct MHTMLGenerationParams;
 class PreloadingAttempt;
 
@@ -285,6 +288,13 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
     return screen_orientation_provider_.get();
   }
 
+  // Return RenderWidgetHostView from RWHIER.
+  std::vector<RenderWidgetHostView*> GetRenderWidgetHostViewsForTests();
+
+  bool IsDelegatedInkRendererBoundForTest() {
+    return delegated_ink_point_renderer_.is_bound();
+  }
+
   // Adds the given accessibility mode to the current accessibility mode
   // bitmap.
   void AddAccessibilityModeForTesting(ui::AXMode mode);
@@ -324,7 +334,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Whether the initial empty page of this view has been accessed by another
   // page, making it unsafe to show the pending URL. Always false after the
   // first commit.
-  // TODO(https://crbug.com/1170277): Rename to HasAccessedInitialMainDocument
+  // TODO(crbug.com/40165695): Rename to HasAccessedInitialMainDocument
   bool HasAccessedInitialDocument();
 
 #if BUILDFLAG(IS_ANDROID)
@@ -677,9 +687,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void ResetAccessibility() override;
   void AXTreeIDForMainFrameHasChanged() override;
   void AccessibilityEventReceived(
-      const AXEventNotificationDetails& details) override;
+      const ui::AXUpdatesAndEvents& details) override;
   void AccessibilityLocationChangesReceived(
-      const std::vector<AXLocationChangeNotificationDetails>& details) override;
+      const std::vector<ui::AXLocationChanges>& details) override;
   ui::AXNode* GetAccessibilityRootNode() override;
   std::string DumpAccessibilityTree(
       bool internal,
@@ -694,16 +704,14 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       ui::AXApiType::Type api_type,
       bool start_recording,
       std::optional<ui::AXEventCallback> callback) override;
-  void AccessibilityFatalError() override;
+  void UnrecoverableAccessibilityError() override;
   device::mojom::GeolocationContext* GetGeolocationContext() override;
   device::mojom::WakeLockContext* GetWakeLockContext() override;
 #if BUILDFLAG(IS_ANDROID)
   void GetNFC(RenderFrameHost*,
               mojo::PendingReceiver<device::mojom::NFC>) override;
 #endif
-  bool CanEnterFullscreenMode(
-      RenderFrameHostImpl* requesting_frame,
-      const blink::mojom::FullscreenOptions& options) override;
+  bool CanEnterFullscreenMode(RenderFrameHostImpl* requesting_frame) override;
   void EnterFullscreenMode(
       RenderFrameHostImpl* requesting_frame,
       const blink::mojom::FullscreenOptions& options) override;
@@ -767,6 +775,11 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void OnSharedDictionaryAccessed(
       RenderFrameHostImpl*,
       const network::mojom::SharedDictionaryAccessDetails& details) override;
+  void NotifyStorageAccessed(RenderFrameHostImpl*,
+                             blink::mojom::StorageTypeAccessed storage_type,
+                             bool blocked) override;
+  void OnVibrate(RenderFrameHostImpl*) override;
+
   std::optional<blink::ParsedPermissionsPolicy>
   GetPermissionsPolicyForIsolatedWebApp(RenderFrameHostImpl* source) override;
 
@@ -820,8 +833,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
           blink_widget_host,
       mojo::PendingAssociatedRemote<blink::mojom::Widget> blink_widget)
       override;
-  bool ShowPopupMenu(RenderFrameHostImpl* render_frame_host,
-                     const gfx::Rect& bounds) override;
   void DidLoadResourceFromMemoryCache(
       RenderFrameHostImpl* source,
       const GURL& url,
@@ -922,6 +933,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       PreloadingAttempt* preloading_attempt,
       base::RepeatingCallback<bool(const GURL&)>,
       base::RepeatingCallback<void(NavigationHandle&)>) override;
+  void CancelAllPrerendering() override;
   void BackNavigationLikely(PreloadingPredictor predictor,
                             WindowOpenDisposition disposition) override;
   void SetOwnerLocationForDebug(
@@ -1025,6 +1037,11 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                                         int end_adjust,
                                         bool show_selection_menu) override;
   RenderWidgetHostInputEventRouter* GetInputEventRouter() override;
+  void GetRenderWidgetHostAtPointAsynchronously(
+      RenderWidgetHostViewBase* root_view,
+      const gfx::PointF& point,
+      base::OnceCallback<void(base::WeakPtr<RenderWidgetHostViewBase>,
+                              std::optional<gfx::PointF>)> callback) override;
   RenderWidgetHostImpl* GetFocusedRenderWidgetHost(
       RenderWidgetHostImpl* receiving_widget) override;
   RenderWidgetHostImpl* GetRenderWidgetHostWithPageFocus() override;
@@ -1063,6 +1080,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void DidChangeScreenOrientation() override;
   gfx::Rect GetWindowsControlsOverlayRect() const override;
   VisibleTimeRequestTrigger& GetVisibleTimeRequestTrigger() final;
+  gfx::mojom::DelegatedInkPointRenderer* GetDelegatedInkRenderer(
+      ui::Compositor* compositor) override;
 
   // RenderFrameHostManager::Delegate ------------------------------------------
 
@@ -1400,11 +1419,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   };
   CaptureTarget GetCaptureTarget();
 
-  void set_show_popup_menu_callback_for_testing(
-      base::OnceCallback<void(const gfx::Rect&)> callback) {
-    show_popup_menu_callback_ = std::move(callback);
-  }
-
   // Sets the value in tests to ensure expected ordering and correctness.
   void set_minimum_delay_between_loading_updates_for_testing(
       base::TimeDelta duration) {
@@ -1615,7 +1629,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
     // that has the focused frame. The FrameTree tree could be arbitrarily deep.
     // An inner WebContents if focused is responsible for setting this back to
     // another valid during its destruction. See WebContentsImpl destructor.
-    // TODO(crbug.com/1257595): Support clearing this for inner frame trees.
+    // TODO(crbug.com/40200744): Support clearing this for inner frame trees.
     base::SafeRef<FrameTree> focused_frame_tree_;
   };
 
@@ -1675,6 +1689,17 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Clears a pending contents that has been closed before being shown.
   void OnWebContentsDestroyed(WebContentsImpl* web_contents);
 
+  // Creates and adds to the map a destruction observer watching
+  // `render_widget_host`. There must be no observer already watching
+  // `render_widget_host`.
+  void AddRenderWidgetHostDestructionObserver(
+      RenderWidgetHost* render_widget_host);
+
+  // Deletes and removes from the map a destruction observer
+  // watching `render_widget_host`. No-op if there is no such observer.
+  void RemoveRenderWidgetHostDestructionObserver(
+      RenderWidgetHost* render_widget_host);
+
   // Clears a pending render widget host that has been closed before being
   // shown.
   void OnRenderWidgetHostDestroyed(RenderWidgetHost* render_widget_host);
@@ -1686,16 +1711,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Deletes and removes from the map a destruction observer
   // watching `web_contents`. No-op if there is no such observer.
   void RemoveWebContentsDestructionObserver(WebContentsImpl* web_contents);
-
-  // Creates and adds to the map a destruction observer watching
-  // `render_widget_host`. No-op if such an observer already exists.
-  void AddRenderWidgetHostDestructionObserver(
-      RenderWidgetHost* render_widget_host);
-
-  // Deletes and removes from the map a destruction observer
-  // watching `render_widget_host`. No-op if there is no such observer.
-  void RemoveRenderWidgetHostDestructionObserver(
-      RenderWidgetHost* render_widget_host);
 
   // Traverses all the WebContents in the WebContentsTree and creates a set of
   // all the unique RenderWidgetHostViews.
@@ -1737,6 +1752,11 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Determines if content is allowed to overscroll. This value comes from the
   // WebContentsDelegate, but can also be overridden by the WebContents.
   bool CanOverscrollContent() const;
+
+  // void CastToViewBaseSafely(
+  //     RenderWidgetTargeter::RenderWidgetHostAtPointCallback callback,
+  //     base::WeakPtr<RenderWidgetHostViewInput> view,
+  //     std::optional<gfx::PointF> point) ;
 
   // Inner WebContents Helpers -------------------------------------------------
   //
@@ -2107,6 +2127,11 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // presenting through tab capture APIs.
   mojo::Remote<device::mojom::WakeLock> capture_wake_lock_;
 
+  // Remote end of the connection for sending delegated ink points to viz to
+  // support the delegated ink trails feature.
+  mojo::Remote<gfx::mojom::DelegatedInkPointRenderer>
+      delegated_ink_point_renderer_;
+
   // The visibility of the WebContents. Initialized from
   // |CreateParams::initially_hidden|. Updated from
   // UpdateWebContentsVisibility(), WasShown(), WasHidden(), WasOccluded().
@@ -2428,8 +2453,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   viz::FrameSinkId xr_render_target_;
 
-  base::OnceCallback<void(const gfx::Rect&)> show_popup_menu_callback_;
-
   // Allows the app in the current WebContents to opt-in to exposing
   // information to apps that capture it.
   blink::mojom::CaptureHandleConfig capture_handle_config_;
@@ -2440,8 +2463,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // color or if the page does not set a background color.
   std::optional<SkColor> page_base_background_color_;
 
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
-  // TODO(1231679): Remove/reevaluate after the PCScan experiment is finished.
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && PA_BUILDFLAG(USE_STARSCAN)
+  // TODO(crbug.com/40190798): Remove/reevaluate after the PCScan experiment is
+  // finished.
   std::unique_ptr<StarScanLoadObserver> star_scan_load_observer_;
 #endif
 
@@ -2474,7 +2498,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool is_in_preview_mode_ = false;
 
   // Indicates accessibility had an unrecoverable error.
-  bool accessibility_fatal_error_ = false;
+  bool unrecoverable_accessibility_error_ = false;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

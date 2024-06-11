@@ -23,10 +23,8 @@
 // The mediator to track/untrack a page and open the buying options URL in a new
 // tab.
 @property(nonatomic, strong) PriceNotificationsPriceTrackingMediator* mediator;
-// The active browser.
-@property(nonatomic, readonly) Browser* browser;
-// The base view controller.
-@property(nonatomic, strong) UIViewController* viewController;
+// A weak reference to a PriceInsightsCell.
+@property(nonatomic, weak) PriceInsightsCell* priceInsightsCell;
 
 @end
 
@@ -36,16 +34,6 @@
 }
 
 #pragma mark - Public
-
-- (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                                   browser:(Browser*)browser {
-  self = [super init];
-  if (self) {
-    _viewController = viewController;
-    _browser = browser;
-  }
-  return self;
-}
 
 - (void)start {
   PushNotificationService* pushNotificationService =
@@ -74,6 +62,7 @@
   __weak __typeof(self) weakSelf = self;
   auto handler =
       ^(PriceInsightsCell* cell, NSIndexPath* indexPath, id identifier) {
+        weakSelf.priceInsightsCell = cell;
         [weakSelf configureCell:cell];
       };
   return [UICollectionViewCellRegistration
@@ -81,12 +70,19 @@
            configurationHandler:handler];
 }
 
+- (PanelBlockData*)panelBlockData {
+  return [[PanelBlockData alloc] initWithBlockType:[self blockType]
+                                  cellRegistration:[self cellRegistration]];
+}
+
 #pragma mark - PriceInsightsConsumer
 
 - (void)didStartPriceTracking {
+  [self.priceInsightsCell updateTrackButton:YES];
 }
 
 - (void)didStopPriceTracking {
+  [self.priceInsightsCell updateTrackButton:NO];
 }
 
 - (void)didStartNavigationToWebpage {
@@ -109,11 +105,11 @@
 
   __weak PriceInsightsModulator* weakSelf = self;
   [_alertCoordinator stop];
-  _alertCoordinator =
-      [[AlertCoordinator alloc] initWithBaseViewController:self.viewController
-                                                   browser:self.browser
-                                                     title:alertTitle
-                                                   message:alertMessage];
+  _alertCoordinator = [[AlertCoordinator alloc]
+      initWithBaseViewController:self.baseViewController
+                         browser:self.browser
+                           title:alertTitle
+                         message:alertMessage];
   [_alertCoordinator addItemWithTitle:cancelTitle
                                action:^{
                                  [weakSelf dismissAlertCoordinator];
@@ -145,11 +141,11 @@
   __weak PriceInsightsModulator* weakSelf = self;
   __weak PriceNotificationsPriceTrackingMediator* weakMediator = self.mediator;
   [_alertCoordinator stop];
-  _alertCoordinator =
-      [[AlertCoordinator alloc] initWithBaseViewController:self.viewController
-                                                   browser:self.browser
-                                                     title:alertTitle
-                                                   message:alertMessage];
+  _alertCoordinator = [[AlertCoordinator alloc]
+      initWithBaseViewController:self.baseViewController
+                         browser:self.browser
+                           title:alertTitle
+                         message:alertMessage];
   [_alertCoordinator addItemWithTitle:cancelTitle
                                action:^{
                                  [weakSelf dismissAlertCoordinator];
@@ -177,11 +173,11 @@
 
   __weak PriceInsightsModulator* weakSelf = self;
   [_alertCoordinator stop];
-  _alertCoordinator =
-      [[AlertCoordinator alloc] initWithBaseViewController:self.viewController
-                                                   browser:self.browser
-                                                     title:alertTitle
-                                                   message:alertMessage];
+  _alertCoordinator = [[AlertCoordinator alloc]
+      initWithBaseViewController:self.baseViewController
+                         browser:self.browser
+                           title:alertTitle
+                         message:alertMessage];
   [_alertCoordinator addItemWithTitle:cancelTitle
                                action:^{
                                  [weakSelf dismissAlertCoordinator];
@@ -201,6 +197,8 @@
 
 // Cell configuration handler helper.
 - (void)configureCell:(PriceInsightsCell*)cell {
+  cell.viewController = self.baseViewController;
+  cell.mutator = self.mediator;
   PriceInsightsItem* item = [[PriceInsightsItem alloc] init];
   [cell configureWithItem:item];
 }

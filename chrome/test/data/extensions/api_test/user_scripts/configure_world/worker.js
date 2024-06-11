@@ -49,7 +49,31 @@ async function navigateToRequestedUrl() {
   return tab;
 }
 
+async function cleanUpState() {
+  // Clear all user script registrations.
+  await chrome.userScripts.unregister();
+
+  // Clear all user script world configurations.
+  const worldConfigs = await chrome.userScripts.getWorldConfigurations();
+  for (const config of worldConfigs) {
+    await chrome.userScripts.resetWorldConfiguration(config.worldId);
+  }
+}
+
 chrome.test.runTests([
+  async function UserScriptWorld_worldIdValidation() {
+    await chrome.test.assertPromiseRejects(
+        chrome.userScripts.configureWorld({csp: '', worldId: ''}),
+        'Error: If specified, `worldId` must be non-empty.');
+    await chrome.test.assertPromiseRejects(
+        chrome.userScripts.configureWorld({csp: '', worldId: '_foobar'}),
+        `Error: World IDs beginning with '_' are reserved.`);
+    await chrome.test.assertPromiseRejects(
+        chrome.userScripts.configureWorld({csp: '', worldId: 'a'.repeat(257)}),
+        'Error: World IDs must be at most 256 characters.');
+    chrome.test.succeed();
+  },
+
   // Tests that a registered user script in the USER_SCRIPT world cannot send or
   // receive messages when messaging is disabled.
   async function UserScriptWorld_messagingDisabled() {
@@ -76,7 +100,7 @@ chrome.test.runTests([
   // Tests that a registered user script in the USER_SCRIPT world can send or
   // receive messages when messaging is enabled.
   async function UserScriptWorld_messagingEnabled() {
-    await chrome.userScripts.unregister();
+    await cleanUpState();
 
     // Verify user script can send messages.
     chrome.runtime.onUserScriptMessage.addListener(
@@ -122,7 +146,7 @@ chrome.test.runTests([
   // Tests that a registered user script in the MAIN world cannot send or
   // receive messages when messaging is enabled.
   async function mainWorld_messagingAlwaysDisabled() {
-    await chrome.userScripts.unregister();
+    await cleanUpState();
 
     // Register a user script in the MAIN world.
     const userScripts = [{
@@ -151,7 +175,7 @@ chrome.test.runTests([
 
   // Test that enabling messaging affects all registered scripts.
   async function messagingEnabled_MultipleScripts() {
-    await chrome.userScripts.unregister();
+    await cleanUpState();
 
     // Verify all scripts sent messages.
     let hellocount = 0;
@@ -161,6 +185,7 @@ chrome.test.runTests([
             hellocount++;
           }
           if (hellocount == 3) {
+            chrome.runtime.onUserScriptMessage.removeListener(listener);
             chrome.test.succeed()
           }
         });
@@ -185,7 +210,7 @@ chrome.test.runTests([
   // Tests that configuring the user script world affects scripts registered in
   // the USER_SCRIPT world.
   async function configureCsp_UserScriptWorld() {
-    await chrome.userScripts.unregister();
+    await cleanUpState();
 
     // Register a user script in the USER_SCRIPT world (default).
     let userScripts =
@@ -218,7 +243,7 @@ chrome.test.runTests([
   // Tests that configuring the user script world does not affect scripts
   // registered in the MAIN world.
   async function configureCsp_MainWorldNotAffected() {
-    await chrome.userScripts.unregister();
+    await cleanUpState();
 
     // Register a user script in the USER_SCRIPT world (default) with a script
     // that changes the doc title if it can eval() some code.
@@ -248,7 +273,7 @@ chrome.test.runTests([
   // Verify that multiple user script worlds are unique and can each have a
   // different CSP specified.
   async function configureWorld_MultipleWorldsAreUnique_Csp() {
-    await chrome.userScripts.unregister();
+    await cleanUpState();
 
     // Configure "world 1" to allow eval.
     await chrome.userScripts.configureWorld(
@@ -299,7 +324,7 @@ chrome.test.runTests([
   // Verify that multiple user script worlds are unique and can each have a
   // different value for whether messaging APIs are exposed.
   async function configureWorld_MultipleWorldsAreUnique_Messaging() {
-    await chrome.userScripts.unregister();
+    await cleanUpState();
 
     // Configure "world 1" to allow messaging APIs.
     await chrome.userScripts.configureWorld(
@@ -348,5 +373,123 @@ chrome.test.runTests([
     chrome.test.assertTrue(tab.title.includes('world 2: messaging disabled'),
                            tab.title);
     chrome.test.succeed();
+  },
+
+  async function canOnlyConfigureUpTo100UserScriptWorlds() {
+    await cleanUpState();
+
+    const worldConfigTemplate =
+        {
+          worldId: 'world #',
+          csp: 'test',
+        };
+    // Register 100 user script world configurations. This should succeed
+    // (100 is the current limit).
+    for (let i = 0; i < 100; ++i) {
+      let worldConfig = { ...worldConfigTemplate };
+      worldConfig.worldId += i;
+      await chrome.userScripts.configureWorld(worldConfig);
+    }
+
+    // Attempting to register one more should fail.
+    let worldConfig = { ...worldConfigTemplate };
+    worldConfig.worldId += '100';
+    await chrome.test.assertPromiseRejects(
+        chrome.userScripts.configureWorld(worldConfig),
+        'Error: You may only configure up to 100 ' +
+            'individual user script worlds.');
+
+    chrome.test.succeed();
+  },
+
+  async function canOnlyInjectIn10ActiveWorldsInADocument() {
+    await cleanUpState();
+
+    const defaultWorldConfig =
+        {
+          csp: `script-src 'unsafe-eval'`,
+          messaging: true,
+        };
+    const nonDefaultWorldConfigTemplate =
+        {
+          csp: `script-src 'self'`,
+          messaging: true,
+        };
+    const injectionTemplate =
+        `(() => {
+           let result = '<unset>';
+           try {
+             eval('result = "eval allowed"');
+             evalAllowed = 'eval allowed';
+           } catch (e) {
+             evalAllowed = 'eval disallowed';
+           }
+           const msg = {worldId: WORLD_ID, result: evalAllowed};
+           chrome.runtime.sendMessage('EXT_ID', msg);
+         })();`
+
+    // Configure the default world to allow eval.
+    await chrome.userScripts.configureWorld(defaultWorldConfig);
+
+    // Returns a zero-padded world ID. Today, scripts are injected in the order
+    // defined by their alphabetical ID, rather than by their registration
+    // order; this means that a script with ID '10' would inject before ID '2'.
+    // We need scripts to inject in a defined order below, so zero-pad the IDs
+    // (so it would be 10 vs 02, where 02 injects first).
+    // TODO(https://crbug.com/337078958): User scripts should be injected based
+    // registration order.
+    function getPaddedWorldId(i) {
+      return ('' + i).padStart(2, '0');
+    }
+
+    // Configure 12 extra worlds, IDs '0' through '11', to not allow eval.
+    for (let i = 0; i < 12; ++i) {
+      let worldConfig = { ...nonDefaultWorldConfigTemplate };
+      worldConfig.worldId = getPaddedWorldId(i);
+      await chrome.userScripts.configureWorld(worldConfig);
+    }
+
+    // Register 12 user scripts, each injecting into a different world, IDs
+    // '0' through '11'.
+    let allScripts = [];
+    for (let i = 0; i < 12; ++i) {
+      const worldId = getPaddedWorldId(i);
+      const script = injectionTemplate.replace('WORLD_ID', worldId)
+                                      .replace('EXT_ID', chrome.runtime.id);
+      const userScript =
+          {
+            id: 'script-' + worldId,
+            matches: ['*://*/*'],
+            js: [{code: script}],
+            worldId,
+          };
+      allScripts.push(userScript);
+    }
+    await chrome.userScripts.register(allScripts);
+
+    let msgCount = 0;
+    chrome.runtime.onUserScriptMessage.addListener(
+        async function listener(msg) {
+          // Each of the first ten scripts (IDs 0 - 9) should have injected into
+          // their corresponding world. The 11th and 12th (ID 10 and 11) should
+          // have injected into the default world, since we only allow 10 named
+          // worlds to be active at a time.
+          // We verify which world they injected into by checking whether eval
+          // was allowed.
+          chrome.test.assertTrue(msg.worldId != undefined);
+          chrome.test.assertTrue(msg.worldId < 12);
+          const expected =
+              msg.worldId < 10 ? 'eval disallowed' : 'eval allowed';
+          chrome.test.assertEq(expected, msg.result,
+                               'Failed for msg: ' + JSON.stringify(msg));
+
+          ++msgCount;
+          if (msgCount == 12) {  // All messages responded.
+            chrome.runtime.onUserScriptMessage.removeListener(listener);
+            chrome.test.succeed();
+          }
+        });
+
+    await navigateToRequestedUrl();
   },
 ]);

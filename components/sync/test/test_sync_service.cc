@@ -157,22 +157,12 @@ void TestSyncService::SetDetailedSyncStatus(bool engine_available,
   detailed_sync_status_ = status;
 }
 
-void TestSyncService::SetPassphraseRequired(bool required) {
-  user_settings_.SetPassphraseRequired(required);
-}
-
-void TestSyncService::SetPassphraseRequiredForPreferredDataTypes(
-    bool required) {
-  user_settings_.SetPassphraseRequiredForPreferredDataTypes(required);
+void TestSyncService::SetPassphraseRequired() {
+  user_settings_.SetPassphraseRequired();
 }
 
 void TestSyncService::SetTrustedVaultKeyRequired(bool required) {
   user_settings_.SetTrustedVaultKeyRequired(required);
-}
-
-void TestSyncService::SetTrustedVaultKeyRequiredForPreferredDataTypes(
-    bool required) {
-  user_settings_.SetTrustedVaultKeyRequiredForPreferredDataTypes(required);
 }
 
 void TestSyncService::SetTrustedVaultRecoverabilityDegraded(bool degraded) {
@@ -321,10 +311,6 @@ void TestSyncService::StopAndClear() {
   SetSignedInWithoutSyncFeature();
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
-  // TODO(crbug.com/40946404): Strictly speaking SyncServiceImpl enters
-  // START_DEFERRED for a very short time interval, until the task posted from
-  // TryStart() is processed. It is simplified here because INITIALIZING takes
-  // significantly longer.
   SetTransportState(TransportState::INITIALIZING);
 }
 

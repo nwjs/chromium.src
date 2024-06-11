@@ -807,7 +807,7 @@ base::expected<void, GLError> CopySharedImageHelper::CopySharedImage(
             dest_scoped_access->surface(plane_index);
       }
 
-      // TODO(crbug.com/828599): This should really default to rec709.
+      // TODO(crbug.com/41380578): This should really default to rec709.
       SkYUVColorSpace yuv_color_space = kRec601_SkYUVColorSpace;
       dest_shared_image->color_space().ToSkYUVColorSpace(
           dest_format.MultiplanarBitDepth(), &yuv_color_space);
@@ -816,7 +816,7 @@ base::expected<void, GLError> CopySharedImageHelper::CopySharedImage(
                            ToSkYUVAPlaneConfig(dest_format),
                            ToSkYUVASubsampling(dest_format), yuv_color_space);
       // Perform skia::BlitRGBAToYUVA for the multiplanar YUV format image.
-      // TODO(crbug.com/1451025): This will scale the image if the source image
+      // TODO(crbug.com/40270413): This will scale the image if the source image
       // is smaller than the destination image. What we should actually do
       // instead is just blit the destination rect and clear out the rest.
       // However, doing that resulted in resulted in pixeltest failures due to
@@ -1007,7 +1007,7 @@ base::expected<void, GLError> CopySharedImageHelper::ReadPixels(
                                     "Couldn't create SkImage for reading."));
   }
 
-  // TODO(crbug.com/1502623): Add back src_rect validation once renderer passes
+  // TODO(crbug.com/40942998): Add back src_rect validation once renderer passes
   // a correct rect size.
   bool success = false;
   if (gr_context) {
@@ -1032,8 +1032,8 @@ base::expected<void, GLError> CopySharedImageHelper::ReadPixels(
       success = true;
       // Use CopyPlane to flip as Graphite doesn't support bottom left origin
       // images. Using a negative height causes CopyPlane to flip while copying.
-      // TODO(crbug.com/1449764): Remove this if Graphite performs the flip once
-      // it supports bottom left origin images.
+      // TODO(crbug.com/40269891): Remove this if Graphite performs the flip
+      // once it supports bottom left origin images.
       const int height =
           source_shared_image->surface_origin() == kTopLeft_GrSurfaceOrigin
               ? dst_info.height()

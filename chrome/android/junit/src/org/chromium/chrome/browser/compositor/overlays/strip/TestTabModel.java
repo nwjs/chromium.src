@@ -33,10 +33,8 @@ public class TestTabModel extends EmptyTabModel {
 
     @Override
     public Tab getTabAt(int position) {
-        if (position < mMockTabs.size()) {
-            return mMockTabs.get(position);
-        }
-        return null;
+        if (position < 0 || position >= mMockTabs.size()) return null;
+        return mMockTabs.get(position);
     }
 
     @Override
@@ -62,7 +60,7 @@ public class TestTabModel extends EmptyTabModel {
     }
 
     @Override
-    public boolean closeTab(Tab tab, boolean animate, boolean uponExit, boolean canUndo) {
+    public boolean closeTab(Tab tab, boolean uponExit, boolean canUndo) {
         // The tabId and index are the same.
         mMockTabs.remove(tab.getId());
         return true;

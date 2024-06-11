@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
@@ -165,6 +166,38 @@ ui::AXMode FilterAccessibilityModeInvariants(ui::AXMode mode) {
              : (mode & ui::AXMode::kNativeAPIs);
 }
 
+// Helper for GetProductName and GetProductVersion, gets the product name and
+// version from the content client.
+std::vector<std::string> GetProductNameAndVersion() {
+  // GetProduct() returns a string like "Chrome/aa.bb.cc.dd", split out
+  // the part before and after the "/".
+  std::vector<std::string> product_components = base::SplitString(
+      CHECK_DEREF(CHECK_DEREF(GetContentClient()).browser()).GetProduct(), "/",
+      base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
+  return product_components;
+}
+
+std::string GetProductName() {
+  std::vector<std::string> product_components = GetProductNameAndVersion();
+  if (product_components.size() != 2) {
+    return "";
+  }
+  return product_components[0];
+}
+
+std::string GetProductVersion() {
+  std::vector<std::string> product_components = GetProductNameAndVersion();
+  if (product_components.size() != 2) {
+    return "";
+  }
+  return product_components[1];
+}
+
+std::string GetToolkitVersion() {
+  CHECK(GetContentClient() && GetContentClient()->browser());
+  return CHECK_DEREF(CHECK_DEREF(GetContentClient()).browser()).GetUserAgent();
+}
+
 }  // namespace
 
 // static
@@ -190,6 +223,10 @@ BrowserAccessibilityStateImpl::Create() {
 
 BrowserAccessibilityStateImpl::BrowserAccessibilityStateImpl()
     : BrowserAccessibilityState(),
+      ax_platform_(*this,
+                   GetProductName(),
+                   GetProductVersion(),
+                   GetToolkitVersion()),
       histogram_delay_(base::Seconds(ACCESSIBILITY_HISTOGRAM_DELAY_SECS)),
       scoped_modes_for_process_(base::BindRepeating(
           &BrowserAccessibilityStateImpl::OnModeChangedForProcess,
@@ -367,14 +404,6 @@ void BrowserAccessibilityStateImpl::UpdateHistogramsForTesting() {
   UpdateHistogramsOnOtherThread();
 }
 
-void BrowserAccessibilityStateImpl::SetCaretBrowsingState(bool enabled) {
-  caret_browsing_enabled_ = enabled;
-}
-
-bool BrowserAccessibilityStateImpl::IsCaretBrowsingEnabled() const {
-  return caret_browsing_enabled_;
-}
-
 void BrowserAccessibilityStateImpl::SetPerformanceFilteringAllowed(
     bool allowed) {
   performance_filtering_allowed_ = allowed;
@@ -490,23 +519,6 @@ void BrowserAccessibilityStateImpl::OnUserInputEvent() {
   }
 }
 
-void BrowserAccessibilityStateImpl::OnAccessibilityApiUsage() {
-  // See OnUserInputEvent for how this is used to disable accessibility.
-  user_input_event_count_ = 0;
-
-  // See comment above kOnAccessibilityUsageUpdateDelaySecs for why we post a
-  // delayed task.
-  if (!accessibility_update_task_pending_) {
-    accessibility_update_task_pending_ = true;
-    GetUIThreadTaskRunner({})->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(
-            &BrowserAccessibilityStateImpl::UpdateAccessibilityActivityTask,
-            base::Unretained(this)),
-        base::Seconds(kOnAccessibilityUsageUpdateDelaySecs));
-  }
-}
-
 void BrowserAccessibilityStateImpl::UpdateUniqueUserHistograms() {}
 
 void BrowserAccessibilityStateImpl::SetAXModeChangeAllowed(bool allowed) {
@@ -581,6 +593,23 @@ void BrowserAccessibilityStateImpl::SetProcessMode(ui::AXMode new_mode) {
   }
 
   process_accessibility_mode_ = CreateScopedModeForProcess(new_mode);
+}
+
+void BrowserAccessibilityStateImpl::OnAccessibilityApiUsage() {
+  // See OnUserInputEvent for how this is used to disable accessibility.
+  user_input_event_count_ = 0;
+
+  // See comment above kOnAccessibilityUsageUpdateDelaySecs for why we post a
+  // delayed task.
+  if (!accessibility_update_task_pending_) {
+    accessibility_update_task_pending_ = true;
+    GetUIThreadTaskRunner({})->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(
+            &BrowserAccessibilityStateImpl::UpdateAccessibilityActivityTask,
+            base::Unretained(this)),
+        base::Seconds(kOnAccessibilityUsageUpdateDelaySecs));
+  }
 }
 
 std::unique_ptr<ScopedAccessibilityMode>

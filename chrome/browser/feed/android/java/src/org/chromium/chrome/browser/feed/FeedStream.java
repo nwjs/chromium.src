@@ -14,6 +14,7 @@ import android.view.ViewGroup.MarginLayoutParams;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -59,6 +60,7 @@ import org.chromium.components.browser_ui.share.ShareParams;
 import org.chromium.components.feed.proto.FeedUiProto;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.net.NetError;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.display.DisplayAndroid;
@@ -72,18 +74,21 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * A implementation of a Feed {@link Stream} that is just able to render a vertical stream of
- * cards for Feed v2.
+ * A implementation of a Feed {@link Stream} that is just able to render a vertical stream of cards
+ * for Feed v2.
  */
 public class FeedStream implements Stream {
     private static final String TAG = "FeedStream";
     private static final String SPACER_KEY = "Spacer";
+    private static final AtomicInteger sPageId = new AtomicInteger();
 
     /** Implementation of SurfaceActionsHandler methods. */
     @VisibleForTesting
-    class FeedSurfaceActionsHandler implements SurfaceActionsHandler {
+    class FeedSurfaceActionsHandler
+            implements SurfaceActionsHandler, FeedActionDelegate.PageLoadObserver {
         FeedActionDelegate mActionDelegate;
 
         FeedSurfaceActionsHandler(FeedActionDelegate actionDelegate) {
@@ -300,13 +305,11 @@ public class FeedStream implements Stream {
 
         private void openSuggestionUrl(
                 String url, int disposition, boolean inGroup, OpenUrlOptions openOptions) {
-            boolean inNewTab =
-                    (disposition == WindowOpenDisposition.NEW_BACKGROUND_TAB
-                            || disposition == WindowOpenDisposition.OFF_THE_RECORD);
-
+            int pageId = sPageId.incrementAndGet();
             if (disposition != WindowOpenDisposition.NEW_BACKGROUND_TAB
                     && mReliabilityLogger != null) {
-                mReliabilityLogger.onOpenCard();
+                // TODO(crbug.com/338585368): Add card category.
+                mReliabilityLogger.onOpenCard(pageId, 0);
                 mClosedReason = ClosedReason.OPEN_CARD;
             }
 
@@ -327,7 +330,8 @@ public class FeedStream implements Stream {
                                 disposition,
                                 params,
                                 inGroup,
-                                /* onPageLoaded= */ () -> mBridge.reportPageLoaded(inNewTab),
+                                pageId,
+                                /* pageLoadObserver= */ this,
                                 visitResult ->
                                         mBridge.reportOpenVisitComplete(visitResult.visitTimeMs));
                     });
@@ -335,7 +339,17 @@ public class FeedStream implements Stream {
 
         @Override
         public void showSyncConsentPrompt() {
-            mActionDelegate.showSyncConsentActivity(SigninAccessPoint.NTP_FEED_BOTTOM_PROMO);
+            if (ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+                startSigninFlow();
+            } else {
+                mActionDelegate.showSyncConsentActivity(SigninAccessPoint.NTP_FEED_BOTTOM_PROMO);
+            }
+        }
+
+        @Override
+        public void startSigninFlow() {
+            mActionDelegate.startSigninFlow(SigninAccessPoint.NTP_FEED_BOTTOM_PROMO);
         }
 
         @Override
@@ -344,6 +358,35 @@ public class FeedStream implements Stream {
                     SigninAccessPoint.NTP_FEED_CARD_MENU_PROMO,
                     mBottomSheetController,
                     mWindowAndroid);
+        }
+
+        @Override
+        public void onPageLoadStarted(int pageId) {
+            if (mReliabilityLogger != null) {
+                mReliabilityLogger.onPageLoadStarted(pageId);
+            }
+        }
+
+        @Override
+        public void onPageLoadFinished(int pageId, boolean inNewTab) {
+            mBridge.reportPageLoaded(inNewTab);
+            if (mReliabilityLogger != null) {
+                mReliabilityLogger.onPageLoadFinished(pageId);
+            }
+        }
+
+        @Override
+        public void onPageLoadFailed(int pageId, @NetError int errorCode) {
+            if (mReliabilityLogger != null) {
+                mReliabilityLogger.onPageLoadFailed(pageId, errorCode);
+            }
+        }
+
+        @Override
+        public void onPageFirstContentfulPaint(int pageId) {
+            if (mReliabilityLogger != null) {
+                mReliabilityLogger.onPageFirstContentfulPaint(pageId);
+            }
         }
     }
 
@@ -1113,6 +1156,27 @@ public class FeedStream implements Stream {
                 }
             }
 
+            // Adds a special view at the end to provide the bottom margin. We can't do it with
+            // the bottom margin added to the container because that would cause the bottom margin
+            // be always visible since the beginning.
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_CONTAINMENT)) {
+                TextView bottomGapView = new TextView(mActivity);
+                ViewGroup.LayoutParams bottomGapParams =
+                        new ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                mActivity
+                                        .getResources()
+                                        .getDimensionPixelSize(R.dimen.feed_containment_margin));
+                bottomGapView.setLayoutParams(bottomGapParams);
+                FeedListContentManager.NativeViewContent bottomGapViewContent =
+                        new FeedListContentManager.NativeViewContent(
+                                0,
+                                "BottomGap" + bottomGapView.hashCode(),
+                                bottomGapView,
+                                /* isFullSpan= */ true);
+                newContentList.add(bottomGapViewContent);
+            }
+
             updateContentsInPlace(newContentList);
             mRecyclerView.post(mReliabilityLoggingBridge::onStreamUpdateFinished);
 
@@ -1154,7 +1218,7 @@ public class FeedStream implements Stream {
         }
         if (mStreamKind == StreamKind.SINGLE_WEB_FEED) {
             View creatorErrorCard;
-            // TODO(crbug/1396161): Add offline error scenario.
+            // TODO(crbug.com/40882611): Add offline error scenario.
             if (slice.getZeroStateSlice().getType()
                     == FeedUiProto.ZeroStateSlice.Type.NO_CARDS_AVAILABLE) {
                 creatorErrorCard =
@@ -1169,7 +1233,7 @@ public class FeedStream implements Stream {
                         LayoutInflater.from(mActivity)
                                 .inflate(R.layout.creator_general_error, mRecyclerView, false);
             }
-            // TODO(crbug/1385903): Replace display height dependency with setting the
+            // TODO(crbug.com/40879463): Replace display height dependency with setting the
             // RecyclerView height to match_parent.
             DisplayMetrics displayMetrics = new DisplayMetrics();
             mActivity.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
@@ -1189,7 +1253,7 @@ public class FeedStream implements Stream {
             return new FeedListContentManager.NativeViewContent(
                     getLateralPaddingsPx(), sliceId, R.layout.no_connection);
         }
-        // TODO(crbug/1152592): Add new UI for NO_WEB_FEED_SUBSCRIPTIONS.
+        // TODO(crbug.com/40158714): Add new UI for NO_WEB_FEED_SUBSCRIPTIONS.
         assert slice.getZeroStateSlice().getType()
                         == FeedUiProto.ZeroStateSlice.Type.NO_CARDS_AVAILABLE
                 || slice.getZeroStateSlice().getType()
@@ -1215,6 +1279,8 @@ public class FeedStream implements Stream {
                 return StreamType.WEB_FEED;
             case StreamKind.SINGLE_WEB_FEED:
                 return StreamType.SINGLE_WEB_FEED;
+            case StreamKind.SUPERVISED_USER:
+                return StreamType.SUPERVISED_USER_FEED;
             default:
                 return StreamType.UNSPECIFIED;
         }

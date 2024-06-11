@@ -10,7 +10,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.LocaleUtils;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxDrawableState;
@@ -32,7 +31,6 @@ public class AnswerSuggestionProcessor extends BaseSuggestionViewProcessor {
     private static final String COLOR_REVERSAL_COUNTRY_LIST = "ja-JP,ko-KR,zh-CN,zh-TW";
 
     private final UrlBarEditingTextStateProvider mUrlBarEditingTextProvider;
-    private boolean mOmniBoxAnswerColorReversal;
 
     public AnswerSuggestionProcessor(
             @NonNull Context context,
@@ -44,17 +42,12 @@ public class AnswerSuggestionProcessor extends BaseSuggestionViewProcessor {
     }
 
     @Override
-    public void onNativeInitialized() {
-        super.onNativeInitialized();
-        mOmniBoxAnswerColorReversal =
-                ChromeFeatureList.isEnabled(ChromeFeatureList.SUGGESTION_ANSWERS_COLOR_REVERSE);
-    }
-
-    @Override
     public boolean doesProcessSuggestion(@NonNull AutocompleteMatch suggestion, int position) {
         // Calculation answers are specific in a way that these are basic suggestions, but processed
         // as answers, when new answer layout is enabled.
-        return suggestion.hasAnswer() || suggestion.getType() == OmniboxSuggestionType.CALCULATOR;
+        return suggestion.getAnswerTemplate() != null
+                || suggestion.hasAnswer()
+                || suggestion.getType() == OmniboxSuggestionType.CALCULATOR;
     }
 
     @Override
@@ -82,29 +75,41 @@ public class AnswerSuggestionProcessor extends BaseSuggestionViewProcessor {
                         ? AnswerType.INVALID
                         : suggestion.getAnswer().getType();
         boolean suggestionTextColorReversal = checkColorReversalRequired(answerType);
-        AnswerText[] details =
-                AnswerTextNewLayout.from(
-                        mContext,
-                        suggestion,
-                        mUrlBarEditingTextProvider.getTextWithoutAutocomplete(),
-                        suggestionTextColorReversal);
+        AnswerText[] details;
+        if (suggestion.getAnswerTemplate() != null) {
+            details =
+                    RichAnswerText.from(
+                            mContext, suggestion.getAnswerTemplate(), suggestionTextColorReversal);
+        } else {
+            details =
+                    AnswerTextNewLayout.from(
+                            mContext,
+                            suggestion,
+                            mUrlBarEditingTextProvider.getTextWithoutAutocomplete(),
+                            suggestionTextColorReversal);
+        }
 
-        model.set(AnswerSuggestionViewProperties.TEXT_LINE_1_TEXT, details[0].mText);
-        model.set(AnswerSuggestionViewProperties.TEXT_LINE_2_TEXT, details[1].mText);
+        model.set(AnswerSuggestionViewProperties.TEXT_LINE_1_TEXT, details[0].getText());
+        model.set(AnswerSuggestionViewProperties.TEXT_LINE_2_TEXT, details[1].getText());
 
         model.set(
                 AnswerSuggestionViewProperties.TEXT_LINE_1_ACCESSIBILITY_DESCRIPTION,
-                details[0].mAccessibilityDescription);
+                details[0].getAccessibilityDescription());
         model.set(
                 AnswerSuggestionViewProperties.TEXT_LINE_2_ACCESSIBILITY_DESCRIPTION,
-                details[1].mAccessibilityDescription);
+                details[1].getAccessibilityDescription());
 
-        model.set(AnswerSuggestionViewProperties.TEXT_LINE_1_MAX_LINES, details[0].mMaxLines);
-        model.set(AnswerSuggestionViewProperties.TEXT_LINE_2_MAX_LINES, details[1].mMaxLines);
+        model.set(AnswerSuggestionViewProperties.TEXT_LINE_1_MAX_LINES, details[0].getMaxLines());
+        model.set(AnswerSuggestionViewProperties.TEXT_LINE_2_MAX_LINES, details[1].getMaxLines());
 
         setTabSwitchOrRefineAction(model, suggestion, position);
         if (suggestion.hasAnswer() && suggestion.getAnswer().getSecondLine().hasImage()) {
             fetchImage(model, new GURL(suggestion.getAnswer().getSecondLine().getImage()));
+        } else if (suggestion.getAnswerTemplate() != null
+                && suggestion.getAnswerTemplate().getAnswers(0).hasImage()) {
+            fetchImage(
+                    model,
+                    new GURL(suggestion.getAnswerTemplate().getAnswers(0).getImage().getUrl()));
         }
     }
 
@@ -117,8 +122,6 @@ public class AnswerSuggestionProcessor extends BaseSuggestionViewProcessor {
     @VisibleForTesting
     public boolean checkColorReversalRequired(@AnswerType int answerType) {
         boolean isFinanceAnswer = answerType == AnswerType.FINANCE;
-        // Flag disabled.
-        if (!mOmniBoxAnswerColorReversal) return false;
         // Country not eligible.
         if (!isCountryEligibleForColorReversal()) return false;
         // Not a finance answer.

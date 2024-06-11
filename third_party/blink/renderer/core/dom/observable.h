@@ -20,6 +20,7 @@ class SubscribeOptions;
 class V8Mapper;
 class V8Predicate;
 class V8SubscribeCallback;
+class V8UnionObservableInspectorOrObserverCallback;
 class V8UnionObserverOrObserverCallback;
 class V8Visitor;
 
@@ -73,6 +74,8 @@ class CORE_EXPORT Observable final : public ScriptWrappable,
   Observable* switchMap(ScriptState*,
                         V8Mapper*,
                         ExceptionState& exception_state);
+  Observable* inspect(ScriptState*,
+                      V8UnionObservableInspectorOrObserverCallback*);
 
   // Promise-returning operators. See
   // https://wicg.github.io/observable/#promise-returning-operators.
@@ -82,6 +85,11 @@ class CORE_EXPORT Observable final : public ScriptWrappable,
                                       SubscribeOptions*);
   ScriptPromise<IDLAny> first(ScriptState*, SubscribeOptions*);
   ScriptPromise<IDLAny> last(ScriptState*, SubscribeOptions*);
+  ScriptPromise<IDLBoolean> some(ScriptState*, V8Predicate*, SubscribeOptions*);
+  ScriptPromise<IDLBoolean> every(ScriptState*,
+                                  V8Predicate*,
+                                  SubscribeOptions*);
+  ScriptPromise<IDLAny> find(ScriptState*, V8Predicate*, SubscribeOptions*);
 
   void Trace(Visitor*) const override;
 

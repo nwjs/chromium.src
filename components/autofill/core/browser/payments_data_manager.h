@@ -11,10 +11,11 @@
 #include <vector>
 
 #include "base/containers/span.h"
-#include "base/functional/callback_forward.h"
 #include "base/functional/function_ref.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/observer_list.h"
+#include "base/observer_list_types.h"
 #include "components/autofill/core/browser/autofill_shared_storage_handler.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/autofill_offer_data.h"
@@ -25,6 +26,7 @@
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/payments/account_info_getter.h"
+#include "components/autofill/core/browser/payments/payments_customer_data.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_observer.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -46,15 +48,34 @@ class AutofillOptimizationGuide;
 class BankAccount;
 struct CreditCardArtImage;
 class PaymentsDatabaseHelper;
-class PersonalDataManager;
-class TestPersonalDataManager;
 
+// Contains all payments-related logic of the `PersonalDataManager`. See comment
+// above the `PersonalDataManager` first.
+//
+// Technical details on how modifications are implemented:
+// `PaymentsDataManager` (PayDM) code simply posts a task to the DB sequence and
+// triggers a `Refresh()` afterwards. Since `Refresh()` itself simply posts
+// several read requests on the DB sequence, and because the DB sequence is a
+// sequence, the `Refresh()` is guaranteed to read the latest data. This is
+// unnecessarily inefficient, since any change causes the PayDM to reload all of
+// its data.
 class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
                             public WebDataServiceConsumer,
                             public AccountInfoGetter,
                             public syncer::SyncServiceObserver,
                             public signin::IdentityManager::Observer {
  public:
+  class Observer : public base::CheckedObserver {
+   public:
+    // Triggered after all pending read and write operations have finished.
+    virtual void OnPaymentsDataChanged() = 0;
+  };
+
+  // `profile_database` is a profile-scoped database that will be used to save
+  // local data. `account_database` is scoped to the currently signed-in
+  // account, and is wiped on signout and browser exit. This can be a nullptr
+  // if PaymentsDataManager should use `profile_database` for all data.
+  // If passed in, the `account_database` is used by default for server data.
   PaymentsDataManager(
       scoped_refptr<AutofillWebDataService> profile_database,
       scoped_refptr<AutofillWebDataService> account_database,
@@ -64,12 +85,17 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
       syncer::SyncService* sync_service,
       signin::IdentityManager* identity_manager,
       GeoIpCountryCode variations_country_code,
-      const std::string& app_locale,
-      base::RepeatingClosure notify_pdm_observers);
+      const std::string& app_locale);
 
   PaymentsDataManager(const PaymentsDataManager&) = delete;
   PaymentsDataManager& operator=(const PaymentsDataManager&) = delete;
   ~PaymentsDataManager() override;
+
+  // Only intended to be called during shutdown of the parent `KeyedService`.
+  void Shutdown();
+
+  void AddObserver(Observer* obs) { observers_.AddObserver(obs); }
+  void RemoveObserver(Observer* obs) { observers_.RemoveObserver(obs); }
 
   // AutofillWebDataServiceObserverOnUISequence:
   void OnAutofillChangedBySync(syncer::ModelType model_type) override;
@@ -162,8 +188,12 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // Returns all IBANs, server and local. All local IBANs that share the same
   // prefix, suffix, and length as any existing server IBAN will be considered a
   // duplicate IBAN. These duplicate IBANs will not be returned in the list.
-  virtual std::vector<const Iban*> GetIbansToSuggest() const;
+  // The returned IBANs are ranked by ranking score (see AutofillDataModel for
+  // details).
+  std::vector<Iban> GetOrderedIbansToSuggest() const;
 
+  // Returns true if the user has at least 1 masked bank account.
+  bool HasMaskedBankAccounts() const;
   // Returns the masked bank accounts that can be suggested to the user.
   std::vector<BankAccount> GetMaskedBankAccounts() const;
 
@@ -286,6 +316,10 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // present in the cache, this function will return a nullptr.
   gfx::Image* GetCachedCardArtImageForUrl(const GURL& card_art_url) const;
 
+  // Checks if a specific card is eligible to see benefits based on its issuer
+  // id.
+  bool IsCardEligibleForBenefits(const CreditCard& card) const;
+
   // Checks if the user is in an experiment for seeing credit card benefits in
   // Autofill suggestions.
   bool IsCardBenefitsFeatureEnabled();
@@ -388,7 +422,7 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // TODO(b/322170538): Remove.
   scoped_refptr<AutofillWebDataService> GetLocalDatabase();
   scoped_refptr<AutofillWebDataService> GetServerDatabase();
-  bool IsUsingAccountStorageForServerData();
+  bool IsUsingAccountStorageForServerDataForTest();
 
   // Cancels any pending queries to the server web database.
   void CancelPendingServerQueries();
@@ -406,6 +440,11 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // when Chrome is restarted.
   const std::string& GetCountryCodeForExperimentGroup() const;
 
+  // Returns if there are any pending queries to the web database.
+  bool HasPendingPaymentQueries() const;
+
+  bool is_payments_data_loaded() const { return is_payments_data_loaded_; }
+
   void SetSyncServiceForTest(syncer::SyncService* sync_service);
   void SetSyncingForTest(bool is_syncing_for_test) {
     is_syncing_for_test_ = is_syncing_for_test;
@@ -415,12 +454,19 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // PaymentsDataManager.
   void AddMaskedBankAccountForTest(const BankAccount& bank_account);
 
+  // Sets a server credit card for test.
+  //
+  // TODO(crbug.com/330865438): This method currently sets `server_cards_`
+  // directly which is not correct for the real PaymentsDataManager. It should
+  // be moved to TestPaymentsDataManager, and unittests should switch to that.
+  void AddServerCreditCardForTest(std::unique_ptr<CreditCard> credit_card);
+
+  // Add the credit-card-linked benefit to local cache for tests. This does
+  // not affect data in the real database.
+  void AddCreditCardBenefitForTest(CreditCardBenefit benefit);
+
  protected:
   friend class PaymentsDataManagerTestApi;
-  // TODO(b/322170538): Remove dependency.
-  friend class PersonalDataManager;
-  friend class TestPaymentsDataManager;
-  friend class TestPersonalDataManager;
 
   // Whether server cards or IBANs are enabled and should be suggested to the
   // user.
@@ -467,6 +513,8 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
 
   void SetPrefService(PrefService* pref_service);
 
+  void NotifyObservers();
+
   // Stores the PaymentsCustomerData obtained from the database.
   std::unique_ptr<PaymentsCustomerData> payments_customer_data_;
 
@@ -502,15 +550,27 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   // merchant benefits that are available for users' online purchases.
   std::vector<CreditCardBenefit> credit_card_benefits_;
 
+  // When the manager makes a request from WebDataServiceBase, the database
+  // is queried on another sequence, we record the query handle until we
+  // get called back.
+  WebDataServiceBase::Handle pending_creditcards_query_ = 0;
+  WebDataServiceBase::Handle pending_server_creditcards_query_ = 0;
+  WebDataServiceBase::Handle pending_server_creditcard_cloud_token_data_query_ =
+      0;
+  WebDataServiceBase::Handle pending_local_ibans_query_ = 0;
+  WebDataServiceBase::Handle pending_server_ibans_query_ = 0;
+  WebDataServiceBase::Handle pending_masked_bank_accounts_query_ = 0;
+  WebDataServiceBase::Handle pending_customer_data_query_ = 0;
+  WebDataServiceBase::Handle pending_offer_data_query_ = 0;
+  WebDataServiceBase::Handle pending_virtual_card_usage_data_query_ = 0;
+  WebDataServiceBase::Handle pending_credit_card_benefit_query_ = 0;
+
   // True if personal data has been loaded from the web database.
   bool is_payments_data_loaded_ = false;
 
-  // TODO(b/322170538): Remove once the PDM observer is split.
-  base::RepeatingClosure notify_pdm_observers_;
-
  private:
-  // Returns if there are any pending queries to the web database.
-  bool HasPendingPaymentQueries() const;
+  // Check if credit card benefits sync flag is enabled.
+  bool IsCardBenefitsSyncEnabled() const;
 
   // Triggered when all the card art image fetches have been completed,
   // regardless of whether all of them succeeded.
@@ -551,23 +611,13 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
   virtual std::string SaveImportedCreditCard(
       const CreditCard& imported_credit_card);
 
+  // Invoked when the masked bank accounts cache is refreshed. This happens when
+  // the masked bank accounts are loaded for the first time as well as for any
+  // subsequent updates via ChromeSync invalidations.
+  void OnMaskedBankAccountsRefreshed();
+
   // Decides which database type to use for server and local cards.
   std::unique_ptr<PaymentsDatabaseHelper> database_helper_;
-
-  // When the manager makes a request from WebDataServiceBase, the database
-  // is queried on another sequence, we record the query handle until we
-  // get called back.
-  WebDataServiceBase::Handle pending_creditcards_query_ = 0;
-  WebDataServiceBase::Handle pending_server_creditcards_query_ = 0;
-  WebDataServiceBase::Handle pending_server_creditcard_cloud_token_data_query_ =
-      0;
-  WebDataServiceBase::Handle pending_local_ibans_query_ = 0;
-  WebDataServiceBase::Handle pending_server_ibans_query_ = 0;
-  WebDataServiceBase::Handle pending_masked_bank_accounts_query_ = 0;
-  WebDataServiceBase::Handle pending_customer_data_query_ = 0;
-  WebDataServiceBase::Handle pending_offer_data_query_ = 0;
-  WebDataServiceBase::Handle pending_virtual_card_usage_data_query_ = 0;
-  WebDataServiceBase::Handle pending_credit_card_benefit_query_ = 0;
 
   // The image fetcher to fetch customized images for Autofill data.
   raw_ptr<AutofillImageFetcherBase> image_fetcher_ = nullptr;
@@ -595,6 +645,8 @@ class PaymentsDataManager : public AutofillWebDataServiceObserverOnUISequence,
 
   // Stores the |app_locale| supplied on construction.
   const std::string app_locale_;
+
+  base::ObserverList<Observer> observers_;
 
   // The PrefService that this instance uses to read and write preferences.
   // Must outlive this instance.

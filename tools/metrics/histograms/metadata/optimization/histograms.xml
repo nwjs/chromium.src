@@ -74,6 +74,8 @@ chromium-metrics-reviews@google.com.
       summary="Chrome Start Android"/>
   <variant name="SegmentationChromeStartAndroidV2"
       summary="Chrome Start Android V2"/>
+  <variant name="SegmentationComposePromotion"
+      summary="Segmentation: Compose promotion"/>
   <variant name="SegmentationDesktopNtpModule"
       summary="Segmentation: Desktop new tab page module users"/>
   <variant name="SegmentationDeviceSwitcher"
@@ -119,6 +121,10 @@ chromium-metrics-reviews@google.com.
                of Autofill UKM metrics per origin based on origin popularity."/>
   <variant name="BloomFilterValidation"
       summary="Validates bloom filer allowlist/blocklist based hints"/>
+  <variant name="CapitalOneCreditCardBenefitsBlocked"
+      summary="This optimization provides information about whether a
+               merchant url is eligible to display Capital One credit card
+               benefits."/>
   <variant name="CapitalOneCreditCardDiningBenefits"
       summary="This optimization provides information about whether a
                merchant url is eligible for dining credit card benefits.
@@ -264,7 +270,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="OptimizationGuide.AccessTokenHelper.Result"
-    enum="OptimizationGuideAccessTokenResult" expires_after="2024-08-11">
+    enum="OptimizationGuideAccessTokenResult" expires_after="2024-10-13">
   <owner>rajendrant@chromium.org</owner>
   <owner>sophiechang@google.com</owner>
   <summary>
@@ -442,7 +448,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount.{RequestContext}"
-    units="total url count" expires_after="2024-07-30">
+    units="total url count" expires_after="2024-10-20">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -585,6 +591,19 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="OptimizationGuide.ModelExecution.OnDeviceAdaptationModelAvailability.{ModelExecutionFeature}"
+    enum="OnDeviceModelAdaptationAvailability" expires_after="2024-09-15">
+  <owner>rajendrant@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Records the availability of adaptation model for {ModelExecutionFeature}.
+    Recorded each time an update to the base model or the foundation model is
+    triggered.
+  </summary>
+  <token key="ModelExecutionFeature" variants="ModelExecutionFeature"/>
+</histogram>
+
+<histogram
     name="OptimizationGuide.ModelExecution.OnDeviceAddContextResult.{ModelExecutionFeature}"
     enum="OptimizationGuideOnDeviceAddContextResult" expires_after="2024-09-29">
   <owner>sky@chromium.org</owner>
@@ -656,6 +675,18 @@ chromium-metrics-reviews@google.com.
     response.
   </summary>
   <token key="ModelExecutionFeature" variants="ModelExecutionFeature"/>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.ModelExecution.OnDeviceModelAdaptationLoadResult"
+    enum="OnDeviceModelLoadResult" expires_after="2024-09-29">
+  <owner>rajendrant@chromium.org</owner>
+  <owner>cduvall@chromium.org</owner>
+  <owner>sophiechang@chromium.org</owner>
+  <summary>
+    Records the result of loading a model adaptation from OnDeviceModelService.
+    This is recorded for every model adaptation loaded from a base model.
+  </summary>
 </histogram>
 
 <histogram
@@ -996,7 +1027,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.ModelExecutor.TaskExecutionLatency.{OptimizationTarget}"
-    units="ms" expires_after="2024-07-14">
+    units="ms" expires_after="2024-10-20">
   <owner>mcrouse@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>

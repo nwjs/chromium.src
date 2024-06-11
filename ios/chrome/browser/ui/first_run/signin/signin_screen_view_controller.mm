@@ -4,10 +4,13 @@
 
 #import "ios/chrome/browser/ui/first_run/signin/signin_screen_view_controller.h"
 
+#import "base/feature_list.h"
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/signin/public/base/signin_switches.h"
 #import "ios/chrome/browser/shared/public/commands/tos_commands.h"
 #import "ios/chrome/browser/shared/ui/elements/activity_overlay_view.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/ui/authentication/views/identity_button_control.h"
 #import "ios/chrome/browser/ui/first_run/first_run_constants.h"
 #import "ios/chrome/browser/ui/settings/elements/enterprise_info_popover_view_controller.h"
@@ -24,8 +27,6 @@ namespace {
 // Top margin for the managed icon in the enteprised image view
 constexpr CGFloat kTopMarginForManagedIcon = 16.;
 
-// Banner at the top of the view.
-NSString* const kSigninBannerName = @"signin_banner";
 // Enterprise icon in the bottom view.
 NSString* const kEnterpriseIconName = @"enterprise_icon";
 
@@ -62,7 +63,11 @@ NSString* const kEnterpriseIconName = @"enterprise_icon";
       l10n_util::GetNSString(IDS_IOS_FIRST_RUN_SCREEN_READ_MORE);
 
   // Set banner.
-  self.bannerName = kSigninBannerName;
+#if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
+  self.bannerName = kChromeSigninBannerImage;
+#else
+  self.bannerName = kChromiumSigninBannerImage;
+#endif
 
   // Set `self.titleText` and `self.subtitleText`.
   switch (self.signinStatus) {
@@ -284,12 +289,21 @@ NSString* const kEnterpriseIconName = @"enterprise_icon";
 }
 
 - (void)setUIEnabled:(BOOL)UIEnabled {
-  if (UIEnabled) {
-    [self.overlay removeFromSuperview];
+  if (base::FeatureList::IsEnabled(
+          switches::kMinorModeRestrictionsForHistorySyncOptIn)) {
+    // For the history sync minor mode experiment, we do not use the spinner
+    // overlay. The disabled UI has a spinner in the primary button.
+    self.primaryButtonSpinnerEnabled = !UIEnabled;
+    self.view.userInteractionEnabled = UIEnabled;
   } else {
-    [self.view addSubview:self.overlay];
-    AddSameConstraints(self.view, self.overlay);
-    [self.overlay.indicator startAnimating];
+    // Use the spinner overlay to disable the view.
+    if (UIEnabled) {
+      [self.overlay removeFromSuperview];
+    } else {
+      [self.view addSubview:self.overlay];
+      AddSameConstraints(self.view, self.overlay);
+      [self.overlay.indicator startAnimating];
+    }
   }
 }
 

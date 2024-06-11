@@ -12,14 +12,16 @@
 #import "components/autofill/core/browser/autofill_test_utils.h"
 #import "components/autofill/core/browser/test_autofill_client.h"
 #import "components/autofill/core/browser/test_browser_autofill_manager.h"
-#import "components/autofill/core/browser/ui/popup_item_ids.h"
+#import "components/autofill/core/browser/ui/suggestion_type.h"
 #import "components/autofill/core/common/form_data.h"
 #import "components/autofill/core/common/password_form_generation_data.h"
 #import "components/autofill/ios/browser/autofill_driver_ios_factory.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/autofill/ios/browser/form_suggestion_provider_query.h"
+#import "components/autofill/ios/browser/password_autofill_agent.h"
 #import "components/autofill/ios/browser/test_autofill_manager_injector.h"
 #import "components/autofill/ios/form_util/form_activity_params.h"
+#import "components/password_manager/core/browser/mock_password_manager.h"
 #import "components/password_manager/core/browser/password_generation_frame_helper.h"
 #import "components/password_manager/core/browser/password_manager_interface.h"
 #import "components/password_manager/core/browser/stub_password_manager_client.h"
@@ -70,76 +72,6 @@ const std::string kTestURL = "https://www.chromium.org/";
 NSString* kTestFrameID = @"dummy-frame-id";
 
 }  // namespace
-class MockPasswordManager : public PasswordManagerInterface {
- public:
-  MOCK_METHOD(void, DidNavigateMainFrame, (bool), (override));
-  MOCK_METHOD(void,
-              OnPasswordFormsParsed,
-              (PasswordManagerDriver*, const std::vector<autofill::FormData>&),
-              (override));
-  MOCK_METHOD(void,
-              OnPasswordFormsRendered,
-              (PasswordManagerDriver*, const std::vector<autofill::FormData>&),
-              (override));
-  MOCK_METHOD(void,
-              OnPasswordFormSubmitted,
-              (PasswordManagerDriver*, const autofill::FormData&),
-              (override));
-  MOCK_METHOD(void,
-              OnPasswordFormCleared,
-              (PasswordManagerDriver*, const autofill::FormData&),
-              (override));
-  MOCK_METHOD(void,
-              SetGenerationElementAndTypeForForm,
-              (PasswordManagerDriver*,
-               autofill::FormRendererId,
-               autofill::FieldRendererId,
-               autofill::password_generation::PasswordGenerationType),
-              (override));
-  MOCK_METHOD(void,
-              OnPresaveGeneratedPassword,
-              (PasswordManagerDriver*,
-               const autofill::FormData&,
-               const std::u16string&),
-              (override));
-  MOCK_METHOD(void,
-              OnSubframeFormSubmission,
-              (PasswordManagerDriver*, const autofill::FormData&),
-              (override));
-  MOCK_METHOD(void,
-              UpdateStateOnUserInput,
-              (PasswordManagerDriver*,
-               autofill::FormRendererId,
-               autofill::FieldRendererId,
-               const std::u16string&),
-              (override));
-  MOCK_METHOD(void, OnPasswordNoLongerGenerated, (), (override));
-  MOCK_METHOD(void,
-              OnPasswordFormRemoved,
-              (PasswordManagerDriver*,
-               const autofill::FieldDataManager&,
-               autofill::FormRendererId),
-              (override));
-  MOCK_METHOD(void,
-              OnIframeDetach,
-              (const std::string&,
-               PasswordManagerDriver*,
-               const autofill::FieldDataManager&),
-              (override));
-  MOCK_METHOD(void,
-              PropagateFieldDataManagerInfo,
-              (const autofill::FieldDataManager&, const PasswordManagerDriver*),
-              (override));
-  MOCK_METHOD(
-      void,
-      ProcessAutofillPredictions,
-      (PasswordManagerDriver * driver,
-       const autofill::FormData&,
-       (const base::flat_map<autofill::FieldGlobalId,
-                             autofill::AutofillType::ServerPrediction>)&),
-      (override));
-  MOCK_METHOD(PasswordManagerClient*, GetClient, (), (override));
-};
 
 class MockPasswordGenerationFrameHelper : public PasswordGenerationFrameHelper {
  public:
@@ -508,7 +440,7 @@ TEST_F(SharedPasswordControllerTest, ReturnsSuggestionsIfAvailable) {
              suggestionWithValue:@"value"
               displayDescription:@"display-description"
                             icon:nil
-                     popupItemId:autofill::PopupItemId::kAutocompleteEntry
+                     popupItemId:autofill::SuggestionType::kAutocompleteEntry
                backendIdentifier:nil
                   requiresReauth:NO
       acceptanceA11yAnnouncement:nil
@@ -590,7 +522,7 @@ TEST_F(SharedPasswordControllerTest,
                                    id<FormSuggestionProvider> delegate) {
                  ASSERT_EQ(1UL, suggestions.count);
                  FormSuggestion* suggestion = suggestions.firstObject;
-                 EXPECT_EQ(autofill::PopupItemId::kGeneratePasswordEntry,
+                 EXPECT_EQ(autofill::SuggestionType::kGeneratePasswordEntry,
                            suggestion.popupItemId);
                  EXPECT_EQ(delegate, controller_);
                  completion_was_called = YES;
@@ -612,20 +544,20 @@ TEST_F(SharedPasswordControllerTest, SuggestsGeneratedPassword) {
 
   autofill::FormFieldData field;
   field.set_name(u"Username");
-  field.id_attribute = field.name();
-  field.name_attribute = field.name();
+  field.set_id_attribute(field.name());
+  field.set_name_attribute(field.name());
   field.set_value(u"googleuser");
   field.set_form_control_type(autofill::FormControlType::kInputText);
   field.set_renderer_id(autofill::test::MakeFieldRendererId());
   form_data.fields.push_back(field);
 
   field.set_name(u"Passwd");
-  field.id_attribute = field.name();
-  field.name_attribute = field.name();
+  field.set_id_attribute(field.name());
+  field.set_name_attribute(field.name());
   field.set_value(u"p4ssword");
   field.set_form_control_type(autofill::FormControlType::kInputPassword);
   field.set_renderer_id(autofill::test::MakeFieldRendererId());
-  field.max_length = max_length;
+  field.set_max_length(max_length);
   form_data.fields.push_back(field);
 
   autofill::FormFieldData password_field_data = form_data.fields.back();
@@ -640,7 +572,7 @@ TEST_F(SharedPasswordControllerTest, SuggestsGeneratedPassword) {
       suggestionWithValue:@"test-value"
        displayDescription:@"test-description"
                      icon:nil
-              popupItemId:autofill::PopupItemId::kGeneratePasswordEntry
+              popupItemId:autofill::SuggestionType::kGeneratePasswordEntry
         backendIdentifier:nil
            requiresReauth:NO];
 
@@ -709,7 +641,7 @@ TEST_F(SharedPasswordControllerTest, PresavesGeneratedPassword) {
       suggestionWithValue:@"test-value"
        displayDescription:@"test-description"
                      icon:nil
-              popupItemId:autofill::PopupItemId::kGeneratePasswordEntry
+              popupItemId:autofill::SuggestionType::kGeneratePasswordEntry
         backendIdentifier:nil
            requiresReauth:NO];
 
@@ -1412,7 +1344,7 @@ TEST_F(SharedPasswordControllerTest,
                                   frame->GetSecurityOrigin()));
 
   OCMExpect([driver_helper_ PasswordManagerDriver:frame]);
-  EXPECT_CALL(password_manager_, OnPasswordFormRemoved).Times(1);
+  EXPECT_CALL(password_manager_, OnPasswordFormsRemoved).Times(1);
 
   autofill::FormRemovalParams params;
   params.removed_forms = {autofill::FormRendererId()};
@@ -1445,7 +1377,7 @@ TEST_F(SharedPasswordControllerTest, DeclinePasswordGenerationDialog) {
       suggestionWithValue:@"test-value"
        displayDescription:@"test-description"
                      icon:nil
-              popupItemId:autofill::PopupItemId::kGeneratePasswordEntry
+              popupItemId:autofill::SuggestionType::kGeneratePasswordEntry
         backendIdentifier:nil
            requiresReauth:NO];
 
@@ -1488,6 +1420,27 @@ TEST_F(SharedPasswordControllerTest, DeclinePasswordGenerationDialog) {
                  completionHandler:nil];
 }
 
-// TODO(crbug.com/1097353): Finish unit testing the rest of the public API.
+// Tests that upon calling DidFillField() on the agent, the delegate implemented
+// and owned by the SharedPasswordController correctly calls the password
+// manager to update its state.
+TEST_F(SharedPasswordControllerTest, DidFillField) {
+  GURL url("https://example.com");
+  auto frame = web::FakeWebFrame::Create("frameID", true, url);
+  autofill::FormRendererId form_id(1);
+  autofill::FieldRendererId field_id(2);
+  const std::u16string value(u"value");
+  auto* driver = IOSPasswordManagerDriverFactory::FromWebStateAndWebFrame(
+      &web_state_, frame.get());
+
+  EXPECT_CALL(password_manager_,
+              UpdateStateOnUserInput(
+                  driver, std::make_optional<FormRendererId>(form_id), field_id,
+                  value));
+
+  auto* agent = autofill::PasswordAutofillAgent::FromWebState(&web_state_);
+  agent->DidFillField(frame.get(), form_id, field_id, value);
+}
+
+// TODO(crbug.com/40701292): Finish unit testing the rest of the public API.
 
 }  // namespace password_manager

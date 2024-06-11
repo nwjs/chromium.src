@@ -29,6 +29,15 @@ void FakeGattService::CreateCharacteristic(
   std::move(callback).Run(/*success=*/set_create_characteristic_result_);
 }
 
+void FakeGattService::Register(RegisterCallback callback) {
+  if (should_register_succeed_) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+
+  std::move(callback).Run(device::BluetoothGattService::GattErrorCode::kFailed);
+}
+
 void FakeGattService::SetObserver(
     mojo::PendingRemote<mojom::GattServiceObserver> observer) {
   observer_remote_.Bind(std::move(observer));
@@ -36,6 +45,10 @@ void FakeGattService::SetObserver(
 
 void FakeGattService::SetCreateCharacteristicResult(bool success) {
   set_create_characteristic_result_ = success;
+}
+
+void FakeGattService::SetShouldRegisterSucceed(bool should_register_succeed) {
+  should_register_succeed_ = should_register_succeed;
 }
 
 void FakeGattService::TriggerReadCharacteristicRequest(

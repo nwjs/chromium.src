@@ -18,7 +18,7 @@ class SyncService;
 namespace password_manager {
 
 class AffiliatedMatchHelper;
-class AffiliationsPrefetcher;
+class PasswordAffiliationSourceAdapter;
 
 // This class processes passwords only from an account.
 class PasswordStoreAndroidAccountBackend : public PasswordStoreBackend,
@@ -28,7 +28,7 @@ class PasswordStoreAndroidAccountBackend : public PasswordStoreBackend,
   // or account password store.
   PasswordStoreAndroidAccountBackend(
       PrefService* prefs,
-      AffiliationsPrefetcher* affiliations_prefetcher,
+      PasswordAffiliationSourceAdapter* password_affiliation_adapter,
       password_manager::IsAccountStore is_account_store);
 
   PasswordStoreAndroidAccountBackend(
@@ -38,10 +38,10 @@ class PasswordStoreAndroidAccountBackend : public PasswordStoreBackend,
       std::unique_ptr<PasswordSyncControllerDelegateAndroid>
           sync_controller_delegate,
       PrefService* prefs,
-      AffiliationsPrefetcher* affiliations_prefetcher);
+      PasswordAffiliationSourceAdapter* password_affiliation_adapter);
   ~PasswordStoreAndroidAccountBackend() override;
 
-  // PasswordStoreAndroidBackend implementation
+  // PasswordStoreBackend implementation.
   void InitBackend(AffiliatedMatchHelper* affiliated_match_helper,
                    RemoteChangesReceived remote_form_changes_received,
                    base::RepeatingClosure sync_enabled_or_disabled_cb,
@@ -64,15 +64,18 @@ class PasswordStoreAndroidAccountBackend : public PasswordStoreBackend,
                      PasswordChangesOrErrorReply callback) override;
   void UpdateLoginAsync(const PasswordForm& form,
                         PasswordChangesOrErrorReply callback) override;
-  void RemoveLoginAsync(const PasswordForm& form,
+  void RemoveLoginAsync(const base::Location& location,
+                        const PasswordForm& form,
                         PasswordChangesOrErrorReply callback) override;
   void RemoveLoginsByURLAndTimeAsync(
+      const base::Location& location,
       const base::RepeatingCallback<bool(const GURL&)>& url_filter,
       base::Time delete_begin,
       base::Time delete_end,
       base::OnceCallback<void(bool)> sync_completion,
       PasswordChangesOrErrorReply callback) override;
   void RemoveLoginsCreatedBetweenAsync(
+      const base::Location& location,
       base::Time delete_begin,
       base::Time delete_end,
       PasswordChangesOrErrorReply callback) override;
@@ -116,7 +119,7 @@ class PasswordStoreAndroidAccountBackend : public PasswordStoreBackend,
   // called.
   void SyncShutdown();
 
-  raw_ptr<AffiliationsPrefetcher> affiliations_prefetcher_ = nullptr;
+  const raw_ptr<PasswordAffiliationSourceAdapter> password_affiliation_adapter_;
   raw_ptr<AffiliatedMatchHelper> affiliated_match_helper_ = nullptr;
   raw_ptr<syncer::SyncService> sync_service_ = nullptr;
 

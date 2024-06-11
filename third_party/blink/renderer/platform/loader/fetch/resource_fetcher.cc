@@ -31,6 +31,7 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/auto_reset.h"
@@ -45,6 +46,7 @@
 #include "base/unguessable_token.h"
 #include "services/network/public/cpp/request_mode.h"
 #include "services/network/public/mojom/url_loader_factory.mojom-blink.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/loader/lcp_critical_path_predictor_util.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
@@ -321,6 +323,49 @@ void MaybeRecordBoostImagePriorityReason(const bool is_first_n,
   }
 }
 
+constexpr char kLCPPDeferUnusedPreloadHistogramPrefix[] =
+    "Blink.LCPP.DeferUnusedPreload.";
+
+std::string LinkPreloadStrForHistogram(bool link_preload) {
+  return link_preload ? "LinkPreload" : "NoLinkPreload";
+}
+
+void RecordDeferUnusedPreloadHistograms(const Resource* resource) {
+  base::UmaHistogramEnumeration(
+      base::StrCat(
+          {kLCPPDeferUnusedPreloadHistogramPrefix, "DeferredResource"}),
+      resource->GetType());
+  base::UmaHistogramEnumeration(
+      base::StrCat({kLCPPDeferUnusedPreloadHistogramPrefix, "DeferredResource.",
+                    LinkPreloadStrForHistogram(resource->IsLinkPreload())}),
+      resource->GetType());
+
+  // When `resource` still not need load, that means the resource load is not
+  // started yet because there are no subsequent resource requests or vice
+  // versa.
+  base::UmaHistogramBoolean(
+      base::StrCat({kLCPPDeferUnusedPreloadHistogramPrefix,
+                    "UnusedAtDeferredLoadTiming"}),
+      resource->StillNeedsLoad());
+  base::UmaHistogramBoolean(
+      base::StrCat({kLCPPDeferUnusedPreloadHistogramPrefix,
+                    "UnusedAtDeferredLoadTiming.",
+                    LinkPreloadStrForHistogram(resource->IsLinkPreload())}),
+      resource->StillNeedsLoad());
+  if (!resource->StillNeedsLoad()) {
+    // If the resource load is not needed anymore, that's a false positive case
+    // of the LCPP based deferring unused preloads.
+    base::UmaHistogramEnumeration(
+        base::StrCat(
+            {kLCPPDeferUnusedPreloadHistogramPrefix, "PredictionFailed"}),
+        resource->GetType());
+    base::UmaHistogramEnumeration(
+        base::StrCat({kLCPPDeferUnusedPreloadHistogramPrefix,
+                      "PredictionFailed.",
+                      LinkPreloadStrForHistogram(resource->IsLinkPreload())}),
+        resource->GetType());
+  }
+}
 }  // namespace
 
 ResourceFetcherInit::ResourceFetcherInit(
@@ -666,6 +711,21 @@ ResourceLoadPriority ResourceFetcher::AdjustImagePriority(
     }
   }
 
+  // The following code disables AdjustImagePriority when there is LCPP
+  // LcpElementLocator hint data. The reason why not to early return from this
+  // function is that we want to record UMA with following
+  // MaybeRecordBoostImagePriorityReason() function even when we disables
+  // AdjustImagePriority.
+  static const bool kOverrideFirstNBoost =
+      base::FeatureList::IsEnabled(features::kLCPCriticalPathPredictor) &&
+      features::kLCPCriticalPathAdjustImageLoadPriority.Get() &&
+      features::kLCPCriticalPathAdjustImageLoadPriorityOverrideFirstNBoost
+          .Get();
+  if (kOverrideFirstNBoost &&
+      context_->DoesLCPPHaveLcpElementLocatorHintData()) {
+    new_priority = priority_so_far;
+  }
+
   // Only records HTTP family URLs (e.g. Exclude data URLs).
   if (resource_request.Url().ProtocolIsInHTTPFamily()) {
     MaybeRecordBoostImagePriorityReason(priority_so_far != new_priority,
@@ -769,12 +829,14 @@ ResourceFetcher::IsControlledByServiceWorker() const {
   return properties_->GetControllerServiceWorkerMode();
 }
 
-bool ResourceFetcher::ShouldDeferResource(ResourceType type,
-                                          const FetchParameters& params) const {
+ResourceFetcher::DeferPolicy ResourceFetcher::GetDeferPolicy(
+    ResourceType type,
+    const FetchParameters& params) const {
   // Defer a font load until it is actually needed unless this is a link
   // preload.
-  if (type == ResourceType::kFont && !params.IsLinkPreload())
-    return true;
+  if (type == ResourceType::kFont && !params.IsLinkPreload()) {
+    return DeferPolicy::kDefer;
+  }
 
   // Defer loading images when:
   // - images are disabled.
@@ -784,10 +846,15 @@ bool ResourceFetcher::ShouldDeferResource(ResourceType type,
       (ShouldDeferImageLoad(params.Url()) ||
        params.GetImageRequestBehavior() ==
            FetchParameters::ImageRequestBehavior::kDeferImageLoad)) {
-    return true;
+    return DeferPolicy::kDefer;
   }
 
-  return false;
+  // Check if the resource is marked as a potentially unused preload request.
+  if (IsPotentiallyUnusedPreload(params)) {
+    return DeferPolicy::kDeferAndSchedule;
+  }
+
+  return DeferPolicy::kNoDefer;
 }
 
 bool ResourceFetcher::ResourceAlreadyLoadStarted(Resource* resource,
@@ -798,11 +865,16 @@ bool ResourceFetcher::ResourceAlreadyLoadStarted(Resource* resource,
 
 bool ResourceFetcher::ResourceNeedsLoad(Resource* resource,
                                         RevalidationPolicy policy,
-                                        bool should_defer) const {
-  // MHTML documents should not trigger actual loads (i.e. all resource requests
-  // should be fulfilled by the MHTML archive).
-  return !archive_ && !should_defer &&
-         !ResourceAlreadyLoadStarted(resource, policy);
+                                        DeferPolicy defer_policy) const {
+  switch (defer_policy) {
+    case DeferPolicy::kNoDefer:
+      // MHTML documents should not trigger actual loads (i.e. all resource
+      // requests should be fulfilled by the MHTML archive).
+      return !archive_ && !ResourceAlreadyLoadStarted(resource, policy);
+    case DeferPolicy::kDefer:
+    case DeferPolicy::kDeferAndSchedule:
+      return false;
+  }
 }
 
 void ResourceFetcher::DidLoadResourceFromMemoryCache(
@@ -977,9 +1049,16 @@ void ResourceFetcher::MakePreloadedResourceBlockOnloadIfNeeded(
 ResourceFetcher::RevalidationPolicyForMetrics
 ResourceFetcher::MapToPolicyForMetrics(RevalidationPolicy policy,
                                        Resource* resource,
-                                       bool should_defer) {
-  if (should_defer && !ResourceAlreadyLoadStarted(resource, policy)) {
-    return RevalidationPolicyForMetrics::kDefer;
+                                       DeferPolicy defer_policy) {
+  switch (defer_policy) {
+    case DeferPolicy::kNoDefer:
+      break;
+    case DeferPolicy::kDefer:
+    case DeferPolicy::kDeferAndSchedule:
+      if (!ResourceAlreadyLoadStarted(resource, policy)) {
+        return RevalidationPolicyForMetrics::kDefer;
+      }
+      break;
   }
   // A resource in memory cache but not yet loaded is a deferred resource
   // created in previous loads.
@@ -1156,22 +1235,19 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
       TRACE_DISABLED_BY_DEFAULT("network"), "ResourceLoad",
       TRACE_ID_WITH_SCOPE("BlinkResourceID", TRACE_ID_LOCAL(identifier)), "url",
       resource_request.Url());
-  base::ScopedClosureRunner timer(base::BindOnce(
-      [](base::TimeTicks start, bool is_data, bool is_preload_request) {
-        base::TimeDelta elapsed = base::TimeTicks::Now() - start;
-        base::UmaHistogramMicrosecondsTimes("Blink.Fetch.RequestResourceTime2",
-                                            elapsed);
-        if (is_data) {
-          base::UmaHistogramMicrosecondsTimes(
-              "Blink.Fetch.RequestResourceTime2.Data", elapsed);
-        }
-        if (is_preload_request) {
-          base::UmaHistogramMicrosecondsTimes(
-              "Blink.Fetch.RequestResourceTime2.Preload", elapsed);
-        }
-      },
-      base::TimeTicks::Now(), params.Url().ProtocolIsData(),
-      params.IsSpeculativePreload() || params.IsLinkPreload()));
+  absl::Cleanup record_times = [start = base::TimeTicks::Now(), &params] {
+    base::TimeDelta elapsed = base::TimeTicks::Now() - start;
+    base::UmaHistogramMicrosecondsTimes("Blink.Fetch.RequestResourceTime2",
+                                        elapsed);
+    if (params.Url().ProtocolIsData()) {
+      base::UmaHistogramMicrosecondsTimes(
+          "Blink.Fetch.RequestResourceTime2.Data", elapsed);
+    }
+    if (params.IsSpeculativePreload() || params.IsLinkPreload()) {
+      base::UmaHistogramMicrosecondsTimes(
+          "Blink.Fetch.RequestResourceTime2.Preload", elapsed);
+    }
+  };
   TRACE_EVENT1("blink,blink.resource", "ResourceFetcher::requestResource",
                "url", params.Url().ElidedString().Utf8());
 
@@ -1207,11 +1283,12 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
   bool is_data_url = resource_request.Url().ProtocolIsData();
   bool is_static_data = is_data_url || archive_;
   bool is_stale_revalidation = params.IsStaleRevalidation();
-  bool should_defer = ShouldDeferResource(resource_type, params);
+  DeferPolicy defer_policy = GetDeferPolicy(resource_type, params);
   // MHTML archives do not load from the network and must load immediately. Data
   // urls can also load immediately, except in cases when they should be
   // deferred.
-  if (!is_stale_revalidation && (archive_ || (is_data_url && !should_defer))) {
+  if (!is_stale_revalidation &&
+      (archive_ || (is_data_url && defer_policy != DeferPolicy::kDefer))) {
     resource = CreateResourceForStaticData(params, factory);
     if (resource) {
       policy =
@@ -1259,7 +1336,7 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
   }
 
   UpdateMemoryCacheStats(
-      resource, MapToPolicyForMetrics(policy, resource, should_defer), params,
+      resource, MapToPolicyForMetrics(policy, resource, defer_policy), params,
       factory, is_static_data, same_top_frame_site_resource_cached);
 
   switch (policy) {
@@ -1346,13 +1423,19 @@ Resource* ResourceFetcher::RequestResource(FetchParameters& params,
   // loading immediately. If revalidation policy was determined as |Revalidate|,
   // the resource was already initialized for the revalidation here, but won't
   // start loading.
-  if (ResourceNeedsLoad(resource, policy, should_defer)) {
+  if (ResourceNeedsLoad(resource, policy, defer_policy)) {
     if (!StartLoad(resource,
                    std::move(params.MutableResourceRequest().MutableBody()),
                    load_blocking_policy, params.GetRenderBlockingBehavior())) {
       resource->FinishAsError(ResourceError::CancelledError(params.Url()),
                               freezable_task_runner_.get());
     }
+  }
+
+  if (defer_policy == DeferPolicy::kDeferAndSchedule) {
+    // If |resource| is potentially unused preload based on the LCPP hint,
+    // schedule the loading instead of calling `StartLoad()`.
+    ScheduleLoadingPotentiallyUnusedPreload(resource);
   }
 
   if (policy != RevalidationPolicy::kUse)
@@ -2130,13 +2213,17 @@ void ResourceFetcher::WarnUnusedPreloads(
     base::UmaHistogramEnumeration("Renderer.Preload.UnusedResource2",
                                   resource->GetType());
     base::UmaHistogramEnumeration(
-        base::StrCat(
-            {"Renderer.Preload.UnusedResource2.",
-             resource->IsLinkPreload() ? "LinkPreload" : "NoLinkPreload"}),
+        base::StrCat({"Renderer.Preload.UnusedResource2.",
+                      LinkPreloadStrForHistogram(resource->IsLinkPreload())}),
         resource->GetType());
   }
   base::UmaHistogramCounts100("Renderer.Preload.UnusedResourceCount",
                               unused_resource_count);
+  // Record the total count of deferred preloads based on the LCPP signal.
+  base::UmaHistogramCounts100(
+      base::StrCat(
+          {kLCPPDeferUnusedPreloadHistogramPrefix, "DeferredResourceCount"}),
+      deferred_preloads_.size());
 
   for (auto& pair : unused_early_hints_preloaded_resources_) {
     if (pair.value.state == EarlyHintsPreloadEntry::State::kWarnedUnused)
@@ -2309,9 +2396,11 @@ void ResourceFetcher::MoveResourceLoaderToNonBlocking(ResourceLoader* loader) {
   loaders_.erase(loader);
 }
 
-bool ResourceFetcher::StartLoad(Resource* resource) {
-  DCHECK(resource->GetType() == ResourceType::kFont ||
-         resource->GetType() == ResourceType::kImage);
+bool ResourceFetcher::StartLoad(Resource* resource,
+                                bool is_potentially_unused_preload) {
+  CHECK(resource->GetType() == ResourceType::kFont ||
+        resource->GetType() == ResourceType::kImage ||
+        is_potentially_unused_preload);
   // Currently the metrics collection codes are duplicated here and in
   // UpdateMemoryCacheStats() because we have two calling paths for triggering a
   // load here and RequestResource().
@@ -2320,7 +2409,7 @@ bool ResourceFetcher::StartLoad(Resource* resource) {
     base::UmaHistogramEnumeration(
         RESOURCE_HISTOGRAM_PREFIX "Font",
         RevalidationPolicyForMetrics::kPreviouslyDeferredLoad);
-  } else {
+  } else if (resource->GetType() == ResourceType::kImage) {
     base::UmaHistogramEnumeration(
         RESOURCE_HISTOGRAM_PREFIX "Image",
         RevalidationPolicyForMetrics::kPreviouslyDeferredLoad);
@@ -2413,6 +2502,57 @@ bool ResourceFetcher::StartLoad(
       resource->NotifyStartLoad();
   }
   return true;
+}
+
+void ResourceFetcher::ScheduleLoadingPotentiallyUnusedPreload(
+    Resource* resource) {
+  // Check the resource is already scheduled to start load or not.
+  PreloadKey key(resource->Url(), resource->GetType());
+  auto it = deferred_preloads_.find(key);
+  if (it != deferred_preloads_.end() && it->value == resource) {
+    return;
+  }
+  deferred_preloads_.insert(key, resource);
+
+  static const features::LcppDeferUnusedPreloadTiming load_timing =
+      features::kLcppDeferUnusedPreloadTiming.Get();
+  switch (load_timing) {
+    case features::LcppDeferUnusedPreloadTiming::kPostTask:
+      freezable_task_runner_->PostTask(
+          FROM_HERE,
+          WTF::BindOnce(&ResourceFetcher::StartLoadAndFinishIfFailed,
+                        WrapWeakPersistent(this), WrapWeakPersistent(resource),
+                        /*is_potentially_unused_preload=*/true));
+      break;
+    case features::LcppDeferUnusedPreloadTiming::kLcpTimingPredictor:
+      context_->AddLcpPredictedCallback(
+          WTF::BindOnce(&ResourceFetcher::StartLoadAndFinishIfFailed,
+                        WrapWeakPersistent(this), WrapWeakPersistent(resource),
+                        /*is_potentially_unused_preload=*/true));
+      break;
+  }
+}
+
+void ResourceFetcher::StartLoadAndFinishIfFailed(
+    Resource* resource,
+    bool is_potentially_unused_preload) {
+  if (!resource) {
+    return;
+  }
+
+  if (is_potentially_unused_preload) {
+    RecordDeferUnusedPreloadHistograms(resource);
+  }
+
+  if (!resource->StillNeedsLoad()) {
+    // When `resource` does not need load anymore, the resource load was already
+    // started by a subsequent resource request.
+    return;
+  }
+  if (!StartLoad(resource, is_potentially_unused_preload)) {
+    resource->FinishAsError(ResourceError::CancelledError(resource->Url()),
+                            freezable_task_runner_.get());
+  }
 }
 
 void ResourceFetcher::RemoveResourceLoader(ResourceLoader* loader) {
@@ -2864,6 +3004,46 @@ void ResourceFetcher::MarkEarlyHintConsumedIfNeeded(
   }
 }
 
+bool ResourceFetcher::IsPotentiallyUnusedPreload(
+    const FetchParameters& params) const {
+  static const bool kDeferUnusedPreload =
+      base::FeatureList::IsEnabled(features::kLCPPDeferUnusedPreload);
+  if (!kDeferUnusedPreload && !defer_unused_preload_enabled_for_testing_) {
+    return false;
+  }
+
+  static const LcppDeferUnusedPreloadPreloadedReason kPreloadedReason =
+      features::kLcppDeferUnusedPreloadPreloadedReason.Get();
+  LcppDeferUnusedPreloadPreloadedReason preloaded_reason;
+  if (defer_unused_preload_enabled_for_testing_) {
+    preloaded_reason = defer_unused_preload_preloaded_reason_for_testing_;
+  } else {
+    preloaded_reason = kPreloadedReason;
+  }
+  bool reason_matched = false;
+  switch (preloaded_reason) {
+    case LcppDeferUnusedPreloadPreloadedReason::kAll:
+      reason_matched = params.IsLinkPreload() || params.IsSpeculativePreload();
+      break;
+    case LcppDeferUnusedPreloadPreloadedReason::kLinkPreloadOnly:
+      reason_matched = params.IsLinkPreload();
+      break;
+    case LcppDeferUnusedPreloadPreloadedReason::kBrowserSpeculativePreloadOnly:
+      // Check |is_link_preload| here because |is_link_preload| and
+      // |is_speculative_preload| are not mutually exclusive. When
+      // |is_speculative_preload| is true, it's possible that |is_link_preload|
+      // is also true. That is the case when the resource was made via preload
+      // scanner for <link rel=preload>.
+      reason_matched = params.IsSpeculativePreload() && !params.IsLinkPreload();
+      break;
+  }
+  if (!reason_matched) {
+    return false;
+  }
+
+  return base::Contains(context_->GetPotentiallyUnusedPreloads(), params.Url());
+}
+
 void ResourceFetcher::Trace(Visitor* visitor) const {
   visitor->Trace(context_);
   visitor->Trace(properties_);
@@ -2882,6 +3062,7 @@ void ResourceFetcher::Trace(Visitor* visitor) const {
   visitor->Trace(not_loaded_image_resources_);
   visitor->Trace(preloads_);
   visitor->Trace(matched_preloads_);
+  visitor->Trace(deferred_preloads_);
   visitor->Trace(resource_timing_info_map_);
   visitor->Trace(blob_registry_remote_);
   visitor->Trace(subresource_web_bundles_);
@@ -2899,7 +3080,7 @@ ResourceFetcher::MainThreadFetchers() {
 // The followings should match with `ResourceType` in
 // `third_party/blink/renderer/platform/loader/fetch/resource.h`
 void ResourceFetcher::RecordResourceHistogram(
-    base::StringPiece prefix,
+    std::string_view prefix,
     ResourceType type,
     RevalidationPolicyForMetrics policy) const {
   base::UmaHistogramEnumeration(
@@ -3027,11 +3208,11 @@ void ResourceFetcher::UpdateServiceWorkerSubresourceMetrics(
 
   // Count the matched route info of static routing API for sub-resources
   // if it exists.
-  if (!router_info) {
+  if (!router_info || !router_info->MatchedSourceType()) {
     return;
   }
 
-  switch (router_info->MatchedSourceType()) {
+  switch (*router_info->MatchedSourceType()) {
     case network::mojom::ServiceWorkerRouterSourceType::kCache:
       metrics.matched_cache_router_source_count++;
       break;

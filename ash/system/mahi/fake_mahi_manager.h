@@ -9,6 +9,7 @@
 #include <string>
 
 #include "ash/ash_export.h"
+#include "ash/system/mahi/mahi_ui_controller.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
 #include "chromeos/crosapi/mojom/mahi.mojom.h"
 #include "ui/gfx/image/image_skia.h"
@@ -27,9 +28,9 @@ class ASH_EXPORT FakeMahiManager : public chromeos::MahiManager {
   ~FakeMahiManager() override;
 
   // MahiManager:
-  void OpenMahiPanel(int64_t display_id) override;
   std::u16string GetContentTitle() override;
   gfx::ImageSkia GetContentIcon() override;
+  GURL GetContentUrl() override;
   void GetSummary(MahiSummaryCallback callback) override;
   void GetOutlines(MahiOutlinesCallback callback) override;
   void GoToOutlineContent(int outline_id) override {}
@@ -68,8 +69,7 @@ class ASH_EXPORT FakeMahiManager : public chromeos::MahiManager {
   std::optional<std::u16string> content_title_;
   std::optional<std::u16string> summary_text_;
 
-  // The widget contains the Mahi main panel.
-  views::UniqueWidgetPtr mahi_panel_widget_;
+  MahiUiController ui_controller_;
 };
 
 }  // namespace ash

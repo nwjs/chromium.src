@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/style/inset_area.h"
 #include "third_party/blink/renderer/platform/fonts/font_description.h"
 #include "third_party/blink/renderer/platform/fonts/font_smoothing_mode.h"
+#include "third_party/blink/renderer/platform/fonts/font_variant_emoji.h"
 #include "third_party/blink/renderer/platform/fonts/text_rendering_mode.h"
 #include "third_party/blink/renderer/platform/geometry/length.h"
 #include "third_party/blink/renderer/platform/graphics/touch_action.h"
@@ -254,6 +255,15 @@ inline CSSIdentifierValue::CSSIdentifierValue(ControlPart e)
     : CSSValue(kIdentifierClass) {
   switch (e) {
     case kNoControlPart:
+    // Non standard appearance values that are not listed as
+    // compat-auto must be rendered as none.
+    // https://drafts.csswg.org/css-ui/#appearance-switching
+    case kMediaSliderPart:
+    case kMediaSliderThumbPart:
+    case kMediaVolumeSliderPart:
+    case kMediaVolumeSliderThumbPart:
+    case kSliderThumbHorizontalPart:
+    case kSliderThumbVerticalPart:
       value_id_ = CSSValueID::kNone;
       break;
     case kAutoPart:
@@ -280,18 +290,6 @@ inline CSSIdentifierValue::CSSIdentifierValue(ControlPart e)
     case kListboxPart:
       value_id_ = CSSValueID::kListbox;
       break;
-    case kMediaSliderPart:
-      value_id_ = CSSValueID::kMediaSlider;
-      break;
-    case kMediaSliderThumbPart:
-      value_id_ = CSSValueID::kMediaSliderthumb;
-      break;
-    case kMediaVolumeSliderPart:
-      value_id_ = CSSValueID::kMediaVolumeSlider;
-      break;
-    case kMediaVolumeSliderThumbPart:
-      value_id_ = CSSValueID::kMediaVolumeSliderthumb;
-      break;
     case kMediaControlPart:
       value_id_ = CSSValueID::kInternalMediaControl;
       break;
@@ -312,12 +310,6 @@ inline CSSIdentifierValue::CSSIdentifierValue(ControlPart e)
       break;
     case kSliderVerticalPart:
       value_id_ = CSSValueID::kSliderVertical;
-      break;
-    case kSliderThumbHorizontalPart:
-      value_id_ = CSSValueID::kSliderthumbHorizontal;
-      break;
-    case kSliderThumbVerticalPart:
-      value_id_ = CSSValueID::kSliderthumbVertical;
       break;
     case kSearchFieldPart:
       value_id_ = CSSValueID::kSearchfield;
@@ -359,14 +351,6 @@ inline ControlPart CSSIdentifierValue::ConvertTo() const {
       return kInnerSpinButtonPart;
     case CSSValueID::kListbox:
       return kListboxPart;
-    case CSSValueID::kMediaSlider:
-      return kMediaSliderPart;
-    case CSSValueID::kMediaSliderthumb:
-      return kMediaSliderThumbPart;
-    case CSSValueID::kMediaVolumeSlider:
-      return kMediaVolumeSliderPart;
-    case CSSValueID::kMediaVolumeSliderthumb:
-      return kMediaVolumeSliderThumbPart;
     case CSSValueID::kInternalMediaControl:
       return kMediaControlPart;
     case CSSValueID::kMenulist:
@@ -381,10 +365,6 @@ inline ControlPart CSSIdentifierValue::ConvertTo() const {
       return kSliderHorizontalPart;
     case CSSValueID::kSliderVertical:
       return kSliderVerticalPart;
-    case CSSValueID::kSliderthumbHorizontal:
-      return kSliderThumbHorizontalPart;
-    case CSSValueID::kSliderthumbVertical:
-      return kSliderThumbVerticalPart;
     case CSSValueID::kSearchfield:
       return kSearchFieldPart;
     case CSSValueID::kSearchfieldCancelButton:
@@ -1059,6 +1039,47 @@ inline FontSmoothingMode CSSIdentifierValue::ConvertTo() const {
 
   NOTREACHED();
   return kAutoSmoothing;
+}
+
+template <>
+inline CSSIdentifierValue::CSSIdentifierValue(FontVariantEmoji variant_emoji)
+    : CSSValue(kIdentifierClass) {
+  switch (variant_emoji) {
+    case kNormalVariantEmoji:
+      value_id_ = CSSValueID::kNormal;
+      return;
+    case kTextVariantEmoji:
+      value_id_ = CSSValueID::kText;
+      return;
+    case kEmojiVariantEmoji:
+      value_id_ = CSSValueID::kEmoji;
+      return;
+    case kUnicodeVariantEmoji:
+      value_id_ = CSSValueID::kUnicode;
+      return;
+  }
+
+  NOTREACHED();
+  value_id_ = CSSValueID::kNormal;
+}
+
+template <>
+inline FontVariantEmoji CSSIdentifierValue::ConvertTo() const {
+  switch (value_id_) {
+    case CSSValueID::kNormal:
+      return kNormalVariantEmoji;
+    case CSSValueID::kText:
+      return kTextVariantEmoji;
+    case CSSValueID::kEmoji:
+      return kEmojiVariantEmoji;
+    case CSSValueID::kUnicode:
+      return kUnicodeVariantEmoji;
+    default:
+      break;
+  }
+
+  NOTREACHED();
+  return kNormalVariantEmoji;
 }
 
 template <>

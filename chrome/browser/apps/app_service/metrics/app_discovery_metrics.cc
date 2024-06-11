@@ -10,7 +10,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_ash.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/apps/app_service/extension_apps_utils.h"
 #include "chrome/browser/apps/app_service/metrics/app_platform_metrics_utils.h"
 #include "chrome/browser/ash/borealis/borealis_util.h"
 #include "chrome/browser/ash/guest_os/guest_os_registry_service.h"
@@ -222,8 +221,8 @@ void AppDiscoveryMetrics::OnInstanceRegistryWillBeDestroyed(
 }
 
 bool AppDiscoveryMetrics::ShouldRecordUkmForAppId(const std::string& app_id) {
-  return ShouldRecordUkm(profile_) &&
-         ::apps::ShouldRecordUkmForAppId(app_id, app_registry_cache_.get());
+  return ::apps::ShouldRecordUkmForAppId(profile_, app_registry_cache_.get(),
+                                         app_id);
 }
 
 bool AppDiscoveryMetrics::IsAnyAppInstanceActive(

@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/services/app_service/public/cpp/app_update.h"
+#include "components/services/app_service/public/cpp/types_util.h"
 #include "extensions/common/extension.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -40,7 +41,7 @@ AppServiceAppResult::AppServiceAppResult(Profile* profile,
         is_platform_app_ = update.IsPlatformApp().value_or(false);
         show_in_launcher_ = update.ShowInLauncher().value_or(false);
 
-        if (update.Readiness() == apps::Readiness::kDisabledByPolicy) {
+        if (apps_util::IsDisabled(update.Readiness())) {
           SetAccessibleName(l10n_util::GetStringFUTF16(
               IDS_APP_ACCESSIBILITY_BLOCKED_INSTALLED_APP_ANNOUNCEMENT,
               base::UTF8ToUTF16(update.Name())));
@@ -63,12 +64,12 @@ AppServiceAppResult::AppServiceAppResult(Profile* profile,
   switch (app_type_) {
     case apps::AppType::kBuiltIn:
       set_id(app_id);
-      // TODO(crbug.com/826982): Is this SetResultType call necessary?? Does
+      // TODO(crbug.com/40569217): Is this SetResultType call necessary?? Does
       // anyone care about the kInternalApp vs kInstalledApp distinction?
       SetResultType(ResultType::kInternalApp);
       break;
     case apps::AppType::kChromeApp:
-      // TODO(crbug.com/826982): why do we pass the URL and not the app_id??
+      // TODO(crbug.com/40569217): why do we pass the URL and not the app_id??
       // Can we replace this by the simpler "set_id(app_id)", and therefore
       // pull that out of the switch?
       set_id(extensions::Extension::GetBaseURLFromExtensionId(app_id).spec());

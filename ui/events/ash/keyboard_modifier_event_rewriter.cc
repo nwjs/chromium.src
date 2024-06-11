@@ -4,25 +4,35 @@
 
 #include "ui/events/ash/keyboard_modifier_event_rewriter.h"
 
+#include <variant>
+
+#include "ash/constants/ash_features.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/notreached.h"
+#include "ui/base/accelerators/ash/right_alt_event_property.h"
 #include "ui/base/ime/ash/extension_ime_util.h"
 #include "ui/base/ime/ash/ime_keyboard.h"
 #include "ui/base/ime/ash/input_method_manager.h"
 #include "ui/events/ash/event_property.h"
 #include "ui/events/ash/event_rewriter_metrics.h"
 #include "ui/events/ash/keyboard_capability.h"
+#include "ui/events/ash/mojom/modifier_key.mojom-shared.h"
 #include "ui/events/ash/pref_names.h"
 #include "ui/events/event.h"
+#include "ui/events/event_constants.h"
 #include "ui/events/event_rewriter_continuation.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/keycodes/keyboard_code_conversion.h"
+#include "ui/events/keycodes/keyboard_codes_posix.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine.h"
 
 namespace ui {
 namespace {
+
+using PhysicalCode = KeyboardModifierEventRewriter::PhysicalCode;
+using UnmappedCode = KeyboardModifierEventRewriter::UnmappedCode;
 
 bool IsFirstPartyKoreanIME() {
   auto* manager = ash::input_method::InputMethodManager::Get();
@@ -33,6 +43,18 @@ bool IsFirstPartyKoreanIME() {
   auto current_input_method =
       manager->GetActiveIMEState()->GetCurrentInputMethod();
   return ash::extension_ime_util::IsCros1pKorean(current_input_method.id());
+}
+
+DomCode GetDomCodeFromPhysicalCode(const PhysicalCode& physical_code) {
+  if (const UnmappedCode* unmapped_code =
+          std::get_if<UnmappedCode>(&physical_code)) {
+    switch (*unmapped_code) {
+      case UnmappedCode::kRightAlt:
+        return DomCode::LAUNCH_ASSISTANT;
+    }
+  }
+
+  return std::get<DomCode>(physical_code);
 }
 
 }  // namespace
@@ -114,8 +136,10 @@ std::unique_ptr<Event> KeyboardModifierEventRewriter::RewritePressKeyEvent(
 
   // Remember the remapping on press. This remapping will be reapplied to the
   // release event.
-  if (remapped.code != event.code() || remapped.key != event.GetDomKey() ||
-      remapped.key_code != event.key_code()) {
+  if (GetDomCodeFromPhysicalCode(remapped.code) != event.code() ||
+      remapped.key != event.GetDomKey() ||
+      remapped.key_code != event.key_code() ||
+      std::holds_alternative<UnmappedCode>(remapped.code)) {
     remapped_keys_.insert_or_assign(physical_key, remapped);
   }
 
@@ -129,7 +153,11 @@ std::unique_ptr<Event> KeyboardModifierEventRewriter::RewritePressKeyEvent(
     if (pressed_modifier_keys_.insert_or_assign(physical_key, modifier_flag)
             .second) {
       // Flip capslock state if needed. Note: do not on repeated events.
-      if (remapped.key == DomKey::CAPS_LOCK) {
+      // Toggling of CapsLock in the `ImeKeyboard` is handled by
+      // `CapsLockEventRewriter`, here we only rewrite the physical key press to
+      // CapsLock.
+      if (!ash::features::IsModifierSplitEnabled() &&
+          remapped.key == DomKey::CAPS_LOCK) {
         ime_keyboard_->SetCapsLockEnabled(!ime_keyboard_->IsCapsLockEnabled());
       }
     }
@@ -168,10 +196,12 @@ KeyboardModifierEventRewriter::RemapPressKey(const KeyEvent& event) {
   }
 
   // First DomCode is remapped based on user's preferences.
-  DomCode remapped_code =
-      GetRemappedDomCode(event.code(), GetKeyboardDeviceIdProperty(event))
+  const PhysicalCode remapped_code =
+      GetRemappedPhysicalCode(event.code(), GetKeyboardDeviceIdProperty(event))
           .value_or(event.code());
-  if (remapped_code == DomCode::NONE) {
+
+  const DomCode remapped_dom_code = GetDomCodeFromPhysicalCode(remapped_code);
+  if (remapped_dom_code == DomCode::NONE) {
     return {{DomCode::NONE, DomKey::NONE, VKEY_UNKNOWN}};
   }
 
@@ -181,7 +211,7 @@ KeyboardModifierEventRewriter::RemapPressKey(const KeyEvent& event) {
   // modifier flags used to interpret original KeyEvent may be remapped.
   DomKey dom_key;
   KeyboardCode keycode;
-  if (!keyboard_layout_engine_->Lookup(remapped_code,
+  if (!keyboard_layout_engine_->Lookup(remapped_dom_code,
                                        RewriteModifierFlags(event.flags()),
                                        &dom_key, &keycode)) {
     LOG(ERROR) << "Failed to look up kayboard layout";
@@ -216,20 +246,32 @@ std::unique_ptr<Event> KeyboardModifierEventRewriter::RewriteReleaseKeyEvent(
 std::unique_ptr<KeyEvent> KeyboardModifierEventRewriter::BuildRewrittenEvent(
     const KeyEvent& event,
     const RemappedKey& remapped) {
+  // Events with unmapped codes must always be rewritten.
   EventFlags flags = RewriteModifierFlags(event.flags());
-  if (remapped.code == event.code() && remapped.key == event.GetDomKey() &&
-      remapped.key_code == event.key_code() && flags == event.flags()) {
+  if (GetDomCodeFromPhysicalCode(remapped.code) == event.code() &&
+      remapped.key == event.GetDomKey() &&
+      remapped.key_code == event.key_code() && flags == event.flags() &&
+      !std::holds_alternative<UnmappedCode>(remapped.code)) {
     // Nothing is rewritten.
     return nullptr;
   }
 
   auto rewritten_event =
-      std::make_unique<KeyEvent>(event.type(), remapped.key_code, remapped.code,
+      std::make_unique<KeyEvent>(event.type(), remapped.key_code,
+                                 GetDomCodeFromPhysicalCode(remapped.code),
                                  flags, remapped.key, event.time_stamp());
   rewritten_event->set_scan_code(event.scan_code());
   rewritten_event->set_source_device_id(event.source_device_id());
   if (const auto* properties = event.properties()) {
     rewritten_event->SetProperties(*properties);
+  }
+  // Set property if the unmapped code is Right Alt.
+  if (const UnmappedCode* unmapped_code =
+          std::get_if<UnmappedCode>(&remapped.code)) {
+    if (*unmapped_code ==
+        KeyboardModifierEventRewriter::UnmappedCode::kRightAlt) {
+      SetRightAltProperty(rewritten_event.get());
+    }
   }
   return rewritten_event;
 }
@@ -239,17 +281,22 @@ EventFlags KeyboardModifierEventRewriter::RewriteModifierFlags(
   // Bit mask of modifier flags to be rewritten.
   constexpr EventFlags kTargetModifierFlags = EF_CONTROL_DOWN | EF_ALT_DOWN |
                                               EF_COMMAND_DOWN | EF_ALTGR_DOWN |
-                                              EF_MOD3_DOWN | EF_CAPS_LOCK_ON;
+                                              EF_MOD3_DOWN | EF_FUNCTION_DOWN;
   flags &= ~kTargetModifierFlags;
+  if (!ash::features::IsModifierSplitEnabled()) {
+    flags &= ~EF_CAPS_LOCK_ON;
+  }
 
   // Recalculate modifier flags from the currently pressed keys.
   for (const auto& [unused, modifier] : pressed_modifier_keys_) {
     flags |= modifier;
   }
 
-  // Update CapsLock.
-  if (ime_keyboard_->IsCapsLockEnabled()) {
-    flags |= EF_CAPS_LOCK_ON;
+  if (!ash::features::IsModifierSplitEnabled()) {
+    // Update CapsLock.
+    if (ime_keyboard_->IsCapsLockEnabled()) {
+      flags |= EF_CAPS_LOCK_ON;
+    }
   }
 
   // Update latched ALTGR modifier.
@@ -260,9 +307,9 @@ EventFlags KeyboardModifierEventRewriter::RewriteModifierFlags(
   return flags;
 }
 
-std::optional<DomCode> KeyboardModifierEventRewriter::GetRemappedDomCode(
-    DomCode code,
-    int device_id) const {
+std::optional<PhysicalCode>
+KeyboardModifierEventRewriter::GetRemappedPhysicalCode(DomCode code,
+                                                       int device_id) const {
   bool is_left = true;
   mojom::ModifierKey modifier_key;
   std::string_view pref_name;
@@ -329,15 +376,26 @@ std::optional<DomCode> KeyboardModifierEventRewriter::GetRemappedDomCode(
       break;
 
     case DomCode::LAUNCH_ASSISTANT:
+      // Right alt key must be checked explicitly on a per-device basis as it
+      // shares the dom code.
+      if (keyboard_capability_->HasRightAltKey(device_id)) {
+        modifier_key = mojom::ModifierKey::kRightAlt;
+        break;
+      }
       modifier_key = mojom::ModifierKey::kAssistant;
       pref_name = prefs::kLanguageRemapAssistantKeyTo;
+      break;
+
+    case DomCode::FN:
+      modifier_key = mojom::ModifierKey::kFunction;
       break;
 
     default:
       // No remapping.
       return std::nullopt;
   }
-  CHECK(!pref_name.empty());
+  CHECK(!pref_name.empty() ||
+        ash::features::IsInputDeviceSettingsSplitEnabled());
 
   auto modifier_value = delegate_->GetKeyboardRemappedModifierValue(
       device_id, modifier_key, std::string(pref_name));
@@ -362,10 +420,9 @@ std::optional<DomCode> KeyboardModifierEventRewriter::GetRemappedDomCode(
     case mojom::ModifierKey::kIsoLevel5ShiftMod3:
       LOG(FATAL) << "Unexpected IsoLevel5ShiftMod3 config";
     case mojom::ModifierKey::kFunction:
+      return DomCode::FN;
     case mojom::ModifierKey::kRightAlt:
-      // TODO(dpad, b/328316040): Implement for function and right alt.
-      NOTIMPLEMENTED();
-      return std::nullopt;
+      return UnmappedCode::kRightAlt;
   }
 }
 

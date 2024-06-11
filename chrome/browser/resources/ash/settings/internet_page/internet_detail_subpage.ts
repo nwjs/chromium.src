@@ -321,6 +321,14 @@ export class SettingsInternetDetailPageElement extends
         },
       },
 
+      isApnRevampAndPoliciesEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.valueExists('isApnRevampAndPoliciesEnabled') &&
+              loadTimeData.getBoolean('isApnRevampAndPoliciesEnabled');
+        },
+      },
+
       passpointSubscription_: {
         type: Object,
         notify: true,
@@ -408,6 +416,7 @@ export class SettingsInternetDetailPageElement extends
   private suppressTextMessagesOverride_: boolean;
   private isCellularCarrierLockEnabled_: boolean;
   private isPasspointSettingsEnabled_: boolean;
+  private isApnRevampAndPoliciesEnabled_: boolean;
   private isRevampWayfindingEnabled_: boolean;
   private isSecondaryUser_: boolean;
   private isTrafficCountersEnabled_: boolean;
@@ -1271,6 +1280,16 @@ export class SettingsInternetDetailPageElement extends
   private shouldShowApnRow_(): boolean {
     return this.isApnRevampEnabled_ &&
         this.isCellular_(this.managedProperties_);
+  }
+
+  private isApnManaged_(globalPolicy: GlobalPolicy|undefined): boolean {
+    if (!this.isApnRevampAndPoliciesEnabled_) {
+      return false;
+    }
+    if (!globalPolicy) {
+      return false;
+    }
+    return !globalPolicy.allowApnModification;
   }
 
   private shouldShowApnList_(): boolean {

@@ -15,6 +15,7 @@ import 'chrome://resources/ash/common/cr_elements/cr_icon_button/cr_icon_button.
 import 'chrome://resources/ash/common/cr_elements/cr_toast/cr_toast.js';
 import 'chrome://resources/ash/common/cr_elements/icons.html.js';
 import 'chrome://resources/ash/common/cr_elements/policy/cr_policy_indicator.js';
+import 'chrome://resources/ash/common/cr_elements/policy/cr_tooltip_icon.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import 'chrome://resources/polymer/v3_0/paper-tooltip/paper-tooltip.js';
 import '/shared/settings/prefs/prefs.js';
@@ -349,6 +350,14 @@ export class SettingsInternetPageElement extends
         },
       },
 
+      isApnRevampAndPoliciesEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.valueExists('isApnRevampAndPoliciesEnabled') &&
+              loadTimeData.getBoolean('isApnRevampAndPoliciesEnabled');
+        },
+      },
+
       /**
        * Whether the 'Add custom APN' button is disabled.
        */
@@ -362,6 +371,16 @@ export class SettingsInternetPageElement extends
       passpointSubscription_: {
         type: Object,
         notify: true,
+      },
+
+      /**
+       * The position of the tooltips displayed by the APN menu. This can be
+       * 'right' if the language is RTL. This ensures the tooltip doesn't get
+       * cut off in RTL languages (b/335486874).
+       */
+      apnMenuTooltipsPosition_: {
+        type: String,
+        value: 'left',
       },
     };
   }
@@ -378,12 +397,12 @@ export class SettingsInternetPageElement extends
   private eSimNetworkState_: NetworkStateProperties;
   private globalPolicy_: GlobalPolicy|undefined;
   private hasActiveCellularNetwork_: boolean;
-  private isApnRevampEnabled_: boolean;
   private isCellularCarrierLockEnabled_: boolean;
   private isConnectedToNonCellularNetwork_: boolean;
   private isNumCustomApnsLimitReached_: boolean;
   private isInstantHotspotRebrandEnabled_: boolean;
   private isHotspotFeatureEnabled_: boolean;
+  private isApnRevampAndPoliciesEnabled_: boolean;
   private isAddingBuiltInVpnProhibited_: boolean;
   private knownNetworksType_: NetworkType;
   private networkConfig_: CrosNetworkConfigInterface;
@@ -403,6 +422,7 @@ export class SettingsInternetPageElement extends
   private subpageType_: NetworkType;
   private vpnIsProhibited_: boolean;
   private vpnProviders_: VpnProvider[];
+  private apnMenuTooltipsPosition_: string;
 
   constructor() {
     super();
@@ -495,6 +515,9 @@ export class SettingsInternetPageElement extends
     this.onPoliciesApplied(/*userhash=*/ '');
     this.onVpnProvidersChanged();
     this.onNetworkStateListChanged();
+
+    const isRTL = window.getComputedStyle(this).direction === 'rtl';
+    this.apnMenuTooltipsPosition_ = isRTL ? 'right' : 'left';
   }
 
   /**
@@ -1059,6 +1082,17 @@ export class SettingsInternetPageElement extends
     const apnSubpage = castExists(
         this.shadowRoot!.querySelector<ApnSubpageElement>('#apnSubpage'));
     apnSubpage.openApnSelectionDialog();
+  }
+
+  private shouldDisallowApnModification_(globalPolicy: GlobalPolicy|
+                                         undefined): boolean {
+    if (!this.isApnRevampAndPoliciesEnabled_) {
+      return false;
+    }
+    if (!globalPolicy) {
+      return false;
+    }
+    return !globalPolicy.allowApnModification;
   }
 
   private onShowPasspointDetails_(event: CustomEvent<PasspointSubscription>):

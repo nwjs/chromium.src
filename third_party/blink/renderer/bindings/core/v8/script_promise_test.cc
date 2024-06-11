@@ -124,16 +124,6 @@ Vector<String> ToStringArray(v8::Isolate* isolate, const ScriptValue& value) {
       isolate, value.V8Value(), exception_state);
 }
 
-TEST(ScriptPromiseTest, ConstructFromNonPromise) {
-  test::TaskEnvironment task_environment;
-  V8TestingScope scope;
-  v8::TryCatch try_catch(scope.GetIsolate());
-  ScriptPromiseUntyped promise(scope.GetScriptState(),
-                               v8::Undefined(scope.GetIsolate()));
-  ASSERT_TRUE(try_catch.HasCaught());
-  ASSERT_TRUE(promise.IsEmpty());
-}
-
 TEST(ScriptPromiseTest, ThenResolve) {
   test::TaskEnvironment task_environment;
   V8TestingScope scope;
@@ -448,7 +438,7 @@ TEST(ScriptPromiseTest, CastPromise) {
   auto resolver = v8::Promise::Resolver::New(scope.GetContext());
   v8::Local<v8::Promise> promise = resolver.ToLocalChecked()->GetPromise();
   auto new_promise =
-      ScriptPromise<IDLAny>::FromV8Promise(scope.GetScriptState(), promise);
+      ScriptPromise<IDLAny>::FromV8Promise(scope.GetIsolate(), promise);
 
   ASSERT_FALSE(promise.IsEmpty());
   EXPECT_EQ(promise, new_promise.V8Value());

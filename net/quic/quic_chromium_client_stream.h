@@ -16,6 +16,7 @@
 #include "base/containers/circular_deque.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/time/time.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/idempotency.h"
@@ -105,7 +106,7 @@ class NET_EXPORT_PRIVATE QuicChromiumClientStream
 
     // Writes |packet| to server by constructing a UDP payload from
     // packet and sending the datagram on the stream.
-    int WriteConnectUdpPayload(absl::string_view packet);
+    int WriteConnectUdpPayload(std::string_view packet);
 
     // Reads at most |buf_len| bytes into |buf|. Returns the number of bytes
     // read.
@@ -207,7 +208,7 @@ class NET_EXPORT_PRIVATE QuicChromiumClientStream
 
     // Callback to be invoked when ReadBody completes asynchronously.
     CompletionOnceCallback read_body_callback_;
-    raw_ptr<IOBuffer, DanglingUntriaged> read_body_buffer_;
+    scoped_refptr<IOBuffer> read_body_buffer_;
     int read_body_buffer_len_ = 0;
 
     // Callback to be invoked when WriteStreamData or WritevStreamData completes

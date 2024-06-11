@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/base64.h"
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
@@ -22,7 +23,6 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/signin/public/base/gaia_id_hash.h"
 #include "components/signin/public/base/signin_pref_names.h"
-#include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/pref_names.h"
@@ -66,6 +66,28 @@ constexpr char kSyncEncryptionBootstrapTokenPerAccountMigrationDone[] =
 constexpr int kNotMigrated = 0;
 constexpr int kMigratedPart1ButNot2 = 1;
 constexpr int kMigratedPart2AndFullyDone = 2;
+
+// Encodes a protobuf instance of type
+// sync_pb::TrustedVaultAutoUpgradeExperimentGroup in a way that can be safely
+// stored in prefs, i.e. using base64 encoding.
+std::string EncodeTrustedVaultAutoUpgradeExperimentGroupToString(
+    const sync_pb::TrustedVaultAutoUpgradeExperimentGroup& group) {
+  return base::Base64Encode(group.SerializeAsString());
+}
+
+// Does the opposite of EncodeTrustedVaultAutoUpgradeExperimentGroupToString(),
+// i.e. transforms from a string representation to a protobuf instance.
+sync_pb::TrustedVaultAutoUpgradeExperimentGroup
+DecodeTrustedVaultAutoUpgradeExperimentGroupFromString(
+    const std::string& encoded_group) {
+  sync_pb::TrustedVaultAutoUpgradeExperimentGroup proto;
+  std::string serialized_proto;
+  if (!base::Base64Decode(encoded_group, &serialized_proto)) {
+    return proto;
+  }
+  proto.ParseFromString(serialized_proto);
+  return proto;
+}
 
 }  // namespace
 
@@ -177,6 +199,10 @@ void SyncPrefs::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(
       prefs::internal::kSyncCachedPassphraseType,
       sync_pb::NigoriSpecifics_PassphraseType_UNKNOWN);
+  // The user's TrustedVaultAutoUpgradeExperimentGroup, determined the first
+  // time the engine is successfully initialized.
+  registry->RegisterStringPref(
+      prefs::internal::kSyncCachedTrustedVaultAutoUpgradeExperimentGroup, "");
   // The encryption bootstrap token represents a user-entered passphrase.
   registry->RegisterStringPref(prefs::internal::kSyncEncryptionBootstrapToken,
                                std::string());
@@ -222,9 +248,7 @@ bool SyncPrefs::IsInitialSyncFeatureSetupComplete() const {
 }
 
 bool SyncPrefs::IsExplicitBrowserSignin() const {
-  return switches::IsExplicitBrowserSigninUIOnDesktopEnabled(
-             switches::ExplicitBrowserSigninPhase::kFull) &&
-         pref_service_->GetBoolean(::prefs::kExplicitBrowserSignin);
+  return pref_service_->GetBoolean(::prefs::kExplicitBrowserSignin);
 }
 
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
@@ -280,19 +304,13 @@ UserSelectableTypeSet SyncPrefs::GetSelectedTypesForAccount(
         type_enabled = true;
 #else
         // kPasswords and kAutofill are only on by default if there was an
-        // explicit sign in recorded and
-        // `IsExplicitBrowserSigninUIOnDesktopEnabled()` is true.
+        // explicit sign in recorded.
         // Otherwise:
         // - kPasswords requires a dedicated opt-in.
         // - kAutofill cannot be enabled.
         // Note: If this changes, also update the migration logic in
         // MigrateGlobalDataTypePrefsToAccount().
-        switches::ExplicitBrowserSigninPhase phase =
-            type == UserSelectableType::kPasswords
-                ? switches::ExplicitBrowserSigninPhase::kExperimental
-                : switches::ExplicitBrowserSigninPhase::kFull;
         type_enabled =
-            switches::IsExplicitBrowserSigninUIOnDesktopEnabled(phase) &&
             pref_service_->GetBoolean(::prefs::kExplicitBrowserSignin);
 #endif
       } else if (type == UserSelectableType::kBookmarks ||
@@ -558,33 +576,45 @@ bool SyncPrefs::IsSyncClientDisabledByPolicy() const {
 }
 
 std::optional<PassphraseType> SyncPrefs::GetCachedPassphraseType() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return ProtoPassphraseInt32ToEnum(
       pref_service_->GetInteger(prefs::internal::kSyncCachedPassphraseType));
 }
 
 void SyncPrefs::SetCachedPassphraseType(PassphraseType passphrase_type) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   pref_service_->SetInteger(prefs::internal::kSyncCachedPassphraseType,
                             EnumPassphraseTypeToProto(passphrase_type));
 }
 
 void SyncPrefs::ClearCachedPassphraseType() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   pref_service_->ClearPref(prefs::internal::kSyncCachedPassphraseType);
 }
 
-std::string SyncPrefs::GetEncryptionBootstrapToken() const {
+std::optional<sync_pb::TrustedVaultAutoUpgradeExperimentGroup>
+SyncPrefs::GetCachedTrustedVaultAutoUpgradeExperimentGroup() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // This is only called when kSyncRememberCustomPassphraseAfterSignout is
-  // disabled.
-  return pref_service_->GetString(
-      prefs::internal::kSyncEncryptionBootstrapToken);
+  const std::string& encoded_group = pref_service_->GetString(
+      prefs::internal::kSyncCachedTrustedVaultAutoUpgradeExperimentGroup);
+  if (encoded_group.empty()) {
+    return std::nullopt;
+  }
+  return DecodeTrustedVaultAutoUpgradeExperimentGroupFromString(encoded_group);
 }
 
-void SyncPrefs::SetEncryptionBootstrapToken(const std::string& token) {
+void SyncPrefs::SetCachedTrustedVaultAutoUpgradeExperimentGroup(
+    const sync_pb::TrustedVaultAutoUpgradeExperimentGroup& group) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // This is only called when kSyncRememberCustomPassphraseAfterSignout is
-  // disabled.
-  pref_service_->SetString(prefs::internal::kSyncEncryptionBootstrapToken,
-                           token);
+  pref_service_->SetString(
+      prefs::internal::kSyncCachedTrustedVaultAutoUpgradeExperimentGroup,
+      EncodeTrustedVaultAutoUpgradeExperimentGroupToString(group));
+}
+
+void SyncPrefs::ClearCachedTrustedVaultAutoUpgradeExperimentGroup() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  pref_service_->ClearPref(
+      prefs::internal::kSyncCachedTrustedVaultAutoUpgradeExperimentGroup);
 }
 
 void SyncPrefs::ClearAllEncryptionBootstrapTokens() {
@@ -603,8 +633,6 @@ void SyncPrefs::ClearAllEncryptionBootstrapTokens() {
 
 std::string SyncPrefs::GetEncryptionBootstrapTokenForAccount(
     const signin::GaiaIdHash& gaia_id_hash) const {
-  // This is only called when kSyncRememberCustomPassphraseAfterSignout is
-  // enabled.
   CHECK(gaia_id_hash.IsValid());
   const std::string* account_passphrase =
       pref_service_
@@ -616,8 +644,6 @@ std::string SyncPrefs::GetEncryptionBootstrapTokenForAccount(
 void SyncPrefs::SetEncryptionBootstrapTokenForAccount(
     const std::string& token,
     const signin::GaiaIdHash& gaia_id_hash) {
-  // This is only called when kSyncRememberCustomPassphraseAfterSignout is
-  // enabled.
   CHECK(gaia_id_hash.IsValid());
   {
     ScopedDictPrefUpdate update_account_passphrase_dict(
@@ -676,6 +702,8 @@ const char* SyncPrefs::GetPrefNameForType(UserSelectableType type) {
       return prefs::internal::kSyncPayments;
     case UserSelectableType::kCompare:
       return prefs::internal::kSyncCompare;
+    case UserSelectableType::kCookies:
+      return prefs::internal::kSyncCookies;
   }
   NOTREACHED();
   return nullptr;
@@ -748,6 +776,7 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
     case UserSelectableType::kExtensions:
     case UserSelectableType::kThemes:
     case UserSelectableType::kSavedTabGroups:
+    case UserSelectableType::kCookies:
       // These types are not supported in transport mode yet.
       return false;
   }
@@ -982,12 +1011,6 @@ bool SyncPrefs::MaybeMigratePrefsForSyncToSigninPart2(
 
 void SyncPrefs::MaybeMigrateCustomPassphrasePref(
     const signin::GaiaIdHash& gaia_id_hash) {
-  if (!base::FeatureList::IsEnabled(
-          kSyncRememberCustomPassphraseAfterSignout)) {
-    pref_service_->ClearPref(
-        kSyncEncryptionBootstrapTokenPerAccountMigrationDone);
-    return;
-  }
 
   if (pref_service_->GetBoolean(
           kSyncEncryptionBootstrapTokenPerAccountMigrationDone)) {
@@ -1015,8 +1038,6 @@ void SyncPrefs::MaybeMigrateCustomPassphrasePref(
     base::Value::Dict& all_accounts = update_account_passphrase_dict.Get();
     all_accounts.Set(gaia_id_hash.ToBase64(), token);
   }
-  CHECK(GetEncryptionBootstrapTokenForAccount(gaia_id_hash) ==
-        GetEncryptionBootstrapToken());
   return;
 }
 

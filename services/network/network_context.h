@@ -605,6 +605,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
     return url_loader_factories_.size();
   }
 
+  // Returns whether all URLLoaderFactories owned by `this` are bound to
+  // `bound_network`.
+  bool AllURLLoaderFactoriesAreBoundToNetworkForTesting(
+      net::handles::NetworkHandle bound_network) const;
+
   // Maintains Trust Tokens protocol state
   // (https://github.com/WICG/trust-token-api). Used by URLLoader to check
   // preconditions before annotating requests with protocol-related headers
@@ -746,7 +751,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // `cert_verify_result.cert_status` and
   // `cert_verify_result.policy_compliance`. Returns net::OK or
   // net::ERR_CERTIFICATE_TRANSPARENCY_REQUIRED.
-  // TODO(crbug.com/828447): This code is more-or-less duplicated in
+  // TODO(crbug.com/41380502): This code is more-or-less duplicated in
   // SSLClientSocket and QUIC. Fold this into some CertVerifier-shaped class
   // in //net.
   int CheckCTRequirementsForSignedExchange(

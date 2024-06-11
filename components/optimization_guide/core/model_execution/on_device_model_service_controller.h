@@ -21,10 +21,13 @@
 #include "base/types/pass_key.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_component.h"
+#include "components/optimization_guide/core/model_execution/on_device_model_metadata.h"
+#include "components/optimization_guide/core/model_execution/safety_model_info.h"
 #include "components/optimization_guide/core/model_execution/session_impl.h"
 #include "components/optimization_guide/core/model_info.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
+#include "feature_keys.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/on_device_model/public/cpp/model_assets.h"
 #include "services/on_device_model/public/mojom/on_device_model.mojom.h"
@@ -37,10 +40,12 @@ class FilePath;
 }  // namespace base
 
 namespace optimization_guide {
+enum class OnDeviceModelEligibilityReason;
 class OnDeviceModelAccessController;
 class OnDeviceModelComponentStateManager;
-class OnDeviceModelExecutionConfigInterpreter;
+class OnDeviceModelMetadata;
 class ModelQualityLogsUploaderService;
+class OnDeviceModelAdaptationController;
 
 // Controls the lifetime of the on-device model service, loading and unloading
 // of the models, and executing them via the service.
@@ -54,8 +59,7 @@ class ModelQualityLogsUploaderService;
 // this. Also handle multiple requests gracefully and fail the subsequent
 // requests, while handling the first one.
 class OnDeviceModelServiceController
-    : public base::RefCounted<OnDeviceModelServiceController>,
-      public OnDeviceModelComponentStateManager::Observer {
+    : public base::RefCounted<OnDeviceModelServiceController> {
  public:
   OnDeviceModelServiceController(
       std::unique_ptr<OnDeviceModelAccessController> access_controller,
@@ -65,6 +69,10 @@ class OnDeviceModelServiceController
   // Initializes OnDeviceModelServiceController. This should be called once
   // after creation.
   void Init();
+
+  // Whether an on-device session can be created for `feature`.
+  OnDeviceModelEligibilityReason CanCreateSession(
+      ModelBasedCapabilityKey feature);
 
   // Starts a session for `feature`. This will start the service and load the
   // model if it is not already loaded. The session will handle updating
@@ -92,7 +100,7 @@ class OnDeviceModelServiceController
   void ShutdownServiceIfNoModelLoaded();
 
   bool IsConnectedForTesting() {
-    return model_remote_.is_bound() || service_remote_.is_bound();
+    return base_model_remote_.is_bound() || service_remote_.is_bound();
   }
 
   // Sets the language detection model to be used by the ODM service when text
@@ -105,26 +113,43 @@ class OnDeviceModelServiceController
   virtual void MaybeUpdateSafetyModel(
       base::optional_ref<const ModelInfo> model_info);
 
-  // OnDeviceModelComponentStateManager::Observer.
-  void StateChanged(const OnDeviceModelComponentState* state) override;
+  // Updates the main execution model.
+  void UpdateModel(std::unique_ptr<OnDeviceModelMetadata> model_metadata);
 
-  OnDeviceModelExecutionConfigInterpreter& ConfigInterpreterForTesting() {
-    return *config_interpreter_;
+  // Updates the model adaptation for the feature.
+  void MaybeUpdateModelAdaptation(
+      ModelBasedCapabilityKey feature,
+      std::unique_ptr<on_device_model::AdaptationAssetPaths>
+          adaptations_assets);
+
+  // Called when the model adaptation remote is disconnected.
+  void OnModelAdaptationRemoteDisconnected(ModelBasedCapabilityKey feature,
+                                           ModelRemoteDisconnectReason reason);
+
+  base::WeakPtr<OnDeviceModelServiceController> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
   }
 
  protected:
-  ~OnDeviceModelServiceController() override;
+  virtual ~OnDeviceModelServiceController();
 
   std::optional<base::FilePath> language_detection_model_path() const {
     return language_detection_model_path_;
+  }
+
+  mojo::Remote<on_device_model::mojom::OnDeviceModel>& base_model_remote() {
+    return base_model_remote_;
   }
 
  private:
   class OnDeviceModelClient : public SessionImpl::OnDeviceModelClient {
    public:
     OnDeviceModelClient(
+        ModelBasedCapabilityKey feature,
         base::WeakPtr<OnDeviceModelServiceController> controller,
-        on_device_model::ModelAssetPaths model_paths);
+        const on_device_model::ModelAssetPaths& model_paths,
+        base::optional_ref<const on_device_model::AdaptationAssetPaths>
+            adaptation_assets);
     ~OnDeviceModelClient() override;
     bool ShouldUse() override;
     mojo::Remote<on_device_model::mojom::OnDeviceModel>& GetModelRemote()
@@ -133,51 +158,31 @@ class OnDeviceModelServiceController
     void OnSessionTimedOut() override;
 
    private:
+    ModelBasedCapabilityKey feature_;
     base::WeakPtr<OnDeviceModelServiceController> controller_;
     on_device_model::ModelAssetPaths model_paths_;
+
+    // Model adaptation assets are populated when it was required.
+    std::optional<on_device_model::AdaptationAssetPaths> adaptation_assets_;
   };
-  friend class OnDeviceModelClient;
-  friend class base::RefCounted<OnDeviceModelServiceController>;
   friend class ChromeOnDeviceModelServiceController;
-  friend class OnDeviceModelServiceControllerTest;
   friend class FakeOnDeviceModelServiceController;
-
-  class SafetyModelInfo {
-   public:
-    ~SafetyModelInfo();
-
-    static std::unique_ptr<SafetyModelInfo> Load(
-        base::optional_ref<const ModelInfo> model_info);
-    std::optional<proto::FeatureTextSafetyConfiguration> GetConfig(
-        proto::ModelExecutionFeature feature) const;
-    base::FilePath GetDataPath() const;
-    base::FilePath GetSpModelPath() const;
-    int64_t GetVersion() const;
-    uint32_t num_output_categories() const { return num_output_categories_; }
-
-   private:
-    SafetyModelInfo(
-        const ModelInfo& model_info,
-        uint32_t num_output_categories,
-        base::flat_map<proto::ModelExecutionFeature,
-                       proto::FeatureTextSafetyConfiguration> feature_configs);
-
-    const ModelInfo model_info_;
-    const uint32_t num_output_categories_;
-    base::flat_map<proto::ModelExecutionFeature,
-                   proto::FeatureTextSafetyConfiguration>
-        feature_configs_;
-  };
-
-  // Sets the base model directory and initializes the on-device model
-  // controller with the parameters, to be ready to load models and execute.
-  void SetModelPath(const base::FilePath& model_path,
-                    const std::string& component_version);
-  void ClearModelPath();
+  friend class OnDeviceModelAdaptationController;
+  friend class OnDeviceModelClient;
+  friend class OnDeviceModelServiceAdaptationControllerTest;
+  friend class OnDeviceModelServiceControllerTest;
+  friend class base::RefCounted<OnDeviceModelServiceController>;
 
   // Ensures the service is running and provides a remote for the model.
   mojo::Remote<on_device_model::mojom::OnDeviceModel>& GetOrCreateModelRemote(
-      on_device_model::ModelAssetPaths model_paths);
+      ModelBasedCapabilityKey feature,
+      const on_device_model::ModelAssetPaths& model_paths,
+      base::optional_ref<const on_device_model::AdaptationAssetPaths>
+          adaptation_assets);
+
+  // Ensures the service is running and base model remote is created.
+  void MaybeCreateBaseModelRemote(
+      const on_device_model::ModelAssetPaths& model_paths);
 
   // Invoked at the end of model load, to continue with model execution.
   void OnLoadModelResult(on_device_model::mojom::LoadModelResult result);
@@ -191,31 +196,38 @@ class OnDeviceModelServiceController
   // Called when disconnected from the model.
   void OnDisconnected();
 
-  // Called when the remote (either `service_remote_` or `_model_remote_` is
+  // Called when the remote (either `service_remote_` or `base_model_remote_` is
   // idle.
   void OnRemoteIdle();
 
-  // Gets the model versions based on the current model paths set.
-  proto::OnDeviceModelVersions GetModelVersions(
-      const std::string& component_version) const;
-
   // This may be null in the destructor, otherwise non-null.
   std::unique_ptr<OnDeviceModelAccessController> access_controller_;
+  std::optional<OnDeviceModelMetadataLoader> model_metadata_loader_;
   base::WeakPtr<OnDeviceModelComponentStateManager>
       on_device_component_state_manager_;
 
-  // Directory containing file assets for underlying on-device models. This does
-  // not include the text safety model or the language detection model.
-  std::optional<base::FilePath> model_path_;
   // Full path of the language detection model file if it's available.
   std::optional<base::FilePath> language_detection_model_path_;
 
-  std::optional<proto::OnDeviceModelVersions> model_versions_;
-  // Can be null if no safey model available.
+  // Can be null if no safety model available.
   std::unique_ptr<SafetyModelInfo> safety_model_info_;
-  std::unique_ptr<OnDeviceModelExecutionConfigInterpreter> config_interpreter_;
+  std::unique_ptr<OnDeviceModelMetadata> model_metadata_;
   mojo::Remote<on_device_model::mojom::OnDeviceModelService> service_remote_;
-  mojo::Remote<on_device_model::mojom::OnDeviceModel> model_remote_;
+
+  mojo::Remote<on_device_model::mojom::OnDeviceModel> base_model_remote_;
+
+  // Maintains the live model adaptation controllers per feature. Created when
+  // model adaptation is needed for a feature, and removed when adaptation
+  // remote gets disconnected.
+  std::map<ModelBasedCapabilityKey, OnDeviceModelAdaptationController>
+      model_adaptation_controllers_;
+
+  // Map from feature to its adaptation assets. Present only for features that
+  // have valid model adaptation. It could be missing for features that require
+  // model adaptation, but they have not been loaded yet.
+  base::flat_map<proto::ModelExecutionFeature,
+                 on_device_model::AdaptationAssetPaths>
+      model_adaptation_assets_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

@@ -133,6 +133,7 @@
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "url/url_features.h"
 
 namespace blink {
 
@@ -820,6 +821,18 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
     }
     return;
   }
+  // If kStandardCompliantNonSpecialSchemeURLParsing feature is enabled,
+  // "javascript:" scheme URL can be a invalid URL. e.g. "javascript://a b".
+  //
+  // We shouldn't navigate to such an invalid "javascript:" scheme URL.
+  //
+  // See wpt/url/javascript-urls.window.js test for the standard compliant
+  // behaviors.
+  if (url::IsUsingStandardCompliantNonSpecialSchemeURLParsing() &&
+      ProtocolIsJavaScript(url.GetString())) {
+    DCHECK(!url.IsValid());
+    return;
+  }
 
   if (request.GetNavigationPolicy() == kNavigationPolicyCurrentTab &&
       (!origin_window || origin_window->GetSecurityOrigin()->CanAccess(
@@ -875,10 +888,15 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
   // Only warn if the resource URL's origin is different than its requestor
   // (we don't want to warn for <img src="faß.de/image.img"> on faß.de).
   // TODO(crbug.com/1396475): Remove once Non-Transitional mode is shipped.
-  if (url.HasIDNA2008DeviationCharacter() &&
-      resource_request.RequestorOrigin() &&
-      !resource_request.RequestorOrigin()->IsSameOriginWith(
-          SecurityOrigin::Create(url).get())) {
+  if (base::FeatureList::IsEnabled(kAvoidWastefulHostCopies)
+          ? (url.HasIDNA2008DeviationCharacter() &&
+             resource_request.RequestorOrigin() &&
+             !resource_request.RequestorOrigin()->IsSameOriginWith(
+                 SecurityOrigin::Create(url).get()))
+          : (resource_request.RequestorOrigin() &&
+             !resource_request.RequestorOrigin()->IsSameOriginWith(
+                 SecurityOrigin::Create(url).get()) &&
+             url.HasIDNA2008DeviationCharacter())) {
     String message = GetConsoleWarningForIDNADeviationCharacters(url);
     if (!message.empty()) {
       request.GetOriginWindow()->AddConsoleMessage(

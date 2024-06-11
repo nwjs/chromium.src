@@ -36,7 +36,7 @@
 #include "components/permissions/contexts/window_management_permission_context.h"
 #include "components/permissions/permission_manager.h"
 #include "ppapi/buildflags/buildflags.h"
-#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
+#include "services/device/public/cpp/geolocation/buildflags.h"
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 #include "chrome/browser/media/protected_media_identifier_permission_context.h"
@@ -49,6 +49,10 @@
 #if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(USE_CUPS)
 #include "chrome/browser/printing/web_api/web_printing_permission_context.h"
 #endif  // BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(USE_CUPS)
+
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
+#include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
 namespace {
 
@@ -63,7 +67,7 @@ permissions::PermissionManager::PermissionContextMap CreatePermissionContexts(
   delegates.geolocation_permission_context_delegate =
       std::make_unique<GeolocationPermissionContextDelegate>(profile);
 #endif  // BUILDFLAG(IS_ANDROID)
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
   delegates.geolocation_system_permission_manager =
       device::GeolocationSystemPermissionManager::GetInstance();
   DCHECK(delegates.geolocation_system_permission_manager);
@@ -89,18 +93,18 @@ permissions::PermissionManager::PermissionContextMap CreatePermissionContexts(
   permission_contexts[ContentSettingsType::BACKGROUND_FETCH] =
       std::make_unique<BackgroundFetchPermissionContext>(profile);
 
-  // TODO(crbug.com/487935): Still in development for Android so we don't
+  // TODO(crbug.com/40418135): Still in development for Android so we don't
   // support it on WebLayer yet.
   permission_contexts[ContentSettingsType::DISPLAY_CAPTURE] =
       std::make_unique<DisplayCapturePermissionContext>(profile);
 
-  // TODO(crbug.com/1101999): Permission is granted based on browser heuristics
+  // TODO(crbug.com/40703864): Permission is granted based on browser heuristics
   // (e.g. site engagement) and is not planned for WebLayer until it supports
   // installing PWAs.
   permission_contexts[ContentSettingsType::DURABLE_STORAGE] =
       std::make_unique<DurableStoragePermissionContext>(profile);
 
-  // TODO(crbug.com/878979): Still in development so we don't support it on
+  // TODO(crbug.com/40591477): Still in development so we don't support it on
   // WebLayer yet.
   permission_contexts[ContentSettingsType::IDLE_DETECTION] =
       std::make_unique<IdleDetectionPermissionContext>(profile);
@@ -108,7 +112,7 @@ permissions::PermissionManager::PermissionContextMap CreatePermissionContexts(
   permission_contexts[ContentSettingsType::KEYBOARD_LOCK] =
       std::make_unique<permissions::KeyboardLockPermissionContext>(profile);
 
-  // TODO(crbug.com/1043295): Still in development for Android so we don't
+  // TODO(crbug.com/40115199): Still in development for Android so we don't
   // support it on WebLayer yet.
   permission_contexts[ContentSettingsType::LOCAL_FONTS] =
       std::make_unique<LocalFontsPermissionContext>(profile);
@@ -124,11 +128,12 @@ permissions::PermissionManager::PermissionContextMap CreatePermissionContexts(
   permission_contexts[ContentSettingsType::SPEAKER_SELECTION] =
       std::make_unique<SpeakerSelectionPermissionContext>(profile);
 
-  // TODO(crbug.com/1025610): Move once Notifications are supported on WebLayer.
+  // TODO(crbug.com/40659287): Move once Notifications are supported on
+  // WebLayer.
   permission_contexts[ContentSettingsType::NOTIFICATIONS] =
       std::make_unique<NotificationPermissionContext>(profile);
 
-  // TODO(crbug.com/1091211): Move once supported on WebLayer.
+  // TODO(crbug.com/40697624): Move once supported on WebLayer.
   permission_contexts[ContentSettingsType::PERIODIC_BACKGROUND_SYNC] =
       std::make_unique<PeriodicBackgroundSyncPermissionContext>(profile);
 
@@ -142,7 +147,7 @@ permissions::PermissionManager::PermissionContextMap CreatePermissionContexts(
       std::make_unique<ProtectedMediaIdentifierPermissionContext>(profile);
 #endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
 
-  // TODO(crbug.com/989663): Still in development so we don't support it on
+  // TODO(crbug.com/40638427): Still in development so we don't support it on
   // WebLayer yet.
   permission_contexts[ContentSettingsType::STORAGE_ACCESS] =
       std::make_unique<StorageAccessGrantPermissionContext>(profile);
@@ -150,7 +155,7 @@ permissions::PermissionManager::PermissionContextMap CreatePermissionContexts(
   permission_contexts[ContentSettingsType::TOP_LEVEL_STORAGE_ACCESS] =
       std::make_unique<TopLevelStorageAccessPermissionContext>(profile);
 
-  // TODO(crbug.com/897300): Still in development for Android so we don't
+  // TODO(crbug.com/40092782): Still in development for Android so we don't
   // support it on WebLayer yet.
   permission_contexts[ContentSettingsType::WINDOW_MANAGEMENT] =
       std::make_unique<permissions::WindowManagementPermissionContext>(profile);
@@ -187,7 +192,7 @@ PermissionManagerFactory::PermissionManagerFactory()
           "PermissionManagerFactory",
           ProfileSelections::Builder()
               .WithRegular(ProfileSelection::kOwnInstance)
-              // TODO(crbug.com/1418376): Check if this service is needed in
+              // TODO(crbug.com/40257657): Check if this service is needed in
               // Guest mode.
               .WithGuest(ProfileSelection::kOwnInstance)
               .Build()) {

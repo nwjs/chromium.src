@@ -26,6 +26,7 @@ class ModelTypeChangeProcessor;
 namespace webapk {
 
 class AbstractWebApkDatabaseFactory;
+struct WebApkRestoreData;
 
 // A unified sync and storage controller.
 //
@@ -95,9 +96,8 @@ class WebApkSyncBridge : public syncer::ModelTypeSyncBridge {
                     bool is_install);
   void OnWebApkUninstalled(const std::string& manifest_id);
 
-  // Get the apps info for apps that are available to restore. Returns the AppId
-  // and the app name for each of the apps as a vector of a vector.
-  std::vector<std::vector<std::string>> GetRestorableAppsInfo() const;
+  // Get list of apps that are available to restore.
+  std::vector<WebApkRestoreData> GetRestorableAppsShortcutInfo() const;
 
   const WebApkProto* GetWebApkByAppId(webapps::AppId app_id) const;
 

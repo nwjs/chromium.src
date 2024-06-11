@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/command_line.h"
 
 #include <ostream>
@@ -618,7 +623,7 @@ void CommandLine::RemoveSwitch(std::string_view switch_key_without_prefix) {
                                  return IsSwitchWithKey(arg, switch_key_native);
                                });
   if (expell == argv_switches_end) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
   begin_args_ -= argv_switches_end - expell;

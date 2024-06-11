@@ -221,7 +221,8 @@ void PaintOpReader::Read(SkColor4f* color) {
   // infinite and NaN colors don't make sense and shouldn't be produced by a
   // renderer, so encountering a non-finite color implies the paint op buffer
   // is invalid.
-  if (valid_ && !SkScalarsAreFinite(color->vec(), 4)) {
+  if (valid_ && (!std::isfinite(color->fR) || !std::isfinite(color->fG) ||
+                 !std::isfinite(color->fB) || !std::isfinite(color->fA))) {
     SetInvalid(DeserializationError::kNonFiniteSkColor4f);
   }
 }
@@ -1114,7 +1115,7 @@ void PaintOpReader::ReadDropShadowPaintFilter(
   Read(&input);
   if (!valid_)
     return;
-  // TODO(crbug/1308932): Remove FromColor and make all SkColor4f.
+  // TODO(crbug.com/40219248): Remove FromColor and make all SkColor4f.
   filter->reset(new DropShadowPaintFilter(
       dx, dy, sigma_x, sigma_y, SkColor4f::FromColor(color), shadow_mode,
       std::move(input), base::OptionalToPtr(crop_rect)));
@@ -1499,7 +1500,7 @@ void PaintOpReader::ReadLightingDistantPaintFilter(
   Read(&input);
   if (!valid_)
     return;
-  // TODO(crbug/1308932): Remove FromColor and make all SkColor4f.
+  // TODO(crbug.com/40219248): Remove FromColor and make all SkColor4f.
   filter->reset(new LightingDistantPaintFilter(
       lighting_type, direction, SkColor4f::FromColor(light_color),
       surface_scale, kconstant, shininess, std::move(input),
@@ -1526,7 +1527,7 @@ void PaintOpReader::ReadLightingPointPaintFilter(
   Read(&input);
   if (!valid_)
     return;
-  // TODO(crbug/1308932): Remove FromColor and make all SkColor4f.
+  // TODO(crbug.com/40219248): Remove FromColor and make all SkColor4f.
   filter->reset(new LightingPointPaintFilter(
       lighting_type, location, SkColor4f::FromColor(light_color), surface_scale,
       kconstant, shininess, std::move(input), base::OptionalToPtr(crop_rect)));
@@ -1559,7 +1560,7 @@ void PaintOpReader::ReadLightingSpotPaintFilter(
 
   if (!valid_)
     return;
-  // TODO(crbug/1308932): Remove FromColor and make all SkColor4f.
+  // TODO(crbug.com/40219248): Remove FromColor and make all SkColor4f.
   filter->reset(new LightingSpotPaintFilter(
       lighting_type, location, target, specular_exponent, cutoff_angle,
       SkColor4f::FromColor(light_color), surface_scale, kconstant, shininess,

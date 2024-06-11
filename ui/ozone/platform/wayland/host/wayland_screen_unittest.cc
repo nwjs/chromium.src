@@ -70,11 +70,8 @@ class TestDisplayObserver : public display::DisplayObserver {
     display_ = new_display;
   }
 
-  void OnDisplayRemoved(const display::Display& old_display) override {
-    removed_display_ = old_display;
-  }
-
   void OnDisplaysRemoved(const display::Displays& removed_displays) override {
+    removed_display_ = removed_displays.back();
     if (displays_removed_closure_) {
       displays_removed_closure_.Run();
     }
@@ -988,7 +985,6 @@ TEST_P(WaylandScreenTest, SetWindowScale) {
   });
 
   EXPECT_EQ(window_->applied_state().window_scale, kTripleScale);
-  EXPECT_EQ(window_->ui_scale_, kTripleScale);
 
   // Now simulate the --force-device-scale-factor=1.5
   const float kForcedUIScale = 1.5;
@@ -1010,7 +1006,6 @@ TEST_P(WaylandScreenTest, SetWindowScale) {
   });
 
   EXPECT_EQ(window_->applied_state().window_scale, kDoubleScale);
-  EXPECT_EQ(window_->ui_scale_, kForcedUIScale);
 
   display::Display::ResetForceDeviceScaleFactorForTesting();
 }
@@ -1053,7 +1048,6 @@ TEST_P(WaylandScreenTest, SetWindowScaleWithoutEnteredOutput) {
   });
 
   EXPECT_EQ(window_->applied_state().window_scale, 2);
-  EXPECT_EQ(window_->ui_scale(), 2);
 }
 
 #endif  // !BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -1404,7 +1398,6 @@ TEST_P(WaylandAuraShellScreenTest, UseCorrectScreenBeforeEnterEvent) {
   // Make sure that entered output is zero but the scale factor is correctly
   // set based on the bounds.
   EXPECT_EQ(window_->root_surface()->entered_outputs().size(), 0u);
-  EXPECT_EQ(2.f, window_->ui_scale());
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)

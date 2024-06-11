@@ -16,11 +16,15 @@ namespace switches {
 extern const char kSwitchValueTrue[];
 extern const char kSwitchValueFalse[];
 
-// Url to upload crash data to.
+// Switches for crash_uploader
 extern const char kCrashServerUrl[];
+extern const char kCrashUploaderDaemon[];
 
 // Disable Crash Reporting
 extern const char kDisableCrashReporter[];
+
+// Disable Crashpad forwarding
+extern const char kDisableCrashpadForwarding[];
 
 // Path to dumpstate binary to be used for crash reporting.
 // This gives Chromium's crash reporter the flexibility to switch

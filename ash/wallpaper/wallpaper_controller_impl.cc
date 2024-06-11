@@ -446,11 +446,6 @@ bool WallpaperControllerImpl::ShouldShowInitialAnimation() {
   return true;
 }
 
-bool WallpaperControllerImpl::CanOpenWallpaperPicker() {
-  return ShouldShowWallpaperSetting() &&
-         !IsActiveUserWallpaperControlledByPolicy();
-}
-
 bool WallpaperControllerImpl::HasShownAnyWallpaper() const {
   return !!current_wallpaper_;
 }
@@ -1364,8 +1359,11 @@ void WallpaperControllerImpl::SetAnimationDuration(
 }
 
 void WallpaperControllerImpl::OpenWallpaperPickerIfAllowed() {
-  if (wallpaper_controller_client_ && CanOpenWallpaperPicker())
+  const auto* session = GetActiveUserSession();
+  if (wallpaper_controller_client_ && session &&
+      CanSetUserWallpaper(session->user_info.account_id)) {
     wallpaper_controller_client_->OpenWallpaperPicker();
+  }
 }
 
 void WallpaperControllerImpl::MinimizeInactiveWindows(
@@ -1462,20 +1460,6 @@ WallpaperControllerImpl::GetActiveUserWallpaperInfo() const {
     return std::nullopt;
   }
   return info;
-}
-
-bool WallpaperControllerImpl::ShouldShowWallpaperSetting() {
-  const UserSession* const active_user_session = GetActiveUserSession();
-  if (!active_user_session)
-    return false;
-
-  // Since everything gets wiped at the end of the Public Session (and Managed
-  // Guest Session), users are disallowed to set wallpaper (and other
-  // personalization settings) to avoid unnecessary confusion and surprise when
-  // everything resets.
-  user_manager::UserType active_user_type = active_user_session->user_info.type;
-  return active_user_type == user_manager::UserType::kRegular ||
-         active_user_type == user_manager::UserType::kChild;
 }
 
 void WallpaperControllerImpl::OnDisplayConfigurationChanged() {
@@ -1776,10 +1760,6 @@ void WallpaperControllerImpl::ReloadWallpaperForTesting(bool clear_cache) {
   ReloadWallpaper(clear_cache);
 }
 
-void WallpaperControllerImpl::ClearPrefChangeObserverForTesting() {
-  pref_change_registrar_.reset();
-}
-
 void WallpaperControllerImpl::OverrideDriveFsDelegateForTesting(
     std::unique_ptr<WallpaperDriveFsDelegate> drivefs_delegate) {
   CHECK_IS_TEST();
@@ -2048,14 +2028,8 @@ void WallpaperControllerImpl::ShowOobeWallpaper() {
     file_path = base::FilePath(
         FILE_PATH_LITERAL("/usr/share/chromeos-assets/animated_splash_screen/"
                           "oobe_wallpaper.jpg"));
-  } else if (features::IsOobeJellyModalEnabled()) {
-    file_path =
-        base::FilePath(FILE_PATH_LITERAL("/usr/share/chromeos-assets/wallpaper/"
-                                         "oobe_wallpaper.jpg"));
   } else {
-    OnOobeWallpaperDecoded(base::FilePath(),
-                           CreateSolidColorWallpaper(kOobeWallpaperColor));
-    return;
+    file_path = GetDefaultWallpaperPath(user_manager::UserType::kRegular);
   }
 
   if (!cached_oobe_wallpaper_.image.isNull() &&
@@ -2072,9 +2046,7 @@ void WallpaperControllerImpl::ShowOobeWallpaper() {
 void WallpaperControllerImpl::OnOobeWallpaperDecoded(
     const base::FilePath& path,
     const gfx::ImageSkia& image) {
-  // TODO (b/268463435) also check for path.empty when solid wallpaper is
-  // removed from ShowOobeWallpaper
-  if (image.isNull()) {
+  if (path.empty() || image.isNull()) {
     LOG(ERROR) << "Failed to decode OOBE wallpaper.";
     wallpaper_metrics_manager_->LogWallpaperResult(
         WallpaperType::kOobe, SetWallpaperResult::kDecodingError);
@@ -2088,9 +2060,14 @@ void WallpaperControllerImpl::OnOobeWallpaperDecoded(
     cached_oobe_wallpaper_.file_path = path;
   }
 
-  WallpaperInfo info(cached_oobe_wallpaper_.file_path.value(),
-                     WALLPAPER_LAYOUT_CENTER_CROPPED, WallpaperType::kOobe,
-                     base::Time::Now());
+  const bool use_small =
+      (GetAppropriateResolution() == WallpaperResolution::kSmall);
+  WallpaperLayout layout =
+      use_small ? WallpaperLayout::WALLPAPER_LAYOUT_CENTER
+                : WallpaperLayout::WALLPAPER_LAYOUT_CENTER_CROPPED;
+
+  WallpaperInfo info(cached_oobe_wallpaper_.file_path.value(), layout,
+                     WallpaperType::kOobe, base::Time::Now());
   ShowWallpaperImage(cached_oobe_wallpaper_.image, info,
                      /*preview_mode=*/false, /*is_override=*/false);
 }
@@ -3175,7 +3152,7 @@ bool WallpaperControllerImpl::IsOobeState() const {
 const ScheduledFeature& WallpaperControllerImpl::GetScheduleForOnlineWallpaper(
     const std::string& collection_id) const {
   if (::ash::IsTimeOfDayWallpaper(collection_id) &&
-      features::IsTimeOfDayWallpaperForcedAutoScheduleEnabled()) {
+      features::IsTimeOfDayWallpaperEnabled()) {
     return *time_of_day_scheduler_;
   } else {
     return *Shell::Get()->dark_light_mode_controller();

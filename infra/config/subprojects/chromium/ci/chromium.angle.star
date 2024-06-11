@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 """Definitions of builders in the chromium.angle builder group."""
 
-load("//lib/builders.star", "os", "reclient", "sheriff_rotations", "siso")
+load("//lib/builders.star", "os", "reclient", "sheriff_rotations")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/ci.star", "ci")
@@ -25,11 +25,7 @@ ci.defaults.set(
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.gpu.SERVICE_ACCOUNT,
     shadow_service_account = ci.gpu.SHADOW_SERVICE_ACCOUNT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
-    siso_project = siso.project.DEFAULT_TRUSTED,
     siso_remote_jobs = reclient.jobs.DEFAULT,
     thin_tester_cores = 2,
 )
@@ -126,7 +122,6 @@ ci.gpu.linux_builder(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
             apply_configs = [
-                "angle_internal",
                 "angle_top_of_tree",
                 "fuchsia",
             ],
@@ -362,7 +357,6 @@ ci.gpu.mac_builder(
         gclient_config = builder_config.gclient_config(
             config = "ios",
             apply_configs = [
-                "angle_internal",
                 "angle_top_of_tree",
             ],
         ),
@@ -396,7 +390,7 @@ ci.gpu.mac_builder(
         short_name = "x64",
     ),
     contact_team_email = "angle-team@google.com",
-    # TODO(crbug.com/1449999): Change to xcode_default once the machines
+    # TODO(crbug.com/40269985): Change to xcode_default once the machines
     # are upgraded to MacOS13
     xcode = xcode.x14main,
 )
@@ -409,7 +403,6 @@ ci.thin_tester(
         gclient_config = builder_config.gclient_config(
             config = "ios",
             apply_configs = [
-                "angle_internal",
                 "angle_top_of_tree",
             ],
         ),

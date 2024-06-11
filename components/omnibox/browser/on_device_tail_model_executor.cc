@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <sstream>
+#include <string_view>
 
 #include "base/base64.h"
 #include "base/containers/contains.h"
@@ -38,11 +39,11 @@ static constexpr char kRnnStepInputIdsNodeName[] = "input_ids";
 static constexpr char kRnnStepPrevQueryEncodingInputNodeName[] =
     "prev_query_encoding";
 
-static constexpr base::StringPiece kRnnStepCStateInputNamePrefix = "c_in_";
-static constexpr base::StringPiece kRnnStepMStateInputNamePrefix = "m_in_";
+static constexpr std::string_view kRnnStepCStateInputNamePrefix = "c_in_";
+static constexpr std::string_view kRnnStepMStateInputNamePrefix = "m_in_";
 
-static constexpr base::StringPiece kRnnStepCStateOutputNamePrefix = "c_out_";
-static constexpr base::StringPiece kRnnStepMStateOutputNamePrefix = "m_out_";
+static constexpr std::string_view kRnnStepCStateOutputNamePrefix = "c_out_";
+static constexpr std::string_view kRnnStepMStateOutputNamePrefix = "m_out_";
 
 static constexpr char kRnnStepOutputProbsNodeName[] = "probs";
 
@@ -243,11 +244,10 @@ bool OnDeviceTailModelExecutor::InitModelInterpreter(
   }
   model_fb_ = std::move(model_fb);
 
-  tflite::StderrReporter error_reporter;
   std::unique_ptr<tflite::FlatBufferModel> model =
-      tflite::FlatBufferModel::BuildFromBuffer(
-          reinterpret_cast<const char*>(model_fb_->data()), model_fb_->length(),
-          &error_reporter);
+      tflite::FlatBufferModel::VerifyAndBuildFromBuffer(
+          reinterpret_cast<const char*>(model_fb_->data()),
+          model_fb_->length());
 
   if (model == nullptr) {
     DVLOG(1) << "Could not create flat buffer model for file "
@@ -669,7 +669,14 @@ OnDeviceTailModelExecutor::GenerateSuggestionsForPrefix(
   DCHECK(IsReady());
   std::vector<Prediction> predictions;
 
+  // Only trigger for prefixed suggest requests.
   if (input.prefix.empty()) {
+    return predictions;
+  }
+
+  // Return early if the prefix contains bad words.
+  // TODO(crbug.com/40241602): maybe add a unit test for this.
+  if (IsSuggestionBad(input.prefix)) {
     return predictions;
   }
 

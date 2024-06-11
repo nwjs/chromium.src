@@ -5,6 +5,7 @@
 #include "chrome/browser/ash/accessibility/accessibility_dlc_installer.h"
 
 #include <optional>
+#include <string_view>
 
 #include "base/containers/flat_map.h"
 #include "base/memory/raw_ptr.h"
@@ -118,12 +119,12 @@ class AccessibilityDlcInstallerTest : public testing::Test {
     install_data_[type].dlc_root_path = root_path;
   }
   void OnProgress(double progress) {}
-  void OnError(DlcType type, const std::string& error) {
+  void OnError(DlcType type, std::string_view error) {
     install_data_[type].success = false;
     install_data_[type].last_error = error;
   }
 
-  void SetDlcRootPath(const std::string& root_path) {
+  void SetDlcRootPath(std::string_view root_path) {
     fake_dlcservice_client_.set_install_root_path(root_path);
   }
 
@@ -131,21 +132,21 @@ class AccessibilityDlcInstallerTest : public testing::Test {
     fake_dlcservice_client_.set_install_error(dlcservice::kErrorNeedReboot);
   }
 
-  void SetDlcAlreadyInstalled(const std::string& root_path) {
+  void SetPumpkinAlreadyInstalled(std::string_view root_path) {
     dlcservice::DlcState dlc_state;
     dlc_state.set_state(dlcservice::DlcState_State_INSTALLED);
-    dlc_state.set_root_path(root_path);
-    fake_dlcservice_client_.set_dlc_state(dlc_state);
+    dlc_state.set_root_path(std::string(root_path));
+    fake_dlcservice_client_.set_dlc_state("pumpkin", dlc_state);
   }
 
-  void SetDlcCurrentlyInstalling() {
+  void SetPumpkinCurrentlyInstalling() {
     dlcservice::DlcState dlc_state;
     dlc_state.set_state(dlcservice::DlcState_State_INSTALLING);
-    fake_dlcservice_client_.set_dlc_state(dlc_state);
+    fake_dlcservice_client_.set_dlc_state("pumpkin", dlc_state);
   }
 
-  void SetGetDlcStateError() {
-    fake_dlcservice_client_.set_get_dlc_state_error("Test error");
+  void SetPumpkinDlcError() {
+    fake_dlcservice_client_.set_get_dlc_state_error("pumpkin", "Test error");
   }
 
   void ExpectPumpkinSuccessHistogramCount(int expected_count) {
@@ -239,7 +240,7 @@ TEST_F(AccessibilityDlcInstallerTest, PumpkinAlreadyInstalled) {
   ASSERT_FALSE(GetInstallSuccess(DlcType::kPumpkin));
   ASSERT_FALSE(IsPumpkinInstalled());
 
-  SetDlcAlreadyInstalled("/fake/root/path");
+  SetPumpkinAlreadyInstalled("/fake/root/path");
 
   MaybeInstallPumpkinAndWait();
   ASSERT_TRUE(GetInstallSuccess(DlcType::kPumpkin));
@@ -258,7 +259,7 @@ TEST_F(AccessibilityDlcInstallerTest, PumpkinAlreadyInstalled) {
 TEST_F(AccessibilityDlcInstallerTest, PumpkinCurrentlyInstalling) {
   ASSERT_FALSE(GetInstallSuccess(DlcType::kPumpkin));
   ASSERT_FALSE(IsPumpkinInstalled());
-  SetDlcCurrentlyInstalling();
+  SetPumpkinCurrentlyInstalling();
   MaybeInstallPumpkinAndWait();
   ASSERT_FALSE(GetInstallSuccess(DlcType::kPumpkin));
   ASSERT_FALSE(IsPumpkinInstalled());
@@ -273,7 +274,7 @@ TEST_F(AccessibilityDlcInstallerTest, PumpkinCurrentlyInstalling) {
 TEST_F(AccessibilityDlcInstallerTest, GetDlcError) {
   ASSERT_FALSE(GetInstallSuccess(DlcType::kPumpkin));
   ASSERT_FALSE(IsPumpkinInstalled());
-  SetGetDlcStateError();
+  SetPumpkinDlcError();
   MaybeInstallPumpkinAndWait();
   ASSERT_FALSE(GetInstallSuccess(DlcType::kPumpkin));
   ASSERT_FALSE(IsPumpkinInstalled());

@@ -3,7 +3,9 @@
 // found in the LICENSE file.
 
 #include "ui/accessibility/platform/automation/automation_v8_bindings.h"
+
 #include <string>
+#include <string_view>
 
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -34,7 +36,7 @@ namespace ui {
 namespace {
 
 v8::Local<v8::String> CreateV8String(v8::Isolate* isolate,
-                                     const base::StringPiece& str) {
+                                     std::string_view str) {
   return gin::StringToSymbol(isolate, str);
 }
 
@@ -1212,7 +1214,8 @@ void AutomationV8Bindings::AddV8Routes() {
           }
         }
 
-        // TODO(crbug/955633): Set doDefault, increment, and decrement directly
+        // TODO(crbug.com/41454524): Set doDefault, increment, and decrement
+        // directly
         //     on the AXNode.
         // The doDefault action is implied by having a default action verb.
         int default_action_verb =

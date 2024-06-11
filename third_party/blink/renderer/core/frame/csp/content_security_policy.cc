@@ -381,6 +381,31 @@ void ContentSecurityPolicy::AddPolicies(
     policies_.push_back(std::move(policy));
   }
 
+  // Reevaluate whether the composite set of enforced policies are "strict"
+  // after these new policies have been added. Since additional policies can
+  // only tighten the composite policy, we only need to check this if the policy
+  // isn't already "strict".
+  if (!enforces_strict_policy_) {
+    const bool is_object_restriction_reasonable =
+        base::ranges::any_of(policies_, [](const auto& policy) {
+          return !CSPDirectiveListIsReportOnly(*policy) &&
+                 CSPDirectiveListIsObjectRestrictionReasonable(*policy);
+        });
+    const bool is_base_restriction_reasonable =
+        base::ranges::any_of(policies_, [](const auto& policy) {
+          return !CSPDirectiveListIsReportOnly(*policy) &&
+                 CSPDirectiveListIsBaseRestrictionReasonable(*policy);
+        });
+    const bool is_script_restriction_reasonable =
+        base::ranges::any_of(policies_, [](const auto& policy) {
+          return !CSPDirectiveListIsReportOnly(*policy) &&
+                 CSPDirectiveListIsScriptRestrictionReasonable(*policy);
+        });
+    enforces_strict_policy_ = is_object_restriction_reasonable &&
+                              is_base_restriction_reasonable &&
+                              is_script_restriction_reasonable;
+  }
+
   // If this ContentSecurityPolicy is not bound to a delegate yet, return. The
   // following logic will be executed in BindToDelegate when that will happen.
   if (!delegate_)
@@ -1377,26 +1402,6 @@ bool ContentSecurityPolicy::ExperimentalFeaturesEnabled() const {
       ExperimentalContentSecurityPolicyFeaturesEnabled();
 }
 
-bool ContentSecurityPolicy::IsStrictPolicyEnforced() const {
-  const bool is_object_restriction_reasonable =
-      base::ranges::any_of(policies_, [](const auto& policy) {
-        return !CSPDirectiveListIsReportOnly(*policy) &&
-               CSPDirectiveListIsObjectRestrictionReasonable(*policy);
-      });
-  const bool is_base_restriction_reasonable =
-      base::ranges::any_of(policies_, [](const auto& policy) {
-        return !CSPDirectiveListIsReportOnly(*policy) &&
-               CSPDirectiveListIsBaseRestrictionReasonable(*policy);
-      });
-  const bool is_script_restriction_reasonable =
-      base::ranges::any_of(policies_, [](const auto& policy) {
-        return !CSPDirectiveListIsReportOnly(*policy) &&
-               CSPDirectiveListIsScriptRestrictionReasonable(*policy);
-      });
-  return is_object_restriction_reasonable && is_base_restriction_reasonable &&
-         is_script_restriction_reasonable;
-}
-
 bool ContentSecurityPolicy::RequiresTrustedTypes() const {
   return base::ranges::any_of(policies_, [](const auto& policy) {
     return !CSPDirectiveListIsReportOnly(*policy) &&
@@ -1612,6 +1617,15 @@ bool ContentSecurityPolicy::AllowFencedFrameOpaqueURL() const {
     }
   }
   return true;
+}
+
+bool ContentSecurityPolicy::HasEnforceFrameAncestorsDirectives() {
+  return base::ranges::any_of(policies_, [](const auto& csp) {
+    return csp->header->type ==
+               network::mojom::ContentSecurityPolicyType::kEnforce &&
+           csp->directives.Contains(
+               network::mojom::CSPDirectiveName::FrameAncestors);
+  });
 }
 
 void ContentSecurityPolicy::Count(WebFeature feature) const {

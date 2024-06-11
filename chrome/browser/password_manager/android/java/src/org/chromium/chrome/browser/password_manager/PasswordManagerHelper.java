@@ -49,7 +49,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Optional;
 
-/** A helper class for showing PasswordSettings. TODO(crbug.com/1345232): Split up this class */
+/** A helper class for showing PasswordSettings. TODO(crbug.com/40853413): Split up this class */
 public class PasswordManagerHelper {
     // Key for the argument with which PasswordsSettings will be launched. The value for
     // this argument should be part of the ManagePasswordsReferrer enum, which contains
@@ -204,7 +204,7 @@ public class PasswordManagerHelper {
                     (syncService != null)
                             ? CoreAccountInfo.getEmailFrom(syncService.getAccountInfo())
                             : "";
-            // TODO(crbug.com/1507785): Find an alternative to account settings intent.
+            // TODO(crbug.com/40948486): Find an alternative to account settings intent.
             credentialManagerLauncher.getAccountSettingsIntent(
                     accountName,
                     (intent) ->
@@ -224,7 +224,7 @@ public class PasswordManagerHelper {
      * trying to use UPM methods. Checks for the UPM to be anabled and downstream backend to be
      * available.
      *
-     * <p>TODO(crbug.com/1327294): Make sure we rely on the same util in all places that need to
+     * <p>TODO(crbug.com/40226137): Make sure we rely on the same util in all places that need to
      * check whether UPM can be used (for password check as well as for all other cases that share
      * the same preconditions, e.g. launching the credential manager).
      *
@@ -233,9 +233,9 @@ public class PasswordManagerHelper {
     public boolean canUseUpm() {
         SyncService syncService = SyncServiceFactory.getForProfile(mProfile);
         PrefService prefService = UserPrefs.get(mProfile);
-        // TODO(crbug.com/1327294): Reevaluate if passing the syncService instead of the boolean is
+        // TODO(crbug.com/40226137): Reevaluate if passing the syncService instead of the boolean is
         // better.
-        // TODO(crbug.com/1327294): Move the syncService and backend presence checks in the util.
+        // TODO(crbug.com/40226137): Move the syncService and backend presence checks in the util.
         boolean isPwdSyncEnabled = hasChosenToSyncPasswords(syncService);
         return syncService != null
                 && PasswordManagerUtilBridge.shouldUseUpmWiring(isPwdSyncEnabled, prefService)
@@ -275,7 +275,7 @@ public class PasswordManagerHelper {
             @Nullable String accountEmail) {
         assert accountEmail == null || !accountEmail.isEmpty();
 
-        // TODO(crbug.com/1504551): Change PasswordCheckupClientHelper.getPasswordCheckupIntent to
+        // TODO(crbug.com/40945093): Change PasswordCheckupClientHelper.getPasswordCheckupIntent to
         // take the accountEmail as String.
         Optional<String> account =
                 accountEmail == null ? Optional.empty() : Optional.of(accountEmail);
@@ -437,7 +437,7 @@ public class PasswordManagerHelper {
 
         // Request for overlay flow, Play Store will fallback to the default
         // behaviour if overlay is not available.
-        // TODO(crbug.com/1348506): Use AlleyOop v3 overlay UI after fixing Chrome restart
+        // TODO(crbug.com/40855336): Use AlleyOop v3 overlay UI after fixing Chrome restart
         // during the GMS Core installation.
         // intent.putExtra("overlay", true);
 
@@ -520,7 +520,7 @@ public class PasswordManagerHelper {
         PasswordCheckupClientMetricsRecorder passwordCheckupMetricsRecorder =
                 new PasswordCheckupClientMetricsRecorder(
                         (PasswordCheckOperation.GET_PASSWORD_CHECKUP_INTENT));
-        // TODO(crbug.com/1504551): Change PasswordCheckupClientHelper.getPasswordCheckupIntent to
+        // TODO(crbug.com/40945093): Change PasswordCheckupClientHelper.getPasswordCheckupIntent to
         // take the accountEmail as String.
         checkupClient.getPasswordCheckupIntent(
                 referrer,
@@ -701,7 +701,7 @@ public class PasswordManagerHelper {
         dialog.show();
     }
 
-    // TODO(crbug.com/1327578): Exceptions should be thrown by factory, remove this method.
+    // TODO(crbug.com/40841269): Exceptions should be thrown by factory, remove this method.
     private PasswordCheckupClientHelper getPasswordCheckupClientHelper()
             throws PasswordCheckBackendException {
         if (!PasswordManagerBackendSupportHelper.getInstance().isBackendPresent()) {
@@ -709,8 +709,10 @@ public class PasswordManagerHelper {
                     "Backend downstream implementation is not available.",
                     CredentialManagerError.BACKEND_NOT_AVAILABLE);
         }
-        // This checks against GMSCore version required for using the account store.
-        if (PasswordManagerBackendSupportHelper.getInstance().isUpdateNeeded()) {
+        // This checks against GMSCore version required for using the account store (technically it
+        // also checks if the internal backend is present, but the check above guarantees that if
+        // this is executed then it is).
+        if (!PasswordManagerUtilBridge.areMinUpmRequirementsMet()) {
             throw new PasswordCheckBackendException(
                     "Backend version is not supported.",
                     CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED);
@@ -735,7 +737,7 @@ public class PasswordManagerHelper {
                 "Can not instantiate backend client.", CredentialManagerError.UNCATEGORIZED);
     }
 
-    // TODO(crbug.com/1346239): Exceptions should be thrown by factory, remove this method.
+    // TODO(crbug.com/40854052): Exceptions should be thrown by factory, remove this method.
     private CredentialManagerLauncher getCredentialManagerLauncher()
             throws CredentialManagerBackendException {
         if (!PasswordManagerBackendSupportHelper.getInstance().isBackendPresent()) {
@@ -743,7 +745,7 @@ public class PasswordManagerHelper {
                     "Backend downstream implementation is not available.",
                     CredentialManagerError.BACKEND_NOT_AVAILABLE);
         }
-        if (PasswordManagerBackendSupportHelper.getInstance().isUpdateNeeded()) {
+        if (!PasswordManagerUtilBridge.areMinUpmRequirementsMet()) {
             throw new CredentialManagerBackendException(
                     "Backend version is not supported.",
                     CredentialManagerError.BACKEND_VERSION_NOT_SUPPORTED);

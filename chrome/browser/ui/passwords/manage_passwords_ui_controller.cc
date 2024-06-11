@@ -165,9 +165,9 @@ void ManagePasswordsUIController::OnPasswordSubmitted(
   DestroyPopups();
   save_fallback_timer_.Stop();
 
-  // TODO(crbug/1503146): This is used to align the default password store pref
-  // with account storage pref. Once all users have those aligned this should be
-  // removed.
+  // TODO(crbug.com/40943570): This is used to align the default password store
+  // pref with account storage pref. Once all users have those aligned this
+  // should be removed.
   if (GetPasswordFeatureManager()->ShouldChangeDefaultPasswordStore()) {
     passwords_data_.OnDefaultStoreChanged(std::move(form_manager));
   } else {
@@ -283,19 +283,13 @@ void ManagePasswordsUIController::OnAutomaticPasswordSave(
     bool is_update_confirmation) {
   DestroyPopups();
   save_fallback_timer_.Stop();
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::
-              kNewConfirmationBubbleForGeneratedPasswords)) {
-    auto ui_state =
-        is_update_confirmation ? password_manager::ui::UPDATE_CONFIRMATION_STATE
-        : form_manager->GetPendingCredentials().username_value.empty()
-            ? password_manager::ui::GENERATED_PASSWORD_CONFIRMATION_STATE
-            : password_manager::ui::SAVE_CONFIRMATION_STATE;
-    passwords_data_.OnSubmittedGeneratedPassword(ui_state,
-                                                 std::move(form_manager));
-  } else {
-    passwords_data_.OnAutomaticPasswordSave(std::move(form_manager));
-  }
+  auto ui_state =
+      is_update_confirmation ? password_manager::ui::UPDATE_CONFIRMATION_STATE
+      : form_manager->GetPendingCredentials().username_value.empty()
+          ? password_manager::ui::GENERATED_PASSWORD_CONFIRMATION_STATE
+          : password_manager::ui::SAVE_CONFIRMATION_STATE;
+  passwords_data_.OnSubmittedGeneratedPassword(ui_state,
+                                               std::move(form_manager));
 
   bubble_status_ = BubbleStatus::SHOULD_POP_UP;
   UpdateBubbleAndIconVisibility();
@@ -499,14 +493,16 @@ void ManagePasswordsUIController::OnKeychainError() {
 }
 
 void ManagePasswordsUIController::OnAddUsernameSaveClicked(
-    const std::u16string& username) {
+    const std::u16string& username,
+    const password_manager::PasswordForm& form_to_update) {
   CHECK(!dialog_controller_);
+
   passwords_data_.form_manager()->OnUpdateUsernameFromPrompt(username);
   save_fallback_timer_.Stop();
 
   passwords_data_.form_manager()->Save();
   passwords_data_.OnSubmittedGeneratedPassword(
-      password_manager::ui::SAVE_CONFIRMATION_STATE, nullptr);
+      password_manager::ui::SAVE_CONFIRMATION_STATE, nullptr, form_to_update);
   // After adding a new username, confirmation helium bubble should appear.
   bubble_status_ = BubbleStatus::SHOULD_POP_UP;
   UpdateBubbleAndIconVisibility();
@@ -765,8 +761,6 @@ void ManagePasswordsUIController::SavePassword(const std::u16string& username,
         ->NotifyEvent("passwords_account_storage_used");
   }
 
-  // TODO(crbug/333709971): Decide whether the post save compromised bubble or
-  // the sign in promo bubble should be shown.
   post_save_compromised_helper_ =
       std::make_unique<password_manager::PostSaveCompromisedHelper>(
           passwords_data_.form_manager()->GetInsecureCredentials(), username);
@@ -837,8 +831,8 @@ void ManagePasswordsUIController::MovePasswordToAccountStore() {
         GetState() ==
             password_manager::ui::MOVE_CREDENTIAL_FROM_MANAGE_BUBBLE_STATE);
 
-  // TODO(1503146): After this feature lands, clean this up and use only
-  // MovePendingPasswordToAccountStoreUsingHelper() to move passwords.
+  // TODO(crbug.com/40943570): After this feature lands, clean this up and use
+  // only MovePendingPasswordToAccountStoreUsingHelper() to move passwords.
   if (base::FeatureList::IsEnabled(
           password_manager::features::kButterOnDesktopFollowup)) {
     MovePendingPasswordToAccountStoreUsingHelper(
@@ -925,13 +919,11 @@ void ManagePasswordsUIController::NavigateToPasswordCheckup(
   password_manager::LogPasswordCheckReferrer(referrer);
 }
 
-void ManagePasswordsUIController::SignIn(const AccountInfo& account) {
+void ManagePasswordsUIController::SignIn(
+    const AccountInfo& account,
+    const password_manager::PasswordForm& password_to_move) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  CHECK(IsExplicitBrowserSigninUIOnDesktopEnabled(
-      switches::ExplicitBrowserSigninPhase::kFull));
-
-  const password_manager::PasswordForm pending_password =
-      passwords_data_.form_manager()->GetPendingCredentials();
+  CHECK(switches::IsExplicitBrowserSigninUIOnDesktopEnabled());
 
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
@@ -939,18 +931,15 @@ void ManagePasswordsUIController::SignIn(const AccountInfo& account) {
       profile, account,
       signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE);
 
-  // Do nothing if the password is already using account store, it will be
-  // uploaded automatically after successful reauthentication.
-  if (pending_password.IsUsingAccountStore()) {
-    return;
-  }
-
   // If the sign in was already successful, move the password directly.
   // Otherwise, wait for a sign in event and move the password upon success.
-  if (IdentityManagerFactory::GetForProfile(profile)->HasPrimaryAccount(
-          signin::ConsentLevel::kSignin)) {
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  if (identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin) &&
+      !identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+          account.account_id)) {
     MoveJustSavedPasswordAfterAccountStoreOptIn(
-        pending_password,
+        password_to_move,
         password_manager::PasswordManagerClient::ReauthSucceeded(true));
   } else {
     content::WebContents* sign_in_tab_contents =
@@ -967,7 +956,7 @@ void ManagePasswordsUIController::SignIn(const AccountInfo& account) {
     autofill::AutofillSigninPromoTabHelper::GetForWebContents(
         *sign_in_tab_contents)
         ->InitializeDataMoveAfterSignIn(
-            pending_password,
+            password_to_move,
             signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE);
   }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)

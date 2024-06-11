@@ -16,6 +16,7 @@ public struct TabStripConstants {
     public static let horizontalInset: CGFloat = 16
     public static let scrollDelayAfterInsert: DispatchTimeInterval = .milliseconds(500)
     public static let groupStrokeLineWidth: CGFloat = 2
+    public static let groupStrokeExtension: CGFloat = 17
   }
 
   /// Tab item constants.
@@ -29,6 +30,7 @@ public struct TabStripConstants {
     public static let horizontalSelectedInset: CGFloat = 4
     public static let selectedZIndex: Int = 10
     public static let fontSize: CGFloat = 14
+    public static let maximumVisibleDistance: CGFloat = 10
   }
 
   /// Group item constants.
@@ -37,6 +39,10 @@ public struct TabStripConstants {
     public static let titleContainerHorizontalPadding: CGFloat = 10
     public static let titleContainerHorizontalMargin: CGFloat = 4
     public static let fontSize: CGFloat = TabItem.fontSize
+    public static let maxTitleWidth: CGFloat = 150
+    public static let minCellWidth =
+      titleContainerHorizontalPadding * 2 + titleContainerHorizontalMargin * 2
+    public static let maxCellWidth = maxTitleWidth + minCellWidth
   }
 
   /// New tab button constants.
@@ -73,6 +79,7 @@ public struct TabStripConstants {
     public static let leadingInset: CGFloat = 6
     public static let bottomInset: CGFloat = 4
     public static let backgroundColorAlpha: CGFloat = 0.3
+    public static let solidBackgroundVerticalPadding: CGFloat = 5
   }
 
 }

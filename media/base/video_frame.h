@@ -86,16 +86,16 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   static constexpr size_t kFrameAddressAlignment =
       VideoFrameLayout::kBufferAddressAlignment;
 
-  enum {
-    kMaxPlanes = 4,
+  static constexpr size_t kMaxPlanes = 4;
 
-    kYPlane = 0,
-    kARGBPlane = kYPlane,
-    kUPlane = 1,
-    kUVPlane = kUPlane,
-    kVPlane = 2,
-    kAPlaneTriPlanar = kVPlane,
-    kAPlane = 3,
+  enum Plane : uint8_t {
+    kY = 0,
+    kARGB = kY,
+    kU = 1,
+    kUV = kU,
+    kV = 2,
+    kATriPlanar = kV,
+    kA = 3,
   };
 
   // These values are persisted to logs. Entries should not be renumbered and
@@ -212,18 +212,6 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       base::TimeDelta timestamp,
       bool zero_initialize_memory);
 
-  // Wraps a single native texture with a VideoFrame.
-  // |mailbox_holders_release_cb| will be called with a sync token as the
-  // argument when the VideoFrame is to be destroyed.
-  static scoped_refptr<VideoFrame> WrapLegacyMailbox(
-      VideoPixelFormat format,
-      const gpu::MailboxHolder mailbox_holder,
-      ReleaseMailboxCB mailbox_holders_release_cb,
-      const gfx::Size& coded_size,
-      const gfx::Rect& visible_rect,
-      const gfx::Size& natural_size,
-      base::TimeDelta timestamp);
-
   // Wraps a set of native textures with a VideoFrame.
   // |mailbox_holders_release_cb| will be called with a sync token as the
   // argument when the VideoFrame is to be destroyed.
@@ -337,6 +325,19 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const gfx::Size& natural_size,
       std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer,
       const gpu::MailboxHolder (&mailbox_holders)[kMaxPlanes],
+      ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb,
+      base::TimeDelta timestamp);
+
+  // Same as the function above except that this variant accepts a shared image
+  // array (plus a sync token and a texture target) instead of a mailbox holder
+  // array.
+  static scoped_refptr<VideoFrame> WrapExternalGpuMemoryBuffer(
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer,
+      scoped_refptr<gpu::ClientSharedImage> shared_images[kMaxPlanes],
+      const gpu::SyncToken& sync_token,
+      uint32_t texture_target,
       ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb,
       base::TimeDelta timestamp);
 
@@ -463,7 +464,8 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   static void HashFrameForTesting(base::MD5Context* context,
                                   const VideoFrame& frame);
 
-  // Returns true if |frame| is accesible mapped in the VideoFrame memory space.
+  // Returns true if |frame| is accessible mapped in the VideoFrame memory
+  // space.
   // static
   static bool IsStorageTypeMappable(VideoFrame::StorageType storage_type);
 
@@ -517,8 +519,21 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
   // Returns true if the video frame is backed with GpuMemoryBuffer.
   bool HasGpuMemoryBuffer() const;
 
+  // Returns true if the GpuMemoruBuffer backing the video frame is native
+  // buffer and not shared memory buffer. A native GPU memory buffer is a
+  // block of memory that is allocated and managed directly on the GPU's
+  // memory which allows for hardware acceleration.
+  bool HasNativeGpuMemoryBuffer() const;
+
   // Gets the GpuMemoryBuffer backing the VideoFrame.
   gfx::GpuMemoryBuffer* GetGpuMemoryBuffer() const;
+
+  // Gets the GpuMemoryBufferHandle backing the VideoFrame. Note that most of
+  // VideoFrame clients currently use ::GetGpuMemoryBuffer() above only to clone
+  // a handle from it. Those clients will be switched to using this new api.
+  // This will help with MappableSI work which intends to remove all direct
+  // usage of GpuMemoryBuffer.
+  gfx::GpuMemoryBufferHandle GetGpuMemoryBufferHandle() const;
 
   // Returns true if the video frame was created with the given parameters.
   bool IsSameAllocation(VideoPixelFormat format,
@@ -604,7 +619,7 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
     return data_[plane];
   }
   uint8_t* writable_data(size_t plane) {
-    // TODO(crbug.com/1435549): Also CHECK that the storage type isn't
+    // TODO(crbug.com/40265179): Also CHECK that the storage type isn't
     // STORAGE_UNOWNED_MEMORY once non-compliant usages are fixed.
     CHECK_NE(storage_type_, STORAGE_SHMEM);
     CHECK(IsValidPlane(format(), plane));
@@ -788,6 +803,13 @@ class MEDIA_EXPORT VideoFrame : public base::RefCountedThreadSafe<VideoFrame> {
       const gfx::Size& coded_size,
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
+      base::TimeDelta timestamp);
+
+  static scoped_refptr<VideoFrame> CreateFrameForGpuMemoryBufferInternal(
+      const gfx::Rect& visible_rect,
+      const gfx::Size& natural_size,
+      std::unique_ptr<gfx::GpuMemoryBuffer> gpu_memory_buffer,
+      ReleaseMailboxAndGpuMemoryBufferCB mailbox_holder_and_gmb_release_cb,
       base::TimeDelta timestamp);
 
   // Return the alignment for the whole frame, calculated as the max of the

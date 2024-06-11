@@ -25,6 +25,7 @@
 #include "chromeos/ash/components/login/auth/public/key.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/known_user.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 
@@ -63,12 +64,14 @@ void RecordEvent(OfflineLoginEvent event) {
 
 // static
 std::string OfflineLoginScreen::GetResultString(Result result) {
+  // LINT.IfChange(UsageMetrics)
   switch (result) {
     case Result::BACK:
       return "Back";
     case Result::RELOAD_ONLINE_LOGIN:
       return "ReloadOnlineLogin";
   }
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/oobe/histograms.xml)
 }
 
 OfflineLoginScreen::OfflineLoginScreen(base::WeakPtr<OfflineLoginView> view,
@@ -83,6 +86,8 @@ OfflineLoginScreen::OfflineLoginScreen(base::WeakPtr<OfflineLoginView> view,
 OfflineLoginScreen::~OfflineLoginScreen() = default;
 
 void OfflineLoginScreen::ShowImpl() {
+  CHECK(session_manager::SessionManager::Get()->session_state() ==
+        session_manager::SessionState::LOGIN_PRIMARY);
   if (!view_)
     return;
 

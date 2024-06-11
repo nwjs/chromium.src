@@ -65,7 +65,8 @@ class AnimatedImageButton : public TabSliderButton {
     // TODO(b/334205690): Use view builder pattern.
     SetLayoutManager(std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kVertical,
-        /*inside_border_insets=*/gfx::Insets(8)));
+        /*inside_border_insets=*/gfx::Insets(8),
+        /*between_child_spacing=*/6));
 
     auto* animated_view_container =
         AddChildView(std::make_unique<views::View>());
@@ -79,7 +80,6 @@ class AnimatedImageButton : public TabSliderButton {
         animated_view_container->AddChildView(std::make_unique<views::View>());
     image_view_container->SetLayoutManager(
         std::make_unique<views::FillLayout>());
-    image_view_container->SetBorder(views::CreateEmptyBorder(gfx::Insets(4)));
     auto* image_view = image_view_container->AddChildView(
         std::make_unique<views::ImageView>());
     image_view->SetImage(ui::ImageModel::FromImageGenerator(
@@ -192,7 +192,8 @@ SetValueEffectSlider::SetValueEffectSlider(
   SetID(BubbleViewID::kSingleSetValueEffectView);
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical,
-      /*inside_border_insets=*/gfx::Insets(), /*between_child_spacing=*/8));
+      /*inside_border_insets=*/gfx::Insets(),
+      /*between_child_spacing=*/16));
   layout->set_cross_axis_alignment(
       views::BoxLayout::CrossAxisAlignment::kStretch);
 
@@ -202,7 +203,7 @@ SetValueEffectSlider::SetValueEffectSlider(
     label_container->SetOrientation(views::BoxLayout::Orientation::kHorizontal);
     label_container->SetMainAxisAlignment(
         views::BoxLayout::MainAxisAlignment::kStart);
-    label_container->SetInsideBorderInsets(gfx::Insets::TLBR(0, 8, 0, 0));
+    label_container->SetInsideBorderInsets(gfx::Insets::TLBR(0, 4, 0, 0));
 
     auto* label = label_container->AddChildView(
         std::make_unique<views::Label>(effect->label_text()));

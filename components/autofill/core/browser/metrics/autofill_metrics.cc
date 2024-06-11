@@ -24,6 +24,7 @@
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/filling_product.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/form_types.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics_utils.h"
@@ -47,8 +48,6 @@ namespace {
 
 // Exponential bucket spacing for UKM event data.
 constexpr double kAutofillEventDataBucketSpacing = 2.0;
-
-using autofill_metrics::FormGroupFillingStats;
 
 // Translates structured name types into simple names that are used for
 // naming histograms.
@@ -125,6 +124,54 @@ enum FieldTypeGroupForMetrics {
   // tools/metrics/histograms/update_autofill_enums.py
   NUM_FIELD_TYPE_GROUPS_FOR_METRICS
 };
+
+// This defines a second-to-minute-scale prioritized set of buckets for
+// recording user interaction time with forms. Pure exponential bucketing is
+// generally not appropriate for analyzing interactions at this time scale, as
+// we tend not to care about durations at the millisecond level, while small
+// changes at the 2-3 minute scale may be invisible with exponential buckets.
+// This set of buckets contains a large linear section between 1 and 30s, and
+// between 30s and 10m, after which it proceeds in the same way as
+// ukm::GetSemanticBucketMinForDurationTiming
+int64_t GetSemanticBucketMinForAutofillDurationTiming(int64_t sample) {
+  if (sample == 0) {
+    return 0;
+  }
+  DCHECK(sample > 0);
+  constexpr int64_t kMillisecondsPerSecond = 1000;
+  constexpr int64_t kMillisecondsPerMinute = 60 * 1000;
+  constexpr int64_t kMillisecondsPerHour = 60 * 60 * 1000;
+  constexpr int64_t kMillisecondsPerDay = 24 * kMillisecondsPerHour;
+  int64_t modulus;
+
+  // If |sample| is a duration longer than a day, then use exponential bucketing
+  // by number of days.
+  // Algorithm is: convert ms to days, rounded down. Exponentially bucket.
+  // Convert back to milliseconds, return sample.
+  if (sample > kMillisecondsPerDay) {
+    sample = sample / kMillisecondsPerDay;
+    sample = ukm::GetExponentialBucketMinForUserTiming(sample);
+    return sample * kMillisecondsPerDay;
+  }
+
+  if (sample > kMillisecondsPerHour) {
+    // Above 1h, 1h granularity
+    modulus = kMillisecondsPerHour;
+  } else if (sample > 20 * kMillisecondsPerMinute) {
+    // Above 20m, 10m granularity
+    modulus = 10 * kMillisecondsPerMinute;
+  } else if (sample > 10 * kMillisecondsPerMinute) {
+    // Above 10m, 1m granularity
+    modulus = kMillisecondsPerMinute;
+  } else if (sample > 30 * kMillisecondsPerSecond) {
+    // Above 30s, 5s granularity
+    modulus = 5 * kMillisecondsPerSecond;
+  } else {
+    // Below 30s, 1s granularity
+    modulus = kMillisecondsPerSecond;
+  }
+  return sample - (sample % modulus);
+}
 
 }  // namespace
 
@@ -509,7 +556,7 @@ FieldType GetActualFieldType(const FieldTypeSet& possible_types,
 // only_fill_when_focused set to true.
 bool DuplicatedFilling(const FormStructure& form, const AutofillField& field) {
   for (const auto& form_field : form) {
-    if (field.value() == form_field->value() && form_field->is_autofilled) {
+    if (field.value() == form_field->value() && form_field->is_autofilled()) {
       return true;
     }
   }
@@ -1245,7 +1292,7 @@ void AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
   FormType form_type = FieldTypeGroupToFormType(field.Type().group());
   if (form_type == FormType::kAddressForm ||
       form_type == FormType::kCreditCardForm) {
-    bool autocomplete_off = field.autocomplete_attribute == "off";
+    bool autocomplete_off = field.autocomplete_attribute() == "off";
     const std::string autocomplete_histogram = base::StrCat(
         {"Autofill.Autocomplete.", autocomplete_off ? "Off" : "NotOff",
          ".EditedAutofilledFieldAtSubmission2.",
@@ -1381,6 +1428,7 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
     base::TimeDelta disused_data_threshold) {
   size_t num_local_cards = 0;
   size_t num_local_cards_with_nickname = 0;
+  size_t num_local_cards_with_invalid_number = 0;
   size_t num_masked_cards = 0;
   size_t num_masked_cards_with_nickname = 0;
   size_t num_unmasked_cards = 0;
@@ -1416,6 +1464,9 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
         num_disused_local_cards += disused_delta;
         if (card->HasNonEmptyValidNickname())
           num_local_cards_with_nickname += 1;
+        if (!card->HasValidCardNumber()) {
+          num_local_cards_with_invalid_number += 1;
+        }
         break;
       case CreditCard::RecordType::kMaskedServerCard:
         UMA_HISTOGRAM_COUNTS_1000(
@@ -1460,6 +1511,9 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
                             num_local_cards);
   UMA_HISTOGRAM_COUNTS_1000("Autofill.StoredCreditCardCount.Local.WithNickname",
                             num_local_cards_with_nickname);
+  UMA_HISTOGRAM_COUNTS_1000(
+      "Autofill.StoredCreditCardCount.Local.WithInvalidCardNumber",
+      num_local_cards_with_invalid_number);
   UMA_HISTOGRAM_COUNTS_1000("Autofill.StoredCreditCardCount.Server",
                             num_server_cards);
   UMA_HISTOGRAM_COUNTS_1000("Autofill.StoredCreditCardCount.Server.Masked",
@@ -1537,13 +1591,15 @@ void AutofillMetrics::LogNumberOfAddressesSuppressedForDisuse(
 }
 
 // static
-void AutofillMetrics::LogAutofillPopupHidingReason(PopupHidingReason reason) {
+void AutofillMetrics::LogAutofillSuggestionHidingReason(
+    FillingProduct filling_product,
+    SuggestionHidingReason reason) {
   base::UmaHistogramEnumeration("Autofill.PopupHidingReason", reason);
-}
-
-// static
-void AutofillMetrics::LogAutofillFormCleared() {
-  base::RecordAction(base::UserMetricsAction("Autofill_ClearedForm"));
+  base::UmaHistogramEnumeration(base::StrCat({
+                                    "Autofill.PopupHidingReason.",
+                                    FillingProductToString(filling_product),
+                                }),
+                                reason);
 }
 
 void AutofillMetrics::LogSectioningMetrics(
@@ -1680,8 +1736,9 @@ void AutofillMetrics::LogCreditCardSeamlessnessAtFillTime(
         continue;
       if (only_after_security_policy && !p.safe_fields->contains(id))
         continue;
-      if (only_visible_fields && !field->is_visible)
+      if (only_visible_fields && !field->is_visible()) {
         continue;
+      }
       autofilled_types.insert(field->Type().GetStorableType());
     }
     return CreditCardSeamlessness(autofilled_types);
@@ -1771,9 +1828,9 @@ void AutofillMetrics::LogCreditCardSeamlessnessAtFillTime(
       }
     };
     const url::Origin& main_origin = p.form->main_frame_origin();
-    const url::Origin& triggered_origin = p.field->origin;
-    return field.origin != triggered_origin &&
-           (field.origin != main_origin ||
+    const url::Origin& triggered_origin = p.field->origin();
+    return field.origin() != triggered_origin &&
+           (field.origin() != main_origin ||
             IsSensitiveFieldType(field.Type().GetStorableType())) &&
            triggered_origin == main_origin;
   };
@@ -2028,7 +2085,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::LogTextFieldDidChange(
       .SetServerType(static_cast<int>(field.server_type()))
       .SetHtmlFieldType(static_cast<int>(field.html_type()))
       .SetHtmlFieldMode(static_cast<int>(field.html_mode()))
-      .SetIsAutofilled(field.is_autofilled)
+      .SetIsAutofilled(field.is_autofilled())
       .SetIsEmpty(field.IsEmpty())
       .SetMillisecondsSinceFormParsed(
           MillisecondsSinceFormParsed(form.form_parsed_timestamp()))
@@ -2048,7 +2105,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::LogFieldFillStatus(
       .SetFormSignature(HashFormSignature(form.form_signature()))
       .SetFieldSignature(HashFieldSignature(field.GetFieldSignature()))
       .SetValidationEvent(static_cast<int64_t>(metric_type))
-      .SetIsAutofilled(static_cast<int64_t>(field.is_autofilled))
+      .SetIsAutofilled(static_cast<int64_t>(field.is_autofilled()))
       .SetWasPreviouslyAutofilled(
           static_cast<int64_t>(field.previously_autofilled()))
       .Record(ukm_recorder_);
@@ -2126,7 +2183,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
   OptionalBoolean was_autofilled_after_security_policy =
       OptionalBoolean::kUndefined;
 
-  // TODO(crbug.com/1325851): Add a metric in |FieldInfo| UKM event to indicate
+  // TODO(crbug.com/40225658): Add a metric in |FieldInfo| UKM event to indicate
   // whether the user had any data available for the respective field type.
 
   // If multiple fields have the same signature, this indicates the position
@@ -2330,7 +2387,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
   SetStatusVector(AutofillStatus::kWasFocused,
                   OptionalBooleanToBool(was_focused));
   SetStatusVector(AutofillStatus::kIsInSubFrame,
-                  form.ToFormData().host_frame != field.host_frame);
+                  form.ToFormData().host_frame != field.host_frame());
 
   if (filling_prevented_by_iframe_security_policy !=
       OptionalBoolean::kUndefined) {
@@ -2455,12 +2512,12 @@ void AutofillMetrics::LogAutofillFieldInfoAfterSubmission(
       }
     }
 
-    // TODO(crbug.com/1325851): Modify the enum object of SubmissionSource by
+    // TODO(crbug.com/40225658): Modify the enum object of SubmissionSource by
     // assigning values (= 0, = 1, ...) and adding a comment to not change it.
     builder.SetSubmittedType1(submitted_type1)
         .SetSubmissionSource(static_cast<int>(form.submission_source()))
         .SetMillisecondsFromFormParsedUntilSubmission(
-            ukm::GetSemanticBucketMinForDurationTiming(
+            GetSemanticBucketMinForAutofillDurationTiming(
                 (form_submitted_timestamp - form.form_parsed_timestamp())
                     .InMilliseconds()))
         .Record(ukm_recorder);
@@ -2494,7 +2551,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
       !form_structure.form_parsed_timestamp().is_null() &&
       form_submitted_timestamp > form_structure.form_parsed_timestamp()) {
     builder.SetMillisecondsFromFormParsedUntilSubmission(
-        ukm::GetSemanticBucketMinForDurationTiming(
+        GetSemanticBucketMinForAutofillDurationTiming(
             (form_submitted_timestamp - form_structure.form_parsed_timestamp())
                 .InMilliseconds()));
   }
@@ -2503,7 +2560,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
       !initial_interaction_timestamp.is_null() &&
       form_submitted_timestamp > initial_interaction_timestamp) {
     builder.SetMillisecondsFromFirstInteratctionUntilSubmission(
-        ukm::GetSemanticBucketMinForDurationTiming(
+        GetSemanticBucketMinForAutofillDurationTiming(
             (form_submitted_timestamp - initial_interaction_timestamp)
                 .InMilliseconds()));
   }

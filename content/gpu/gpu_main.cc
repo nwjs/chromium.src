@@ -24,6 +24,7 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
+#include "base/task/current_thread.h"
 #include "base/task/single_thread_task_executor.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/threading/platform_thread.h"
@@ -243,9 +244,6 @@ int GpuMain(MainFunctionParams parameters) {
 
 #if BUILDFLAG(IS_WIN)
   base::win::EnableHighDPISupport();
-#if !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
-  base::trace_event::TraceEventETWExport::EnableETWExport();
-#endif
 
   // Prevent Windows from displaying a modal dialog on failures like not being
   // able to load a DLL.
@@ -304,7 +302,7 @@ int GpuMain(MainFunctionParams parameters) {
             base::MessagePumpType::NS_RUNLOOP);
     // As part of the migration to DoWork(), this policy is required to keep
     // previous behavior and avoid regressions.
-    // TODO(crbug.com/1041853): Consider updating the policy.
+    // TODO(crbug.com/40668161): Consider updating the policy.
     main_thread_task_executor->SetWorkBatchSize(2);
 #else
     main_thread_task_executor =
@@ -372,12 +370,6 @@ int GpuMain(MainFunctionParams parameters) {
   GetContentClient()->SetGpuInfo(gpu_init->gpu_info());
 
   base::ThreadType io_thread_type = base::ThreadType::kCompositing;
-#if BUILDFLAG(IS_MAC)
-  // Increase the thread priority to get more reliable values in performance
-  // test of mac_os.
-  if (command_line.HasSwitch(switches::kUseHighGPUThreadPriorityForPerfTests))
-    io_thread_type = base::ThreadType::kRealtimeAudio;
-#endif
   // ChildProcess will start the ThreadPoolInstance now that the sandbox is
   // initialized.
   ChildProcess gpu_process(io_thread_type);
@@ -431,6 +423,15 @@ int GpuMain(MainFunctionParams parameters) {
       switches::kGpuProcess);
 
   base::HighResolutionTimerManager hi_res_timer_manager;
+
+  // Adds support of wall-time based TimerKeeper metrics for the main GPU thread
+  // when command-line flag is set. CrGpuMain will be used as suffix for each
+  // metric.
+  if (command_line.HasSwitch(switches::kEnableGpuMainTimeKeeperMetrics)) {
+    base::CurrentThread::Get()->EnableMessagePumpTimeKeeperMetrics(
+        "CrGpuMain",
+        /*wall_time_based_metrics_enabled_for_testing=*/true);
+  }
 
   {
     TRACE_EVENT0("gpu", "Run Message Loop");

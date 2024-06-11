@@ -27,7 +27,8 @@ select::select-fallback-datalist {
   overflow: auto;
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 0.25em;
-  padding: 0.25em 0;
+  padding-block: 0.25em;
+  padding-inline: 0;
   background-color: Field;
   margin: 0;
   inset: auto;
@@ -121,4 +122,69 @@ select::select-fallback-datalist:-internal-popover-in-top-layer::backdrop {
   /* Specific to [popover]: */
   pointer-events: none !important;
   background-color: transparent;
+}
+
+select:open > datalist {
+  /* This rule is needed in order to make appearance:auto selects with
+   * <option>s inside an author provided <datalist> still render the <option>s
+   * by default because the <datalist> will have display:none on it by default.
+   */
+  display: block;
+}
+
+select::select-fallback-button {
+  color: FieldText;
+  background-color: Field;
+  appearance: none;
+  padding: 0.25em;
+  border: 1px solid ButtonBorder;
+  /* TODO(crbug.com/1511354): Adding border-radius here makes it impossible to
+   * pass the reftest due to indistinguishable differences in a few pixels. */
+  cursor: default;
+  font-size: inherit;
+  text-align: inherit;
+  display: inline-flex;
+  flex-grow: 1;
+  flex-shrink: 1;
+  align-items: center;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+select::select-fallback-button-icon {
+  opacity: 1;
+  outline: none;
+  margin-inline-start: 0.25em;
+  padding-block: 2px;
+  padding-inline: 3px;
+  block-size: 1.0em;
+  inline-size: 1.2em;
+  min-inline-size: 1.2em;
+  max-inline-size: 1.2em;
+  display: block;
+
+  color: light-dark(black, white);
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+select::select-fallback-button-text {
+  color: inherit;
+  min-inline-size: 0px;
+  max-block-size: 100%;
+  flex-grow: 1;
+  flex-shrink: 1;
+  overflow: hidden;
+  display: inline;
+}
+
+/* TODO(crbug.com/1511354): These hover styles should only be applied when
+ * the select has appearance:base-select. This will be challenging because
+ * the selector is targeting an option rather than the select itself. However,
+ * these hover rules don't seem to affect appearance:auto options in the popup
+ * for now. */
+select:not(:-internal-list-box) option:not(:disabled):hover {
+  background-color: SelectedItem;
+  color: SelectedItemText;
 }

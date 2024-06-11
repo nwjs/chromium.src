@@ -45,13 +45,26 @@ const base::FeatureParam<std::string> kPlusAddressErrorReportUrl{
 const base::FeatureParam<bool> kDisableForForbiddenUsers{
     &kPlusAddressesEnabled, kDisableForForbiddenUsersName, false};
 
+// When enabled, plus addresses are supported within the context menu.
 BASE_FEATURE(kPlusAddressFallbackFromContextMenu,
              "PlusAddressFallbackFromContextMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, users can refresh the suggested plus address string.
+// When enabled, plus address refresh requests to the backend are supported.
 BASE_FEATURE(kPlusAddressRefresh,
              "PlusAddressRefresh",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, refresh UI is shown in the modal creation dialog on Desktop.
+BASE_FEATURE(kPlusAddressRefreshUiInDesktopModal,
+             "PlusAddressRefreshUiInDesktopModal",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, allows the use of affiliation data with plus addresses. This
+// includes things like prefetching affiliation data, or suggesting plus
+// addresses for affiliated domains.
+BASE_FEATURE(kPlusAddressAffiliations,
+             "PlusAddressAffiliations",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace plus_addresses::features

@@ -8,41 +8,53 @@ namespace file_manager {
 
 namespace {
 
+#define URL_TABLE "url_table"
+#define URL_ID "url_id"
+#define URL_SPEC "url_spec"
+#define URL_INDEX "url_index"
+
 // The statement used to create the URL table.
 static constexpr char kCreateUrlTableQuery[] =
     // clang-format off
-    "CREATE TABLE IF NOT EXISTS url_table("
-        "url_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "url_spec TEXT NOT NULL)";
+    "CREATE TABLE IF NOT EXISTS " URL_TABLE "("
+        URL_ID " INTEGER PRIMARY KEY AUTOINCREMENT,"
+        URL_SPEC " TEXT NOT NULL)";
 // clang-format on
 
 // The statement used to delete a URL from the database by URL ID.
 static constexpr char kDeleteUrlQuery[] =
     // clang-format off
-     "DELETE FROM url_table WHERE url_id = ?";
+    "DELETE FROM " URL_TABLE " WHERE " URL_ID "=?";
 // clang-format on
 
 // The statement used fetch the ID of the URL.
 static constexpr char kGetUrlIdQuery[] =
     // clang-format off
-     "SELECT url_id FROM url_table WHERE url_spec = ?";
+     "SELECT " URL_ID " FROM " URL_TABLE " WHERE " URL_SPEC "=?";
+// clang-format on
+
+// The statement used fetch the ID of the URL.
+static constexpr char kGetUrlValueQuery[] =
+    // clang-format off
+     "SELECT " URL_SPEC " FROM " URL_TABLE " WHERE " URL_ID "=?";
 // clang-format on
 
 // The statement used to insert a new URL into the table.
 static constexpr char kInsertUrlQuery[] =
     // clang-format off
-     "INSERT INTO url_table(url_spec) VALUES (?) RETURNING url_id";
+     "INSERT INTO " URL_TABLE "(" URL_SPEC ") VALUES (?) RETURNING " URL_ID;
 // clang-format on
 
 // The statement that creates an index on url_spec column.
 static constexpr char kCreateUrlIndexQuery[] =
     // clang-format off
-    "CREATE UNIQUE INDEX IF NOT EXISTS url_index ON url_table(url_spec)";
+    "CREATE UNIQUE INDEX IF NOT EXISTS " URL_INDEX " ON " URL_TABLE
+    "(" URL_SPEC ")";
 // clang-format on
 
 }  // namespace
 
-UrlTable::UrlTable(sql::Database* db) : TextTable(db, "url_table") {}
+UrlTable::UrlTable(sql::Database* db) : TextTable(db, "" URL_TABLE "") {}
 UrlTable::~UrlTable() = default;
 
 int64_t UrlTable::DeleteUrl(const GURL& url) {
@@ -55,14 +67,23 @@ int64_t UrlTable::GetUrlId(const GURL& url) const {
   return GetValueId(url.spec());
 }
 
+int64_t UrlTable::GetUrlSpec(int64_t url_id, std::string* url_spec) const {
+  return GetValue(url_id, url_spec);
+}
+
 int64_t UrlTable::GetOrCreateUrlId(const GURL& url) {
   DCHECK(url.is_valid());
   return GetOrCreateValueId(url.spec());
 }
 
-std::unique_ptr<sql::Statement> UrlTable::MakeGetStatement() const {
+std::unique_ptr<sql::Statement> UrlTable::MakeGetValueIdStatement() const {
   return std::make_unique<sql::Statement>(
       db_->GetCachedStatement(SQL_FROM_HERE, kGetUrlIdQuery));
+}
+
+std::unique_ptr<sql::Statement> UrlTable::MakeGetValueStatement() const {
+  return std::make_unique<sql::Statement>(
+      db_->GetCachedStatement(SQL_FROM_HERE, kGetUrlValueQuery));
 }
 
 std::unique_ptr<sql::Statement> UrlTable::MakeInsertStatement() const {

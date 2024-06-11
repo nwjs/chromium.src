@@ -27,6 +27,10 @@ namespace signin {
 class GaiaIdHash;
 }  // namespace signin
 
+namespace sync_pb {
+class TrustedVaultAutoUpgradeExperimentGroup;
+}  // namespace sync_pb
+
 namespace syncer {
 
 class SyncPrefObserver {
@@ -201,16 +205,19 @@ class SyncPrefs {
   void SetCachedPassphraseType(PassphraseType passphrase_type);
   void ClearCachedPassphraseType();
 
+  // The user's TrustedVaultAutoUpgradeExperimentGroup, determined the first
+  // time the engine is successfully initialized.
+  std::optional<sync_pb::TrustedVaultAutoUpgradeExperimentGroup>
+  GetCachedTrustedVaultAutoUpgradeExperimentGroup() const;
+  void SetCachedTrustedVaultAutoUpgradeExperimentGroup(
+      const sync_pb::TrustedVaultAutoUpgradeExperimentGroup& group);
+  void ClearCachedTrustedVaultAutoUpgradeExperimentGroup();
+
   // The encryption bootstrap token is used for explicit passphrase users
   // (usually custom passphrase) and represents a user-entered passphrase.
-  // TODO(crbug.com/40069260): Cleanup *EncryptionBootstrapToken when
-  // kSyncRememberCustomPassphraseAfterSignout is fully rolled-out. The Set/Get
-  // methods will not be used, but ClearAllEncryptionBootstrapTokens will still
-  // be needed to clear the gaia-keyed pref on signout for syncing users. It
-  // should be removed only when kMigrateSyncingUserToSignedIn is fully
-  // rolled-out.
-  std::string GetEncryptionBootstrapToken() const;
-  void SetEncryptionBootstrapToken(const std::string& token);
+  // TODO(crbug.com/40282890): ClearAllEncryptionBootstrapTokens is only needed
+  // to clear the gaia-keyed pref on signout for syncing users. It should be
+  // removed only when kMigrateSyncingUserToSignedIn is fully rolled-out.
   void ClearAllEncryptionBootstrapTokens();
   // The encryption bootstrap token per account. Used for explicit passphrase
   // users (usually custom passphrase) and represents a user-entered passphrase.
@@ -261,6 +268,7 @@ class SyncPrefs {
   // Migrates kSyncEncryptionBootstrapToken to the gaia-keyed pref, for the
   // feature `kSyncRememberCustomPassphraseAfterSignout`. This should be called
   // early during browser startup.
+  // TODO(crbug.com/325201878): Clean up the migration logic and the old pref.
   void MaybeMigrateCustomPassphrasePref(const signin::GaiaIdHash& gaia_id_hash);
 
   // Should be called when Sync gets disabled / the user signs out. Clears any

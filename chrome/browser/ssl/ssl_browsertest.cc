@@ -68,6 +68,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
+#include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/common/chrome_features.h"
@@ -715,22 +716,6 @@ class SSLUITestBase : public InProcessBrowserTest,
         browser(), https_server_.GetURL(replacement_path)));
   }
 
-  Browser* InstallAndOpenTestWebApp(const GURL& start_url) {
-    auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    web_app_info->start_url = start_url;
-    web_app_info->scope = start_url.GetWithoutFilename();
-    web_app_info->title = u"Test app";
-    web_app_info->description = u"Test description";
-
-    Profile* profile = browser()->profile();
-
-    webapps::AppId app_id =
-        web_app::test::InstallWebApp(profile, std::move(web_app_info));
-
-    Browser* app_browser = web_app::LaunchWebAppBrowserAndWait(profile, app_id);
-    return app_browser;
-  }
-
   void UpdateChromePolicy(const policy::PolicyMap& policies) {
     policy_provider_.UpdateChromePolicy(policies);
     ASSERT_TRUE(base::CurrentThread::Get());
@@ -1300,9 +1285,31 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestNoFaviconOnInterstitial) {
       browser()->tab_strip_model()->delegate()->ShouldDisplayFavicon(tab));
 }
 
+class SSLUITestWithWebApps : public SSLUITest {
+ public:
+  Browser* InstallAndOpenTestWebApp(const GURL& start_url) {
+    auto web_app_info =
+        web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
+    web_app_info->scope = start_url.GetWithoutFilename();
+    web_app_info->title = u"Test app";
+    web_app_info->description = u"Test description";
+
+    Profile* profile = browser()->profile();
+
+    webapps::AppId app_id =
+        web_app::test::InstallWebApp(profile, std::move(web_app_info));
+
+    Browser* app_browser = web_app::LaunchWebAppBrowserAndWait(profile, app_id);
+    return app_browser;
+  }
+
+ private:
+  web_app::OsIntegrationTestOverrideBlockingRegistration faked_os_integration_;
+};
+
 // Visits a page in an app window with https error and proceed:
 // Disabled due to flaky failures; see https://crbug.com/1156046.
-IN_PROC_BROWSER_TEST_F(SSLUITest,
+IN_PROC_BROWSER_TEST_F(SSLUITestWithWebApps,
                        DISABLED_InAppTestHTTPSExpiredCertAndProceed) {
   ASSERT_TRUE(https_server_expired_.Start());
 
@@ -1318,7 +1325,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest,
 }
 
 // Visits a page with https error and proceed. Then open the app and proceed.
-IN_PROC_BROWSER_TEST_F(SSLUITest,
+IN_PROC_BROWSER_TEST_F(SSLUITestWithWebApps,
                        InAppTestHTTPSExpiredCertAndPreviouslyProceeded) {
   ASSERT_TRUE(https_server_expired_.Start());
 
@@ -1344,7 +1351,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest,
   // showing even though the user proceeded through it in a regular tab.
   WebContents* app_tab = app_browser->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(chrome_browser_interstitials::IsShowingInterstitial(app_tab));
-  // TODO(crbug.com/1154877): Apps are not setting the right security state in
+  // TODO(crbug.com/40735115): Apps are not setting the right security state in
   // this case, so we only check the presence of the interstitial (inside Wait
   // ForInterstitial) and the behavior after clicking through.
   // After the bug is fixed, add a call to CheckAuthenticationBrokenState
@@ -1654,7 +1661,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, MarkDataAsNonSecure) {
   EXPECT_EQ(security_state::WARNING, helper->GetSecurityLevel());
 }
 
-// TODO(crbug.com/1148302): This class directly calls
+// TODO(crbug.com/40156980): This class directly calls
 // `UnsafelyGetNSSCertDatabaseForTesting()` that causes crash at the moment
 // and is never called from Lacros-Chrome. This should be revisited when there
 // is a solution for the client certificates settings page on Lacros-Chrome.
@@ -1691,7 +1698,7 @@ class SSLUITestWithClientCert : public SSLUITestBase {
 // Visit a HTTPS page which requires client cert authentication. The client
 // cert will be selected automatically, then a test which uses WebSocket runs.
 //
-// TODO(https://crbug.com/1279930): disabled because of race in when certs
+// TODO(crbug.com/40811167): disabled because of race in when certs
 // are incorporated.
 IN_PROC_BROWSER_TEST_F(SSLUITestWithClientCert, DISABLED_TestWSSClientCert) {
   // Import a client cert for test.
@@ -1763,8 +1770,9 @@ class ClientCertStoreStub : public net::ClientCertStore {
   ~ClientCertStoreStub() override {}
 
   // net::ClientCertStore:
-  void GetClientCerts(const net::SSLCertRequestInfo& cert_request_info,
-                      ClientCertListCallback callback) override {
+  void GetClientCerts(
+      scoped_refptr<const net::SSLCertRequestInfo> cert_request_info,
+      ClientCertListCallback callback) override {
     std::move(callback).Run(std::move(list_));
   }
 
@@ -2357,7 +2365,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, TestDisplaysInsecureContentTwoTabs) {
 // Visits two pages from the same origin: one that runs insecure content and one
 // that doesn't.  The test checks that we propagate the insecure content state
 // from one to the other.
-// TODO(crbug.com/1112300): Flaky
+// TODO(crbug.com/40709634): Flaky
 IN_PROC_BROWSER_TEST_F(SSLUITest, DISABLED_TestRunsInsecureContentTwoTabs) {
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_TRUE(https_server_.Start());
@@ -3193,7 +3201,7 @@ IN_PROC_BROWSER_TEST_P(SSLUIWorkerFetchTest,
 // This test, and the related test TestUnsafeContentsWithUserException, verify
 // that if unsafe content is loaded but the host of that unsafe content has a
 // user exception, the content runs and the security style is downgraded.
-// TODO(crbug.com/1107659): Disabled due to flakiness.
+// TODO(crbug.com/40707016): Disabled due to flakiness.
 IN_PROC_BROWSER_TEST_P(SSLUIWorkerFetchTest,
                        DISABLED_TestUnsafeContentsInWorkerWithUserException) {
   https_server_.ServeFilesFromDirectory(tmp_dir_.GetPath());
@@ -4113,9 +4121,9 @@ IN_PROC_BROWSER_TEST_F(SSLUITestReduceSubresourceNotifications,
   // Navigate to a page with a certificate error, and click through the
   // interstitial so the certificate is allowlisted.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(),
-      GURL("https://site.test:" + std::to_string(https_server_expired_.port()) +
-           "/ssl/blank_page.html")));
+      browser(), GURL("https://site.test:" +
+                      base::NumberToString(https_server_expired_.port()) +
+                      "/ssl/blank_page.html")));
   ProceedThroughInterstitial(tab);
 
   // HTTPS-related warning exception has been allowed by the user.
@@ -6148,7 +6156,7 @@ IN_PROC_BROWSER_TEST_F(
           tab);
   // Currently the interstitial is only displayed when back/forward cache is
   // enabled, so return early when the feature is disabled.
-  // TODO(https://crbug.com/1375961): Fix this.
+  // TODO(crbug.com/40243001): Fix this.
   if (!content::BackForwardCache::IsBackForwardCacheFeatureEnabled()) {
     EXPECT_FALSE(helper->IsDisplayingInterstitial());
     return;
@@ -6340,7 +6348,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest,
 
   // This test posts to does-not-exist.test. Disable HTTPS upgrades on this
   // hostname for the test to work.
-  // TODO(crbug.com/1394910): Remove the allowlist entry.
+  // TODO(crbug.com/40248833): Remove the allowlist entry.
   ScopedAllowHttpForHostnamesForTesting scoped_allow_http(
       {"does-not-exist.test"}, browser()->profile()->GetPrefs());
 
@@ -6384,7 +6392,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest,
 
   // This test posts to does-not-exist.test. Disable HTTPS upgrades on this
   // hostname for the test to work.
-  // TODO(crbug.com/1394910): Remove the allowlist entry.
+  // TODO(crbug.com/40248833): Remove the allowlist entry.
   ScopedAllowHttpForHostnamesForTesting scoped_allow_http(
       {"does-not-exist.test"}, browser()->profile()->GetPrefs());
 
@@ -6454,7 +6462,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest,
 
   // This test redirects to example.org. Disable HTTPS upgrades on this
   // hostname for the test to work.
-  // TODO(crbug.com/1394910): Remove the allowlist entry.
+  // TODO(crbug.com/40248833): Remove the allowlist entry.
   ScopedAllowHttpForHostnamesForTesting scoped_allow_http(
       {"example.org"}, browser()->profile()->GetPrefs());
 
@@ -7893,17 +7901,17 @@ IN_PROC_BROWSER_TEST_F(
   // Navigate to a page with a certificate error, and click through the
   // interstitial so the certificate is allowlisted.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(),
-      GURL("https://site.test:" + std::to_string(https_server_expired_.port()) +
-           "/ssl/blank_page.html")));
+      browser(), GURL("https://site.test:" +
+                      base::NumberToString(https_server_expired_.port()) +
+                      "/ssl/blank_page.html")));
   ProceedThroughInterstitial(tab);
 
   // Navigate to a page with a valid certificate, that contains subresouces from
   // the previously allowlisted bad certificate page.
   base::StringPairs replacement_text;
-  replacement_text.push_back(
-      make_pair("REPLACE_WITH_HOST_AND_PORT",
-                ("site.test:" + std::to_string(https_server_expired_.port()))));
+  replacement_text.push_back(make_pair(
+      "REPLACE_WITH_HOST_AND_PORT",
+      ("site.test:" + base::NumberToString(https_server_expired_.port()))));
 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(),

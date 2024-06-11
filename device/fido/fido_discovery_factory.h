@@ -53,6 +53,11 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoDiscoveryFactory {
   virtual std::vector<std::unique_ptr<FidoDiscoveryBase>> Create(
       FidoTransportProtocol transport);
 
+  // Return a discovery for enclave authenticators, if enclave mode is enabled
+  // and configured.
+  virtual std::optional<std::unique_ptr<FidoDiscoveryBase>>
+  MaybeCreateEnclaveDiscovery();
+
   // Returns whether the current instance is an override injected by the
   // WebAuthn testing API.
   virtual bool IsTestOverride();
@@ -101,12 +106,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoDiscoveryFactory {
 
   void set_hid_ignore_list(base::flat_set<VidPid> hid_ignore_list);
 
-  // Provides a callback that will be called when a passkey is created with
-  // the enclave authenticator in order to save the new passkey to sync data.
-  void set_enclave_passkey_creation_callback(
-      base::RepeatingCallback<void(sync_pb::WebauthnCredentialSpecifics)>
-          callback);
-
   void set_enclave_ui_request_stream(
       std::unique_ptr<FidoDiscoveryBase::EventStream<
           std::unique_ptr<enclave::CredentialRequest>>> stream);
@@ -150,7 +149,7 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoDiscoveryFactory {
   // no_cable_linking requests that QR-linked and pre-linked phones be ignored
   // for this discovery.
   //
-  // TODO(crbug.com/1459443): remove this and everything else from the CL that
+  // TODO(crbug.com/40274309): remove this and everything else from the CL that
   // added it if this is unused by June 2024.
   bool no_cable_linking = false;
 
@@ -163,9 +162,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoDiscoveryFactory {
   std::vector<std::unique_ptr<FidoDiscoveryBase>> MaybeCreatePlatformDiscovery()
       const;
 #endif
-
-  void MaybeCreateEnclaveDiscovery(
-      std::vector<std::unique_ptr<FidoDiscoveryBase>>& discoveries);
 
 #if BUILDFLAG(IS_MAC)
   std::optional<fido::mac::AuthenticatorConfig> mac_touch_id_config_;
@@ -196,8 +192,6 @@ class COMPONENT_EXPORT(DEVICE_FIDO) FidoDiscoveryFactory {
       get_assertion_request_for_legacy_credential_check_;
 #endif  // BUILDFLAG(IS_CHROMEOS)
   base::flat_set<VidPid> hid_ignore_list_;
-  base::RepeatingCallback<void(sync_pb::WebauthnCredentialSpecifics)>
-      enclave_passkey_creation_callback_;
   std::unique_ptr<FidoDiscoveryBase::EventStream<
       std::unique_ptr<enclave::CredentialRequest>>>
       enclave_ui_request_stream_;

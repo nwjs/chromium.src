@@ -668,7 +668,7 @@ TEST_F(WidgetTestInteractive, ZOrderCheckBetweenTopWindows) {
 }
 
 // Test z-order of child widgets relative to their parent.
-// TODO(crbug.com/1227009): Disabled on Mac due to flake
+// TODO(crbug.com/40776787): Disabled on Mac due to flake
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_ChildStackedRelativeToParent DISABLED_ChildStackedRelativeToParent
 #else
@@ -1214,7 +1214,8 @@ TEST_F(WidgetTestInteractive, ShowAfterShowInactive) {
 }
 
 TEST_F(WidgetTestInteractive, WidgetShouldBeActiveWhenShow) {
-  // TODO(crbug/1217331): This test fails if put under NativeWidgetAuraTest.
+  // TODO(crbug.com/40185137): This test fails if put under
+  // NativeWidgetAuraTest.
   WidgetAutoclosePtr anchor_widget(CreateTopLevelNativeWidget());
 
   anchor_widget->Show();
@@ -1412,6 +1413,84 @@ TEST_F(DesktopWidgetTestInteractive, MinimizeAndActivateFocus) {
   EXPECT_TRUE(widget_window->CanFocus());
 }
 
+class SyntheticMouseMoveCounter : public ui::EventHandler {
+ public:
+  explicit SyntheticMouseMoveCounter(Widget* widget) : widget_(widget) {
+    widget_->GetNativeWindow()->AddPreTargetHandler(this);
+  }
+
+  SyntheticMouseMoveCounter(const SyntheticMouseMoveCounter&) = delete;
+  SyntheticMouseMoveCounter& operator=(const SyntheticMouseMoveCounter&) =
+      delete;
+
+  ~SyntheticMouseMoveCounter() override {
+    widget_->GetNativeWindow()->RemovePreTargetHandler(this);
+  }
+
+  // ui::EventHandler:
+  void OnMouseEvent(ui::MouseEvent* event) override {
+    if (event->type() == ui::ET_MOUSE_MOVED && event->IsSynthesized()) {
+      ++count_;
+    }
+  }
+
+  int num_synthetic_mouse_moves() const { return count_; }
+
+ private:
+  int count_ = 0;
+  raw_ptr<Widget> widget_;
+};
+
+#if BUILDFLAG(ENABLE_DESKTOP_AURA)
+TEST_F(DesktopWidgetTestInteractive,
+       // TODO(crbug.com/335767870): Re-enable this test
+       DISABLED_DoNotSynthesizeMouseMoveOnVisibilityChangeIfOccluded) {
+  // Create a top-level widget.
+  WidgetAutoclosePtr widget_below(CreateTopLevelPlatformDesktopWidget());
+  widget_below->SetBounds(gfx::Rect(300, 300));
+  widget_below->Show();
+
+  // Dispatch a mouse event to place cursor inside window bounds.
+  base::RunLoop run_loop;
+  ui_controls::SendMouseMoveNotifyWhenDone(150, 150, run_loop.QuitClosure());
+  run_loop.Run();
+
+  // Create a child widget.
+  UniqueWidgetPtr child = std::make_unique<Widget>();
+  Widget::InitParams child_params =
+      CreateParams(Widget::InitParams::TYPE_WINDOW);
+  child_params.parent = widget_below->GetNativeView();
+  child_params.context = widget_below->GetNativeWindow();
+  child->Init(std::move(child_params));
+  child->SetBounds(gfx::Rect(300, 300));
+  child->Show();
+  base::RunLoop().RunUntilIdle();
+
+  SyntheticMouseMoveCounter counter_below(widget_below.get());
+  EXPECT_EQ(0, counter_below.num_synthetic_mouse_moves());
+
+  // Update the child window's visibility. This should trigger a synthetic
+  // mouse move event.
+  child->Hide();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(1, counter_below.num_synthetic_mouse_moves());
+
+  // Occlude the existing widget with a new top-level widget.
+  WidgetAutoclosePtr widget_above(CreateTopLevelPlatformDesktopWidget());
+  widget_above->SetBounds(gfx::Rect(300, 300));
+  widget_above->Show();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_TRUE(widget_above->AsWidget()->IsStackedAbove(
+      widget_below->AsWidget()->GetNativeView()));
+
+  // Update the child window's visibility again, but this should not trigger a
+  // synthetic mouse move event, since there's another widget under the cursor.
+  child->Show();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(1, counter_below.num_synthetic_mouse_moves());
+}
+#endif  // BUILDFLAG(ENABLE_DESKTOP_AURA)
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(ENABLE_DESKTOP_AURA) || BUILDFLAG(IS_MAC)

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_ANDROID_WEBAPK_WEBAPK_SYNC_SERVICE_H_
 
 #include "base/time/clock.h"
+#include "chrome/browser/android/webapk/pwa_restore_bottom_sheet_mediator.h"
 #include "chrome/browser/android/webapk/webapk_database_factory.h"
 #include "chrome/browser/android/webapk/webapk_restore_manager.h"
 #include "chrome/browser/android/webapk/webapk_sync_bridge.h"
@@ -42,9 +43,9 @@ class WebApkSyncService : public KeyedService {
   void OnWebApkUninstalled(const std::string& manifest_id);
   void RemoveOldWebAPKsFromSync(int64_t current_time_ms_since_unix_epoch);
 
-  std::vector<std::vector<std::string>> GetRestorableAppsInfo() const;
-
-  void RestoreAppList(std::vector<std::string> app_ids_to_restore);
+  void PrepareRestorableAppsInfo(
+      WebApkRestoreManager::RestorableAppsCallback result_callback) const;
+  WebApkRestoreManager* GetWebApkRestoreManager() const;
 
  private:
   std::unique_ptr<AbstractWebApkDatabaseFactory> database_factory_;

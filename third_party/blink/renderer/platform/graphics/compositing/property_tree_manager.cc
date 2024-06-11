@@ -239,8 +239,9 @@ uint32_t PropertyTreeManager::GetMainThreadScrollingReasons(
   const auto* property_trees = host.property_trees();
   const auto* cc_scroll = property_trees->scroll_tree().Node(
       scroll.CcNodeId(property_trees->sequence_number()));
-  DCHECK(cc_scroll);
-  return cc_scroll->main_thread_scrolling_reasons;
+  return cc_scroll
+             ? cc_scroll->main_thread_scrolling_reasons
+             : cc::MainThreadScrollingReason::kPreferNonCompositedScrolling;
 }
 
 bool PropertyTreeManager::UsesCompositedScrolling(
@@ -494,8 +495,6 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
   // If this transform is a scroll offset translation, create the associated
   // compositor scroll property node and adjust the compositor transform node's
   // scroll offset.
-  // TODO(ScrollUnification): Move this code into
-  // EnsureCompositorScrollAndTransformNode().
   if (transform_node.ScrollNode()) {
     compositor_node.scrolls = true;
     compositor_node.should_be_snapped = true;
@@ -593,8 +592,6 @@ int PropertyTreeManager::EnsureCompositorScrollNodeInternal(
   id = scroll_tree_.Insert(cc::ScrollNode(), parent_id);
 
   cc::ScrollNode& compositor_node = *scroll_tree_.Node(id);
-  compositor_node.scrollable = true;
-
   compositor_node.container_bounds = scroll_node.ContainerRect().size();
   compositor_node.bounds = scroll_node.ContentsRect().size();
   compositor_node.user_scrollable_horizontal =
@@ -872,22 +869,17 @@ void PropertyTreeManager::ForceRenderSurfaceIfSyntheticRoundedCornerClip(
   }
 }
 
-bool PropertyTreeManager::SupportsShaderBasedRoundedCorner(
+std::optional<gfx::RRectF> PropertyTreeManager::ShaderBasedRRect(
     const ClipPaintPropertyNode& clip,
     PropertyTreeManager::CcEffectType type,
+    const TransformPaintPropertyNode& transform,
     const EffectPaintPropertyNode* next_effect) {
-  if (type & CcEffectType::kSyntheticFor2dAxisAlignment)
-    return false;
-
-  if (clip.ClipPath())
-    return false;
-
-  // Don't use shader based rounded corner if the next effect has backdrop
-  // filter and the clip is in different transform space, because we will use
-  // the effect's transform space for the mask isolation effect node.
-  if (next_effect && next_effect->BackdropFilter() &&
-      &next_effect->LocalTransformSpace() != &clip.LocalTransformSpace())
-    return false;
+  if (type & CcEffectType::kSyntheticFor2dAxisAlignment) {
+    return std::nullopt;
+  }
+  if (clip.ClipPath()) {
+    return std::nullopt;
+  }
 
   auto WidthAndHeightAreTheSame = [](const gfx::SizeF& size) {
     return size.width() == size.height();
@@ -898,7 +890,7 @@ bool PropertyTreeManager::SupportsShaderBasedRoundedCorner(
       !WidthAndHeightAreTheSame(radii.TopRight()) ||
       !WidthAndHeightAreTheSame(radii.BottomRight()) ||
       !WidthAndHeightAreTheSame(radii.BottomLeft())) {
-    return false;
+    return std::nullopt;
   }
 
   // Rounded corners that differ are not supported by the CALayerOverlay system
@@ -909,11 +901,26 @@ bool PropertyTreeManager::SupportsShaderBasedRoundedCorner(
   if (radii.TopLeft() != radii.TopRight() ||
       radii.TopLeft() != radii.BottomRight() ||
       radii.TopLeft() != radii.BottomLeft()) {
-    return false;
+    return std::nullopt;
   }
 #endif
 
-  return true;
+  gfx::Vector2dF translation;
+  if (&transform != &clip.LocalTransformSpace()) {
+    gfx::Transform projection = GeometryMapper::SourceToDestinationProjection(
+        clip.LocalTransformSpace(), transform);
+    if (!projection.IsIdentityOr2dTranslation()) {
+      return std::nullopt;
+    }
+    translation = projection.To2dTranslation();
+  }
+
+  SkRRect rrect(clip.PaintClipRect());
+  rrect.offset(translation.x(), translation.y());
+  if (!rrect.isValid()) {
+    return std::nullopt;
+  }
+  return gfx::RRectF(rrect);
 }
 
 int PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
@@ -991,6 +998,11 @@ int PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     cc::EffectNode& synthetic_effect = *effect_tree_.Node(
         effect_tree_.Insert(cc::EffectNode(), current_.effect_id));
 
+    const auto& transform =
+        should_realize_backdrop_effect
+            ? next_effect->LocalTransformSpace().Unalias()
+            : pending_clip.clip->LocalTransformSpace().Unalias();
+
     if (pending_clip.type & CcEffectType::kSyntheticFor2dAxisAlignment) {
       if (should_realize_backdrop_effect) {
         // We need a synthetic mask clip layer for the non-2d-axis-aligned clip
@@ -1017,7 +1029,7 @@ int PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
         // tests will fail without the following condition.
         // TODO(crbug.com/1345805): Investigate the reason and remove the
         // condition if possible.
-        if (!current_.effect->ViewTransitionElementId().valid()) {
+        if (!current_.effect->ViewTransitionElementResourceId().IsValid()) {
           // Use the parent clip as the output clip of the synthetic effect so
           // that the clip will apply to the masked contents but not the mask
           // layer, to ensure the masked content is fully covered by the mask
@@ -1031,10 +1043,9 @@ int PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
       // For non-trivial clip, isolation_effect.element_id will be assigned
       // later when the effect is closed. For now the default value ElementId()
       // is used. See PropertyTreeManager::EmitClipMaskLayer().
-      if (SupportsShaderBasedRoundedCorner(*pending_clip.clip,
-                                           pending_clip.type, next_effect)) {
-        synthetic_effect.mask_filter_info = gfx::MaskFilterInfo(
-            gfx::RRectF(SkRRect(pending_clip.clip->PaintClipRect())));
+      if (std::optional<gfx::RRectF> rrect = ShaderBasedRRect(
+              *pending_clip.clip, pending_clip.type, transform, next_effect)) {
+        synthetic_effect.mask_filter_info = gfx::MaskFilterInfo(*rrect);
         synthetic_effect.is_fast_rounded_corner = true;
 
         // Nested rounded corner clips need to force render surfaces for
@@ -1062,28 +1073,25 @@ int PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
       pending_synthetic_mask_layers_.insert(synthetic_effect.id);
     }
 
-    const TransformPaintPropertyNode* transform = nullptr;
     if (should_realize_backdrop_effect) {
       // Move the effect node containing backdrop effects up to the outermost
       // synthetic effect to ensure the backdrop effects can access the correct
       // backdrop.
       DCHECK(next_effect);
       DCHECK_EQ(cc_effect_id_for_backdrop_effect, cc::kInvalidPropertyNodeId);
-      transform = &next_effect->LocalTransformSpace().Unalias();
       PopulateCcEffectNode(synthetic_effect, *next_effect, clip_id);
       cc_effect_id_for_backdrop_effect = synthetic_effect.id;
       should_realize_backdrop_effect = false;
     } else {
-      transform = &pending_clip.clip->LocalTransformSpace().Unalias();
       synthetic_effect.clip_id = clip_id;
     }
 
-    synthetic_effect.transform_id = EnsureCompositorTransformNode(*transform);
-    synthetic_effect.double_sided = !transform->IsBackfaceHidden();
+    synthetic_effect.transform_id = EnsureCompositorTransformNode(transform);
+    synthetic_effect.double_sided = !transform.IsBackfaceHidden();
 
     effect_stack_.emplace_back(current_);
     SetCurrentEffectState(synthetic_effect, pending_clip.type, *current_.effect,
-                          *pending_clip.clip, *transform);
+                          *pending_clip.clip, transform);
   }
 
   return cc_effect_id_for_backdrop_effect;
@@ -1147,7 +1155,7 @@ void PropertyTreeManager::BuildEffectNodesRecursively(
     // element resource ID. The view transition should either prevent such
     // content or ensure effect nodes are contiguous. See crbug.com/1303081 for
     // details. This restriction also applies to element capture.
-    DCHECK((!next_effect.ViewTransitionElementId().valid() &&
+    DCHECK((!next_effect.ViewTransitionElementResourceId().IsValid() &&
             next_effect.ElementCaptureId()->is_zero()) ||
            !has_multiple_groups)
         << next_effect.ToString();
@@ -1218,8 +1226,9 @@ static cc::RenderSurfaceReason RenderSurfaceReasonForEffect(
       effect.BlendMode() != SkBlendMode::kDstIn) {
     return cc::RenderSurfaceReason::kBlendMode;
   }
-  if (effect.ViewTransitionElementId().valid())
+  if (effect.ViewTransitionElementResourceId().IsValid()) {
     return cc::RenderSurfaceReason::kViewTransitionParticipant;
+  }
   // If the effect's transform node flattens the transform while it
   // participates in the 3d sorting context of an ancestor, cc needs a
   // render surface for correct flattening.
@@ -1261,8 +1270,6 @@ void PropertyTreeManager::PopulateCcEffectNode(
   effect_node.double_sided = !transform.IsBackfaceHidden();
   effect_node.effect_changed = effect.NodeChangeAffectsRaster();
 
-  effect_node.view_transition_shared_element_id =
-      effect.ViewTransitionElementId();
   effect_node.view_transition_element_resource_id =
       effect.ViewTransitionElementResourceId();
 

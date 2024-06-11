@@ -1124,7 +1124,8 @@ bool AppsGridView::IsAnimatingView(AppListItemView* view) const {
   return view->layer() && view->layer()->GetAnimator()->is_animating();
 }
 
-gfx::Size AppsGridView::CalculatePreferredSize() const {
+gfx::Size AppsGridView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   return GetTileGridSize();
 }
 
@@ -2140,6 +2141,11 @@ bool AppsGridView::IsUnderOEMFolder() {
 void AppsGridView::HandleKeyboardAppOperations(ui::KeyboardCode key_code,
                                                bool folder) {
   DCHECK(selected_view_);
+
+  // Do not allow keyboard operations during drag.
+  if (drag_view_) {
+    return;
+  }
 
   if (folder) {
     if (folder_delegate_)
@@ -3615,8 +3621,14 @@ void AppsGridView::OnAppListItemViewActivated(
   // which may be destroyed during the procedure as the function parameter
   // may bring the crash like https://crbug.com/990282.
   const std::string id = pressed_item_view->item()->id();
-  app_list_view_delegate()->ActivateItem(
-      id, event.flags(), AppListLaunchedFrom::kLaunchedFromGrid);
+  const bool is_above_the_fold = IsAboveTheFold(pressed_item_view);
+  app_list_view_delegate()->ActivateItem(id, event.flags(),
+                                         AppListLaunchedFrom::kLaunchedFromGrid,
+                                         is_above_the_fold);
+}
+
+bool AppsGridView::IsAboveTheFold(AppListItemView* item_view) {
+  return false;
 }
 
 void AppsGridView::OnHostDragStartTimerFired() {

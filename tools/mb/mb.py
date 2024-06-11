@@ -165,7 +165,7 @@ class MetaBuildWrapper:
       subp.add_argument('--android-version-name',
                         help='Sets GN arg android_default_version_name')
 
-      # TODO(crbug.com/1060857): Remove this once swarming task templates
+      # TODO(crbug.com/40122201): Remove this once swarming task templates
       # support command prefixes.
       luci_auth_group = subp.add_mutually_exclusive_group()
       luci_auth_group.add_argument(
@@ -807,7 +807,7 @@ class MetaBuildWrapper:
                    self.args.config_file) + '\n  '.join(errs))
 
     expectations_dir = self.args.expectations_dir
-    # TODO(crbug.com/1117577): Force all versions of mb_config.pyl to have
+    # TODO(crbug.com/40145178): Force all versions of mb_config.pyl to have
     # expectations. For now, just ignore those that don't have them.
     if self.Exists(expectations_dir):
       jsonish_blob = self._ToJsonish()
@@ -925,35 +925,12 @@ class MetaBuildWrapper:
 
   def Lookup(self):
     self.ReadConfigFile(self.args.config_file)
-    try:
-      config = self.ConfigFromArgs()
-    except MBErr as e:
-      # TODO(crbug.com/912681) While iOS bots are migrated to use the
-      # Chromium recipe, we want to ensure that we're checking MB's
-      # configurations first before going to iOS.
-      # This is to be removed once the migration is complete.
-      vals = self.ReadIOSBotConfig()
-      if not vals:
-        raise e
-      return vals
+    config = self.ConfigFromArgs()
 
     # "config" would be a dict if the GN args are loaded from a
     # starlark-generated file.
     if isinstance(config, dict):
       return config
-
-    # TODO(crbug.com/912681) Some iOS bots have a definition, with ios_error
-    # as an indicator that it's incorrect. We utilize this to check the
-    # iOS JSON instead, and error out if there exists no definition at all.
-    # This is to be removed once the migration is complete.
-    if config == 'ios_error':
-      vals = self.ReadIOSBotConfig()
-      if not vals:
-        raise MBErr('No iOS definition was found. Please ensure there is a '
-                    'definition for the given iOS bot under '
-                    'mb_config.pyl or a JSON file definition under '
-                    '//ios/build/bots.')
-      return vals
 
     if config.startswith('//'):
       if not self.Exists(self.ToAbsPath(config)):
@@ -965,21 +942,6 @@ class MetaBuildWrapper:
         raise MBErr(
             'Config "%s" not found in %s' % (config, self.args.config_file))
       vals = FlattenConfig(self.configs, self.mixins, config)
-    return vals
-
-  def ReadIOSBotConfig(self):
-    if not self.args.builder_group or not self.args.builder:
-      return {}
-    path = self.PathJoin(self.chromium_src_dir, 'ios', 'build', 'bots',
-                         self.args.builder_group, self.args.builder + '.json')
-    if not self.Exists(path):
-      return {}
-
-    contents = json.loads(self.ReadFile(path))
-    gn_args = ' '.join(contents.get('gn_args', []))
-
-    vals = DefaultVals()
-    vals['gn_args'] = gn_args
     return vals
 
   def ReadConfigFile(self, config_file):
@@ -1212,7 +1174,7 @@ class MetaBuildWrapper:
 
   def RemovePossiblyStaleRuntimeDepsFiles(self, vals, targets, isolate_map,
                                           build_dir):
-    # TODO(crbug.com/932700): Because `gn gen --runtime-deps-list-file`
+    # TODO(crbug.com/41441724): Because `gn gen --runtime-deps-list-file`
     # puts the runtime_deps file in different locations based on the actual
     # type of a target, we may end up with multiple possible runtime_deps
     # files in a given build directory, where some of the entries might be
@@ -1282,7 +1244,7 @@ class MetaBuildWrapper:
                                                     isolate_map)
 
     for target, rpaths in possible_rpaths.items():
-      # TODO(crbug.com/932700): We don't know where each .runtime_deps
+      # TODO(crbug.com/41441724): We don't know where each .runtime_deps
       # file might be, but assuming we called
       # RemovePossiblyStaleRuntimeDepsFiles prior to calling `gn gen`,
       # there should only be one file.
@@ -1331,7 +1293,7 @@ class MetaBuildWrapper:
       target_type = isolate_map[target]['type']
       label = isolate_map[target]['label']
       stamp_runtime_deps = 'obj/%s.stamp.runtime_deps' % label.replace(':', '/')
-      # TODO(https://crbug.com/876065): 'official_tests' use
+      # TODO(crbug.com/40590196): 'official_tests' use
       # type='additional_compile_target' to isolate tests. This is not the
       # intended use for 'additional_compile_target'.
       if (target_type == 'additional_compile_target' and
@@ -1441,7 +1403,7 @@ class MetaBuildWrapper:
     err = ''
     for f in files:
       # Skip a few configs that need extra cleanup for now.
-      # TODO(https://crbug.com/912946): Fix everything on all platforms and
+      # TODO(crbug.com/40605564): Fix everything on all platforms and
       # enable check everywhere.
       if is_android:
         break
@@ -1455,7 +1417,7 @@ class MetaBuildWrapper:
       # these will lead to incorrect incremental builds if their directory
       # contents change. Do not add to this list, except for mac bundles until
       # crbug.com/1000667 is fixed.
-      # TODO(https://crbug.com/912946): Remove this if statement.
+      # TODO(crbug.com/40605564): Remove this if statement.
       if ((is_msan and f == 'instrumented_libraries_prebuilt/')
           or f == 'mr_extension/' or  # https://crbug.com/997947
           f.startswith('nacl_test_data/') or
@@ -1673,7 +1635,7 @@ class MetaBuildWrapper:
         default_script = 'bin/run_{}'.format(target)
       script = isolate_map[target].get('script', default_script)
 
-      # TODO(crbug.com/816629): remove any use of 'args' from
+      # TODO(crbug.com/40564748): remove any use of 'args' from
       # generated_scripts.
       cmdline += [script] + isolate_map[target].get('args', [])
 
@@ -1683,7 +1645,7 @@ class MetaBuildWrapper:
       return cmdline, []
 
 
-    # TODO(crbug.com/816629): Convert all targets to generated_scripts
+    # TODO(crbug.com/40564748): Convert all targets to generated_scripts
     # and delete the rest of this function.
     executable = isolate_map[target].get('executable', target)
     executable_suffix = isolate_map[target].get(
@@ -1757,9 +1719,9 @@ class MetaBuildWrapper:
           '--asan=%d' % asan,
           # Enable lsan when asan is enabled except on Windows where LSAN isn't
           # supported.
-          # TODO(https://crbug.com/1320449): Enable on Mac inside asan once
+          # TODO(crbug.com/40223516): Enable on Mac inside asan once
           # things pass.
-          # TODO(https://crbug.com/974478): Enable on ChromeOS once things pass.
+          # TODO(crbug.com/40632267): Enable on ChromeOS once things pass.
           '--lsan=%d' % lsan
           or (asan and not is_mac and not is_win and not is_cros),
           '--msan=%d' % msan,

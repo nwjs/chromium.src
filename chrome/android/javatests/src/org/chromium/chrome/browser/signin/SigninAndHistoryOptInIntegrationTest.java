@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
+import android.app.Activity;
 import android.content.Intent;
 
 import androidx.test.core.app.ApplicationProvider;
@@ -53,8 +54,10 @@ import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomS
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
+import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -124,68 +127,22 @@ public class SigninAndHistoryOptInIntegrationTest {
                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
                 HistoryOptInMode.REQUIRED);
 
-        verifyBottomSheetAndSignin(accountInfo);
-
-        // Verify that the history opt-in dialog is shown and accept.
-        onView(withId(R.id.history_sync_illustration)).check(matches(isDisplayed()));
-        onView(allOf(withId(R.id.button_primary), isCompletelyDisplayed())).perform(click());
-
-        // Verify history sync state.
-        SyncTestUtil.waitForHistorySyncEnabled();
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
+        verifyCollapsedBottomSheetAndSignin(accountInfo);
+        acceptHistorySyncAndVerifyFlowCompletion(/* checkDialogRoot= */ false);
     }
 
     @Test
     @MediumTest
-    public void testWithExistingAccount_signIn_historySyncManagedByCustodian() {
-        when(mHistorySyncHelperMock.isHistorySyncDisabledByCustodian()).thenReturn(true);
-        CoreAccountInfo accountInfo =
-                mSigninTestRule.addAccountAndWaitForSeeding(SigninTestRule.TEST_ACCOUNT_EMAIL);
+    public void testWithExistingAccount_signIn_historySyncSupressed() {
+        when(mHistorySyncHelperMock.shouldSuppressHistorySync()).thenReturn(true);
+        mSigninTestRule.addAccountAndWaitForSeeding(AccountManagerTestRule.TEST_ACCOUNT_1);
 
         launchActivity(
                 NoAccountSigninMode.BOTTOM_SHEET,
                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
                 HistoryOptInMode.REQUIRED);
 
-        verifyBottomSheetAndSignin(accountInfo);
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-    }
-
-    @Test
-    @MediumTest
-    public void testWithExistingAccount_signIn_userAlreadyOptedIn() {
-        when(mHistorySyncHelperMock.didAlreadyOptIn()).thenReturn(true);
-        CoreAccountInfo accountInfo =
-                mSigninTestRule.addAccountAndWaitForSeeding(SigninTestRule.TEST_ACCOUNT_EMAIL);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistoryOptInMode.REQUIRED);
-
-        verifyBottomSheetAndSignin(accountInfo);
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
-    }
-
-    @Test
-    @MediumTest
-    public void testWithExistingAccount_signIn_historySyncManagedByPolicy() {
-        when(mHistorySyncHelperMock.isHistorySyncDisabledByPolicy()).thenReturn(true);
-        CoreAccountInfo accountInfo =
-                mSigninTestRule.addAccountAndWaitForSeeding(SigninTestRule.TEST_ACCOUNT_EMAIL);
-
-        launchActivity(
-                NoAccountSigninMode.BOTTOM_SHEET,
-                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
-                HistoryOptInMode.REQUIRED);
-
-        verifyBottomSheetAndSignin(accountInfo);
+        verifyCollapsedBottomSheetAndSignin(AccountManagerTestRule.TEST_ACCOUNT_1);
 
         // Verify that the flow completion callback, which finishes the activity, is called.
         ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
@@ -201,20 +158,8 @@ public class SigninAndHistoryOptInIntegrationTest {
                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
                 HistoryOptInMode.REQUIRED);
 
-        // Verify that the history opt-in dialog is shown and accept.
-        onViewWaiting(withId(R.id.history_sync_illustration), /* checkRootDialog= */ true)
-                .check(matches(isDisplayed()));
-        onViewWaiting(
-                        allOf(withId(R.id.button_primary), isCompletelyDisplayed()),
-                        /* checkRootDialog= */ true)
-                .perform(click());
-
-        // Verify signin and history sync state.
+        acceptHistorySyncAndVerifyFlowCompletion(/* checkDialogRoot= */ true);
         assertNotNull(mSigninTestRule.getPrimaryAccount(ConsentLevel.SIGNIN));
-        SyncTestUtil.waitForHistorySyncEnabled();
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
     }
 
     @Test
@@ -228,7 +173,7 @@ public class SigninAndHistoryOptInIntegrationTest {
                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
                 HistoryOptInMode.REQUIRED);
 
-        verifyBottomSheetAndSignin(accountInfo);
+        verifyCollapsedBottomSheetAndSignin(accountInfo);
 
         // Verify that the history opt-in dialog is shown and decline.
         onView(withId(R.id.history_sync_illustration)).check(matches(isDisplayed()));
@@ -252,17 +197,8 @@ public class SigninAndHistoryOptInIntegrationTest {
                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
                 HistoryOptInMode.OPTIONAL);
 
-        verifyBottomSheetAndSignin(accountInfo);
-
-        // Verify that the history opt-in dialog is shown and accept.
-        onView(withId(R.id.history_sync_illustration)).check(matches(isDisplayed()));
-        onView(allOf(withId(R.id.button_primary), isCompletelyDisplayed())).perform(click());
-
-        // Verify history sync state.
-        SyncTestUtil.waitForHistorySyncEnabled();
-
-        // Verify that the flow completion callback, which finishes the activity, is called.
-        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
+        verifyCollapsedBottomSheetAndSignin(accountInfo);
+        acceptHistorySyncAndVerifyFlowCompletion(/* checkDialogRoot= */ false);
     }
 
     @Test
@@ -276,7 +212,7 @@ public class SigninAndHistoryOptInIntegrationTest {
                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
                 HistoryOptInMode.NONE);
 
-        verifyBottomSheetAndSignin(accountInfo);
+        verifyCollapsedBottomSheetAndSignin(accountInfo);
 
         // Verify that the flow completion callback, which finishes the activity, is called.
         ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
@@ -340,6 +276,27 @@ public class SigninAndHistoryOptInIntegrationTest {
 
         // Verify that history sync is not enabled.
         assertFalse(SyncTestUtil.isHistorySyncEnabled());
+    }
+
+    // Enabling SEED_ACCOUNTS_REVAMP to avoid failure due to the deprecated seed account flow. See
+    // https://crbug.com/336371182.
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SEED_ACCOUNTS_REVAMP)
+    public void testWithExistingAccount_signInWithAddedAccount_requiredHistoryOptIn() {
+        CoreAccountInfo accountInfo =
+                mSigninTestRule.addAccountAndWaitForSeeding(SigninTestRule.TEST_ACCOUNT_EMAIL);
+        mSigninTestRule.setResultForNextAddAccountFlow(Activity.RESULT_OK, accountInfo.getEmail());
+
+        launchActivity(
+                NoAccountSigninMode.BOTTOM_SHEET,
+                WithAccountSigninMode.CHOOSE_ACCOUNT_BOTTOM_SHEET,
+                HistoryOptInMode.REQUIRED);
+
+        // Verifies that the expanded sign-in bottom-sheet is shown, and select add account.
+        onView(allOf(withText(R.string.signin_add_account_to_device), isCompletelyDisplayed()))
+                .perform(click());
+        acceptHistorySyncAndVerifyFlowCompletion(/* checkDialogRoot= */ false);
     }
 
     @Test
@@ -426,6 +383,53 @@ public class SigninAndHistoryOptInIntegrationTest {
         verifySigninCancelled();
     }
 
+    // Enabling SEED_ACCOUNTS_REVAMP to avoid failure due to the deprecated seed account flow. See
+    // https://crbug.com/336371182.
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SEED_ACCOUNTS_REVAMP)
+    public void testWithNoAccount_bottomSheetSignin_requiredHistorySync() {
+        launchActivity(
+                NoAccountSigninMode.BOTTOM_SHEET,
+                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                HistoryOptInMode.REQUIRED);
+
+        verifyNoAccountBottomSheetAndSignin();
+        acceptHistorySyncAndVerifyFlowCompletion(/* checkDialogRoot= */ false);
+    }
+
+    // Enabling SEED_ACCOUNTS_REVAMP to avoid failure due to the deprecated seed account flow. See
+    // https://crbug.com/336371182.
+    @Test
+    @MediumTest
+    @EnableFeatures(SigninFeatures.SEED_ACCOUNTS_REVAMP)
+    public void testWithNoAccount_instantSignin_requiredHistorySync() {
+        CoreAccountInfo accountInfo = AccountManagerTestRule.TEST_ACCOUNT_1;
+        mSigninTestRule.setResultForNextAddAccountFlow(Activity.RESULT_OK, accountInfo.getEmail());
+
+        launchActivity(
+                NoAccountSigninMode.ADD_ACCOUNT,
+                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                HistoryOptInMode.REQUIRED);
+
+        acceptHistorySyncAndVerifyFlowCompletion(/* checkDialogRoot= */ true);
+    }
+
+    @Test
+    @MediumTest
+    public void testWithNoAccount_instantSignin_requiredHistorySync_cancelAddAccount() {
+        CoreAccountInfo accountInfo = AccountManagerTestRule.TEST_ACCOUNT_1;
+        mSigninTestRule.setResultForNextAddAccountFlow(
+                Activity.RESULT_CANCELED, accountInfo.getEmail());
+
+        launchActivity(
+                NoAccountSigninMode.ADD_ACCOUNT,
+                WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                HistoryOptInMode.REQUIRED);
+
+        verifySigninCancelled();
+    }
+
     private void launchActivity(
             @NoAccountSigninMode int noAccountSigninMode,
             @WithAccountSigninMode int withAccountSigninMode,
@@ -444,7 +448,7 @@ public class SigninAndHistoryOptInIntegrationTest {
         mActivity = mActivityTestRule.getActivity();
     }
 
-    private void verifyBottomSheetAndSignin(CoreAccountInfo accountInfo) {
+    private void verifyCollapsedBottomSheetAndSignin(CoreAccountInfo accountInfo) {
         // Verify that the collapsed sign-in bottom-sheet is shown, and start sign-in.
         onView(
                         allOf(
@@ -455,6 +459,44 @@ public class SigninAndHistoryOptInIntegrationTest {
 
         // Verify signed-in state.
         mSigninTestRule.waitForSignin(accountInfo);
+    }
+
+    private void verifyNoAccountBottomSheetAndSignin() {
+        CoreAccountInfo accountInfo = AccountManagerTestRule.TEST_ACCOUNT_1;
+        mSigninTestRule.setResultForNextAddAccountFlow(Activity.RESULT_OK, accountInfo.getEmail());
+        onView(
+                        allOf(
+                                withId(R.id.account_picker_continue_as_button),
+                                withParent(withId(R.id.account_picker_state_no_account)),
+                                isCompletelyDisplayed()))
+                .perform(click());
+
+        mSigninTestRule.waitForSignin(accountInfo);
+    }
+
+    // `checkDialogRoot` should be set to true for tests that fail due to Espresso using the wrong
+    // root view for dialogs on API30+ (Mostly when the dialog appears without the bottom sheet
+    // being shown before).
+    // See https://crbug.com/332025155.
+    private void acceptHistorySyncAndVerifyFlowCompletion(boolean checkDialogRoot) {
+        // Verify that the history opt-in dialog is shown and accept.
+        if (checkDialogRoot) {
+            onViewWaiting(withId(R.id.history_sync_illustration), /* checkRootDialog= */ true)
+                    .check(matches(isDisplayed()));
+            onViewWaiting(
+                            allOf(withId(R.id.button_primary), isCompletelyDisplayed()),
+                            /* checkRootDialog= */ true)
+                    .perform(click());
+        } else {
+            onView(withId(R.id.history_sync_illustration)).check(matches(isDisplayed()));
+            onView(allOf(withId(R.id.button_primary), isCompletelyDisplayed())).perform(click());
+        }
+
+        // Verify history sync state.
+        SyncTestUtil.waitForHistorySyncEnabled();
+
+        // Verify that the flow completion callback, which finishes the activity, is called.
+        ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
     }
 
     // Verifies that the activity finishes, no account is signed in, and history sync is disabled.

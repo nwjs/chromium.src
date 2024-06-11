@@ -18,6 +18,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_autofill_manager_injector.h"
+#include "components/autofill/core/browser/address_data_manager.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/browser_autofill_manager.h"
@@ -66,7 +67,8 @@ class AutofillPolicyTest : public PolicyTest {
   }
 
   [[nodiscard]] testing::AssertionResult ImportAddress() {
-    if (personal_data_manager()->GetProfiles().size() != 0u) {
+    if (personal_data_manager()->address_data_manager().GetProfiles().size() !=
+        0u) {
       return testing::AssertionFailure() << "Should be empty profile.";
     }
     autofill::AddTestProfile(browser()->profile(),
@@ -77,7 +79,10 @@ class AutofillPolicyTest : public PolicyTest {
     expected_suggestions_["city"] = u"Elysium";
     expected_suggestions_["phone"] = u"+1 650-211-1111";
     expected_suggestions_["email"] = u"johndoe@hades.com";
-    return personal_data_manager()->GetProfiles().size() == 1u
+    return personal_data_manager()
+                       ->address_data_manager()
+                       .GetProfiles()
+                       .size() == 1u
                ? testing::AssertionSuccess()
                : testing::AssertionFailure() << "Should be one profile.";
   }
@@ -119,11 +124,11 @@ class AutofillPolicyTest : public PolicyTest {
     void OnAskForValuesToFill(
         const autofill::FormData& form,
         const autofill::FormFieldData& field,
-        const gfx::RectF& bounding_box,
+        const gfx::Rect& caret_bounds,
         autofill::AutofillSuggestionTriggerSource trigger_source) override {
       autofill::TestAutofillManagerWaiter waiter(
           *this, {autofill::AutofillManagerEvent::kAskForValuesToFill});
-      autofill::AutofillManager::OnAskForValuesToFill(form, field, bounding_box,
+      autofill::AutofillManager::OnAskForValuesToFill(form, field, caret_bounds,
                                                       trigger_source);
       ASSERT_TRUE(waiter.Wait());
       if (run_loop_) {
@@ -149,10 +154,11 @@ class AutofillPolicyTest : public PolicyTest {
     explicit TestAutofillClient(content::WebContents* web_contents)
         : autofill::ChromeAutofillClient(web_contents) {}
 
-    void ShowAutofillPopup(
+    void ShowAutofillSuggestions(
         const autofill::AutofillClient::PopupOpenArgs& open_args,
-        base::WeakPtr<autofill::AutofillPopupDelegate> delegate) override {
-      autofill::ChromeAutofillClient::ShowAutofillPopup(open_args, delegate);
+        base::WeakPtr<autofill::AutofillSuggestionDelegate> delegate) override {
+      autofill::ChromeAutofillClient::ShowAutofillSuggestions(open_args,
+                                                              delegate);
       popup_shown_ = true;
     }
 
@@ -198,10 +204,12 @@ IN_PROC_BROWSER_TEST_F(AutofillPolicyTest, AutofillEnabledByPolicy) {
     })) << "Showing the Autofill Popup timed out.";
     // There may be more suggestions, but the first one in the vector
     // should be the expected and shown in the popup.
-    std::vector<autofill::Suggestion> suggestions =
-        autofill_client()->GetPopupSuggestions();
-    ASSERT_GE(suggestions.size(), 1u);
-    EXPECT_EQ(expectation, suggestions[0].main_text.value);
+    {
+      base::span<const autofill::Suggestion> suggestions =
+          autofill_client()->GetAutofillSuggestions();
+      ASSERT_GE(suggestions.size(), 1u);
+      EXPECT_EQ(expectation, suggestions[0].main_text.value);
+    }
     autofill_client()->ResetPopupShown();
   }
 }
@@ -219,7 +227,7 @@ IN_PROC_BROWSER_TEST_F(AutofillPolicyTest, AutofillDisabledByPolicy) {
     // Showing the Autofill Popup is an asynchronous task.
     base::RunLoop().RunUntilIdle();
     EXPECT_FALSE(autofill_client()->HasShownAutofillPopup());
-    EXPECT_EQ(autofill_client()->GetPopupSuggestions().size(), 0u);
+    EXPECT_TRUE(autofill_client()->GetAutofillSuggestions().empty());
   }
 }
 

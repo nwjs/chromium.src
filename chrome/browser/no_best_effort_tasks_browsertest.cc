@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string_view>
+
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
@@ -101,7 +102,7 @@ class NoBestEffortTasksTest : public InProcessBrowserTest {
 };
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-constexpr base::StringPiece kExtensionId = "ddchlicdkolnonkihahngkmmmjnjlkkf";
+constexpr std::string_view kExtensionId = "ddchlicdkolnonkihahngkmmmjnjlkkf";
 constexpr base::TimeDelta kSendMessageRetryPeriod = base::Milliseconds(250);
 #endif
 
@@ -109,7 +110,7 @@ constexpr base::TimeDelta kSendMessageRetryPeriod = base::Milliseconds(250);
 
 // Verify that it is possible to load and paint the initial about:blank page
 // without running BEST_EFFORT tasks.
-// TODO(https://crbug.com/1484434): Disabled due to excessive flakiness.
+// TODO(crbug.com/40932711): Disabled due to excessive flakiness.
 IN_PROC_BROWSER_TEST_F(NoBestEffortTasksTest, DISABLED_LoadAndPaintAboutBlank) {
   content::WebContents* const web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -124,7 +125,7 @@ IN_PROC_BROWSER_TEST_F(NoBestEffortTasksTest, DISABLED_LoadAndPaintAboutBlank) {
 //
 // This test has more dependencies than LoadAndPaintAboutBlank, including
 // loading cookies.
-// TODO(https://crbug.com/1484434): Disabled due to excessive flakiness.
+// TODO(crbug.com/40932711): Disabled due to excessive flakiness.
 IN_PROC_BROWSER_TEST_F(NoBestEffortTasksTest,
                        DISABLED_LoadAndPaintFromNetwork) {
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -143,7 +144,7 @@ IN_PROC_BROWSER_TEST_F(NoBestEffortTasksTest,
 
 // Verify that it is possible to load and paint a file:// URL without running
 // BEST_EFFORT tasks. Regression test for https://crbug.com/973244.
-// TODO(https://crbug.com/1484434): Disabled due to excessive flakiness.
+// TODO(crbug.com/40932711): Disabled due to excessive flakiness.
 IN_PROC_BROWSER_TEST_F(NoBestEffortTasksTest, DISABLED_LoadAndPaintFileScheme) {
   constexpr base::FilePath::CharType kFile[] = FILE_PATH_LITERAL("links.html");
   GURL file_url(ui_test_utils::GetTestUrl(

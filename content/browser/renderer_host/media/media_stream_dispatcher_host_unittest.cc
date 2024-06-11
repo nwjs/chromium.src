@@ -183,10 +183,6 @@ class MockMediaStreamDispatcherHost
                        base::Unretained(this)));
   }
 
-  void OnStreamStarted(const std::string& label) override {
-    MediaStreamDispatcherHost::OnStreamStarted(label);
-  }
-
   // mojom::MediaStreamDeviceObserver implementation.
   void OnDeviceStopped(const std::string& label,
                        const blink::MediaStreamDevice& device) override {
@@ -232,11 +228,6 @@ class MockMediaStreamDispatcherHost
     }
 
     OnStreamGenerationSuccess(request_id, *stream_devices_set);
-    if (!base::FeatureList::IsEnabled(
-            blink::features::kStartMediaStreamCaptureIndicatorInBrowser)) {
-      // Simulate the stream started event back to host for UI testing.
-      OnStreamStarted(label);
-    }
 
     // Notify that the event have occurred.
     task_runner_->PostTask(FROM_HERE, std::move(quit_closures_.front()));
@@ -1359,7 +1350,7 @@ TEST_F(MediaStreamDispatcherHostTest,
   EXPECT_EQ(media_stream_manager_->num_dispatcher_hosts(), 0u);
 }
 
-// TODO(crbug.com/1300883): Add test cases for multi stream generation.
+// TODO(crbug.com/40216442): Add test cases for multi stream generation.
 
 class MediaStreamDispatcherHostStreamTypeCombinationTest
     : public MediaStreamDispatcherHostTest,

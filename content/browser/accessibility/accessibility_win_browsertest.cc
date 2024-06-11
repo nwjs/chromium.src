@@ -937,7 +937,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityWinBrowserTest,
       ui::AXEventGenerator::Event::FOCUS_CHANGED);
   GURL html_data_url("data:text/html,<p>Hello world.</p>");
   ASSERT_TRUE(NavigateToURL(shell(), html_data_url));
-  // TODO(https://crbug.com/1332468): Investigate why this does not return
+  // TODO(crbug.com/40844856): Investigate why this does not return
   // true.
   ASSERT_TRUE(waiter.WaitForNotification());
 
@@ -1192,7 +1192,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityWinBrowserTest, FocusEventOnPageLoad) {
     EXPECT_TRUE(NavigateToURL(shell(), html_data_url));
     run_loop.Run();  // Wait for the focus change.
   }
-  // TODO(https://crbug.com/1332468): Investigate why this does not return
+  // TODO(crbug.com/40844856): Investigate why this does not return
   // true.
   ASSERT_TRUE(waiter.WaitForNotification());
 
@@ -5600,7 +5600,7 @@ IN_PROC_BROWSER_TEST_F(AccessibilityWinUIABrowserTest,
   EXPECT_NE(nullptr, text_pattern_unknown.Get());
 }
 
-// TODO(crbug.com/1432289): Fix this failing test.
+// TODO(crbug.com/40902845): Fix this failing test.
 IN_PROC_BROWSER_TEST_F(AccessibilityWinUIABrowserTest,
                        DISABLED_AsyncContentLoadedEventOnDocumentLoad) {
   // Load the page.

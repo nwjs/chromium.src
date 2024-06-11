@@ -12,19 +12,18 @@ import '//resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
 import './voice_selection_menu.js';
 import './icons.html.js';
 
-import type {CrActionMenuElement, ShowAtPositionConfig} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
-import {AnchorAlignment} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import type {CrActionMenuElement} from '//resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import type {CrIconElement} from '//resources/cr_elements/cr_icon/cr_icon.js';
 import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import type {CrLazyRenderElement} from '//resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
 import {I18nMixin} from '//resources/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from '//resources/cr_elements/web_ui_listener_mixin.js';
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import type {IronIconElement} from '//resources/polymer/v3_0/iron-icon/iron-icon.js';
 import type {DomRepeatEvent} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {PolymerElement} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {Debouncer, PolymerElement, timeOut} from '//resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {validatedFontName} from './common.js';
+import {minOverflowLengthToScroll, openMenu, validatedFontName} from './common.js';
 import {getTemplate} from './read_anything_toolbar.html.js';
 import type {VoiceSelectionMenuElement} from './voice_selection_menu.js';
 
@@ -36,7 +35,7 @@ export interface ReadAnythingToolbarElement {
     letterSpacingMenu: CrLazyRenderElement<CrActionMenuElement>,
     fontMenu: CrLazyRenderElement<CrActionMenuElement>,
     fontSizeMenu: CrLazyRenderElement<CrActionMenuElement>,
-    moreOptionsMenu: CrActionMenuElement,
+    moreOptionsMenu: CrLazyRenderElement<CrActionMenuElement>,
     voiceSelectionMenu: VoiceSelectionMenuElement,
     toolbarContainer: HTMLElement,
     more: CrIconButtonElement,
@@ -83,8 +82,7 @@ enum ReadAnythingSettingsChange {
 }
 
 const SETTINGS_CHANGE_UMA = 'Accessibility.ReadAnything.SettingsChange';
-const moreOptionsClass = '.more-options-icon';
-const activeClass = ' active';
+export const moreOptionsClass = '.more-options-icon';
 
 // Link toggle button constants.
 export const LINKS_ENABLED_ICON = 'read-anything:links-enabled';
@@ -103,6 +101,10 @@ export const HIGHLIGHT_TOGGLE_EVENT = 'highlight-toggle';
 export const NEXT_GRANULARITY_EVENT = 'next-granularity-click';
 export const PREVIOUS_GRANULARITY_EVENT = 'previous-granularity-click';
 export const LINKS_EVENT = 'links-toggle';
+
+// Constants for styling the toolbar when page zoom changes.
+const whiteSpaceTypical = 'nowrap';
+const whiteSpaceOverflow = 'normal';
 
 const ReadAnythingToolbarElementBase =
     WebUiListenerMixin(I18nMixin(PolymerElement));
@@ -125,13 +127,20 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       textStyleOptions_: Array,
       textStyleToggles_: Array,
       paused: Boolean,
-      hasContent: Boolean,
+      speechActuallyPlaying: Boolean,
+      isReadAloudPlayable: Boolean,
       selectedVoice: Object,
+      voicePackInstallStatus: Map,
       availableVoices: Array,
+      enabledLanguagesInPref: Array,
       localeToDisplayName: Object,
       previewVoicePlaying: Object,
       areFontsLoaded_: Boolean,
     };
+  }
+
+  static get observers() {
+    return ['onSpeechPlayingStateChanged_(paused, speechActuallyPlaying)'];
   }
 
   // This function has to be static because it's called from the ResizeObserver
@@ -142,17 +151,15 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     assert(moreOptionsButton, 'more options button doesn\'t exist');
     ReadAnythingToolbarElement.hideElement(moreOptionsButton, false);
 
-    // Show all the buttons that would go in the overflow menu to see if they
-    // fit
-    const buttons = Array.from(toolbar.querySelectorAll('.toolbar-button'));
+    // Show all the buttons to see if they fit.
+    const buttons =
+        Array.from(toolbar.querySelectorAll<HTMLElement>('.text-style-button'));
     assert(buttons, 'no toolbar buttons');
-    const moreOptionsButtons = toolbar.querySelectorAll(moreOptionsClass);
-    assert(moreOptionsButtons, 'no buttons to put in the more options menu');
-    const buttonsOnToolbarToMaybeHide =
-        buttons.slice(buttons.length - moreOptionsButtons.length);
-    buttonsOnToolbarToMaybeHide.forEach(btn => {
-      ReadAnythingToolbarElement.showElement(btn as HTMLElement);
-    });
+    buttons.forEach(btn => ReadAnythingToolbarElement.showElement(btn));
+    toolbar.dispatchEvent(new CustomEvent('reset-toolbar', {
+      bubbles: true,
+      composed: true,
+    }));
 
     if (!toolbar.offsetParent) {
       return;
@@ -162,20 +169,45 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     // overflowed.
     const parentWidth = toolbar.offsetParent.clientWidth;
     if (toolbar.clientWidth > parentWidth) {
+      // Hide at least 3 buttons and more if needed.
+      let numOverflowButtons = 3;
+      let nextOverflowButton = buttons[buttons.length - numOverflowButtons];
+      // No need to hide a button if it only exceeds the width by a little (i.e.
+      // only the padding overflows).
+      const maxDiff = 10;
+      let overflowLength = nextOverflowButton.offsetLeft +
+          nextOverflowButton.offsetWidth - parentWidth;
+      while (overflowLength > maxDiff) {
+        numOverflowButtons++;
+        nextOverflowButton = buttons[buttons.length - numOverflowButtons];
+        if (!nextOverflowButton) {
+          break;
+        }
+
+        overflowLength = nextOverflowButton.offsetLeft +
+            nextOverflowButton.offsetWidth - parentWidth;
+      }
+
+      // Notify the app and toolbar of the overflow.
+      toolbar.dispatchEvent(new CustomEvent('toolbar-overflow', {
+        bubbles: true,
+        composed: true,
+        detail: {numOverflowButtons, overflowLength},
+      }));
+
+      // If we have too much overflow, we won't use the more options button.
+      if (numOverflowButtons > buttons.length) {
+        return;
+      }
+
+      // Hide the overflowed buttons and show the more options button in front
+      // of them.
       ReadAnythingToolbarElement.showElement(moreOptionsButton);
-
-      // Ensure the more options menu is visible.
-      const moreOptionsMenu =
-          toolbar.querySelector<HTMLElement>('#moreOptionsMenu');
-      assert(moreOptionsMenu, 'more options menu doesn\'t exist');
-      ReadAnythingToolbarElement.showElement(moreOptionsMenu);
-
-      // Hide all the buttons on the toolbar that are in the more options menu
-      buttonsOnToolbarToMaybeHide.forEach(btn => {
-        ReadAnythingToolbarElement.hideElement(btn as HTMLElement, true);
-      });
-      toolbar.insertBefore(moreOptionsButton, buttonsOnToolbarToMaybeHide[0]);
-      (moreOptionsButtons.item(0) as HTMLElement).style.marginLeft = '16px';
+      const overflowedButtons =
+          buttons.slice(buttons.length - numOverflowButtons);
+      overflowedButtons.forEach(
+          btn => ReadAnythingToolbarElement.hideElement(btn, true));
+      toolbar.insertBefore(moreOptionsButton, overflowedButtons[0]);
     }
   }
 
@@ -294,7 +326,9 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
   private rateOptions_: number[] = [0.5, 0.8, 1, 1.2, 1.5, 2, 3, 4];
 
-  private moreOptionsButtons_: MenuButton[] = [
+  private moreOptionsButtons_: MenuButton[] = [];
+
+  private textStyleOptions_: MenuButton[] = [
     {
       id: 'color',
       icon: 'read-anything:color',
@@ -315,31 +349,29 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     },
   ];
 
-  private textStyleOptions_: MenuButton[] = [];
-
-  private showAtPositionConfig_: ShowAtPositionConfig = {
-    top: 20,
-    left: 8,
-    anchorAlignmentY: AnchorAlignment.AFTER_END,
-  };
-
   private isReadAloudEnabled_: boolean;
   private isHighlightOn_: boolean = true;
   private activeButton_: HTMLElement|null;
   private areFontsLoaded_: boolean = false;
   private colorSuffix_: string = '';
 
+  private currentFocusId_: string = '';
   private toolbarContainerObserver_: ResizeObserver|null;
-  private dragResizeCallback_: () => void;
+  private windowResizeCallback_: () => void;
 
   // If Read Aloud is in the paused state. This is set from the parent element
   // via one way data binding.
   private readonly paused: boolean;
 
-  // If Read Anything has content. If it doesn't, certain toolbar buttons
-  // like the play / pause button should be disabled. This is set from
-  // the parent element via one way data binding.
-  private readonly hasContent: boolean;
+  private hideSpinner: boolean = true;
+
+  private debouncer_: Debouncer|null = null;
+
+  // If Read Aloud is playable. Certain states, such as when Read Anything does
+  // not have content or when the speech engine is loading should disable
+  // certain toolbar buttons like the play / pause button should be disabled.
+  // This is set from the parent element via one way data binding.
+  private readonly isReadAloudPlayable: boolean;
 
   constructor() {
     super();
@@ -361,7 +393,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
         'Accessibility.ReadAnything.' +
             'TimeFromToolbarConstructorStartedToConnectedCallback');
     if (this.isReadAloudEnabled_) {
-      this.textStyleOptions_.push(
+      this.textStyleOptions_.unshift(
           {
             id: 'font-size',
             icon: 'read-anything:font-size',
@@ -379,23 +411,20 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       this.toolbarContainerObserver_ =
           new ResizeObserver(this.onToolbarResize_);
       this.toolbarContainerObserver_.observe(this.$.toolbarContainer);
-
-      this.dragResizeCallback_ = this.onDragResize_.bind(this);
-      window.addEventListener('resize', this.dragResizeCallback_);
+      this.windowResizeCallback_ = this.onWindowResize_.bind(this);
+      window.addEventListener('resize', this.windowResizeCallback_);
     }
-    this.textStyleOptions_ =
-        this.textStyleOptions_.concat(this.moreOptionsButtons_);
 
     // TODO(b/329677511): Font names should be displayed as
     // "Font name (loading)" until the fonts have been loaded.
-    this.updateFonts();
+    this.initFonts_();
     this.loadFontsStylesheet();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    if (this.dragResizeCallback_) {
-      window.removeEventListener('resize', this.dragResizeCallback_);
+    if (this.windowResizeCallback_) {
+      window.removeEventListener('resize', this.windowResizeCallback_);
     }
     this.toolbarContainerObserver_?.disconnect();
   }
@@ -425,7 +454,34 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     this.areFontsLoaded_ = true;
   }
 
-  private onDragResize_() {
+  private onResetToolbar_() {
+    this.$.moreOptionsMenu.getIfExists()?.close();
+    this.moreOptionsButtons_ = [];
+    this.updateStyles({
+      '--toolbar-white-space': whiteSpaceTypical,
+    });
+  }
+
+  private onToolbarOverflow_(
+      event:
+          CustomEvent<{numOverflowButtons: number, overflowLength: number}>) {
+    const firstHiddenButton =
+        this.textStyleOptions_.length - event.detail.numOverflowButtons;
+    // Wrap the buttons if we overflow significantly but aren't yet scrolling
+    // the whole app.
+    if (firstHiddenButton < 0 &&
+        event.detail.overflowLength < minOverflowLengthToScroll) {
+      this.updateStyles({
+        '--toolbar-white-space': whiteSpaceOverflow,
+      });
+      return;
+    }
+
+    // If we only overflow by a little, use the more options button.
+    this.moreOptionsButtons_ = this.textStyleOptions_.slice(firstHiddenButton);
+  }
+
+  private onWindowResize_() {
     ReadAnythingToolbarElement.maybeUpdateMoreOptions(this.$.toolbarContainer);
   }
 
@@ -436,8 +492,14 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   private restoreFontMenu_() {
-    const currentFontIndex =
+    // Default to the first font option if the previously used font is no
+    // longer available.
+    let currentFontIndex =
         this.fontOptions_.indexOf(chrome.readingMode.fontName);
+    if (currentFontIndex < 0) {
+      currentFontIndex = 0;
+      this.propagateFontChange_(this.fontOptions_[0]);
+    }
     if (this.isReadAloudEnabled_) {
       this.setCheckMarkForMenu_(
           this.$.fontMenu.getIfExists(), currentFontIndex);
@@ -485,6 +547,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   updateFonts() {
+    this.initFonts_();
+    this.restoreFontMenu_();
+  }
+
+  private initFonts_() {
     const fonts = chrome.readingMode.supportedFonts;
     this.fontOptions_ = [];
     fonts.forEach(element => {
@@ -546,6 +613,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
                     loadTimeData.getString('pauseLabel');
   }
 
+  private playPauseButtonTitle_(paused: boolean) {
+    return paused ? loadTimeData.getString('playTooltip') :
+                    loadTimeData.getString('pauseTooltip');
+  }
+
   private playPauseButtonIronIcon_(paused: boolean) {
     return paused ? 'read-anything-20:play' : 'read-anything-20:pause';
   }
@@ -575,11 +647,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   private onTextStyleMenuButtonClick_(event: DomRepeatEvent<MenuButton>) {
-    this.openMenu_(event.model.item.menuToOpen(), event.target as HTMLElement);
+    openMenu(event.model.item.menuToOpen(), event.target as HTMLElement);
   }
 
   private onShowRateMenuClick_(event: MouseEvent) {
-    this.openMenu_(this.$.rateMenu.get(), event.target as HTMLElement);
+    openMenu(this.$.rateMenu.get(), event.target as HTMLElement);
   }
 
   private onVoiceSelectionMenuClick_(event: MouseEvent) {
@@ -590,38 +662,13 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   private onMoreOptionsClick_(event: MouseEvent) {
-    this.openMenu_(this.$.moreOptionsMenu, event.target as HTMLElement);
-  }
-
-  private openMenu_(
-      menuToOpen: CrActionMenuElement, target: HTMLElement,
-      fullScreen: boolean = false) {
-    // The button should stay active while the menu is open and deactivate when
-    // the menu closes.
-    menuToOpen.addEventListener('close', () => {
-      target.className = target.className.replace(activeClass, '');
-    });
-    target.className += activeClass;
-    this.closeMenus_();
-
-    requestAnimationFrame(() => {
-      const minY = target.getBoundingClientRect().bottom;
-      if (fullScreen) {
-        menuToOpen.showAt(target, {
-          minY: minY,
-          left: 0,
-          anchorAlignmentY: AnchorAlignment.AFTER_END,
-          noOffset: true,
-        });
-      } else {
-        menuToOpen.showAt(target, {
-          minY: minY,
-          anchorAlignmentX: AnchorAlignment.AFTER_START,
-          anchorAlignmentY: AnchorAlignment.AFTER_END,
-          noOffset: true,
-        });
-      }
-    });
+    const menu = this.$.moreOptionsMenu.get();
+    // The min width of the dialog can't be lowered so center the buttons if
+    // there are only 3 in the more options menu. There's an extra wrapper child
+    // in the menu so we check for 4 children, which indicates 3 buttons.
+    (menu.firstChild as HTMLElement).style.marginLeft =
+        (menu.children.length === 4) ? '16px' : '6px';
+    openMenu(menu, event.target as HTMLElement);
   }
 
   private onHighlightClick_() {
@@ -730,8 +777,8 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     const checked =
         Array.from(menu.getElementsByClassName('check-mark-hidden-false'));
     checked.forEach(element => {
-      const iconElement = element as IronIconElement;
-      // TODO(crbug.com/1465029): Ensure this works with screen readers
+      const iconElement = element as CrIconElement;
+      // TODO(crbug.com/40275871): Ensure this works with screen readers
       if (iconElement) {
         iconElement.classList.toggle('check-mark-hidden-true', true);
         iconElement.classList.toggle('check-mark-hidden-false', false);
@@ -739,7 +786,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     });
 
     const checkMarks = Array.from(menu.getElementsByClassName('check-mark'));
-    const checkMark = checkMarks[index] as IronIconElement;
+    const checkMark = checkMarks[index] as CrIconElement;
     if (checkMark) {
       checkMark.classList.toggle('check-mark-hidden-true', false);
       checkMark.classList.toggle('check-mark-hidden-false', true);
@@ -806,10 +853,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   }
 
   private onToolbarKeyDown_(e: KeyboardEvent) {
-    const shadowRoot = this.shadowRoot;
-    assert(shadowRoot);
-    const toolbar = shadowRoot.getElementById('toolbarContainer');
-    assert(toolbar);
+    const toolbar = this.$.toolbarContainer;
     const buttons = Array.from(toolbar.querySelectorAll('.toolbar-button')) as
         HTMLElement[];
     assert(buttons, 'no toolbar buttons');
@@ -824,8 +868,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
 
     // Allow focusing the font selection if it's visible.
     if (!this.isReadAloudEnabled_) {
-      const select = this.$.toolbarContainer.querySelector<HTMLSelectElement>(
-          '#font-select');
+      const select = toolbar.querySelector<HTMLSelectElement>('#font-select');
       assert(select, 'no font select menu');
       focusableElements.unshift(select);
     }
@@ -877,6 +920,11 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     elementToFocus.focus();
   }
 
+  private getMoreOptionsButtons_(): HTMLElement[] {
+    return Array.from(
+        this.$.toolbarContainer.querySelectorAll(moreOptionsClass));
+  }
+
   private onKeyDown_(e: KeyboardEvent, focusableElements: HTMLElement[]) {
     if (!['ArrowRight', 'ArrowLeft'].includes(e.key)) {
       return;
@@ -892,17 +940,53 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     // focused by tabbing while the menu is open and we want the arrow key
     // behavior to continue smoothly.
     if (focusableElements[newIndex].id === 'more') {
+      const moreOptionsRendered = this.$.moreOptionsMenu.getIfExists();
+      // If the more options menu has not been rendered yet, render it and wait
+      // for it to be drawn so we can get the number of elements in the menu.
+      if (!moreOptionsRendered || !moreOptionsRendered.open) {
+        openMenu(this.$.moreOptionsMenu.get(), this.$.more);
+        requestAnimationFrame(() => {
+          const moreOptions = this.getMoreOptionsButtons_();
+          focusableElements = focusableElements.concat(moreOptions);
+          newIndex = (direction === 1) ? (newIndex + 1) :
+                                         (focusableElements.length - 1);
+          this.updateFocus_(focusableElements, newIndex);
+        });
+        return;
+      }
       newIndex += direction;
     }
+    this.updateFocus_(focusableElements, newIndex);
+  }
 
-    // Open the overflow menu if the next button is in that menu. Close it
-    // otherwise.
+
+  private onSpeechPlayingStateChanged_(
+      paused: boolean, speechActuallyPlaying: boolean) {
+    // Use a debouncer to reduce glitches. Even when audio is fast to respond to
+    // the play button, there are still milliseconds of delay. To prevent the
+    // spinner from quickly appearing and disappearing, we use a debouncer. If
+    // either the values of `paused` or `speechActuallyPlaying` change, the
+    // previously scheduled callback is canceled and a new callback is
+    // scheduled.
+    // TODO (b/339860819) improve debouncer logic so that the spinner disappears
+    // immediately when speech starts playing, or when the paused button is hit.
+    this.debouncer_ =
+        Debouncer.debounce(this.debouncer_, timeOut.after(150), () => {
+          if (paused) {
+            this.hideSpinner = true;
+          } else {
+            this.hideSpinner = speechActuallyPlaying;
+          }
+        });
+  }
+
+
+  private updateFocus_(focusableElements: HTMLElement[], newIndex: number) {
+    // Close the overflow menu if the next button is not in the menu.
     const elementToFocus = focusableElements[newIndex];
     assert(elementToFocus, 'no element to focus');
     if (elementToFocus.className !== moreOptionsClass.slice(1)) {
-      this.$.moreOptionsMenu.close();
-    } else if (!this.$.moreOptionsMenu.open) {
-      this.openMenu_(this.$.moreOptionsMenu, this.$.more);
+      this.$.moreOptionsMenu.getIfExists()?.close();
     }
 
     // When the user tabs away from the toolbar and then tabs back, we want to
@@ -911,11 +995,16 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       el.tabIndex = -1;
     });
     elementToFocus.tabIndex = 0;
+    this.currentFocusId_ = elementToFocus.id;
 
     // Wait for the next animation frame for the overflow menu to show or hide.
     requestAnimationFrame(() => {
       elementToFocus.focus();
     });
+  }
+
+  private getRateTabIndex_(isReadAloudPlayable: boolean): number {
+    return (!isReadAloudPlayable || this.currentFocusId_ === 'rate') ? 0 : -1;
   }
 
   private onFontSelectKeyDown_(e: KeyboardEvent) {
@@ -925,6 +1014,14 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
     if (['ArrowRight', 'ArrowLeft'].includes(e.key)) {
       e.preventDefault();
     }
+  }
+
+  // When Read Aloud is enabled, we want the aria label of the toolbar
+  // convey information about Read Aloud.
+  private getToolbarAriaLabel_(): string {
+    return this.isReadAloudEnabled_ ?
+        this.i18n('readingModeReadAloudToolbarLabel') :
+        this.i18n('readingModeToolbarLabel');
   }
 }
 

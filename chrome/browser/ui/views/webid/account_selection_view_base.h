@@ -27,8 +27,6 @@
 
 using TokenError = content::IdentityCredentialTokenError;
 
-class AccountImageView;
-
 namespace content {
 struct IdentityRequestAccount;
 }  // namespace content
@@ -39,18 +37,20 @@ inline constexpr int kButtonRadius = 16;
 inline constexpr int kBubbleWidth = 375;
 // The desired size of the avatars of user accounts.
 inline constexpr int kDesiredAvatarSize = 30;
-// The desired size of the avatar of user accounts when the button has three
-// lines of text.
-inline constexpr int kLargerAvatarSize = 40;
 // The desired size of the IDP icon used as badge for the user account avatar
 // when there are multiple IDPs.
 inline constexpr int kLargeAvatarBadgeSize = 16;
 // The desired size of the icon of the identity provider.
 inline constexpr int kDesiredIdpIconSize = 20;
-// The desired size of the icon for the "Use another account" button.
-inline constexpr int kDesiredUseOtherAccountIconSize = 20;
-// The desired size of the icon for the "Choose an account" button.
-inline constexpr int kDesiredChooseAnAccountIconSize = 20;
+// The desired size of the icon for a "login to IDP" secondary view.
+inline constexpr int kIdpLoginIconSize = 20;
+// The desired size of the icon for the "Choose an account" button or the "sign
+// in to IDP" button in the multi IDP UI.
+inline constexpr int kMultiIdpIconSize = 20;
+// The left margin of a multi IDP icon button.
+inline constexpr int kMultiIdpIconLeftMargin = 8;
+// The right margin of a multi IDP icon button.
+inline constexpr int kMultiIdpIconRightMargin = 10;
 // The size of the padding used at the top and bottom of the bubble.
 inline constexpr int kTopBottomPadding = 4;
 // The size of the horizontal padding between the bubble content and the edge of
@@ -58,6 +58,8 @@ inline constexpr int kTopBottomPadding = 4;
 inline constexpr int kLeftRightPadding = 12;
 // The size of the vertical padding for most elements in the bubble.
 inline constexpr int kVerticalSpacing = 8;
+// Vertical spacing for buttons in multi IDP.
+inline constexpr int kMultiIdpVerticalSpacing = 4;
 // The height of the progress bar shown when showing "Verifying...".
 inline constexpr int kProgressBarHeight = 2;
 // The size of the space between the right boundary of the WebContents and the
@@ -72,6 +74,10 @@ inline constexpr int kModalIdpIconSize = 32;
 inline constexpr int kModalAvatarSize = 36;
 // The size of the horizontal padding for most elements in the modal.
 inline constexpr int kModalHorizontalSpacing = 8;
+// Size of the IDP icon offset when badging the IDP icon in the account button.
+inline constexpr int kIdpBadgeOffset = 8;
+// The size of the arrow icon.
+inline constexpr int kArrowIconSize = 8;
 
 inline constexpr char kImageFetcherUmaClient[] = "FedCMAccountChooser";
 
@@ -146,7 +152,8 @@ class BrandIconImageView : public views::ImageView {
   BrandIconImageView(
       base::OnceCallback<void(const GURL&, const gfx::ImageSkia&)> add_image,
       int image_size,
-      bool should_circle_crop = true);
+      bool should_circle_crop,
+      std::optional<SkColor> background_color = std::nullopt);
   BrandIconImageView(const BrandIconImageView&) = delete;
   BrandIconImageView& operator=(const BrandIconImageView&) = delete;
   ~BrandIconImageView() override;
@@ -154,6 +161,8 @@ class BrandIconImageView : public views::ImageView {
   // Fetch image and set it on BrandIconImageView.
   void FetchImage(const GURL& icon_url,
                   image_fetcher::ImageFetcher& image_fetcher);
+
+  void CropAndSetImage(const gfx::ImageSkia& original_image);
 
  private:
   void OnImageFetched(const GURL& image_url,
@@ -163,6 +172,10 @@ class BrandIconImageView : public views::ImageView {
   base::OnceCallback<void(const GURL&, const gfx::ImageSkia&)> add_image_;
   int image_size_;
   bool should_circle_crop_;
+  // The color of a background circle used to encapsulate the brand icon. Set
+  // when this object is used as a badge for an account icon. When set, this
+  // should be the background color of the dialog.
+  std::optional<SkColor> background_color_;
 
   base::WeakPtrFactory<BrandIconImageView> weak_ptr_factory_{this};
 };
@@ -300,18 +313,6 @@ class AccountSelectionViewBase {
   static net::NetworkTrafficAnnotationTag GetTrafficAnnotation();
 
  protected:
-  int SelectSingleIdpTitleResourceId(blink::mojom::RpContext rp_context);
-  std::u16string GetTitle(
-      const std::u16string& top_frame_for_display,
-      const std::optional<std::u16string>& iframe_for_display,
-      const std::optional<std::u16string>& idp_title,
-      blink::mojom::RpContext rp_context);
-  std::u16string GetSubtitle(const std::u16string& top_frame_for_display);
-  std::u16string GetAccessibleTitle(
-      const std::u16string& top_frame_for_display,
-      const std::optional<std::u16string>& iframe_for_display,
-      const std::optional<std::u16string>& idp_title,
-      blink::mojom::RpContext rp_context);
   void SetLabelProperties(views::Label* label);
 
   // Returns a View containing information about an account: the picture for
@@ -334,20 +335,7 @@ class AccountSelectionViewBase {
   // Sets the brand views::ImageView visibility and image. Initiates the
   // download of the brand icon if necessary.
   void ConfigureBrandImageView(BrandIconImageView* image_view,
-                               const GURL& brand_icon_url,
-                               int image_size = kDesiredIdpIconSize,
-                               bool should_circle_crop = true);
-
-  // Sets the badge of the AccountImageView, if available, or initiates the
-  // fetch otherwise.
-  void ConfigureBadgeIdp(AccountImageView& account_image_view,
-                         const GURL& brand_icon_url);
-
-  // Sends an accessibility event to make an announcement of the passed in
-  // `announcement` if available, otherwise the text in the currently focused
-  // view is announced.
-  void SendAccessibilityEvent(views::Widget* widget,
-                              std::u16string announcement = std::u16string());
+                               const GURL& brand_icon_url);
 
   // The ImageFetcher used to fetch the account pictures for FedCM.
   std::unique_ptr<image_fetcher::ImageFetcher> image_fetcher_;

@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "os", "reclient", "siso")
+load("//lib/builders.star", "os", "reclient")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -21,13 +21,9 @@ try_.defaults.set(
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     orchestrator_cores = 4,
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
-    siso_project = siso.project.DEFAULT_UNTRUSTED,
+    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
 )
 
 consoles.list_view(
@@ -59,7 +55,7 @@ try_.builder(
             "release_try_builder",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -74,7 +70,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -91,7 +87,7 @@ try_.builder(
         ],
     ),
     contact_team_email = "clank-engprod@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -119,7 +115,7 @@ try_.builder(
             "release_try_builder",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -135,7 +131,39 @@ try_.builder(
         ],
     ),
     contact_team_email = "clank-engprod@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-15-x64-rel",
+    description_html = "Run chromium tests on Android 15 emulators.",
+    mirrors = [
+        "ci/android-15-x64-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-15-x64-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-15-x64-fyi-rel",
+    description_html = "Run chromium tests on Android 15 emulators.",
+    mirrors = [
+        "ci/android-15-x64-fyi-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-15-x64-fyi-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "clank-engprod@google.com",
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -175,7 +203,7 @@ try_.orchestrator_builder(
     },
     main_list_view = "try",
     tryjob = try_.job(),
-    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
     use_clang_coverage = True,
@@ -201,10 +229,10 @@ try_.builder(
         ],
     ),
     contact_team_email = "chrome-mte@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
-# TODO(crbug.com/1367523): Reenable this builder once the reboot issue is resolved.
+# TODO(crbug.com/40240078): Reenable this builder once the reboot issue is resolved.
 # try_.builder(
 #     name = "android-asan",
 #     mirrors = ["ci/android-asan"],
@@ -215,7 +243,7 @@ try_.builder(
 #             "minimal_symbols",
 #         ],
 #     ),
-#     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+#     siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 # )
 
 try_.builder(
@@ -235,7 +263,7 @@ try_.builder(
             "release_try_builder",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -313,7 +341,7 @@ try_.builder(
     ),
     contact_team_email = "cronet-team@google.com",
     main_list_view = "try",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     tryjob = try_.job(
         location_filters = [
             "components/cronet/.+",
@@ -329,17 +357,17 @@ try_.builder(
     mirrors = ["ci/android-cronet-arm64-dbg"],
     gn_args = "ci/android-cronet-arm64-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-arm64-rel",
     mirrors = ["ci/android-cronet-arm64-rel"],
-    # TODO(crbug/597596): Switch this back to debug try builder when cronet's
+    # TODO(crbug.com/40462241): Switch this back to debug try builder when cronet's
     # shared library loading is fixed.
     gn_args = "ci/android-cronet-arm64-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -347,7 +375,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-asan-arm-rel"],
     gn_args = "ci/android-cronet-asan-arm-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -355,7 +383,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-mainline-clang-arm64-dbg"],
     gn_args = "ci/android-cronet-mainline-clang-arm64-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -363,7 +391,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-mainline-clang-arm64-rel"],
     gn_args = "ci/android-cronet-mainline-clang-arm64-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -371,7 +399,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-mainline-clang-riscv64-dbg"],
     gn_args = "ci/android-cronet-mainline-clang-riscv64-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -379,7 +407,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-mainline-clang-riscv64-rel"],
     gn_args = "ci/android-cronet-mainline-clang-riscv64-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -388,7 +416,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-mainline-clang-x86-dbg"],
     gn_args = "ci/android-cronet-mainline-clang-x86-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -396,7 +424,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-mainline-clang-x86-rel"],
     gn_args = "ci/android-cronet-mainline-clang-x86-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -405,7 +433,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-riscv64-dbg"],
     gn_args = "ci/android-cronet-riscv64-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -414,7 +442,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-riscv64-rel"],
     gn_args = "ci/android-cronet-riscv64-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -422,7 +450,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-x64-rel"],
     gn_args = "ci/android-cronet-x64-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -431,7 +459,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-x64-dbg"],
     gn_args = "ci/android-cronet-x64-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -442,7 +470,7 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x64-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -453,7 +481,7 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x64-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -463,10 +491,18 @@ try_.builder(
         "ci/android-cronet-x64-dbg",
         "ci/android-cronet-x64-dbg-14-tests",
     ],
-    gn_args = "ci/android-cronet-x64-dbg",
+    # Replicates "ci/android-cronet-x64-dbg", with code coverage related
+    # arguments appended.
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-cronet-x64-dbg",
+            "use_clang_coverage",
+            "partial_code_coverage_instrumentation",
+        ],
+    ),
     contact_team_email = "cronet-team@google.com",
     main_list_view = "try",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     tryjob = try_.job(
         location_filters = [
             "components/cronet/.+",
@@ -475,6 +511,7 @@ try_.builder(
             "build/config/android/.+",
         ],
     ),
+    use_clang_coverage = True,
 )
 
 try_.builder(
@@ -482,7 +519,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-x86-dbg"],
     gn_args = "ci/android-cronet-x86-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -490,7 +527,7 @@ try_.builder(
     mirrors = ["ci/android-cronet-x86-rel"],
     gn_args = "ci/android-cronet-x86-rel",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -504,7 +541,7 @@ try_.builder(
         configs = ["ci/android-cronet-x86-dbg"],
     ),
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -515,7 +552,7 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x86-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -526,7 +563,7 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x86-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -537,7 +574,7 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x86-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -548,11 +585,44 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x86-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-x86-dbg-lollipop-tests",
+    mirrors = [
+        "ci/android-cronet-x86-dbg",
+        "ci/android-cronet-x86-dbg-lollipop-tests",
+    ],
+    # Replicates "ci/android-cronet-x86-dbg", with code coverage related
+    # arguments appended.
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-cronet-x86-dbg",
+            "use_clang_coverage",
+            "partial_code_coverage_instrumentation",
+        ],
+    ),
+    contact_team_email = "cronet-team@google.com",
+    main_list_view = "try",
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    tryjob = try_.job(
+        location_filters = [
+            "components/cronet/.+",
+            "components/grpc_support/.+",
+            "build/android/.+",
+            "build/config/android/.+",
+        ],
+    ),
+    use_clang_coverage = True,
+)
+
+try_.builder(
+    # TODO(b/335211022): Remove this builder after end of Q2 2024
+    name = "android-cronet-x86-dbg-lollipop-fyi-tests",
+    description_html = (
+        "Experimental mirror of android-cronet-x86-dbg-lollipop-tests with wider location filters, see b/335211022"
+    ),
     mirrors = [
         "ci/android-cronet-x86-dbg",
         "ci/android-cronet-x86-dbg-lollipop-tests",
@@ -564,11 +634,10 @@ try_.builder(
     main_list_view = "try",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     tryjob = try_.job(
+        experiment_percentage = 100,
         location_filters = [
-            "components/cronet/.+",
-            "components/grpc_support/.+",
-            "build/android/.+",
-            "build/config/android/.+",
+            "base/.+",
+            "net/.+",
         ],
     ),
 )
@@ -581,7 +650,7 @@ try_.builder(
     ],
     gn_args = "ci/android-cronet-x86-dbg",
     contact_team_email = "cronet-team@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -638,7 +707,7 @@ try_.builder(
             "arm64",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -781,7 +850,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -796,7 +865,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -814,14 +883,14 @@ try_.builder(
         ],
     ),
     contact_team_email = "woa-engprod@google.com",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-webview-pie-x86-wpt-fyi-rel",
     mirrors = ["ci/android-webview-pie-x86-wpt-fyi-rel"],
     gn_args = "ci/android-webview-pie-x86-wpt-fyi-rel",
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -839,7 +908,7 @@ try_.builder(
             "webview_monochrome",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
@@ -857,7 +926,7 @@ try_.builder(
             "webview_monochrome",
         ],
     ),
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.orchestrator_builder(
@@ -888,7 +957,7 @@ try_.orchestrator_builder(
     },
     main_list_view = "try",
     tryjob = try_.job(),
-    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
     use_clang_coverage = True,
@@ -928,7 +997,7 @@ try_.orchestrator_builder(
     },
     main_list_view = "try",
     tryjob = try_.job(),
-    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
     use_clang_coverage = True,
@@ -979,6 +1048,7 @@ try_.builder(
             "android_fastbuild",
         ],
     ),
+    execution_timeout = 8 * time.hour,
 )
 
 try_.builder(
@@ -1062,7 +1132,7 @@ try_.builder(
         "chromium.enable_cleandead": 100,
     },
     main_list_view = "try",
-    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
+    siso_remote_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(),
 )
 

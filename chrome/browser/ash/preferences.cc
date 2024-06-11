@@ -39,7 +39,6 @@
 #include "chrome/browser/ash/input_method/editor_consent_store.h"
 #include "chrome/browser/ash/input_method/input_method_persistence.h"
 #include "chrome/browser/ash/input_method/input_method_syncer.h"
-#include "chrome/browser/ash/login/hid_detection_revamp_field_trial.h"
 #include "chrome/browser/ash/login/login_pref_names.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
@@ -61,6 +60,7 @@
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/standalone_browser/lacros_availability.h"
+#include "chromeos/ash/components/standalone_browser/lacros_selection.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/ash/components/timezone/timezone_resolver.h"
 #include "chromeos/components/disks/disks_prefs.h"
@@ -160,7 +160,7 @@ void Preferences::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(
       ::prefs::kLacrosSelection,
       static_cast<int>(
-          crosapi::browser_util::LacrosSelectionPolicy::kUserChoice));
+          ash::standalone_browser::LacrosSelectionPolicy::kUserChoice));
   registry->RegisterStringPref(::prefs::kLacrosDataBackwardMigrationMode, "");
   registry->RegisterBooleanPref(prefs::kDeviceSystemWideTracingEnabled, true);
   registry->RegisterBooleanPref(
@@ -175,7 +175,6 @@ void Preferences::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(::prefs::kLocalUserFilesAllowed, true);
 
   RegisterLocalStatePrefs(registry);
-  ash::hid_detection_revamp_field_trial::RegisterLocalStatePrefs(registry);
 }
 
 // static
@@ -364,6 +363,9 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterDictionaryPref(
       ::prefs::kNoteTakingAppsLockScreenToastShown);
 
+  registry->RegisterBooleanPref(::prefs::kLockScreenAutoStartOnlineReauth,
+                                false);
+
   registry->RegisterBooleanPref(::prefs::kShowMobileDataNotification, true);
 
   // Initially all existing users would see "What's new" for current version
@@ -440,6 +442,11 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterInt64Pref(::prefs::kHatsAudioSurveyCycleEndTs, 0);
 
   registry->RegisterBooleanPref(::prefs::kHatsAudioDeviceIsSelected, false);
+
+  registry->RegisterInt64Pref(::prefs::kHatsAudioOutputProcSurveyCycleEndTs, 0);
+
+  registry->RegisterBooleanPref(::prefs::kHatsAudioOutputProcDeviceIsSelected,
+                                false);
 
   registry->RegisterInt64Pref(::prefs::kHatsBluetoothAudioSurveyCycleEndTs, 0);
 
@@ -520,6 +527,10 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterBooleanPref(
       ::prefs::kEolApproachingIncentiveNotificationDismissed, false);
   registry->RegisterBooleanPref(::prefs::kEolPassedFinalIncentiveDismissed,
+                                false);
+
+  // Extended Updates prefs.
+  registry->RegisterBooleanPref(prefs::kExtendedUpdatesNotificationDismissed,
                                 false);
 
   registry->RegisterBooleanPref(::prefs::kCastReceiverEnabled, false);

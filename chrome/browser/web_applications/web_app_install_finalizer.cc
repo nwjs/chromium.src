@@ -93,6 +93,7 @@ bool ShouldInstallOverwriteUserDisplayMode(
     case InstallSource::PROFILE_MENU:
     case InstallSource::ALMANAC_INSTALL_APP_URI:
     case InstallSource::WEBAPK_RESTORE:
+    case InstallSource::OOBE_APP_RECOMMENDATIONS:
       return true;
     case InstallSource::DEVTOOLS:
     case InstallSource::MANAGEMENT_API:
@@ -122,8 +123,7 @@ bool ShouldInstallOverwriteUserDisplayMode(
 #if BUILDFLAG(IS_CHROMEOS)
 // When web apps are added to sync on ChromeOS the value of
 // user_display_mode_default should be set in certain cases to avoid poor sync
-// install states on devices with kSeparateUserDisplayModeForCrOS disabled
-// (including all pre-M122 devices) and non-CrOS devices with particular web
+// install states on pre-M122 devices and non-CrOS devices with particular web
 // apps.
 // See switch for specific cases being mitigated against.
 // See go/udm-desync#bookmark=id.cg753kjyrruo for design doc.
@@ -131,10 +131,6 @@ bool ShouldInstallOverwriteUserDisplayMode(
 void ApplyUserDisplayModeSyncMitigations(
     const WebAppInstallFinalizer::FinalizeOptions& options,
     WebApp& web_app) {
-  if (!base::FeatureList::IsEnabled(kSeparateUserDisplayModeForCrOS)) {
-    return;
-  }
-
   // Guaranteed by EnsureAppsHaveUserDisplayModeForCurrentPlatform().
   CHECK(web_app.sync_proto().has_user_display_mode_cros(),
         base::NotFatalUntil::M125);
@@ -164,13 +160,12 @@ void ApplyUserDisplayModeSyncMitigations(
         return;
       }
 
-      // CrOS devices with kSeparateUserDisplayModeForCrOS disabled (including
-      // pre-M122 devices) use the user_display_mode_default sync field instead
-      // of user_display_mode_cros. If user_display_mode_default is ever unset
-      // they will fallback to using kStandalone even if user_display_mode_cros
-      // is set to kBrowser. This mitigation ensures user_display_mode_default
-      // is set to kBrowser for these devices.
-      // Example user journey:
+      // Pre-M122 CrOS devices use the user_display_mode_default sync field
+      // instead of user_display_mode_cros. If user_display_mode_default is ever
+      // unset they will fallback to using kStandalone even if
+      // user_display_mode_cros is set to kBrowser. This mitigation ensures
+      // user_display_mode_default is set to kBrowser for these devices. Example
+      // user journey:
       // - Install web app as browser shortcut on post-M122 CrOS device.
       // - Sync installation to pre-M122 CrOS device.
       // - Check that it is synced as a browser shortcut.
@@ -240,7 +235,7 @@ void WebAppInstallFinalizer::FinalizeInstall(
     const FinalizeOptions& options,
     InstallFinalizedCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  // TODO(crbug.com/1084939): Implement a before-start queue in
+  // TODO(crbug.com/40693380): Implement a before-start queue in
   // WebAppInstallManager and replace this runtime error in
   // WebAppInstallFinalizer with DCHECK(started_).
   if (!started_) {
@@ -499,8 +494,9 @@ void WebAppInstallFinalizer::Start() {
 
 void WebAppInstallFinalizer::Shutdown() {
   started_ = false;
-  // TODO(crbug/1279315): Turn WebAppInstallFinalizer into a command so it can
-  // properly call callbacks on shutdown instead of dropping them on shutdown.
+  // TODO(crbug.com/40810770): Turn WebAppInstallFinalizer into a command so it
+  // can properly call callbacks on shutdown instead of dropping them on
+  // shutdown.
   weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
@@ -765,7 +761,7 @@ FileHandlerUpdateAction WebAppInstallFinalizer::GetFileHandlerUpdateAction(
     return FileHandlerUpdateAction::kNoUpdate;
   }
 
-  // TODO(https://crbug.com/1197013): Consider trying to re-use the comparison
+  // TODO(crbug.com/40176713): Consider trying to re-use the comparison
   // results from the ManifestUpdateDataFetchCommand.
   const apps::FileHandlers* old_handlers =
       provider_->registrar_unsafe().GetAppFileHandlers(app_id);

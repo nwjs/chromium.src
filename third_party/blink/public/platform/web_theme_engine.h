@@ -39,7 +39,6 @@
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/css/forced_colors.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-shared.h"
-#include "third_party/blink/public/platform/web_scrollbar_overlay_color_theme.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/color/color_provider_utils.h"
 #include "ui/gfx/color_palette.h"
@@ -192,8 +191,6 @@ class WebThemeEngine {
 
   // Extra parameters for scrollbar thumb.
   struct ScrollbarThumbExtraParams {
-    WebScrollbarOverlayColorTheme scrollbar_theme =
-        WebScrollbarOverlayColorTheme::kWebScrollbarOverlayColorThemeDark;
     std::optional<SkColor> thumb_color;
     bool is_thumb_minimal_mode = false;
     bool is_web_test = false;
@@ -222,7 +219,6 @@ class WebThemeEngine {
   struct ScrollbarExtraParams {
     bool is_hovering = false;
     bool is_overlay = false;
-    mojom::ColorScheme scrollbar_theme = mojom::ColorScheme::kLight;
     ScrollbarOrientation orientation = ScrollbarOrientation::kVerticalOnRight;
     float scale_from_dip = 0;
     std::optional<SkColor> thumb_color;

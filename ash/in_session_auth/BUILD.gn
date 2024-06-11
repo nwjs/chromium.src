@@ -35,9 +35,11 @@ source_set("in_session_auth") {
     "//chromeos/ash/components/auth_panel/public",
     "//chromeos/ash/components/cryptohome/",
     "//chromeos/ash/components/dbus/userdataauth",
+    "//chromeos/ash/components/dbus/userdataauth:userdataauth_proto",
     "//chromeos/ash/components/login/auth",
     "//chromeos/ash/components/osauth/public",
     "//chromeos/components/webauthn",
+    "//ui/strings:ui_strings_grit",
     "//ui/views",
   ]
 }

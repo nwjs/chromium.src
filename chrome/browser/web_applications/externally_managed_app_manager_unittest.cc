@@ -292,11 +292,6 @@ class ExternallyAppManagerTest : public WebAppTest {
     web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
   }
 
-  void TearDown() override {
-    provider().Shutdown();
-    WebAppTest::TearDown();
-  }
-
   std::vector<ExternalInstallOptions> CreateExternalInstallOptionsFromTemplate(
       std::vector<GURL> install_urls,
       ExternalInstallSource source,
@@ -654,8 +649,8 @@ TEST_F(ExternallyAppManagerTest, PolicyAppOverridesUserInstalledApp) {
     install_page_state.manifest_before_default_processing->short_name =
         u"Test user app";
 
-    auto install_info = std::make_unique<WebAppInstallInfo>();
-    install_info->start_url = kStartUrl;
+    auto install_info =
+        WebAppInstallInfo::CreateWithStartUrlForTesting(kStartUrl);
     install_info->title = u"Test user app";
     std::optional<webapps::AppId> user_app_id =
         test::InstallWebApp(profile(), std::move(install_info));
@@ -914,7 +909,7 @@ TEST_F(ExternallyAppManagerTest, TwoAppsSameInstallUrlSameSourceInstallNow) {
     ASSERT_TRUE(install_future.Wait());
   }
 
-  // TODO(https://crbug.com/1434692): This keeps the original app, but perhaps
+  // TODO(crbug.com/40264854): This keeps the original app, but perhaps
   // should install app_id2.
   app_ids = provider().registrar_unsafe().GetAppIds();
   EXPECT_THAT(app_ids, ElementsAre(app_id1));
@@ -961,7 +956,7 @@ TEST_F(ExternallyAppManagerTest, TwoAppsSameInstallUrlTwoSourcesInstallNow) {
     ASSERT_TRUE(install_future.Wait());
   }
 
-  // TODO(https://crbug.com/1434692): Currently, this keeps the original app,
+  // TODO(crbug.com/40264854): Currently, this keeps the original app,
   // but we should eventually resolve all apps to app_id2.
   app_ids = provider().registrar_unsafe().GetAppIds();
   EXPECT_THAT(app_ids, ElementsAre(app_id1));
@@ -1007,7 +1002,7 @@ TEST_F(ExternallyAppManagerTest, TwoAppsSameInstallUrlTwoSourcesSynchronize) {
     ASSERT_TRUE(result.Wait());
   }
 
-  // TODO(https://crbug.com/1434692): Currently this resolves to app_id1, but
+  // TODO(crbug.com/40264854): Currently this resolves to app_id1, but
   // should probably eventually resolve to app_id2.
   app_ids = provider().registrar_unsafe().GetAppIds();
   EXPECT_THAT(app_ids, UnorderedElementsAre(app_id1));

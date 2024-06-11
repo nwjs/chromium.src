@@ -83,10 +83,16 @@ class ASH_EXPORT PickerController
                    std::optional<PickerCategory> category,
                    SearchResultsCallback callback) override;
   void InsertResultOnNextFocus(const PickerSearchResult& result) override;
-  void ShowEmojiPicker(ui::EmojiPickerCategory category) override;
-  void ShowEditor() override;
+  void OpenResult(const PickerSearchResult& result) override;
+  void ShowEmojiPicker(ui::EmojiPickerCategory category,
+                       std::u16string_view query) override;
+  void ShowEditor(std::optional<std::string> preset_query_id,
+                  std::optional<std::string> freeform_text) override;
   void SetCapsLockEnabled(bool enabled) override;
+  void GetSuggestedEditorResults(
+      SuggestedEditorResultsCallback callback) override;
   PickerAssetFetcher* GetAssetFetcher() override;
+  PickerSessionMetrics& GetSessionMetrics() override;
 
   // views:WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
@@ -106,6 +112,10 @@ class ASH_EXPORT PickerController
   std::unique_ptr<PickerPasteRequest> paste_request_;
   std::unique_ptr<PickerSearchController> search_controller_;
   std::unique_ptr<PickerClipboardProvider> clipboard_provider_;
+
+  base::OnceCallback<void(std::optional<std::string> preset_query_id,
+                          std::optional<std::string> freeform_text)>
+      show_editor_callback_;
 
   // Periodically records usage metrics based on the Standard Feature Usage
   // Logging (SFUL) framework.

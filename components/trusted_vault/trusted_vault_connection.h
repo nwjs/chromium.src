@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/functional/callback.h"
+#include "base/time/time.h"
 #include "base/types/strong_alias.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
@@ -70,6 +71,7 @@ enum class TrustedVaultDownloadKeysStatus {
 // should not be renumbered and numeric values should never be reused, only add
 // at the end and. Also remember to update in tools/metrics/histograms/enums.xml
 // TrustedVaultRecoverabilityStatus enum.
+// LINT.IfChange(TrustedVaultRecoverabilityStatus)
 enum class TrustedVaultRecoverabilityStatus {
   // Recoverability status not retrieved due to network, http or protocol error.
   kNotDegraded = 0,
@@ -77,12 +79,14 @@ enum class TrustedVaultRecoverabilityStatus {
   kError = 2,
   kMaxValue = kError,
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:TrustedVaultRecoverabilityStatus)
 
 // Contains information about a Google Password Manager PIN that is stored in
 // a trusted vault.
 struct GpmPinMetadata {
   GpmPinMetadata(std::optional<std::string> public_key,
-                 std::string wrapped_pin);
+                 std::string wrapped_pin,
+                 base::Time expiry);
   GpmPinMetadata(const GpmPinMetadata&);
   GpmPinMetadata& operator=(const GpmPinMetadata&);
   GpmPinMetadata(GpmPinMetadata&&);
@@ -99,6 +103,9 @@ struct GpmPinMetadata {
   std::optional<std::string> public_key;
   // The encrypted PIN value, for validation.
   std::string wrapped_pin;
+  // The time when the underlying recovery-key-store entry will expire. Ignored
+  // when uploading.
+  base::Time expiry;
 };
 
 // The result of calling
@@ -132,9 +139,15 @@ struct DownloadAuthenticationFactorsRegistrationStateResult {
   // version.
   std::optional<int> key_version;
 
+  // The expiry time of any LSKF virtual devices.
+  std::vector<base::Time> lskf_expiries;
+
   // If a Google Password Manager PIN is a member of the domain, and is usable
   // for retrieval, then this will contain its metadata.
   std::optional<GpmPinMetadata> gpm_pin_metadata;
+
+  // The list of iCloud recovery key domain members as secure box public keys.
+  std::vector<std::unique_ptr<SecureBoxPublicKey>> icloud_keys;
 };
 
 // Authentication factor types:
@@ -142,6 +155,8 @@ using PhysicalDevice =
     base::StrongAlias<class PhysicalDeviceTag, absl::monostate>;
 using LockScreenKnowledgeFactor =
     base::StrongAlias<class VirtualDeviceTag, absl::monostate>;
+using ICloudKeychain =
+    base::StrongAlias<class ICloudKeychainTag, absl::monostate>;
 // UnspecifiedAuthenticationFactorType carries a type hint for the backend.
 using UnspecifiedAuthenticationFactorType =
     base::StrongAlias<class UnspecifiedAuthenticationFactorTypeTag, int>;
@@ -150,7 +165,8 @@ using AuthenticationFactorType =
     absl::variant<PhysicalDevice,
                   LockScreenKnowledgeFactor,
                   UnspecifiedAuthenticationFactorType,
-                  GpmPinMetadata>;
+                  GpmPinMetadata,
+                  ICloudKeychain>;
 
 struct TrustedVaultKeyAndVersion {
   TrustedVaultKeyAndVersion(const std::vector<uint8_t>& key, int version);

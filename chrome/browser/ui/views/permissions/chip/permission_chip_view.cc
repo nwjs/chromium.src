@@ -29,7 +29,10 @@
 #include "ui/views/painter.h"
 #include "ui/views/view_class_properties.h"
 
-DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PermissionChipView, kChipElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PermissionChipView,
+                                      kRequestChipElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PermissionChipView,
+                                      kIndicatorChipElementId);
 
 PermissionChipView::PermissionChipView(PressedCallback callback)
     : MdTextButton(std::move(callback),
@@ -37,7 +40,6 @@ PermissionChipView::PermissionChipView(PressedCallback callback)
                    views::style::CONTEXT_BUTTON_MD,
                    /*use_text_color_for_icon=*/true,
                    std::make_unique<MultiImageContainer>()) {
-  SetProperty(views::kElementIdentifierKey, kChipElementId);
   views::InstallPillHighlightPathGenerator(this);
   SetHorizontalAlignment(gfx::ALIGN_LEFT);
   SetElideBehavior(gfx::ElideBehavior::FADE_TAIL);
@@ -45,9 +47,7 @@ PermissionChipView::PermissionChipView(PressedCallback callback)
   // Equalizing padding on the left, right and between icon and label.
   SetImageLabelSpacing(GetLayoutConstant(LOCATION_BAR_CHIP_PADDING));
   SetCustomPadding(GetPadding());
-  if (features::IsChromeRefresh2023()) {
-    label()->SetTextStyle(views::style::STYLE_BODY_4_EMPHASIS);
-  }
+  label()->SetTextStyle(views::style::STYLE_BODY_4_EMPHASIS);
   SetCornerRadius(GetCornerRadius());
   animation_ = std::make_unique<gfx::SlideAnimation>(this);
 
@@ -98,9 +98,9 @@ void PermissionChipView::ResetAnimation(double value) {
   OnAnimationValueMaybeChanged();
 }
 
-// TODO(crbug.com/40232718): Use the CalculatePreferredSize(SizeBounds) method
-// to avoid double calculations.
-gfx::Size PermissionChipView::CalculatePreferredSize() const {
+// TODO(crbug.com/40232718): Respect `available_size`.
+gfx::Size PermissionChipView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   const int icon_width = GetIconViewWidth();
   const int label_width =
       label()
@@ -164,6 +164,13 @@ void PermissionChipView::SetUserDecision(
 void PermissionChipView::SetTheme(PermissionChipTheme theme) {
   theme_ = theme;
   UpdateIconAndColors();
+
+  if (theme == PermissionChipTheme::kNormalVisibility ||
+      theme == PermissionChipTheme::kLowVisibility) {
+    SetProperty(views::kElementIdentifierKey, kRequestChipElementId);
+  } else {
+    SetProperty(views::kElementIdentifierKey, kIndicatorChipElementId);
+  }
 }
 
 void PermissionChipView::SetBlockedIconShowing(bool should_show_blocked_icon) {
@@ -218,51 +225,44 @@ SkColor PermissionChipView::GetForegroundColor() const {
         kColorOmniboxChipOnSystemBlockedActivityIndicatorForeground);
   }
 
-  if (features::IsChromeRefresh2023()) {
-    // 1. Default to the system primary color.
-    SkColor text_and_icon_color = GetColorProvider()->GetColor(
-        kColorOmniboxChipForegroundNormalVisibility);
+  // 1. Default to the system primary color.
+  SkColor text_and_icon_color =
+      GetColorProvider()->GetColor(kColorOmniboxChipForegroundNormalVisibility);
 
-    // 2. Then update the color if the quiet chip is showing.
-    if (GetPermissionPromptStyle() == PermissionPromptStyle::kQuietChip) {
-      text_and_icon_color = GetColorProvider()->GetColor(
-          kColorOmniboxChipForegroundLowVisibility);
-    }
-
-    // 3. Then update the color based on the user decision.
-    // TODO(dljames): There is potentially a bug here if there exists a case
-    // where a quiet chip can be shown on a GRANTED_ONCE permission action.
-    // In that case the color should stay kColorOmniboxChipTextDefaultCR23.
-    switch (GetUserDecision()) {
-      case permissions::PermissionAction::GRANTED:
-      case permissions::PermissionAction::GRANTED_ONCE:
-        text_and_icon_color = GetColorProvider()->GetColor(
-            kColorOmniboxChipForegroundNormalVisibility);
-        break;
-      case permissions::PermissionAction::DENIED:
-      case permissions::PermissionAction::DISMISSED:
-      case permissions::PermissionAction::IGNORED:
-      case permissions::PermissionAction::REVOKED:
-        text_and_icon_color = GetColorProvider()->GetColor(
-            kColorOmniboxChipForegroundLowVisibility);
-        break;
-      case permissions::PermissionAction::NUM:
-        break;
-    }
-
-    // 4. Then update the color based on if the icon is blocked or not.
-    if (ShouldShowBlockedIcon()) {
-      text_and_icon_color = GetColorProvider()->GetColor(
-          kColorOmniboxChipForegroundLowVisibility);
-    }
-
-    return text_and_icon_color;
+  // 2. Then update the color if the quiet chip is showing.
+  if (GetPermissionPromptStyle() == PermissionPromptStyle::kQuietChip) {
+    text_and_icon_color =
+        GetColorProvider()->GetColor(kColorOmniboxChipForegroundLowVisibility);
   }
 
-  return GetColorProvider()->GetColor(
-      GetPermissionChipTheme() == PermissionChipTheme::kLowVisibility
-          ? kColorOmniboxChipForegroundLowVisibility
-          : kColorOmniboxChipForegroundNormalVisibility);
+  // 3. Then update the color based on the user decision.
+  // TODO(dljames): There is potentially a bug here if there exists a case
+  // where a quiet chip can be shown on a GRANTED_ONCE permission action.
+  // In that case the color should stay kColorOmniboxChipTextDefaultCR23.
+  switch (GetUserDecision()) {
+    case permissions::PermissionAction::GRANTED:
+    case permissions::PermissionAction::GRANTED_ONCE:
+      text_and_icon_color = GetColorProvider()->GetColor(
+          kColorOmniboxChipForegroundNormalVisibility);
+      break;
+    case permissions::PermissionAction::DENIED:
+    case permissions::PermissionAction::DISMISSED:
+    case permissions::PermissionAction::IGNORED:
+    case permissions::PermissionAction::REVOKED:
+      text_and_icon_color = GetColorProvider()->GetColor(
+          kColorOmniboxChipForegroundLowVisibility);
+      break;
+    case permissions::PermissionAction::NUM:
+      break;
+  }
+
+  // 4. Then update the color based on if the icon is blocked or not.
+  if (ShouldShowBlockedIcon()) {
+    text_and_icon_color =
+        GetColorProvider()->GetColor(kColorOmniboxChipForegroundLowVisibility);
+  }
+
+  return text_and_icon_color;
 }
 
 SkColor PermissionChipView::GetBackgroundColor() const {
@@ -293,10 +293,8 @@ void PermissionChipView::UpdateIconAndColors() {
   }
   SetEnabledTextColors(GetForegroundColor());
   SetImageModel(views::Button::STATE_NORMAL, GetIconImageModel());
-  if (features::IsChromeRefresh2023()) {
-    ConfigureInkDropForRefresh2023(this, kColorOmniboxChipInkDropHover,
-                                   kColorOmniboxChipInkDropRipple);
-  }
+  ConfigureInkDropForRefresh2023(this, kColorOmniboxChipInkDropHover,
+                                 kColorOmniboxChipInkDropRipple);
 }
 
 void PermissionChipView::ForceAnimateExpand() {
@@ -314,18 +312,11 @@ void PermissionChipView::OnAnimationValueMaybeChanged() {
 }
 
 int PermissionChipView::GetIconSize() const {
-  if (features::IsChromeRefresh2023()) {
-    return GetLayoutConstant(LOCATION_BAR_CHIP_ICON_SIZE);
-  }
-
-  return GetLayoutConstant(LOCATION_BAR_ICON_SIZE);
+  return GetLayoutConstant(LOCATION_BAR_CHIP_ICON_SIZE);
 }
 
 int PermissionChipView::GetCornerRadius() const {
-  if (features::IsChromeRefresh2023()) {
-    return GetLayoutConstant(LOCATION_BAR_CHILD_CORNER_RADIUS);
-  }
-  return GetIconSize();
+  return GetLayoutConstant(LOCATION_BAR_CHILD_CORNER_RADIUS);
 }
 
 gfx::RoundedCornersF PermissionChipView::GetCornerRadii() const {
@@ -339,13 +330,7 @@ gfx::RoundedCornersF PermissionChipView::GetCornerRadii() const {
 }
 
 gfx::Insets PermissionChipView::GetPadding() const {
-  if (features::IsChromeRefresh2023()) {
-    return gfx::Insets(GetLayoutConstant(LOCATION_BAR_CHIP_PADDING));
-  } else {
-    return gfx::Insets::VH(
-        GetLayoutConstant(LOCATION_BAR_CHILD_INTERIOR_PADDING),
-        GetLayoutInsets(LOCATION_BAR_ICON_INTERIOR_PADDING).left());
-  }
+  return gfx::Insets(GetLayoutConstant(LOCATION_BAR_CHIP_PADDING));
 }
 
 void PermissionChipView::SetChipIcon(const gfx::VectorIcon& icon) {

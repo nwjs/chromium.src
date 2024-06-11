@@ -416,15 +416,15 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
     std::vector<RecentlyClosedTableViewItemPair> recentlyClosedItems;
     for (auto iter = self.tabRestoreService->entries().begin();
          iter != self.tabRestoreService->entries().end(); ++iter) {
-      const sessions::TabRestoreService::Entry* entry = iter->get();
+      const sessions::tab_restore::Entry* entry = iter->get();
       DCHECK(entry);
       // Only TAB type is handled.
-      // TODO(crbug.com/1056596) : Support WINDOW restoration under
+      // TODO(crbug.com/40676931) : Support WINDOW restoration under
       // multi-window.
-      DCHECK_EQ(sessions::TabRestoreService::TAB, entry->type);
+      DCHECK_EQ(sessions::tab_restore::Type::TAB, entry->type);
 
-      const sessions::TabRestoreService::Tab* tab =
-          static_cast<const sessions::TabRestoreService::Tab*>(entry);
+      const sessions::tab_restore::Tab* tab =
+          static_cast<const sessions::tab_restore::Tab*>(entry);
       const sessions::SerializedNavigationEntry& navigationEntry =
           tab->navigations[tab->current_navigation_index];
 
@@ -1870,12 +1870,12 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 
 // Returns YES if the History Sync Opt-In should be shown when the promo action
 // button is tapped.
-// TODO(crbug.com/1462326): This logic should be moved outside of the
+// TODO(crbug.com/40921836): This logic should be moved outside of the
 // ViewController.
 - (BOOL)shouldShowHistorySyncOnPromoAction {
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForBrowserState(_browserState);
-  // TODO(crbug.com/1466884): Delete the usage of ConsentLevel::kSync after
+  // TODO(crbug.com/40276546): Delete the usage of ConsentLevel::kSync after
   // Phase 2 on iOS is launched. See ConsentLevel::kSync documentation for
   // details.
   if (authenticationService->HasPrimaryIdentity(signin::ConsentLevel::kSync)) {

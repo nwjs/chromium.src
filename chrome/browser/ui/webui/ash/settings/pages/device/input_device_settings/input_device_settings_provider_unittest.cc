@@ -40,7 +40,8 @@ const ::ash::mojom::Keyboard kKeyboard1 =
                            /*meta_key=*/::ash::mojom::MetaKey::kLauncher,
                            /*modifier_keys=*/{},
                            /*top_row_action_keys=*/{},
-                           ::ash::mojom::KeyboardSettings::New());
+                           ::ash::mojom::KeyboardSettings::New(),
+                           ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::Keyboard kKeyboard2 =
     ::ash::mojom::Keyboard(/*name=*/"Logitech K580",
                            /*is_external=*/true,
@@ -49,7 +50,8 @@ const ::ash::mojom::Keyboard kKeyboard2 =
                            /*meta_key=*/::ash::mojom::MetaKey::kExternalMeta,
                            /*modifier_keys=*/{},
                            /*top_row_action_keys=*/{},
-                           ::ash::mojom::KeyboardSettings::New());
+                           ::ash::mojom::KeyboardSettings::New(),
+                           ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::Keyboard kKeyboard3 =
     ::ash::mojom::Keyboard(/*name=*/"HP 910 White Bluetooth Keyboard",
                            /*is_external=*/true,
@@ -58,21 +60,24 @@ const ::ash::mojom::Keyboard kKeyboard3 =
                            /*meta_key=*/::ash::mojom::MetaKey::kExternalMeta,
                            /*modifier_keys=*/{},
                            /*top_row_action_keys=*/{},
-                           ::ash::mojom::KeyboardSettings::New());
+                           ::ash::mojom::KeyboardSettings::New(),
+                           ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::Touchpad kTouchpad1 =
     ::ash::mojom::Touchpad(/*name=*/"test touchpad",
                            /*is_external=*/false,
                            /*id=*/3,
                            /*device_key=*/"fake-device-key3",
                            /*is_haptic=*/true,
-                           ::ash::mojom::TouchpadSettings::New());
+                           ::ash::mojom::TouchpadSettings::New(),
+                           ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::Touchpad kTouchpad2 =
     ::ash::mojom::Touchpad(/*name=*/"Logitech T650",
                            /*is_external=*/true,
                            /*id=*/4,
                            /*device_key=*/"fake-device-key4",
                            /*is_haptic=*/false,
-                           ::ash::mojom::TouchpadSettings::New());
+                           ::ash::mojom::TouchpadSettings::New(),
+                           ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::PointingStick kPointingStick1 =
     ::ash::mojom::PointingStick(/*name=*/"test pointing stick",
                                 /*is_external=*/false,
@@ -93,7 +98,8 @@ const ::ash::mojom::Mouse kMouse1 = ::ash::mojom::Mouse(
     /*customization_restriction=*/
     ::ash::mojom::CustomizationRestriction::kAllowCustomizations,
     /*mouse_button_config=*/::ash::mojom::MouseButtonConfig::kNoConfig,
-    ::ash::mojom::MouseSettings::New());
+    ::ash::mojom::MouseSettings::New(),
+    ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::Mouse kMouse2 = ::ash::mojom::Mouse(
     /*name=*/"MX Anywhere 2S",
     /*is_external=*/true,
@@ -102,7 +108,8 @@ const ::ash::mojom::Mouse kMouse2 = ::ash::mojom::Mouse(
     /*customization_restriction=*/
     ::ash::mojom::CustomizationRestriction::kAllowCustomizations,
     /*mouse_button_config=*/::ash::mojom::MouseButtonConfig::kNoConfig,
-    ::ash::mojom::MouseSettings::New());
+    ::ash::mojom::MouseSettings::New(),
+    ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::GraphicsTablet kGraphicsTablet1 =
     ::ash::mojom::GraphicsTablet(
         /*name=*/"Wacom Intuos S",
@@ -111,7 +118,8 @@ const ::ash::mojom::GraphicsTablet kGraphicsTablet1 =
         /*customization_restriction=*/
         ::ash::mojom::CustomizationRestriction::kAllowCustomizations,
         ::ash::mojom::GraphicsTabletButtonConfig::kNoConfig,
-        ::ash::mojom::GraphicsTabletSettings::New());
+        ::ash::mojom::GraphicsTabletSettings::New(),
+        ::ash::mojom::BatteryInfo::New());
 const ::ash::mojom::GraphicsTablet kGraphicsTablet2 =
     ::ash::mojom::GraphicsTablet(
         /*name=*/"Huion H1060P",
@@ -120,7 +128,8 @@ const ::ash::mojom::GraphicsTablet kGraphicsTablet2 =
         /*customization_restriction=*/
         ::ash::mojom::CustomizationRestriction::kAllowCustomizations,
         ::ash::mojom::GraphicsTabletButtonConfig::kNoConfig,
-        ::ash::mojom::GraphicsTabletSettings::New());
+        ::ash::mojom::GraphicsTabletSettings::New(),
+        ::ash::mojom::BatteryInfo::New());
 
 template <bool sorted = false, typename T>
 void ExpectListsEqual(const std::vector<T>& expected_list,
@@ -321,11 +330,21 @@ class FakeKeyboardBrightnessControlDelegate
       base::OnceCallback<void(std::optional<double>)> callback) override {
     std::move(callback).Run(keyboard_brightness_);
   }
+  void HandleSetKeyboardAmbientLightSensorEnabled(bool enabled) override {
+    keyboard_ambient_light_sensor_enabled_ = enabled;
+  }
+
+  void HandleGetKeyboardAmbientLightSensorEnabled(
+      base::OnceCallback<void(std::optional<bool>)> callback) override {}
 
   double keyboard_brightness() { return keyboard_brightness_; }
+  bool keyboard_ambient_light_sensor_enabled() {
+    return keyboard_ambient_light_sensor_enabled_;
+  }
 
  private:
   double keyboard_brightness_ = 0;
+  bool keyboard_ambient_light_sensor_enabled_ = true;
 };
 
 class FakeInputDeviceSettingsController
@@ -1113,6 +1132,22 @@ TEST_F(InputDeviceSettingsProviderTest, SetKeyboardBrightness) {
             keyboard_brightness_control_delegate_->keyboard_brightness());
 }
 
+TEST_F(InputDeviceSettingsProviderTest, SetKeyboardAmbientLightSensorEnabled) {
+  // Verify initial state is enabled.
+  EXPECT_TRUE(keyboard_brightness_control_delegate_
+                  ->keyboard_ambient_light_sensor_enabled());
+
+  // Disable the ambient light sensor.
+  provider_->SetKeyboardAmbientLightSensorEnabled(false);
+  EXPECT_FALSE(keyboard_brightness_control_delegate_
+                   ->keyboard_ambient_light_sensor_enabled());
+
+  // Re-enable the ambient light sensor and verify.
+  provider_->SetKeyboardAmbientLightSensorEnabled(true);
+  EXPECT_TRUE(keyboard_brightness_control_delegate_
+                  ->keyboard_ambient_light_sensor_enabled());
+}
+
 TEST_F(InputDeviceSettingsProviderTest, ButtonPressObserverFollowsWindowFocus) {
   FakeButtonPressObserver fake_observer;
   provider_->ObserveButtonPresses(
@@ -1174,6 +1209,19 @@ TEST_F(InputDeviceSettingsProviderTest, HasKeyboardBacklight) {
   EXPECT_FALSE(future.Get<0>());
 }
 
+TEST_F(InputDeviceSettingsProviderTest, HasAmbientLightSensor) {
+  base::test::TestFuture<bool> future;
+
+  power_manager_client_->set_has_ambient_light_sensor(true);
+  provider_->HasAmbientLightSensor(future.GetCallback());
+  EXPECT_TRUE(future.Get<0>());
+
+  future.Clear();
+  power_manager_client_->set_has_ambient_light_sensor(false);
+  provider_->HasAmbientLightSensor(future.GetCallback());
+  EXPECT_FALSE(future.Get<0>());
+}
+
 TEST_F(InputDeviceSettingsProviderTest, RecordKeyboardColorLinkClicked) {
   histogram_tester_->ExpectTotalCount(
       "ChromeOS.Settings.Device.Keyboard.ColorLinkClicked", 0);
@@ -1181,6 +1229,16 @@ TEST_F(InputDeviceSettingsProviderTest, RecordKeyboardColorLinkClicked) {
   base::RunLoop().RunUntilIdle();
   histogram_tester_->ExpectTotalCount(
       "ChromeOS.Settings.Device.Keyboard.ColorLinkClicked", 1);
+}
+
+TEST_F(InputDeviceSettingsProviderTest,
+       RecordKeyboardBrightnessChangeFromSlider) {
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Settings.Device.Keyboard.BrightnessSliderAdjusted", 0);
+  provider_->RecordKeyboardBrightnessChangeFromSlider(40.0);
+  base::RunLoop().RunUntilIdle();
+  histogram_tester_->ExpectTotalCount(
+      "ChromeOS.Settings.Device.Keyboard.BrightnessSliderAdjusted", 1);
 }
 
 }  // namespace ash::settings

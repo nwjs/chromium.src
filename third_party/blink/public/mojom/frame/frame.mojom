@@ -184,6 +184,16 @@ enum NavigationApiEntryRestoreReason {
   kPrerenderActivationReplace
 };
 
+enum StorageTypeAccessed {
+    kDatabase,
+    kCacheStorage,
+    kIndexedDB,
+    kFileSystem,
+    kWebLocks,
+    kLocalStorage,
+    kSessionStorage
+};
+
 // The maximum number of characters of the document's title that we're willing
 // to accept in the browser process.
 const uint16 kMaxTitleChars = 4096; // 4 * 1024;
@@ -767,6 +777,9 @@ interface LocalFrameHost {
   // browser-process navigation state associated with this LocalFrameHost.
   IssueKeepAliveHandle(
       pending_receiver<NavigationStateKeepAliveHandle> receiver);
+
+  // Used to tell the browser that storage access was requested and whether it was allowed.
+  NotifyStorageAccessed(StorageTypeAccessed storageType, bool blocked);
 };
 
 // Implemented in Browser, this interface defines frame-specific methods
@@ -1084,6 +1097,10 @@ interface LocalFrame {
       NavigationApiHistoryEntryArrays entry_arrays,
       NavigationApiEntryRestoreReason restore_reason);
 
+  // Updates the URL for a prerender ready to be activated via No-Vary-Search
+  // matching.
+  UpdatePrerenderURL(url.mojom.Url matched_url) => ();
+
   // Updates navigation.entries() when entries are disposed from the session
   // history.
   NotifyNavigationApiOfDisposedEntries(array<string> keys);
@@ -1108,11 +1125,11 @@ interface LocalFrame {
   // Requests a one-time snapshot of the document state for a ViewTransition.
   // See https://drafts.csswg.org/css-view-transitions-1/ for details.
   //
-  // The navigation id is used to preserve the identity of the transition
+  // The transition_token is used to preserve the identity of the transition
   // between old and new documents so they can share captured pixel state in
   // viz.
   SnapshotDocumentForViewTransition(
-    mojo_base.mojom.UnguessableToken navigation_id,
+    blink.mojom.ViewTransitionToken transition_token,
     PageSwapEventParams page_swap_event_params) => (
       blink.mojom.ViewTransitionState view_transition_state);
 
@@ -1214,6 +1231,9 @@ interface LocalMainFrame {
 
 // Implemented in Browser, this interface defines local-main-frame-specific
 // methods that will be invoked from the renderer process (e.g. WebViewImpl).
+//
+// TODO(https://crbug.com/334100817): Remove this attribute.
+[DispatchDebugAlias]
 interface LocalMainFrameHost {
   // Indicates the scale of the view has changed.
   ScaleFactorChanged(float scale);

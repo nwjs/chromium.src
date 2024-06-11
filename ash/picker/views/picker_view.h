@@ -12,11 +12,14 @@
 #include "ash/picker/metrics/picker_performance_metrics.h"
 #include "ash/picker/model/picker_search_results_section.h"
 #include "ash/picker/views/picker_key_event_handler.h"
+#include "ash/picker/views/picker_search_results_view_delegate.h"
+#include "ash/picker/views/picker_zero_state_view_delegate.h"
 #include "ash/public/cpp/ash_web_view.h"
 #include "ash/public/cpp/picker/picker_category.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/gfx/geometry/size.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget_delegate.h"
 
@@ -39,7 +42,9 @@ class PickerCategoryView;
 class SystemShadow;
 
 // View for the Picker widget.
-class ASH_EXPORT PickerView : public views::WidgetDelegateView {
+class ASH_EXPORT PickerView : public views::WidgetDelegateView,
+                              public PickerZeroStateViewDelegate,
+                              public PickerSearchResultsViewDelegate {
   METADATA_HEADER(PickerView, views::WidgetDelegateView)
 
  public:
@@ -56,12 +61,26 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView {
   PickerView& operator=(const PickerView&) = delete;
   ~PickerView() override;
 
+  static constexpr auto kMaxSize = gfx::Size(320, 340);
+
   // views::WidgetDelegateView:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
   std::unique_ptr<views::NonClientFrameView> CreateNonClientFrameView(
       views::Widget* widget) override;
   void AddedToWidget() override;
   void RemovedFromWidget() override;
+
+  // PickerZeroStateViewDelegate:
+  void SelectZeroStateCategory(PickerCategory category) override;
+  void SelectSuggestedZeroStateResult(
+      const PickerSearchResult& result) override;
+  void GetSuggestedZeroStateEditorResults(
+      SuggestedEditorResultsCallback callback) override;
+  void NotifyPseudoFocusChanged(views::View* view) override;
+
+  // PickerSearchResultsViewDelegate:
+  void SelectSearchResult(const PickerSearchResult& result) override;
+  void SelectMoreResults(PickerSectionType type) override;
 
   // Returns the target bounds for this Picker view. The target bounds try to
   // vertically align `search_field_view_` with `anchor_bounds`. `anchor_bounds`
@@ -82,17 +101,15 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView {
   }
 
  private:
-  void OnSelectMoreResults(PickerSectionType type);
-
   // Starts a search with `query`, with search results being returned to
   // `PublishSearchResults`.
   void StartSearch(const std::u16string& query);
 
   // Displays `results` in the search view.
-  void PublishSearchResults(std::vector<PickerSearchResultsSection> results);
-
-  // Selects a search result.
-  void SelectSearchResult(const PickerSearchResult& result);
+  // If `show_no_results_found` is true and `results` is empty, then a "no
+  // results found" view is shown instead of a blank view.
+  void PublishSearchResults(bool show_no_results_found,
+                            std::vector<PickerSearchResultsSection> results);
 
   // Selects a category. This shows the category view and fetches zero-state
   // results for the category, which are returned to `PublishCategoryResults`.
@@ -108,7 +125,7 @@ class ASH_EXPORT PickerView : public views::WidgetDelegateView {
   void PublishCategoryResults(std::vector<PickerSearchResultsSection> results);
 
   void AddSearchFieldView();
-  void AddContentsView(PickerLayoutType layout_type);
+  void AddContentsViewWithSeparator(PickerLayoutType layout_type);
 
   // Sets `page_view` as the active page in `contents_view_`.
   void SetActivePage(PickerPageView* page_view);

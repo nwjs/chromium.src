@@ -964,7 +964,7 @@ bool LayerTreeHost::DoUpdateLayers() {
   }
 #else
   // This is a quick sanity check for readiness of paint properties.
-  // TODO(crbug.com/913464): This is to help analysis of crashes of the bug.
+  // TODO(crbug.com/40605801): This is to help analysis of crashes of the bug.
   // Remove this CHECK when we close the bug.
   CHECK(
       property_trees()->effect_tree().Node(root_layer()->effect_tree_index()));
@@ -1616,6 +1616,15 @@ void LayerTreeHost::SetLocalSurfaceIdFromParent(
     return;
   }
   UpdateDeferMainFrameUpdateInternal();
+  SetNeedsCommit();
+}
+
+void LayerTreeHost::RequestViewportScreenshot(
+    const base::UnguessableToken& token) {
+  CHECK(pending_commit_state()->new_local_surface_id_request)
+      << "Must have requested a new LocalSurfaceID before making "
+         "this request";
+  pending_commit_state()->screenshot_destination_token = token;
   SetNeedsCommit();
 }
 

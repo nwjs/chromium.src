@@ -156,7 +156,8 @@ class VulkanImageProcessor::VulkanCommandPoolWrapper {
   ~VulkanCommandPoolWrapper();
 
   static std::unique_ptr<VulkanCommandPoolWrapper> Create(
-      gpu::VulkanDeviceQueue* device_queue);
+      gpu::VulkanDeviceQueue* device_queue,
+      bool allow_protected_memory);
 
   std::unique_ptr<gpu::VulkanCommandBuffer> CreatePrimaryCommandBuffer();
 
@@ -760,10 +761,11 @@ VulkanImageProcessor::VulkanCommandPoolWrapper::CreatePrimaryCommandBuffer() {
 
 std::unique_ptr<VulkanImageProcessor::VulkanCommandPoolWrapper>
 VulkanImageProcessor::VulkanCommandPoolWrapper::Create(
-    gpu::VulkanDeviceQueue* device_queue) {
+    gpu::VulkanDeviceQueue* device_queue,
+    bool allow_protected_memory) {
   std::unique_ptr<gpu::VulkanCommandPool> command_pool =
       base::WrapUnique(new gpu::VulkanCommandPool(device_queue));
-  command_pool->Initialize();
+  command_pool->Initialize(allow_protected_memory);
 
   return base::WrapUnique(
       new VulkanCommandPoolWrapper(std::move(command_pool)));
@@ -830,7 +832,8 @@ VulkanImageProcessor::VulkanImageProcessor(
         transform_descriptor_pool,
     std::unique_ptr<VulkanImageProcessor::VulkanSampler> sampler,
     std::unique_ptr<gpu::VulkanImage> pivot_image,
-    std::unique_ptr<VulkanImageProcessor::VulkanTextureImage> pivot_texture)
+    std::unique_ptr<VulkanImageProcessor::VulkanTextureImage> pivot_texture,
+    bool is_protected)
     : vulkan_implementation_(std::move(vulkan_implementation)),
       vulkan_device_queue_(std::move(vulkan_device_queue)),
       command_pool_(std::move(command_pool)),
@@ -842,7 +845,8 @@ VulkanImageProcessor::VulkanImageProcessor(
       transform_descriptor_pool_(std::move(transform_descriptor_pool)),
       sampler_(std::move(sampler)),
       pivot_image_(std::move(pivot_image)),
-      pivot_texture_(std::move(pivot_texture)) {}
+      pivot_texture_(std::move(pivot_texture)),
+      is_protected_(is_protected) {}
 
 VulkanImageProcessor::~VulkanImageProcessor() {
   // Make sure there aren't any pending cleanup jobs before we start destroying
@@ -850,13 +854,16 @@ VulkanImageProcessor::~VulkanImageProcessor() {
   vulkan_device_queue_->GetVulkanDeviceQueue()
       ->GetFenceHelper()
       ->PerformImmediateCleanup();
+
+  pivot_image_->Destroy();
 }
 
 std::unique_ptr<VulkanImageProcessor> VulkanImageProcessor::Create(
+    bool is_protected,
     TiledImageFormat format,
     const gfx::Size& max_size) {
   auto vulkan_implementation = gpu::CreateVulkanImplementation(
-      /*use_swiftshader=*/false, /*allow_protected_memory=*/false);
+      /*use_swiftshader=*/false, is_protected);
 
   if (!vulkan_implementation->InitializeVulkanInstance(
           /*using_surface=*/false)) {
@@ -871,7 +878,7 @@ std::unique_ptr<VulkanImageProcessor> VulkanImageProcessor::Create(
   }
 
   auto command_pool = VulkanCommandPoolWrapper::Create(
-      vulkan_device_queue->GetVulkanDeviceQueue());
+      vulkan_device_queue->GetVulkanDeviceQueue(), is_protected);
   if (!command_pool) {
     return nullptr;
   }
@@ -988,7 +995,8 @@ std::unique_ptr<VulkanImageProcessor> VulkanImageProcessor::Create(
   auto pivot_image = gpu::VulkanImage::Create(
       vulkan_device_queue->GetVulkanDeviceQueue(), max_size, out_format,
       VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-      /*flags=*/0, VK_IMAGE_TILING_OPTIMAL);
+      is_protected ? VK_IMAGE_CREATE_PROTECTED_BIT : 0,
+      VK_IMAGE_TILING_OPTIMAL);
   auto pivot_texture = VulkanTextureImage::Create(
       *pivot_image, {out_format}, {pivot_image->size()},
       {VK_IMAGE_ASPECT_COLOR_BIT},
@@ -1001,7 +1009,7 @@ std::unique_ptr<VulkanImageProcessor> VulkanImageProcessor::Create(
       std::move(transform_render_pass), std::move(convert_pipeline),
       std::move(transform_pipeline), std::move(convert_descriptor_pool),
       std::move(transform_descriptor_pool), std::move(sampler),
-      std::move(pivot_image), std::move(pivot_texture)));
+      std::move(pivot_image), std::move(pivot_texture), is_protected));
 }
 
 void VulkanImageProcessor::Process(gpu::VulkanImage& in_image,
@@ -1016,6 +1024,9 @@ void VulkanImageProcessor::Process(gpu::VulkanImage& in_image,
   CHECK(crop_rect.height() <= 1.0f && crop_rect.height() >= 0.0f);
   CHECK(crop_rect.x() <= 1.0f && crop_rect.x() >= 0.0f);
   CHECK(crop_rect.y() <= 1.0f && crop_rect.y() >= 0.0f);
+  CHECK(in_image.format() == VK_FORMAT_G8_B8R8_2PLANE_420_UNORM);
+  CHECK(out_image.format() == VK_FORMAT_B8G8R8A8_UNORM ||
+        out_image.format() == VK_FORMAT_A2R10G10B10_UNORM_PACK32);
   constexpr size_t kMM21TileWidth = 16;
   constexpr size_t kMM21TileHeight = 32;
   const gfx::Size input_coded_size(
@@ -1275,7 +1286,8 @@ void VulkanImageProcessor::Process(gpu::VulkanImage& in_image,
       vulkan_device_queue_->GetVulkanDeviceQueue()->GetFenceHelper();
 
   if (!command_buf->Submit(begin_semaphores.size(), begin_semaphores.data(),
-                           end_semaphores.size(), end_semaphores.data())) {
+                           end_semaphores.size(), end_semaphores.data(),
+                           is_protected_)) {
     LOG(ERROR) << "Could not submit command buf!";
   }
 

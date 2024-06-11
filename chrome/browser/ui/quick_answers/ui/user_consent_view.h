@@ -11,7 +11,6 @@
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ui/chromeos/read_write_cards/read_write_cards_view.h"
 #include "chrome/browser/ui/views/editor_menu/utils/focus_search.h"
-#include "chrome/browser/ui/views/editor_menu/utils/pre_target_handler.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/unique_widget_ptr.h"
@@ -45,7 +44,8 @@ class UserConsentView : public chromeos::ReadWriteCardsView {
   ~UserConsentView() override;
 
   // chromeos::ReadWriteCardsView:
-  gfx::Size CalculatePreferredSize() const override;
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
   void OnFocus() override;
   void OnThemeChanged() override;
   views::FocusTraversable* GetPaneFocusTraversable() override;
@@ -66,7 +66,6 @@ class UserConsentView : public chromeos::ReadWriteCardsView {
   // Cached title text.
   std::u16string title_text_;
 
-  chromeos::editor_menu::PreTargetHandler event_handler_;
   base::WeakPtr<QuickAnswersUiController> controller_;
   chromeos::editor_menu::FocusSearch focus_search_;
 

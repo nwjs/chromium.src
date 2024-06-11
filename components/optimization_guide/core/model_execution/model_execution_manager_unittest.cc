@@ -127,7 +127,8 @@ class ModelExecutionManagerTest : public testing::Test {
     model_execution_manager_ = std::make_unique<ModelExecutionManager>(
         url_loader_factory_, local_state_.get(),
         identity_test_env_.identity_manager(), service_controller_,
-        &model_provider_, &optimization_guide_logger_, nullptr);
+        &model_provider_, /*on_device_component_state_manager=*/nullptr,
+        &optimization_guide_logger_, nullptr);
   }
 
   bool SimulateResponse(const std::string& content,
@@ -174,6 +175,8 @@ class ModelExecutionManagerTest : public testing::Test {
   }
 
   PrefService* local_state() { return local_state_.get(); }
+
+  void Reset() { model_execution_manager_ = nullptr; }
 
  private:
   base::test::TaskEnvironment task_environment_;
@@ -709,6 +712,9 @@ TEST_F(ModelExecutionManagerSafetyEnabledTest,
               kDisallowed));
   CreateModelExecutionManager();
   EXPECT_FALSE(model_provider()->was_registered());
+
+  // Reset manager to make sure removing observer doesn't crash.
+  Reset();
 }
 
 }  // namespace

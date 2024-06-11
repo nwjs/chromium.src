@@ -693,22 +693,7 @@ AutoplayPolicy::Type AudioContext::GetAutoplayPolicy() const {
   LocalDOMWindow* window = GetWindow();
   DCHECK(window);
 
-  auto autoplay_policy =
-      AutoplayPolicy::GetAutoplayPolicyForDocument(*window->document());
-
-  if (autoplay_policy ==
-          AutoplayPolicy::Type::kDocumentUserActivationRequired &&
-      RuntimeEnabledFeatures::AutoplayIgnoresWebAudioEnabled()) {
-// When ignored, the policy is different on Android compared to Desktop.
-#if BUILDFLAG(IS_ANDROID)
-    return AutoplayPolicy::Type::kUserGestureRequired;
-#else
-    // Force no user gesture required on desktop.
-    return AutoplayPolicy::Type::kNoUserGestureRequired;
-#endif
-  }
-
-  return autoplay_policy;
+  return AutoplayPolicy::GetAutoplayPolicyForDocument(*window->document());
 }
 
 bool AudioContext::AreAutoplayRequirementsFulfilled() const {
@@ -1020,8 +1005,7 @@ void AudioContext::DidInitialPermissionCheck(
       GetExecutionContext()->GetTaskRunner(TaskType::kPermission));
   permission_service_->AddPermissionObserver(
       CreatePermissionDescriptor(mojom::blink::PermissionName::AUDIO_CAPTURE),
-      microphone_permission_status_,
-      std::move(observer));
+      microphone_permission_status_, std::move(observer));
 }
 
 double AudioContext::GetOutputLatencyQuantizingFactor() const {
@@ -1049,9 +1033,7 @@ void AudioContext::NotifySetSinkIdIsDone(
 
   sink_descriptor_ = pending_sink_descriptor;
   if (sink_descriptor_.Type() ==
-          WebAudioSinkDescriptor::AudioSinkType::kAudible &&
-      base::FeatureList::IsEnabled(
-          features::kWebAudioSetSinkEchoCancellation)) {
+      WebAudioSinkDescriptor::AudioSinkType::kAudible) {
     // Note: in order to not break echo cancellation of PeerConnection audio, we
     // are heavily relying on the fact that setSinkId() path of AudioContext is
     // not triggered unless the sink ID is explicitly specified. It assumes we

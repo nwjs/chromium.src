@@ -28,7 +28,6 @@ struct PrerendererImpl::PrerenderInfo {
   blink::mojom::SpeculationEagerness eagerness;
   int prerender_host_id;
   GURL url;
-  Referrer referrer;
 };
 
 PrerendererImpl::PrerendererImpl(RenderFrameHost& render_frame_host)
@@ -247,7 +246,7 @@ bool PrerendererImpl::MaybePrerender(
           candidate->injection_type),
       candidate->eagerness);
 
-  // TODO(crbug.com/1176054): Remove it after supporting cross-site
+  // TODO(crbug.com/40168192): Remove it after supporting cross-site
   // prerender.
   if (!prerender_navigation_utils::IsSameSite(candidate->url,
                                               rfhi.GetLastCommittedOrigin())) {
@@ -261,17 +260,17 @@ bool PrerendererImpl::MaybePrerender(
             url::Origin::Create(candidate->url).Serialize().c_str()));
   }
 
-  Referrer referrer(*(candidate->referrer));
   PrerenderAttributes attributes(
       candidate->url,
       PreloadingTriggerTypeFromSpeculationInjectionType(
           candidate->injection_type),
       /*embedder_histogram_suffix=*/"",
-      candidate->target_browsing_context_name_hint, referrer,
-      candidate->eagerness, rfhi.GetLastCommittedOrigin(),
-      rfhi.GetProcess()->GetID(), web_contents->GetWeakPtr(),
-      rfhi.GetFrameToken(), rfhi.GetFrameTreeNodeId(),
-      rfhi.GetPageUkmSourceId(), ui::PAGE_TRANSITION_LINK,
+      candidate->target_browsing_context_name_hint,
+      Referrer{*candidate->referrer}, candidate->eagerness,
+      rfhi.GetLastCommittedOrigin(), rfhi.GetProcess()->GetID(),
+      web_contents->GetWeakPtr(), rfhi.GetFrameToken(),
+      rfhi.GetFrameTreeNodeId(), rfhi.GetPageUkmSourceId(),
+      ui::PAGE_TRANSITION_LINK,
       /*url_match_predicate=*/{},
       /*prerender_navigation_handle_callback=*/{},
       rfhi.GetDevToolsNavigationToken());
@@ -282,8 +281,8 @@ bool PrerendererImpl::MaybePrerender(
   PreloadingPredictor creating_predictor =
       GetPredictorForPreloadingTriggerType(trigger_type);
   int prerender_host_id = [&] {
-    // TODO(crbug.com/1354049): Handle the case where multiple speculation rules
-    // have the same URL but its `target_browsing_context_name_hint` is
+    // TODO(crbug.com/40235424): Handle the case where multiple speculation
+    // rules have the same URL but its `target_browsing_context_name_hint` is
     // different. In the current implementation, only the first rule is
     // triggered.
     switch (candidate->target_browsing_context_name_hint) {
@@ -332,8 +331,7 @@ bool PrerendererImpl::MaybePrerender(
   started_prerenders_.insert(end, {.injection_type = candidate->injection_type,
                                    .eagerness = candidate->eagerness,
                                    .prerender_host_id = prerender_host_id,
-                                   .url = candidate->url,
-                                   .referrer = referrer});
+                                   .url = candidate->url});
 
   return true;
 }
@@ -358,7 +356,7 @@ void PrerendererImpl::OnCancel(int host_frame_tree_node_id,
   }
 
   switch (reason.final_status()) {
-    // TODO(crbug.com/1464021): Support other final status cases.
+    // TODO(crbug.com/40275452): Support other final status cases.
     case PrerenderFinalStatus::kMaxNumOfRunningNonEagerPrerendersExceeded:
     case PrerenderFinalStatus::kSpeculationRuleRemoved: {
       auto erasing_prerender_it = std::find_if(

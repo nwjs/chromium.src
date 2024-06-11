@@ -15,7 +15,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/autofill/autofill_uitest.h"
 #include "chrome/browser/translate/translate_test_utils.h"
-#include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
+#include "chrome/browser/ui/autofill/autofill_suggestion_controller.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/translate/translate_bubble_model.h"
 #include "chrome/browser/ui/translate/translate_bubble_test_utils.h"
@@ -116,7 +116,7 @@ bool IsFocusedField(const ElementExpr& e,
   return content::ExecJs(execution_target, script);
 }
 
-struct ShowAutofillPopupParams {
+struct ShowAutofillSuggestionsParams {
   ShowMethod show_method = ShowMethod::ByArrow();
   int num_profile_suggestions = 1;
   size_t max_tries = 5;
@@ -126,9 +126,10 @@ struct ShowAutofillPopupParams {
 
 // A helper function for showing the popup in AutofillFlow().
 // Consider using AutofillFlow() instead.
-[[nodiscard]] AssertionResult ShowAutofillPopup(const ElementExpr& e,
-                                                AutofillUiTest* test,
-                                                ShowAutofillPopupParams p) {
+[[nodiscard]] AssertionResult ShowAutofillSuggestions(
+    const ElementExpr& e,
+    AutofillUiTest* test,
+    ShowAutofillSuggestionsParams p) {
   constexpr auto kSuggest = ObservedUiEvents::kSuggestionsShown;
   constexpr auto kPreview = ObservedUiEvents::kPreviewFormData;
 
@@ -314,10 +315,10 @@ struct AutofillSuggestionParams {
   // All attempts to accept Autofill suggestions using keyboard "ENTER"
   // keystrokes will be ignored for the first 500ms after the popup is first
   // shown. This overrides this threshold.
-  if (base::WeakPtr<AutofillPopupController> controller =
+  if (base::WeakPtr<AutofillSuggestionController> controller =
           ChromeAutofillClient::FromWebContentsForTesting(
               test->GetWebContents())
-              ->popup_controller_for_testing()) {
+              ->suggestion_controller_for_testing()) {
     controller->DisableThresholdForTesting(true);
   }
 
@@ -375,13 +376,13 @@ struct AutofillSuggestionParams {
   }
 
   if (p.do_show) {
-    AssertionResult a =
-        ShowAutofillPopup(e, test,
-                          {.show_method = p.show_method,
-                           .num_profile_suggestions = p.num_profile_suggestions,
-                           .max_tries = p.max_show_tries,
-                           .timeout = p.timeout,
-                           .execution_target = execution_target});
+    AssertionResult a = ShowAutofillSuggestions(
+        e, test,
+        {.show_method = p.show_method,
+         .num_profile_suggestions = p.num_profile_suggestions,
+         .max_tries = p.max_show_tries,
+         .timeout = p.timeout,
+         .execution_target = execution_target});
     if (!a) {
       return a;
     }

@@ -282,6 +282,40 @@ int GetPortForGloballyReachableCheck() {
   return features::kAlternativePortForGloballyReachableCheck.Get();
 }
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(DnsClientCapability)
+enum class DnsClientCapability {
+  kSecureDisabledInsecureDisabled = 0,
+  kSecureDisabledInsecureEnabled = 1,
+  kSecureEnabledInsecureDisabled = 2,
+  kSecureEnabledInsecureEnabled = 3,
+  kMaxValue = kSecureEnabledInsecureEnabled,
+};
+// LINT.ThenChange(/tools/metrics/histograms/metadata/net/enums.xml:DnsClientCapability)
+
+void RecordDnsClientCapabilityMetrics(const DnsClient* dns_client) {
+  if (!dns_client) {
+    return;
+  }
+  DnsClientCapability capability;
+  if (dns_client->CanUseSecureDnsTransactions()) {
+    if (dns_client->CanUseInsecureDnsTransactions()) {
+      capability = DnsClientCapability::kSecureEnabledInsecureEnabled;
+    } else {
+      capability = DnsClientCapability::kSecureEnabledInsecureDisabled;
+    }
+  } else {
+    if (dns_client->CanUseInsecureDnsTransactions()) {
+      capability = DnsClientCapability::kSecureDisabledInsecureEnabled;
+    } else {
+      capability = DnsClientCapability::kSecureDisabledInsecureDisabled;
+    }
+  }
+  base::UmaHistogramEnumeration("Net.DNS.DnsConfig.DnsClientCapability",
+                                capability);
+}
 }  // namespace
 
 //-----------------------------------------------------------------------------
@@ -546,11 +580,14 @@ HostResolverManager::CreateServiceEndpointRequest(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(!invalidation_in_progress_);
   DCHECK_EQ(resolve_context->GetTargetNetwork(), target_network_);
-  DCHECK(registered_contexts_.HasObserver(resolve_context));
+  if (resolve_context) {
+    DCHECK(registered_contexts_.HasObserver(resolve_context));
+  }
 
   return std::make_unique<ServiceEndpointRequestImpl>(
       std::move(scheme_host_port), std::move(network_anonymization_key),
-      std::move(net_log), std::move(parameters), resolve_context->GetWeakPtr(),
+      std::move(net_log), std::move(parameters),
+      resolve_context ? resolve_context->GetWeakPtr() : nullptr,
       weak_ptr_factory_.GetWeakPtr(), tick_clock_);
 }
 
@@ -840,7 +877,7 @@ HostCache::Entry HostResolverManager::ResolveLocally(
             NetLogEventType::HOST_RESOLVER_MANAGER_CACHE_HIT,
             [&] { return NetLogResults(resolved.value()); });
 
-        // TODO(crbug.com/1200908): Call StartBootstrapFollowup() if the Secure
+        // TODO(crbug.com/40178456): Call StartBootstrapFollowup() if the Secure
         // DNS Policy is kBootstrap and the result is not secure.  Note: A naive
         // implementation could cause an infinite loop if |resolved| always
         // expires or is evicted before the followup runs.
@@ -1284,6 +1321,10 @@ void HostResolverManager::CreateTaskSequence(
 
   switch (job_key.source) {
     case HostResolverSource::ANY:
+      // Records DnsClient capability metrics, only when `source` is ANY. This
+      // is to avoid the metrics being skewed by mechanical requests of other
+      // source types.
+      RecordDnsClientCapabilityMetrics(dns_client_.get());
       // Force address queries with canonname to use HostResolverSystemTask to
       // counter poor CNAME support in DnsTask. See https://crbug.com/872665
       //
@@ -1555,7 +1596,7 @@ void HostResolverManager::AbortInsecureDnsTasks(int error, bool fallback_only) {
   dispatcher_->SetLimits(limits);
 }
 
-// TODO(crbug.com/995984): Consider removing this and its usage.
+// TODO(crbug.com/40641277): Consider removing this and its usage.
 void HostResolverManager::TryServingAllJobsFromHosts() {
   if (!dns_client_ || !dns_client_->GetEffectiveConfig())
     return;

@@ -217,7 +217,7 @@ class LabelSelectionTest : public LabelTest {
 
     // For single-line text, use the glyph bounds since it gives a better
     // representation of the midpoint between glyphs when considering selection.
-    // TODO(crbug.com/248597): Add multiline support to GetCursorBounds(...).
+    // TODO(crbug.com/40321377): Add multiline support to GetCursorBounds(...).
     if (!render_text->multiline()) {
       return render_text
           ->GetCursorBounds(gfx::SelectionModel(index, gfx::CURSOR_FORWARD),
@@ -681,7 +681,7 @@ TEST_F(LabelTest, Accessibility) {
   label()->SetText(u"Displayed text.");
 
   ui::AXNodeData node_data;
-  label()->GetAccessibleNodeData(&node_data);
+  label()->GetViewAccessibility().GetAccessibleNodeData(&node_data);
   EXPECT_EQ(ax::mojom::Role::kStaticText, node_data.role);
   EXPECT_EQ(label()->GetText(),
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
@@ -692,7 +692,8 @@ TEST_F(LabelTest, Accessibility) {
   // screen reader announcements.
   label()->SetAccessibleName(accessible_name);
 
-  label()->GetAccessibleNodeData(&node_data);
+  node_data = ui::AXNodeData();
+  label()->GetViewAccessibility().GetAccessibleNodeData(&node_data);
   EXPECT_EQ(accessible_name,
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
   EXPECT_NE(label()->GetText(),
@@ -701,7 +702,8 @@ TEST_F(LabelTest, Accessibility) {
   // Changing the displayed text will not impact the non-empty accessible name.
   label()->SetText(u"Different displayed Text.");
 
-  label()->GetAccessibleNodeData(&node_data);
+  node_data = ui::AXNodeData();
+  label()->GetViewAccessibility().GetAccessibleNodeData(&node_data);
   EXPECT_EQ(accessible_name,
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
   EXPECT_NE(label()->GetText(),
@@ -711,14 +713,16 @@ TEST_F(LabelTest, Accessibility) {
   // verbalizing the displayed text.
   label()->SetAccessibleName(u"");
 
-  label()->GetAccessibleNodeData(&node_data);
+  node_data = ui::AXNodeData();
+  label()->GetViewAccessibility().GetAccessibleNodeData(&node_data);
   EXPECT_EQ(label()->GetText(),
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
 
   // If the displayed text is the source of the accessible name, and that text
   // is cleared, the accessible name should also be cleared.
   label()->SetText(u"");
-  label()->GetAccessibleNodeData(&node_data);
+  node_data = ui::AXNodeData();
+  label()->GetViewAccessibility().GetAccessibleNodeData(&node_data);
   EXPECT_EQ(label()->GetText(),
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
 }
@@ -764,7 +768,7 @@ TEST_F(LabelTest, AccessibleNameAndRole) {
   EXPECT_EQ(label()->GetAccessibleRole(), ax::mojom::Role::kStaticText);
 
   ui::AXNodeData data;
-  label()->GetAccessibleNodeData(&data);
+  label()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Text");
   EXPECT_EQ(data.role, ax::mojom::Role::kStaticText);
@@ -774,7 +778,7 @@ TEST_F(LabelTest, AccessibleNameAndRole) {
   EXPECT_EQ(label()->GetAccessibleRole(), ax::mojom::Role::kTitleBar);
 
   data = ui::AXNodeData();
-  label()->GetAccessibleNodeData(&data);
+  label()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"Text");
   EXPECT_EQ(data.role, ax::mojom::Role::kTitleBar);
@@ -785,7 +789,7 @@ TEST_F(LabelTest, AccessibleNameAndRole) {
   EXPECT_EQ(label()->GetAccessibleRole(), ax::mojom::Role::kLink);
 
   data = ui::AXNodeData();
-  label()->GetAccessibleNodeData(&data);
+  label()->GetViewAccessibility().GetAccessibleNodeData(&data);
   EXPECT_EQ(data.GetString16Attribute(ax::mojom::StringAttribute::kName),
             u"New Text");
   EXPECT_EQ(data.role, ax::mojom::Role::kLink);
@@ -1227,7 +1231,7 @@ TEST_F(LabelTest, GetSubstringBounds) {
             substring_bounds_with_inset[0].height());
 }
 
-// TODO(crbug.com/1139395): Enable on ChromeOS along with the DCHECK in Label.
+// TODO(crbug.com/40725997): Enable on ChromeOS along with the DCHECK in Label.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_ChecksSubpixelRenderingOntoOpaqueSurface \
   DISABLED_ChecksSubpixelRenderingOntoOpaqueSurface
@@ -1672,14 +1676,14 @@ TEST_F(LabelSelectionTest, MouseDragWord) {
   EXPECT_EQ(u"drag word", GetSelectedText());
 }
 
-// TODO(crbug.com/1201128): LabelSelectionTest.SelectionClipboard is failing on
+// TODO(crbug.com/40762193): LabelSelectionTest.SelectionClipboard is failing on
 // linux-lacros.
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #define MAYBE_SelectionClipboard DISABLED_SelectionClipboard
 #else
 #define MAYBE_SelectionClipboard SelectionClipboard
 #endif
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
 // Verify selection clipboard behavior on text selection.

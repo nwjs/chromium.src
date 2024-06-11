@@ -26,29 +26,28 @@ tests::CPPClass FromJniType<tests::CPPClass>(JNIEnv* env,
 }
 template <>
 std::string FromJniType<std::string>(JNIEnv* env,
-                                     const JavaRef<jstring>& input) {
+                                     const JavaRef<jobject>& input) {
   return {};
 }
 template <>
-ScopedJavaLocalRef<jstring> ToJniType<std::string>(JNIEnv* env,
+ScopedJavaLocalRef<jobject> ToJniType<std::string>(JNIEnv* env,
                                                    const std::string& input) {
   return {};
 }
 template <>
 std::u16string FromJniType<std::u16string>(JNIEnv* env,
-                                           const JavaRef<jstring>& input) {
+                                           const JavaRef<jobject>& input) {
   return {};
 }
 template <>
-ScopedJavaLocalRef<jstring> ToJniType<std::u16string>(
+ScopedJavaLocalRef<jobject> ToJniType<std::u16string>(
     JNIEnv* env,
     const std::u16string& input) {
   return {};
 }
 template <>
-ScopedJavaLocalRef<jstring> ToJniType<const char*>(
-    JNIEnv* env,
-    const char * const& input) {
+ScopedJavaLocalRef<jobject> ToJniType<const char*>(JNIEnv* env,
+                                                   const char* const& input) {
   return {};
 }
 template <>
@@ -61,7 +60,7 @@ tests::CPPClass* FromJniType<tests::CPPClass*>(JNIEnv* env, const JavaRef<jobjec
 template <>
 std::optional<std::string> FromJniType<std::optional<std::string>>(
     JNIEnv* env,
-    const JavaRef<jstring>& j_string) {
+    const JavaRef<jobject>& j_string) {
   if (!j_string) {
     return std::nullopt;
   }
@@ -71,7 +70,7 @@ std::optional<std::string> FromJniType<std::optional<std::string>>(
 template <>
 std::optional<std::u16string> FromJniType<std::optional<std::u16string>>(
     JNIEnv* env,
-    const JavaRef<jstring>& j_string) {
+    const JavaRef<jobject>& j_string) {
   if (!j_string) {
     return std::nullopt;
   }
@@ -133,11 +132,13 @@ ScopedJavaLocalRef<jstring> CPPClass::ReturnAString(
 }
 
 // Static free functions declared and called directly from java.
-static jlong JNI_SampleForTests_Init(JNIEnv* env,
-                                     const JavaParamRef<jobject>& caller,
-                                     const JavaParamRef<jstring>& param,
-                                     jni_zero::ByteArrayView& bytes,
-                                     CPPClass* converted_type) {
+static jlong JNI_SampleForTests_Init(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& caller,
+    const JavaParamRef<jstring>& param,
+    jni_zero::ByteArrayView& bytes,
+    CPPClass* converted_type,
+    std::vector<jni_zero::ScopedJavaLocalRef<jobject>>& non_converted_array) {
   return static_cast<jlong>(bytes.size());
 }
 
@@ -386,8 +387,9 @@ int main() {
                                                                 my_java_object);
   jni_zero::tests::Java_SampleForTests_methodThatThrowsException(
       env, my_java_object);
-  jni_zero::tests::Java_SampleForTests_javaMethodWithAnnotatedParam(
-      env, my_java_object, jni_zero::tests::MyEnum::kFirstOption, 13, -1, 99);
+  std::vector<int32_t> vec;
+  vec = jni_zero::tests::Java_SampleForTests_jniTypesAndAnnotations(
+      env, my_java_object, jni_zero::tests::MyEnum::kFirstOption, vec, -1, 99);
 
   jni_zero::tests::Java_SampleForTests_getInnerInterface(env);
   jni_zero::tests::Java_SampleForTests_getInnerEnum(env);

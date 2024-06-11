@@ -76,7 +76,6 @@
 #include "chrome/browser/history/top_sites_factory.h"
 #include "chrome/browser/history_clusters/history_clusters_service_factory.h"
 #include "chrome/browser/history_embeddings/history_embeddings_service_factory.h"
-#include "chrome/browser/image_service/image_service_factory.h"
 #include "chrome/browser/ip_protection/ip_protection_config_provider_factory.h"
 #include "chrome/browser/k_anonymity_service/k_anonymity_service_factory.h"
 #include "chrome/browser/language/accept_languages_service_factory.h"
@@ -104,6 +103,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/origin_trials/origin_trials_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_annotations_service_factory.h"
+#include "chrome/browser/page_image_service/image_service_factory.h"
 #include "chrome/browser/page_info/about_this_site_service_factory.h"
 #include "chrome/browser/page_load_metrics/observers/https_engagement_metrics/https_engagement_service_factory.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_memory_tracker_factory.h"
@@ -169,6 +169,7 @@
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/primary_account_policy_manager_factory.h"
+#include "chrome/browser/signin/signin_metrics_service_factory.h"
 #include "chrome/browser/signin/signin_profile_attributes_updater_factory.h"
 #include "chrome/browser/ssl/https_first_mode_settings_tracker.h"
 #include "chrome/browser/ssl/sct_reporting_service_factory.h"
@@ -183,6 +184,7 @@
 #include "chrome/browser/sync/model_type_store_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
+#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/tpcd/experiment/eligibility_service_factory.h"
 #include "chrome/browser/tpcd/heuristics/opener_heuristic_service_factory.h"
@@ -222,6 +224,7 @@
 #include "components/commerce/core/proto/persisted_state_db_content.pb.h"
 #include "components/enterprise/buildflags/buildflags.h"
 #include "components/enterprise/content/clipboard_restriction_service.h"
+#include "components/feed/buildflags.h"
 #include "components/media_effects/media_effects_service_factory.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/omnibox/browser/autocomplete_controller_emitter.h"
@@ -261,7 +264,6 @@
 #include "chrome/browser/media/android/cdm/media_drm_origin_id_manager_factory.h"
 #include "chrome/browser/search_resumption/start_suggest_service_factory.h"
 #include "chrome/browser/signin/signin_manager_android_factory.h"
-#include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/proto/merchant_signal_db_content.pb.h"
 #else
@@ -323,6 +325,7 @@
 #include "chrome/browser/policy/networking/policy_cert_service_factory.h"
 #include "chrome/browser/policy/networking/user_network_configuration_updater_factory.h"
 #include "chrome/browser/smart_card/smart_card_permission_context_factory.h"
+#include "chrome/browser/webauthn/chromeos/passkey_service_factory.h"
 #include "chromeos/constants/chromeos_features.h"
 #endif
 
@@ -513,8 +516,8 @@
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 
 #if BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
+#include "chrome/browser/enterprise/data_controls/chrome_rules_service.h"
 #include "chrome/browser/enterprise/data_controls/reporting_service.h"
-#include "chrome/browser/enterprise/data_controls/rules_service.h"
 #endif
 
 namespace chrome {
@@ -541,8 +544,8 @@ ChromeBrowserMainExtraPartsProfiles::~ChromeBrowserMainExtraPartsProfiles() =
 // TODO(erg): This needs to be something else. I don't think putting every
 // FooServiceFactory here will scale or is desirable long term.
 //
-// TODO(crbug/1414416): Check how to simplify the approach of registering every
-// factory in this function.
+// TODO(crbug.com/40256109): Check how to simplify the approach of registering
+// every factory in this function.
 //
 // static
 void ChromeBrowserMainExtraPartsProfiles::
@@ -708,6 +711,9 @@ void ChromeBrowserMainExtraPartsProfiles::
     chromeos::cloud_upload::CloudUploadPrefsWatcherFactory::GetInstance();
   }
 #endif
+#if BUILDFLAG(IS_CHROMEOS)
+  chromeos::PasskeyServiceFactory::GetInstance();
+#endif
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   chromeos::RemoteAppsProxyLacrosFactory::GetInstance();
 #endif
@@ -752,8 +758,8 @@ void ChromeBrowserMainExtraPartsProfiles::
   }
 #endif
 #if BUILDFLAG(ENTERPRISE_DATA_CONTROLS)
-  data_controls::ReportingServiceFactory::GetInstance();
-  data_controls::RulesServiceFactory::GetInstance();
+  //data_controls::ReportingServiceFactory::GetInstance();
+  data_controls::ChromeRulesServiceFactory::GetInstance();
 #endif
   data_sharing::DataSharingServiceFactory::GetInstance();
 #if !BUILDFLAG(IS_ANDROID)
@@ -822,7 +828,9 @@ void ChromeBrowserMainExtraPartsProfiles::
   FederatedIdentityApiPermissionContextFactory::GetInstance();
   FederatedIdentityAutoReauthnPermissionContextFactory::GetInstance();
   FederatedIdentityPermissionContextFactory::GetInstance();
+#if BUILDFLAG(ENABLE_FEED_V2)
   feed::FeedServiceFactory::GetInstance();
+#endif  // BUILDFLAG(ENABLE_FEED_V2)
 #if !BUILDFLAG(IS_ANDROID)
   feedback::FeedbackUploaderFactoryChrome::GetInstance();
 #endif
@@ -909,7 +917,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   MediaDrmOriginIdManagerFactory::GetInstance();
 #endif
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
   if (base::FeatureList::IsEnabled(media::kCameraMicEffects)) {
     MediaEffectsServiceFactory::GetInstance();
   }
@@ -925,7 +933,7 @@ void ChromeBrowserMainExtraPartsProfiles::
 #if BUILDFLAG(IS_ANDROID)
   MerchantViewerDataManagerFactory::GetInstance();
 #endif
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
     (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
@@ -975,9 +983,7 @@ void ChromeBrowserMainExtraPartsProfiles::
 #endif
 #if !BUILDFLAG(IS_ANDROID)
   OneGoogleBarServiceFactory::GetInstance();
-  if (base::FeatureList::IsEnabled(permissions::features::kOneTimePermission)) {
-    OneTimePermissionsTrackerFactory::GetInstance();
-  }
+  OneTimePermissionsTrackerFactory::GetInstance();
 #endif
   OpenerHeuristicServiceFactory::GetInstance();
   if (optimization_guide::ShouldStartModelValidator()) {
@@ -1183,6 +1189,7 @@ void ChromeBrowserMainExtraPartsProfiles::
 #if BUILDFLAG(ENABLE_DICE_SUPPORT) || BUILDFLAG(IS_CHROMEOS_LACROS)
   SigninManagerFactory::GetInstance();
 #endif
+  SigninMetricsServiceFactory::GetInstance();
   SigninProfileAttributesUpdaterFactory::GetInstance();
   if (site_engagement::SiteEngagementService::IsEnabled()) {
     site_engagement::SiteEngagementServiceFactory::GetInstance();
@@ -1211,9 +1218,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   sync_file_system::SyncFileSystemServiceFactory::GetInstance();
 #endif
   SyncServiceFactory::GetInstance();
-#if BUILDFLAG(IS_ANDROID)
   tab_groups::TabGroupSyncServiceFactory::GetInstance();
-#endif
 #if !BUILDFLAG(IS_ANDROID)
   TabOrganizationServiceFactory::GetInstance();
 #endif

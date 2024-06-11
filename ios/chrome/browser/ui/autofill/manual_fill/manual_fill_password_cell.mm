@@ -55,6 +55,9 @@ CGFloat GetFaviconSize() {
 @property(nonatomic, weak, readonly) id<ManualFillContentInjector>
     contentInjector;
 
+// The UIActions that should be available from the cell's overflow menu button.
+@property(nonatomic, strong) NSArray<UIAction*>* menuActions;
+
 @end
 
 @implementation ManualFillCredentialItem
@@ -63,13 +66,15 @@ CGFloat GetFaviconSize() {
          isConnectedToPreviousItem:(BOOL)isConnectedToPreviousItem
              isConnectedToNextItem:(BOOL)isConnectedToNextItem
                    contentInjector:
-                       (id<ManualFillContentInjector>)contentInjector {
+                       (id<ManualFillContentInjector>)contentInjector
+                       menuActions:(NSArray<UIAction*>*)menuActions {
   self = [super initWithType:kItemTypeEnumZero];
   if (self) {
     _credential = credential;
     _isConnectedToPreviousItem = isConnectedToPreviousItem;
     _isConnectedToNextItem = isConnectedToNextItem;
     _contentInjector = contentInjector;
+    _menuActions = menuActions;
     self.cellClass = [ManualFillPasswordCell class];
   }
   return self;
@@ -81,7 +86,8 @@ CGFloat GetFaviconSize() {
   [cell setUpWithCredential:self.credential
       isConnectedToPreviousCell:self.isConnectedToPreviousItem
           isConnectedToNextCell:self.isConnectedToNextItem
-                contentInjector:self.contentInjector];
+                contentInjector:self.contentInjector
+                    menuActions:self.menuActions];
 }
 
 - (const GURL&)faviconURL {
@@ -114,6 +120,10 @@ static const CGFloat kOffsetForConnectedCell = 16;
 // The constraints for the visible favicon.
 @property(nonatomic, strong) NSArray<NSLayoutConstraint*>* faviconContraints;
 
+// The view displayed at the top the cell containing the favicon, the site name
+// and an overflow button.
+@property(nonatomic, strong) UIView* headerView;
+
 // The favicon for the credential. Of type FaviconView when the Keyboard
 // Accessory Upgrade is disabled, and FaviconContainerView when enabled.
 @property(nonatomic, strong) UIView* faviconView;
@@ -121,13 +131,18 @@ static const CGFloat kOffsetForConnectedCell = 16;
 // The label with the site name and host.
 @property(nonatomic, strong) UILabel* siteNameLabel;
 
+// The menu button displayed in the cell's header.
+@property(nonatomic, strong) UIButton* overflowMenuButton;
+
 // A button showing the username, or "No Username".
 @property(nonatomic, strong) UIButton* usernameButton;
 
 // A button showing "••••••••" to resemble a password.
 @property(nonatomic, strong) UIButton* passwordButton;
 
-// Separator line between cells, if needed.
+// Separator line. When the Keyboard Accessory Upgrade feature is enbaled, used
+// to delimit the header from the rest of the cell. When disabled, used when
+// needed to delimit cells.
 @property(nonatomic, strong) UIView* grayLine;
 
 // The delegate in charge of processing the user actions in this cell.
@@ -135,6 +150,9 @@ static const CGFloat kOffsetForConnectedCell = 16;
 
 // Layout guide for the cell's content.
 @property(nonatomic, strong) UILayoutGuide* layoutGuide;
+
+// Button to autofill the current form with the credential's data.
+@property(nonatomic, strong) UIButton* autofillFormButton;
 
 @end
 
@@ -170,7 +188,8 @@ static const CGFloat kOffsetForConnectedCell = 16;
 - (void)setUpWithCredential:(ManualFillCredential*)credential
     isConnectedToPreviousCell:(BOOL)isConnectedToPreviousCell
         isConnectedToNextCell:(BOOL)isConnectedToNextCell
-              contentInjector:(id<ManualFillContentInjector>)contentInjector {
+              contentInjector:(id<ManualFillContentInjector>)contentInjector
+                  menuActions:(NSArray<UIAction*>*)menuActions {
   if (self.contentView.subviews.count == 0) {
     [self createViewHierarchy];
   }
@@ -191,11 +210,22 @@ static const CGFloat kOffsetForConnectedCell = 16;
     if (IsKeyboardAccessoryUpgradeEnabled()) {
       self.siteNameLabel.numberOfLines = 0;
     }
-    AddViewToVerticalLeadViews(self.siteNameLabel,
-                               ManualFillCellView::ElementType::kOther,
-                               verticalLeadViews);
     self.siteNameLabel.hidden = NO;
     self.faviconView.hidden = NO;
+    AddViewToVerticalLeadViews(self.headerView,
+                               ManualFillCellView::ElementType::kOther,
+                               verticalLeadViews);
+    if (IsKeyboardAccessoryUpgradeEnabled()) {
+      AddViewToVerticalLeadViews(
+          self.grayLine, ManualFillCellView::ElementType::kHeaderSeparator,
+          verticalLeadViews);
+    }
+  }
+  if (menuActions && menuActions.count) {
+    self.overflowMenuButton.menu = [UIMenu menuWithChildren:menuActions];
+    self.overflowMenuButton.hidden = NO;
+  } else {
+    self.overflowMenuButton.hidden = YES;
   }
 
   // Holds the chip buttons related to the credential that are vertical leads.
@@ -235,6 +265,12 @@ static const CGFloat kOffsetForConnectedCell = 16;
     self.grayLine.hidden = YES;
   }
 
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    AddViewToVerticalLeadViews(self.autofillFormButton,
+                               ManualFillCellView::ElementType::kOther,
+                               verticalLeadViews);
+  }
+
   // Set and activate constraints.
   self.dynamicConstraints = [[NSMutableArray alloc] init];
   CGFloat offset = isConnectedToPreviousCell ? -kOffsetForConnectedCell : 0;
@@ -262,7 +298,8 @@ static const CGFloat kOffsetForConnectedCell = 16;
 
 // Creates and sets up the view hierarchy.
 - (void)createViewHierarchy {
-  self.layoutGuide = AddLayoutGuideToContentView(self.contentView);
+  self.layoutGuide =
+      AddLayoutGuideToContentView(self.contentView, /*cell_has_header=*/YES);
 
   self.selectionStyle = UITableViewCellSelectionStyleNone;
 
@@ -275,7 +312,6 @@ static const CGFloat kOffsetForConnectedCell = 16;
   self.faviconView.translatesAutoresizingMaskIntoConstraints = NO;
   self.faviconView.clipsToBounds = YES;
   self.faviconView.hidden = YES;
-  [self.contentView addSubview:self.faviconView];
   self.faviconContraints = @[
     [self.faviconView.widthAnchor constraintEqualToConstant:GetFaviconSize()],
     [self.faviconView.heightAnchor
@@ -283,22 +319,14 @@ static const CGFloat kOffsetForConnectedCell = 16;
   ];
 
   self.siteNameLabel = CreateLabel();
-  self.siteNameLabel.translatesAutoresizingMaskIntoConstraints = NO;
-  self.siteNameLabel.adjustsFontForContentSizeCategory = YES;
-  [self.contentView addSubview:self.siteNameLabel];
-
-  UIStackView* stackView = [[UIStackView alloc]
-      initWithArrangedSubviews:@[ self.faviconView, self.siteNameLabel ]];
-  stackView.translatesAutoresizingMaskIntoConstraints = NO;
-  stackView.spacing = UIStackViewSpacingUseSystem;
-  stackView.alignment = UIStackViewAlignmentCenter;
-
-  [self.contentView addSubview:stackView];
+  self.overflowMenuButton = CreateOverflowMenuButton();
+  self.headerView = CreateHeaderView(self.faviconView, self.siteNameLabel,
+                                     self.overflowMenuButton);
+  [self.contentView addSubview:self.headerView];
+  AppendHorizontalConstraintsForViews(staticConstraints, @[ self.headerView ],
+                                      self.layoutGuide);
 
   self.grayLine = CreateGraySeparatorForContainer(self.contentView);
-
-  AppendHorizontalConstraintsForViews(staticConstraints, @[ stackView ],
-                                      self.layoutGuide);
 
   self.usernameButton = CreateChipWithSelectorAndTarget(
       @selector(userDidTapUsernameButton:), self);
@@ -315,6 +343,13 @@ static const CGFloat kOffsetForConnectedCell = 16;
       staticConstraints, @[ self.passwordButton ], self.layoutGuide,
       kChipsHorizontalMargin,
       AppendConstraintsHorizontalEqualOrSmallerThanGuide);
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    self.autofillFormButton = CreateAutofillFormButton();
+    [self.contentView addSubview:self.autofillFormButton];
+    AppendHorizontalConstraintsForViews(
+        staticConstraints, @[ self.autofillFormButton ], self.layoutGuide);
+  }
 
   [NSLayoutConstraint activateConstraints:staticConstraints];
 }

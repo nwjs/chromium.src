@@ -25,7 +25,7 @@ base::RepeatingClosure& GetTabletModeShowEmojiKeyboardCallback() {
 }  // namespace
 
 bool IsEmojiPanelSupported() {
-  // TODO(https://crbug.com/887649): Emoji callback is null in Mojo apps because
+  // TODO(crbug.com/41416262): Emoji callback is null in Mojo apps because
   // they are in a different process. Fix it and remove the null check.
   return !GetShowEmojiKeyboardCallback().is_null();
 }
@@ -34,13 +34,15 @@ void ShowEmojiPanel() {
   DCHECK(GetShowEmojiKeyboardCallback());
   GetShowEmojiKeyboardCallback().Run(
       EmojiPickerCategory::kEmojis,
-      EmojiPickerFocusBehavior::kOnlyShowWhenFocused);
+      EmojiPickerFocusBehavior::kOnlyShowWhenFocused,
+      /*initial_query=*/std::string());
 }
 
 void ShowEmojiPanelInSpecificMode(EmojiPickerCategory category,
-                                  EmojiPickerFocusBehavior focus_behavior) {
+                                  EmojiPickerFocusBehavior focus_behavior,
+                                  const std::string& initial_query) {
   DCHECK(GetShowEmojiKeyboardCallback());
-  GetShowEmojiKeyboardCallback().Run(category, focus_behavior);
+  GetShowEmojiKeyboardCallback().Run(category, focus_behavior, initial_query);
 }
 
 void ShowTabletModeEmojiPanel() {

@@ -218,7 +218,7 @@ void BrowserAccessibilityManagerWin::FireBlinkEvent(ax::mojom::Event event_type,
       break;
     }
     case ax::mojom::Event::kTextChanged:
-      // TODO(crbug.com/1049261) Remove when Views are exposed in the AXTree
+      // TODO(crbug.com/40672441) Remove when Views are exposed in the AXTree
       // which will fire generated text-changed events.
       if (!node->IsWebContent())
         EnqueueTextChangedEvent(*node);
@@ -332,10 +332,6 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
       }
       break;
     }
-    // aria-dropeffect is deprecated in WAI-ARIA 1.1.
-    case ui::AXEventGenerator::Event::DROPEFFECT_CHANGED:
-      HandleAriaPropertiesChangedEvent(*wrapper);
-      break;
     case ui::AXEventGenerator::Event::EDITABLE_TEXT_CHANGED:
       EnqueueTextChangedEvent(*wrapper);
       break;
@@ -348,10 +344,6 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
       break;
     case ui::AXEventGenerator::Event::FLOW_TO_CHANGED:
       FireUiaPropertyChangedEvent(UIA_FlowsToPropertyId, wrapper);
-      break;
-    // aria-grabbed is deprecated in WAI-ARIA 1.1.
-    case ui::AXEventGenerator::Event::GRABBED_CHANGED:
-      HandleAriaPropertiesChangedEvent(*wrapper);
       break;
     case ui::AXEventGenerator::Event::HASPOPUP_CHANGED:
       HandleAriaPropertiesChangedEvent(*wrapper);
@@ -387,9 +379,6 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
       break;
     case ui::AXEventGenerator::Event::LANGUAGE_CHANGED:
       FireUiaPropertyChangedEvent(UIA_CulturePropertyId, wrapper);
-      break;
-    case ui::AXEventGenerator::Event::LIVE_REGION_CREATED:
-      FireUiaAccessibilityEvent(UIA_LiveRegionChangedEventId, wrapper);
       break;
     case ui::AXEventGenerator::Event::LIVE_REGION_CHANGED:
       // This event is redundant with the IA2_EVENT_TEXT_INSERTED events;
@@ -445,7 +434,7 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
       break;
     case ui::AXEventGenerator::Event::OBJECT_ATTRIBUTE_CHANGED:
       FireWinAccessibilityEvent(IA2_EVENT_OBJECT_ATTRIBUTE_CHANGED, wrapper);
-      // TODO(crbug.com/1108871): Fire UIA event.
+      // TODO(crbug.com/40707706): Fire UIA event.
       break;
     case ui::AXEventGenerator::Event::PLACEHOLDER_CHANGED:
       FireUiaPropertyChangedEvent(UIA_HelpTextPropertyId, wrapper);
@@ -556,6 +545,7 @@ void BrowserAccessibilityManagerWin::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::DETAILS_CHANGED:
     case ui::AXEventGenerator::Event::DOCUMENT_TITLE_CHANGED:
     case ui::AXEventGenerator::Event::FOCUS_CHANGED:
+    case ui::AXEventGenerator::Event::LIVE_REGION_CREATED:
     case ui::AXEventGenerator::Event::LIVE_REGION_NODE_CHANGED:
     case ui::AXEventGenerator::Event::MENU_ITEM_SELECTED:
     case ui::AXEventGenerator::Event::ORIENTATION_CHANGED:

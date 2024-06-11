@@ -39,7 +39,7 @@
 #include "components/privacy_sandbox/tracking_protection_onboarding.h"
 #include "components/subresource_filter/core/common/common_features.h"
 #include "components/subresource_filter/core/common/test_ruleset_utils.h"
-#include "components/tpcd/metadata/parser.h"
+#include "components/tpcd/metadata/browser/parser.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -1243,7 +1243,7 @@ IN_PROC_BROWSER_TEST_P(ThirdPartyCookieDeprecationObserverSSABrowserTest,
   observer.Wait();
   NavigateToUntrackedUrl();
 
-  // TODO(https://crbug.com/1494080) In this case, url_loader can't get correct
+  // TODO(crbug.com/40936991) In this case, url_loader can't get correct
   // cookie_setting_overrides value when creating CookieAccessDetails object. It
   // fails to get the correct enabling mechanism of storage access API. Confirm
   // with storage access API owner.

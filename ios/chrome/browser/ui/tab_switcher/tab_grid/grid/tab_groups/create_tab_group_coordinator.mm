@@ -12,6 +12,7 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/create_or_edit_tab_group_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/create_or_edit_tab_group_view_controller_delegate.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/create_tab_group_mediator.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/create_tab_group_transition_delegate.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/create_tab_group_view_controller.h"
 #import "ios/web/public/web_state_id.h"
 
@@ -28,6 +29,8 @@
   std::set<web::WebStateID> _identifiers;
   // Tab group to edit.
   const TabGroup* _tabGroup;
+  // Transition delegate for the animation to show/hide.
+  CreateTabGroupTransitionDelegate* _transitionDelegate;
 }
 
 #pragma mark - Public
@@ -45,6 +48,7 @@
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _identifiers = identifiers;
+    _animatedDismissal = YES;
   }
   return self;
 }
@@ -67,8 +71,10 @@
 #pragma mark - CreateOrEditTabGroupViewControllerDelegate
 
 - (void)createOrEditTabGroupViewControllerDidDismiss:
-    (CreateTabGroupViewController*)viewController {
-  [self.delegate createOrEditTabGroupCoordinatorDidDismiss:self];
+            (CreateTabGroupViewController*)viewController
+                                            animated:(BOOL)animated {
+  [self.delegate createOrEditTabGroupCoordinatorDidDismiss:self
+                                                  animated:animated];
 }
 
 #pragma mark - ChromeCoordinator
@@ -91,9 +97,9 @@
   _viewController.mutator = _mediator;
   _viewController.delegate = self;
 
-  // TODO(crbug.com/1501837): Add the create tab group animation.
-  _viewController.modalPresentationStyle =
-      UIModalPresentationOverCurrentContext;
+  _viewController.modalPresentationStyle = UIModalPresentationCustom;
+  _transitionDelegate = [[CreateTabGroupTransitionDelegate alloc] init];
+  _viewController.transitioningDelegate = _transitionDelegate;
   [self.baseViewController presentViewController:_viewController
                                         animated:YES
                                       completion:nil];
@@ -102,8 +108,9 @@
 - (void)stop {
   _mediator = nil;
 
-  // TODO(crbug.com/1501837): Make the created tab group animation.
-  [_viewController dismissViewControllerAnimated:YES completion:nil];
+  [_viewController.presentingViewController
+      dismissViewControllerAnimated:self.animatedDismissal
+                         completion:nil];
   _viewController = nil;
 }
 

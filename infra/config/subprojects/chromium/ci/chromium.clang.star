@@ -7,7 +7,7 @@ load("//lib/args.star", "args")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/builder_url.star", "linkify_builder")
-load("//lib/builders.star", "builders", "os", "reclient", "sheriff_rotations", "siso")
+load("//lib/builders.star", "builders", "cpu", "os", "reclient", "sheriff_rotations")
 load("//lib/branches.star", "branches")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
@@ -37,8 +37,13 @@ ci.defaults.set(
     properties = {
         "perf_dashboard_machine_group": "ChromiumClang",
     },
+    # TODO: b/335361392 - Rename reclient_instance to rbe_project or siso_project.
+    # This is used by Siso to upload Cloud logging/trace/profiler even without remote execution.
+    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
+    siso_configs = ["builder", "clang-tot"],
+    siso_enabled = True,
 )
 
 consoles.console_view(
@@ -147,13 +152,7 @@ ci.builder(
     ),
     contact_team_email = "lexan@google.com",
     notifies = ["CFI Linux"],
-    reclient_instance = reclient.instance.DEFAULT_TRUSTED,
-    reclient_jobs = reclient.jobs.DEFAULT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
-    siso_enabled = True,
-    siso_project = siso.project.DEFAULT_TRUSTED,
+    siso_configs = ["builder"],  # disable clang_tot config to use remote execution.
     siso_remote_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -1425,8 +1424,11 @@ clang_mac_builder(
             "minimal_symbols",
             "shared",
             "release",
+            "x64",
         ],
     ),
+    cores = None,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Mac",
         short_name = "rel",
@@ -1455,8 +1457,11 @@ clang_mac_builder(
             "clang_tot",
             "shared",
             "debug",
+            "x64",
         ],
     ),
+    cores = None,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Mac",
         short_name = "dbg",
@@ -1554,8 +1559,11 @@ clang_mac_builder(
             "use_clang_coverage",
             "minimal_symbols",
             "release",
+            "x64",
         ],
     ),
+    cores = None,
+    cpu = cpu.ARM64,
     console_view_entry = consoles.console_view_entry(
         category = "ToT Code Coverage",
         short_name = "mac",

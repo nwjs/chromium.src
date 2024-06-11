@@ -7,7 +7,7 @@ load("//lib/args.star", "args")
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
 load("//lib/builder_health_indicators.star", "health_spec")
-load("//lib/builders.star", "os", "reclient", "sheriff_rotations", "siso")
+load("//lib/builders.star", "os", "reclient", "sheriff_rotations")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -32,11 +32,7 @@ ci.defaults.set(
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
-    siso_project = siso.project.DEFAULT_TRUSTED,
     siso_remote_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -977,7 +973,7 @@ ci.builder(
             "release",
         ],
     ),
-    # TODO(crbug.com/1202631) Enable tree closing when stable.
+    # TODO(crbug.com/40179221) Enable tree closing when stable.
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(
         category = "lacros|arm",
@@ -1026,7 +1022,7 @@ ci.builder(
             "release",
         ],
     ),
-    # TODO(https://crbug.com/1342761): enable sheriff rotation and tree_closing
+    # TODO(crbug.com/40231151): enable sheriff rotation and tree_closing
     # when the builder is stable.
     sheriff_rotations = args.ignore_default(None),
     tree_closing = False,
@@ -1060,6 +1056,9 @@ ci.builder(
             target_platform = builder_config.target_platform.CHROMEOS,
         ),
         build_gs_bucket = "chromium-chromiumos-archive",
+    ),
+    builder_config_settings = builder_config.ci_settings(
+        retry_failed_shards = True,
     ),
     gn_args = gn_args.config(
         configs = [
@@ -1197,6 +1196,9 @@ ci.thin_tester(
             target_platform = builder_config.target_platform.CHROMEOS,
         ),
         build_gs_bucket = "chromium-chromiumos-archive",
+    ),
+    builder_config_settings = builder_config.ci_settings(
+        retry_failed_shards = True,
     ),
     tree_closing = False,
     console_view_entry = consoles.console_view_entry(

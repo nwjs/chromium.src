@@ -303,10 +303,6 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kLinkRelPreloadAsFont,
           WebFeature::kURLPatternReliantOnImplicitURLComponentsInString,
           WebFeature::kURLPatternReliantOnLaterComponentFromBaseURL,
-          WebFeature::kWindowManagementPermissionDescriptorUsed,
-          WebFeature::kWindowManagementPermissionPolicyParsed,
-          WebFeature::kWindowPlacementPermissionDescriptorUsed,
-          WebFeature::kWindowPlacementPermissionPolicyParsed,
           WebFeature::kV8Window_GetScreenDetails_Method,
           WebFeature::kV8Window_ShowSaveFilePicker_Method,
           WebFeature::kFullscreenAllowedByWindowOpen,
@@ -399,6 +395,8 @@ UseCounterMetricsRecorder::GetAllowedUkmFeatures() {
           WebFeature::kServiceWorkerStaticRouter_Evaluate,
           WebFeature::kNavigatorCookieEnabledThirdParty,
           WebFeature::kSimplifyLoadingTransparentPlaceholderImage,
+          WebFeature::kFedCmContinueOnResponse,
+          WebFeature::kSchedulingIsInputPending
       }));
   return *opt_in_features;
 }

@@ -7,6 +7,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <string_view>
 
 #include "ash/webui/camera_app_ui/url_constants.h"
 #include "base/command_line.h"
@@ -117,7 +118,6 @@
 #include "chrome/browser/ash/system_web_apps/test_support/test_system_web_app_manager.h"
 #include "chrome/browser/policy/networking/policy_cert_service.h"
 #include "chrome/browser/policy/networking/policy_cert_service_factory.h"
-#include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "components/user_manager/scoped_user_manager.h"
@@ -233,7 +233,8 @@ TEST_F(ChromeContentBrowserClientWindowTest, OpenURL) {
   EXPECT_EQ(previous_count + 2, browser()->tab_strip_model()->count());
 }
 
-// TODO(crbug.com/566091): Remove the need for ShouldStayInParentProcessForNTP()
+// TODO(crbug.com/40447789): Remove the need for
+// ShouldStayInParentProcessForNTP()
 //    and associated test.
 TEST_F(ChromeContentBrowserClientWindowTest, ShouldStayInParentProcessForNTP) {
   ChromeContentBrowserClient client;
@@ -1244,7 +1245,7 @@ class ChromeContentBrowserClientSwitchTest
       : testing_local_state_(TestingBrowserProcess::GetGlobal()) {}
 
  protected:
-  void AppendSwitchInCurrentProcess(const base::StringPiece& switch_string) {
+  void AppendSwitchInCurrentProcess(std::string_view switch_string) {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(switch_string);
   }
 

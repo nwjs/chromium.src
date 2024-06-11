@@ -192,7 +192,7 @@ GURL ExtractUrl(const base::Value::Dict& response, const char* key) {
     return GURL();
   }
   GURL url = GURL(*response_url);
-  // TODO(crbug.com/1476951): Allow localhost URLs
+  // TODO(crbug.com/40280145): Allow localhost URLs
   if (!url.is_valid() || !url.SchemeIsHTTPOrHTTPS()) {
     return GURL();
   }
@@ -248,6 +248,15 @@ std::optional<content::IdentityRequestAccount> ParseAccount(
   // required fields
   if (!(id && email && name))
     return std::nullopt;
+
+  auto trimmed_email =
+      base::TrimWhitespace(base::UTF8ToUTF16(*email), base::TRIM_ALL);
+  auto trimmed_name =
+      base::TrimWhitespace(base::UTF8ToUTF16(*name), base::TRIM_ALL);
+  // TODO(crbug.com/40849405): validate email address.
+  if (trimmed_email.empty() || trimmed_name.empty()) {
+    return std::nullopt;
+  }
 
   RecordApprovedClientsExistence(approved_clients != nullptr);
 
@@ -706,15 +715,35 @@ ErrorDialogType GetErrorDialogType(const std::string& code, const GURL& url) {
 }
 
 TokenResponseType GetTokenResponseType(const std::string* token,
+                                       const std::string* continue_on,
                                        const base::Value::Dict* error) {
-  if (token && error) {
-    return TokenResponseType::kTokenReceivedAndErrorReceived;
-  } else if (token) {
-    return TokenResponseType::kTokenReceivedAndErrorNotReceived;
-  } else if (error) {
-    return TokenResponseType::kTokenNotReceivedAndErrorReceived;
+  if (token && error && !continue_on) {
+    return TokenResponseType::
+        kTokenReceivedAndErrorReceivedAndContinueOnNotReceived;
+  } else if (token && !error && !continue_on) {
+    return TokenResponseType::
+        kTokenReceivedAndErrorNotReceivedAndContinueOnNotReceived;
+  } else if (!token && error && !continue_on) {
+    return TokenResponseType::
+        kTokenNotReceivedAndErrorReceivedAndContinueOnNotReceived;
+  } else if (token && !error && continue_on) {
+    return TokenResponseType::
+        kTokenReceivedAndErrorNotReceivedAndContinueOnReceived;
+  } else if (token && error && continue_on) {
+    return TokenResponseType::
+        kTokenReceivedAndErrorReceivedAndContinueOnReceived;
+  } else if (!token && !error && continue_on) {
+    return TokenResponseType::
+        kTokenNotReceivedAndErrorNotReceivedAndContinueOnReceived;
+  } else if (!token && error && continue_on) {
+    return TokenResponseType::
+        kTokenNotReceivedAndErrorReceivedAndContinueOnReceived;
   }
-  return TokenResponseType::kTokenNotReceivedAndErrorNotReceived;
+  DCHECK(!token);
+  DCHECK(!error);
+  DCHECK(!continue_on);
+  return TokenResponseType::
+      kTokenNotReceivedAndErrorNotReceivedAndContinueOnNotReceived;
 }
 
 bool IsOkResponseCode(int response_code) {
@@ -758,14 +787,18 @@ void OnTokenRequestParsed(
 
   const base::Value::Dict* response =
       parse_succeeded ? &result->GetDict() : nullptr;
+  bool can_use_response =
+      response && IsOkResponseCode(fetch_status.response_code);
   const std::string* token =
-      response && IsOkResponseCode(fetch_status.response_code)
-          ? response->FindString(kTokenKey)
-          : nullptr;
+      can_use_response ? response->FindString(kTokenKey) : nullptr;
+  // continue_on_callback is only set if authz is enabled.
+  const std::string* continue_on = can_use_response && continue_on_callback
+                                       ? response->FindString(kContinueOnKey)
+                                       : nullptr;
   const base::Value::Dict* response_error =
       response ? response->FindDict(kErrorKey) : nullptr;
   TokenResponseType token_response_type =
-      GetTokenResponseType(token, response_error);
+      GetTokenResponseType(token, continue_on, response_error);
 
   if (response_error) {
     std::string error_code = ExtractString(*response_error, kErrorCodeKey);
@@ -786,8 +819,7 @@ void OnTokenRequestParsed(
     ErrorDialogType type = GetErrorDialogTypeAndSetTokenError(
         fetch_status.response_code, token_result);
     std::move(record_error_metrics_callback)
-        .Run(TokenResponseType::kTokenNotReceivedAndErrorNotReceived, type,
-             /*error_url_type=*/std::nullopt);
+        .Run(token_response_type, type, /*error_url_type=*/std::nullopt);
     if (parse_succeeded) {
       fetch_status.parse_status = ParseStatus::kInvalidResponseError;
     }
@@ -806,11 +838,12 @@ void OnTokenRequestParsed(
     return;
   }
 
-  const std::string* continue_on = response->FindString(kContinueOnKey);
-  // continue_on_callback is only set if authz is enabled.
-  if (continue_on_callback && continue_on) {
+  if (continue_on) {
     GURL url = token_url.Resolve(*continue_on);
     if (url.is_valid()) {
+      std::move(record_error_metrics_callback)
+          .Run(token_response_type, /*error_dialog_type=*/std::nullopt,
+               /*error_url_type=*/std::nullopt);
       std::move(continue_on_callback)
           .Run({ParseStatus::kSuccess, fetch_status.response_code},
                std::move(url));
@@ -1238,7 +1271,7 @@ IdpNetworkRequestManager::CreateCredentialedResourceRequest(
       network::mojom::RequestDestination::kWebIdentity;
   resource_request->url = target_url;
   resource_request->site_for_cookies = site_for_cookies;
-  // TODO(crbug.com/1489662): Figure out why when using CORS we still need to
+  // TODO(crbug.com/40284123): Figure out why when using CORS we still need to
   // explicitly pass the Origin header.
   if (type != CredentialedResourceRequestType::kNoOrigin) {
     resource_request->headers.SetHeader(net::HttpRequestHeaders::kOrigin,

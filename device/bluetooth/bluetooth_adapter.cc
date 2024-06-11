@@ -109,7 +109,7 @@ void BluetoothAdapter::SetPowered(bool powered,
 }
 
 bool BluetoothAdapter::IsPeripheralRoleSupported() const {
-  // TODO(crbug/1071595): Implement this for more platforms.
+  // TODO(crbug.com/40685201): Implement this for more platforms.
   return true;
 }
 
@@ -289,6 +289,11 @@ BluetoothDevice::PairingDelegate* BluetoothAdapter::DefaultPairingDelegate() {
     return NULL;
 
   return pairing_delegates_.front().first;
+}
+
+// Default to assume the controller doesn't supports ext adv.
+bool BluetoothAdapter::IsExtendedAdvertisementsAvailable() const {
+  return false;
 }
 
 std::vector<BluetoothAdvertisement*>

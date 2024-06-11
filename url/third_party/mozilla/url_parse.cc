@@ -285,7 +285,7 @@ void ParsePath(const CHAR* spec,
   } else {
     // File path: treat an empty file path as no file path.
     //
-    // TODO(crbug.com/1416006): Consider to assign zero-length path component
+    // TODO(crbug.com/40063064): Consider to assign zero-length path component
     // for non-special URLs because a path can be empty in non-special URLs.
     // Currently, we don't have to distinguish between them. There is no visible
     // difference.
@@ -361,27 +361,26 @@ void DoParseAfterSpecialScheme(const CHAR* spec,
 
 // The main parsing function for standard URLs. Standard URLs have a scheme,
 // host, path, etc.
-template <typename CHAR>
-void DoParseStandardURL(const CHAR* spec, int spec_len, Parsed* parsed) {
-  DCHECK(spec_len >= 0);
-  parsed->has_opaque_path = false;
-
+template <typename CharT>
+Parsed DoParseStandardURL(std::basic_string_view<CharT> url) {
   // Strip leading & trailing spaces and control characters.
   int begin = 0;
-  TrimURL(spec, &begin, &spec_len);
+  int url_len = base::checked_cast<int>(url.size());
+  TrimURL(url.data(), &begin, &url_len);
 
   int after_scheme;
-  if (DoExtractScheme(std::basic_string_view(spec, spec_len),
-                      &parsed->scheme)) {
-    after_scheme = parsed->scheme.end() + 1;  // Skip past the colon.
+  Parsed parsed;
+  if (DoExtractScheme(url.substr(0, url_len), &parsed.scheme)) {
+    after_scheme = parsed.scheme.end() + 1;  // Skip past the colon.
   } else {
     // Say there's no scheme when there is no colon. We could also say that
     // everything is the scheme. Both would produce an invalid URL, but this way
     // seems less wrong in more cases.
-    parsed->scheme.reset();
+    parsed.scheme.reset();
     after_scheme = begin;
   }
-  DoParseAfterSpecialScheme(spec, spec_len, after_scheme, parsed);
+  DoParseAfterSpecialScheme(url.data(), url_len, after_scheme, &parsed);
+  return parsed;
 }
 
 template <typename CHAR>
@@ -471,29 +470,27 @@ void DoParseAfterNonSpecialScheme(const CHAR* spec,
 }
 
 // The main parsing function for non-special scheme URLs.
-template <typename CHAR>
-void DoParseNonSpecialURL(const CHAR* spec,
-                          int spec_len,
-                          bool trim_path_end,
-                          Parsed* parsed) {
-  DCHECK(spec_len >= 0);
-
+template <typename CharT>
+Parsed DoParseNonSpecialURL(std::basic_string_view<CharT> url,
+                            bool trim_path_end) {
   // Strip leading & trailing spaces and control characters.
   int begin = 0;
-  TrimURL(spec, &begin, &spec_len, trim_path_end);
+  int url_len = base::checked_cast<int>(url.size());
+  TrimURL(url.data(), &begin, &url_len, trim_path_end);
 
   int after_scheme;
-  if (DoExtractScheme(std::basic_string_view(spec, spec_len),
-                      &parsed->scheme)) {
-    after_scheme = parsed->scheme.end() + 1;  // Skip past the colon.
+  Parsed parsed;
+  if (DoExtractScheme(url.substr(0, url_len), &parsed.scheme)) {
+    after_scheme = parsed.scheme.end() + 1;  // Skip past the colon.
   } else {
     // Say there's no scheme when there is no colon. We could also say that
     // everything is the scheme. Both would produce an invalid URL, but this way
     // seems less wrong in more cases.
-    parsed->scheme.reset();
+    parsed.scheme.reset();
     after_scheme = 0;
   }
-  DoParseAfterNonSpecialScheme(spec, spec_len, after_scheme, parsed);
+  DoParseAfterNonSpecialScheme(url.data(), url_len, after_scheme, &parsed);
+  return parsed;
 }
 
 template <typename CharT>
@@ -516,7 +513,7 @@ Parsed DoParseFileSystemURL(std::basic_string_view<CharT> url) {
     parsed.scheme.begin += begin;
 
     if (parsed.scheme.end() == url_len - 1) {
-      return {};
+      return parsed;
     }
 
     inner_start = parsed.scheme.end() + 1;
@@ -542,20 +539,17 @@ Parsed DoParseFileSystemURL(std::basic_string_view<CharT> url) {
   }
 
   Parsed inner_parsed;
-
   if (CompareSchemeComponent(url.data(), inner_scheme, kFileScheme)) {
     // File URLs are special. The static cast is safe because we calculated the
     // size above as the difference of two ints.
-    ParseFileURL(inner_url.data(), static_cast<int>(inner_url.size()),
-                 &inner_parsed);
+    inner_parsed = ParseFileURL(inner_url);
   } else if (CompareSchemeComponent(url.data(), inner_scheme,
                                     kFileSystemScheme)) {
     // Filesystem URLs don't nest.
     return parsed;
   } else if (IsStandard(url.data(), inner_scheme)) {
     // All "normal" URLs.
-    DoParseStandardURL(inner_url.data(), static_cast<int>(inner_url.size()),
-                       &inner_parsed);
+    inner_parsed = DoParseStandardURL(inner_url);
   } else {
     return parsed;
   }
@@ -606,61 +600,41 @@ Parsed DoParseFileSystemURL(std::basic_string_view<CharT> url) {
 
 // Initializes a path URL which is merely a scheme followed by a path. Examples
 // include "about:foo" and "javascript:alert('bar');"
-template <typename CHAR>
-void DoParsePathURL(const CHAR* spec,
-                    int spec_len,
-                    bool trim_path_end,
-                    Parsed* parsed) {
-  // Get the non-path and non-scheme parts of the URL out of the way, we never
-  // use them.
-  parsed->username.reset();
-  parsed->password.reset();
-  parsed->host.reset();
-  parsed->port.reset();
-  parsed->path.reset();
-  parsed->query.reset();
-  parsed->ref.reset();
-  // In practice, we don't need to set `has_opaque_path` here because:
-  //
-  // 1. `has_opaque_path` will be used only when the
-  //     `kStandardCompliantNonSpecialSchemeURLParsing` feature is enabled.
-  // 2. `DoParsePathURL` will not be used when the flag is enabled (planned).
-  //
-  // However, for predictable results, it is better to explicitly set it
-  // `false`.
-  parsed->has_opaque_path = false;
-
+template <typename CharT>
+Parsed DoParsePathURL(std::basic_string_view<CharT> url, bool trim_path_end) {
   // Strip leading & trailing spaces and control characters.
   int scheme_begin = 0;
-  TrimURL(spec, &scheme_begin, &spec_len, trim_path_end);
+  int url_len = base::checked_cast<int>(url.size());
+  TrimURL(url.data(), &scheme_begin, &url_len, trim_path_end);
 
   // Handle empty specs or ones that contain only whitespace or control chars.
-  if (scheme_begin == spec_len) {
-    parsed->scheme.reset();
-    parsed->path.reset();
-    return;
+  if (scheme_begin == url_len) {
+    return {};
   }
 
   int path_begin;
+  Parsed parsed;
   // Extract the scheme, with the path being everything following. We also
   // handle the case where there is no scheme.
-  if (ExtractScheme(&spec[scheme_begin], spec_len - scheme_begin,
-                    &parsed->scheme)) {
+  if (ExtractScheme(&url[scheme_begin], url_len - scheme_begin,
+                    &parsed.scheme)) {
     // Offset the results since we gave ExtractScheme a substring.
-    parsed->scheme.begin += scheme_begin;
-    path_begin = parsed->scheme.end() + 1;
+    parsed.scheme.begin += scheme_begin;
+    path_begin = parsed.scheme.end() + 1;
   } else {
     // No scheme case.
-    parsed->scheme.reset();
+    parsed.scheme.reset();
     path_begin = scheme_begin;
   }
 
-  if (path_begin == spec_len)
-    return;
-  DCHECK_LT(path_begin, spec_len);
+  if (path_begin == url_len) {
+    return parsed;
+  }
+  DCHECK_LT(path_begin, url_len);
 
-  ParsePath(spec, MakeRange(path_begin, spec_len), &parsed->path,
-            &parsed->query, &parsed->ref);
+  ParsePath(url.data(), MakeRange(path_begin, url_len), &parsed.path,
+            &parsed.query, &parsed.ref);
+  return parsed;
 }
 
 template <typename CharT>
@@ -1063,48 +1037,49 @@ int ParsePort(const char16_t* url, const Component& port) {
   return DoParsePort(url, port);
 }
 
+Parsed ParseStandardURL(std::string_view url) {
+  return DoParseStandardURL(url);
+}
+
+Parsed ParseStandardURL(std::u16string_view url) {
+  return DoParseStandardURL(url);
+}
+
 void ParseStandardURL(const char* url, int url_len, Parsed* parsed) {
-  DoParseStandardURL(url, url_len, parsed);
+  CHECK_GE(url_len, 0);
+  *parsed = DoParseStandardURL(std::basic_string_view(url, url_len));
 }
 
-void ParseStandardURL(const char16_t* url, int url_len, Parsed* parsed) {
-  DoParseStandardURL(url, url_len, parsed);
+Parsed ParseNonSpecialURL(std::string_view url) {
+  return DoParseNonSpecialURL(url, /*trim_path_end=*/true);
 }
 
-void ParseNonSpecialURL(const char* url, int url_len, Parsed* parsed) {
-  DoParseNonSpecialURL(url, url_len, /*trim_path_end=*/true, parsed);
+Parsed ParseNonSpecialURL(std::u16string_view url) {
+  return DoParseNonSpecialURL(url, /*trim_path_end=*/true);
 }
 
-void ParseNonSpecialURL(const char16_t* url, int url_len, Parsed* parsed) {
-  DoParseNonSpecialURL(url, url_len, /*trim_path_end=*/true, parsed);
+Parsed ParseNonSpecialURLInternal(std::string_view url, bool trim_path_end) {
+  return DoParseNonSpecialURL(url, trim_path_end);
 }
 
-void ParseNonSpecialURLInternal(const char* url,
-                                int url_len,
-                                bool trim_path_end,
-                                Parsed* parsed) {
-  DoParseNonSpecialURL(url, url_len, trim_path_end, parsed);
+Parsed ParseNonSpecialURLInternal(std::u16string_view url, bool trim_path_end) {
+  return DoParseNonSpecialURL(url, trim_path_end);
 }
 
-void ParseNonSpecialURLInternal(const char16_t* url,
-                                int url_len,
-                                bool trim_path_end,
-                                Parsed* parsed) {
-  DoParseNonSpecialURL(url, url_len, trim_path_end, parsed);
+Parsed ParsePathURL(std::string_view url, bool trim_path_end) {
+  return DoParsePathURL(url, trim_path_end);
+}
+
+Parsed ParsePathURL(std::u16string_view url, bool trim_path_end) {
+  return DoParsePathURL(url, trim_path_end);
 }
 
 void ParsePathURL(const char* url,
                   int url_len,
                   bool trim_path_end,
                   Parsed* parsed) {
-  DoParsePathURL(url, url_len, trim_path_end, parsed);
-}
-
-void ParsePathURL(const char16_t* url,
-                  int url_len,
-                  bool trim_path_end,
-                  Parsed* parsed) {
-  DoParsePathURL(url, url_len, trim_path_end, parsed);
+  CHECK_GE(url_len, 0);
+  *parsed = ParsePathURL(std::string_view(url, url_len), trim_path_end);
 }
 
 Parsed ParseFileSystemURL(std::string_view url) {

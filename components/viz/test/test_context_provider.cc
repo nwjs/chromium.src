@@ -129,11 +129,11 @@ class TestGLES2InterfaceForContextProvider : public TestGLES2Interface {
 };
 
 // Creates a shared memory region and returns a handle to it.
-gfx::GpuMemoryBufferHandle CreateGMBHandle(SharedImageFormat format,
-                                           const gfx::Size& size,
-                                           gfx::BufferUsage buffer_usage) {
+gfx::GpuMemoryBufferHandle CreateGMBHandle(
+    const gfx::BufferFormat& buffer_format,
+    const gfx::Size& size,
+    gfx::BufferUsage buffer_usage) {
   static int last_handle_id = 0;
-  auto buffer_format = SinglePlaneSharedImageFormatToBufferFormat(format);
   size_t buffer_size = 0u;
   CHECK(
       gfx::BufferSizeForBufferFormatChecked(size, buffer_format, &buffer_size));
@@ -196,18 +196,28 @@ TestSharedImageInterface::CreateSharedImage(const gpu::SharedImageInfo& si_info,
   shared_images_.insert(mailbox);
   most_recent_size_ = si_info.meta.size;
 
+  auto buffer_format =
+      SharedImageFormatToBufferFormatRestrictedUtils::ToBufferFormat(
+          si_info.meta.format);
   if (test_gmb_manager_) {
     auto gpu_memory_buffer = test_gmb_manager_->CreateGpuMemoryBuffer(
-        si_info.meta.size,
-        SinglePlaneSharedImageFormatToBufferFormat(si_info.meta.format),
-        buffer_usage, surface_handle, nullptr);
+        si_info.meta.size, buffer_format, buffer_usage, surface_handle,
+        nullptr);
+
+    // Since the |gpu_memory_buffer| here is always a shared memory, clear the
+    // external sampler prefs if it is already set by client.
+    // https://issues.chromium.org/339546249.
+    gpu::SharedImageInfo si_info_copy = si_info;
+    if (si_info_copy.meta.format.PrefersExternalSampler()) {
+      si_info_copy.meta.format.ClearPrefersExternalSampler();
+    }
     return gpu::ClientSharedImage::CreateForTesting(
-        mailbox, si_info.meta, sync_token, std::move(gpu_memory_buffer),
+        mailbox, si_info_copy.meta, sync_token, std::move(gpu_memory_buffer),
         holder_);
   }
 
   auto gmb_handle =
-      CreateGMBHandle(si_info.meta.format, si_info.meta.size, buffer_usage);
+      CreateGMBHandle(buffer_format, si_info.meta.size, buffer_usage);
 
   return base::MakeRefCounted<gpu::ClientSharedImage>(
       mailbox, si_info.meta, sync_token,

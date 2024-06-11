@@ -71,6 +71,7 @@
 #include "ash/display/mouse_cursor_event_filter.h"
 #include "ash/display/privacy_screen_controller.h"
 #include "ash/display/projecting_observer.h"
+#include "ash/display/refresh_rate_controller.h"
 #include "ash/display/resolution_notification_controller.h"
 #include "ash/display/screen_ash.h"
 #include "ash/display/screen_orientation_controller.h"
@@ -158,6 +159,7 @@
 #include "ash/system/input_device_settings/input_device_settings_dispatcher.h"
 #include "ash/system/input_device_settings/input_device_tracker.h"
 #include "ash/system/input_device_settings/keyboard_modifier_metrics_recorder.h"
+#include "ash/system/input_device_settings/touchscreen_metrics_recorder.h"
 #include "ash/system/keyboard_brightness/keyboard_backlight_color_controller.h"
 #include "ash/system/keyboard_brightness/keyboard_brightness_controller.h"
 #include "ash/system/keyboard_brightness_control_delegate.h"
@@ -805,6 +807,7 @@ Shell::~Shell() {
   AccessibilityController::Get()->SetAccessibilityEventRewriter(nullptr);
   event_rewriter_controller_.reset();
   keyboard_modifier_metrics_recorder_.reset();
+  touchscreen_metrics_recorder_.reset();
   input_device_settings_dispatcher_.reset();
   input_device_tracker_.reset();
   input_device_settings_controller_.reset();
@@ -884,8 +887,6 @@ Shell::~Shell() {
   window_bounds_tracker_.reset();
 
   display_highlight_controller_.reset();
-
-  display_performance_mode_controller_.reset();
 
   // VideoActivityNotifier must be deleted before |video_detector_| is
   // deleted because it's observing video activity through
@@ -1005,7 +1006,7 @@ Shell::~Shell() {
   ScreenAsh::CreateScreenForShutdown();
   display_configuration_controller_.reset();
 
-  // Needs to be destructed before `ime_controler_`.
+  // Needs to be destructed before `ime_controller_`.
   keyboard_backlight_color_controller_.reset();
   rgb_keyboard_manager_.reset();
 
@@ -1067,7 +1068,7 @@ Shell::~Shell() {
   // |window_tree_host_manager_|.
   clipboard_history_controller_.reset();
 
-  // Should be destroyed after `clipbaord_history_controller_` and
+  // Should be destroyed after `clipboard_history_controller_` and
   // `autozoom_controller_` since they will destruct `SystemNudgeController`.
   system_nudge_pause_manager_.reset();
 
@@ -1096,6 +1097,10 @@ Shell::~Shell() {
   partial_magnifier_controller_.reset();
 
   laser_pointer_controller_.reset();
+
+  refresh_rate_controller_.reset();
+
+  display_performance_mode_controller_.reset();
 
   if (display_change_observer_) {
     display_manager_->configurator()->RemoveObserver(
@@ -1392,6 +1397,8 @@ void Shell::Init(
           ui::OzonePlatform::GetInstance()->GetInputController());
   keyboard_modifier_metrics_recorder_ =
       std::make_unique<KeyboardModifierMetricsRecorder>();
+  touchscreen_metrics_recorder_ =
+      std::make_unique<TouchscreenMetricsRecorder>();
   event_rewriter_controller_ = std::make_unique<EventRewriterControllerImpl>();
   modifier_key_combo_recorder_ = std::make_unique<ModifierKeyComboRecorder>();
   rapid_key_sequence_recorder_ = std::make_unique<RapidKeySequenceRecorder>();
@@ -1419,7 +1426,7 @@ void Shell::Init(
         shell_delegate_->CreateGameDashboardDelegate());
   }
 
-  // `SnapGroupController` has dependencies on `OverviweController` and
+  // `SnapGroupController` has dependencies on `OverviewController` and
   // `TabletModeController`.
   if (features::IsSnapGroupEnabled()) {
     snap_group_controller_ = std::make_unique<SnapGroupController>();
@@ -1542,7 +1549,7 @@ void Shell::Init(
   power_button_controller_ = std::make_unique<PowerButtonController>(
       backlights_forced_off_setter_.get());
   // Pass the initial display state to PowerButtonController.
-  power_button_controller_->OnDisplayModeChanged(
+  power_button_controller_->OnDisplayConfigurationChanged(
       display_configurator()->cached_displays());
 
   drag_drop_controller_ = std::make_unique<DragDropController>();
@@ -1680,7 +1687,8 @@ void Shell::Init(
       std::make_unique<SystemNotificationController>();
 
   if (features::IsFocusModeEnabled()) {
-    focus_mode_controller_ = std::make_unique<FocusModeController>();
+    focus_mode_controller_ = std::make_unique<FocusModeController>(
+        shell_delegate_->CreateFocusModeDelegate());
   }
 
   // WmModeController should be created before initializing the window tree
@@ -1746,9 +1754,6 @@ void Shell::Init(
   // DisplayAlignmentController.
   display_highlight_controller_ =
       std::make_unique<DisplayHighlightController>();
-
-  display_performance_mode_controller_ =
-      std::make_unique<DisplayPerformanceModeController>();
 
   if (features::IsDisplayAlignmentAssistanceEnabled()) {
     display_alignment_controller_ =
@@ -1904,6 +1909,13 @@ void Shell::InitializeDisplayManager() {
   if (!display_initialized) {
     display_manager_->InitDefaultDisplay();
   }
+
+  display_performance_mode_controller_ =
+      std::make_unique<DisplayPerformanceModeController>();
+
+  refresh_rate_controller_ = std::make_unique<RefreshRateController>(
+      display_configurator(), PowerStatus::Get(),
+      display_performance_mode_controller());
 }
 
 void Shell::InitRootWindow(aura::Window* root_window) {

@@ -26,7 +26,6 @@
 #include "extensions/browser/background_script_executor.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/script_executor.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/utils/content_script_utils.h"
 #include "extensions/test/extension_test_message_listener.h"
@@ -307,7 +306,7 @@ IN_PROC_BROWSER_TEST_F(ScriptingAPITest,
 // Test that if an extension with persistent scripts is quickly unloaded while
 // these scripts are being fetched, requests that wait on that extension's
 // script load will be unblocked. Regression for crbug.com/1250575
-// TODO(crbug.com/1484659): Disabled on ASAN due to leak caused by renderer gin
+// TODO(crbug.com/40282331): Disabled on ASAN due to leak caused by renderer gin
 // objects which are intended to be leaked.
 #if defined(ADDRESS_SANITIZER)
 #define MAYBE_RapidLoadUnload DISABLED_RapidLoadUnload
@@ -774,10 +773,7 @@ IN_PROC_BROWSER_TEST_F(ScriptingAPIPrerenderingTest, DISABLED_Basic) {
 
 class ScriptingAndUserScriptsAPITest : public ScriptingAPITest {
  public:
-  ScriptingAndUserScriptsAPITest() {
-    scoped_feature_list_.InitAndEnableFeature(
-        extensions_features::kApiUserScripts);
-  }
+  ScriptingAndUserScriptsAPITest() = default;
   ScriptingAndUserScriptsAPITest(const ScriptingAndUserScriptsAPITest&) =
       delete;
   ScriptingAndUserScriptsAPITest& operator=(
@@ -789,11 +785,6 @@ class ScriptingAndUserScriptsAPITest : public ScriptingAPITest {
     // The userScripts API is only available to users in developer mode.
     util::SetDeveloperModeForProfile(profile(), true);
   }
-
- private:
-  // The userScripts API is currently behind a feature restriction.
-  // TODO(crbug.com/1472902): Remove once the feature is stable for awhile.
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(ScriptingAndUserScriptsAPITest,

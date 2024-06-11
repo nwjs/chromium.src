@@ -31,6 +31,7 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
 import {SettingsSliderElement} from '../controls/settings_slider.js';
+import {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 import {KeyboardBrightnessObserverReceiver} from '../mojom-webui/input_device_settings_provider.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import {PersonalizationHubBrowserProxy, PersonalizationHubBrowserProxyImpl} from '../personalization_page/personalization_hub_browser_proxy.js';
@@ -151,6 +152,11 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
         type: Boolean,
         value: false,
       },
+
+      hasAmbientLightSensor: {
+        type: Boolean,
+        value: false,
+      },
     };
   }
 
@@ -201,6 +207,7 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
   private isLastDevice: boolean;
   private isRgbKeyboardSupported: boolean;
   private hasKeyboardBacklight: boolean;
+  private hasAmbientLightSensor: boolean;
   private isKeyboardBacklightControlInSettingsEnabled: boolean;
 
   override async connectedCallback(): Promise<void> {
@@ -219,6 +226,9 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
       this.hasKeyboardBacklight =
           (await this.inputDeviceSettingsProvider.hasKeyboardBacklight())
               ?.hasKeyboardBacklight;
+      this.hasAmbientLightSensor =
+          (await this.inputDeviceSettingsProvider.hasAmbientLightSensor())
+              ?.hasAmbientLightSensor;
     }
   }
 
@@ -261,9 +271,29 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
   }
 
   private onKeyboardBrightnessSliderChanged(): void {
-    const slider = this.shadowRoot!.querySelector<SettingsSliderElement>(
-        '#keyboardBrightnessSlider');
-    this.inputDeviceSettingsProvider.setKeyboardBrightness(slider!.pref.value);
+    this.inputDeviceSettingsProvider.setKeyboardBrightness(
+        this.getKeyboardBrightnessFromSlider());
+  }
+
+  private onKeyup(event: KeyboardEvent): void {
+    // Record updated brightness if adjusted via arrow keys.
+    if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(
+            event.key)) {
+      this.inputDeviceSettingsProvider.recordKeyboardBrightnessChangeFromSlider(
+          this.getKeyboardBrightnessFromSlider());
+    }
+  }
+
+  private onPointerup(): void {
+    // Record brightness after slider adjustment is completed.
+    this.inputDeviceSettingsProvider.recordKeyboardBrightnessChangeFromSlider(
+        this.getKeyboardBrightnessFromSlider());
+  }
+
+  private onKeyboardAutoBrightnessToggleChanged(e: Event): void {
+    const toggle = e.target as SettingsToggleButtonElement;
+    this.inputDeviceSettingsProvider.setKeyboardAmbientLightSensorEnabled(
+        toggle.checked);
   }
 
   private onSettingsChanged(): void {
@@ -332,6 +362,12 @@ export class SettingsPerDeviceKeyboardSubsectionElement extends
   private openPersonalizationHub(): void {
     this.inputDeviceSettingsProvider.recordKeyboardColorLinkClicked();
     this.personalizationHubBrowserProxy.openPersonalizationHub();
+  }
+
+  private getKeyboardBrightnessFromSlider(): number {
+    const slider = this.shadowRoot!.querySelector<SettingsSliderElement>(
+        '#keyboardBrightnessSlider');
+    return slider!.pref.value;
   }
 
   protected getRemapKeyboardKeysClass(): string {

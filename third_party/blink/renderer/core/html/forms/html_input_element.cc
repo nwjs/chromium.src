@@ -30,6 +30,7 @@
 
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/choosers/date_time_chooser.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
@@ -1326,12 +1327,18 @@ void HTMLInputElement::SetValue(const String& value,
     }
   }
 
-  // We set the Autofilled state again because setting the autofill value
-  // triggers JavaScript events and the site may override the autofilled value,
-  // which resets the autofill state. Even if the website modifies the form
-  // control element's content during the autofill operation, we want the state
-  // to show as autofilled.
-  SetAutofillState(autofill_state);
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillDontSetAutofillStateAfterJavaScriptChanges)) {
+    // We set the Autofilled state again because setting the autofill value
+    // triggers JavaScript events and the site may override the autofilled
+    // value, which resets the autofill state. Even if the website modifies the
+    // form control element's content during the autofill operation, we want the
+    // state to show as autofilled.
+    // If kAutofillDontSetAutofillStateAfterJavaScriptChanges is enabled, the
+    // WebAutofillClient will monitor JavaScript induced changes and take care
+    // of resetting the autofill state when appropriate.
+    SetAutofillState(autofill_state);
+  }
 }
 
 void HTMLInputElement::SetNonAttributeValue(const String& sanitized_value) {
@@ -2301,15 +2308,6 @@ bool HTMLInputElement::IsInteractiveContent() const {
   return input_type_->IsInteractiveContent();
 }
 
-const ComputedStyle* HTMLInputElement::CustomStyleForLayoutObject(
-    const StyleRecalcContext& style_recalc_context) {
-  // TODO(crbug.com/953707): Avoid marking style dirty in
-  // HTMLImageFallbackHelper and use AdjustStyle instead.
-  const ComputedStyle* original_style =
-      OriginalStyleForLayoutObject(style_recalc_context);
-  return input_type_view_->CustomStyleForLayoutObject(original_style);
-}
-
 void HTMLInputElement::AdjustStyle(ComputedStyleBuilder& builder) {
   return input_type_view_->AdjustStyle(builder);
 }
@@ -2506,6 +2504,21 @@ bool HTMLInputElement::HandleInvokeInternal(HTMLElement& invoker,
   }
 
   return false;
+}
+
+void HTMLInputElement::SetFocused(bool is_focused,
+                                  mojom::blink::FocusType focus_type) {
+  TextControlElement::SetFocused(is_focused, focus_type);
+  // Multifield inputs will call SetFocused when switching between the
+  // individual parts, but we don't want to start matching
+  // :user-valid/:user-invalid at that time. However, for other inputs, we want
+  // to start matching :user-valid/:user-invalid as soon as possible, especially
+  // to support the case where the user types something, then deletes it, then
+  // blurs the input.
+  if (!is_focused && !input_type_view_->IsMultipleFieldsTemporal() &&
+      UserHasEditedTheField()) {
+    SetUserHasEditedTheFieldAndBlurred();
+  }
 }
 
 }  // namespace blink

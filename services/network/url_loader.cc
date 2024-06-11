@@ -332,7 +332,8 @@ std::vector<mojom::WebClientHintsType> ComputeAcceptCHFrameHints(
 bool ShouldAllowCredentials(mojom::CredentialsMode credentials_mode) {
   switch (credentials_mode) {
     case mojom::CredentialsMode::kInclude:
-    // TODO(crbug.com/943939): Make this work with CredentialsMode::kSameOrigin.
+    // TODO(crbug.com/40619226): Make this work with
+    // CredentialsMode::kSameOrigin.
     case mojom::CredentialsMode::kSameOrigin:
       return true;
 
@@ -350,7 +351,7 @@ bool ShouldSendClientCertificates(mojom::CredentialsMode credentials_mode) {
     case mojom::CredentialsMode::kSameOrigin:
       return true;
 
-    // TODO(https://crbug.com/775438): Due to a bug, the default behavior does
+    // TODO(crbug.com/40089326): Due to a bug, the default behavior does
     // not properly correspond to Fetch's "credentials mode", in that client
     // certificates will be sent if available, or the handshake will be aborted
     // to allow selecting a client cert.
@@ -704,6 +705,8 @@ URLLoader::URLLoader(
     has_user_activation_ = request.trusted_params->has_user_activation;
     allow_cookies_from_browser_ =
         request.trusted_params->allow_cookies_from_browser;
+    include_request_cookies_with_response_ =
+        request.trusted_params->include_request_cookies_with_response;
   }
 
   // Store any cookies passed from the browser process to later attach them to
@@ -961,7 +964,7 @@ void URLLoader::ProcessOutboundSharedStorageInterceptor() {
   ScheduleStart();
 }
 
-// TODO(https://crbug.com/1410256): Parallelize Private State Tokens and
+// TODO(crbug.com/40254265): Parallelize Private State Tokens and
 // Attribution operations.
 void URLLoader::ProcessOutboundAttributionInterceptor() {
   if (!attribution_request_helper_) {
@@ -1404,6 +1407,11 @@ mojom::URLResponseHeadPtr URLLoader::BuildResponseHead() const {
     }
   }
 
+  if (request_cookies_.size()) {
+    CHECK(include_request_cookies_with_response_);
+    response->request_cookies = request_cookies_;
+  }
+
   response->request_start = url_request_->creation_time();
   response->response_start = base::TimeTicks::Now();
   response->encoded_data_length = url_request_->GetTotalReceivedBytes();
@@ -1460,7 +1468,7 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
               coep_reporter_)) {
     CompleteBlockedResponse(net::ERR_BLOCKED_BY_RESPONSE, false,
                             blocked_reason);
-    // TODO(https://crbug.com/1154250):  Close the socket here.
+    // TODO(crbug.com/40054032):  Close the socket here.
     // For more details see https://crbug.com/1154250#c17.
     // Item 2 discusses redirect handling.
     //
@@ -1483,6 +1491,7 @@ void URLLoader::OnReceivedRedirect(net::URLRequest* url_request,
   url_request_.get()->RemoveRequestHeaderByName(
       net::HttpRequestHeaders::kCookie);
   cookies_from_browser_.clear();
+  request_cookies_.clear();
 
   // We may need to clear out old Sec- prefixed request headers. We'll attempt
   // to do this before we re-add any.
@@ -1794,7 +1803,7 @@ void URLLoader::ContinueOnResponseStarted() {
   // is allowed to read those, and only the browser process can issue trusted
   // requests.
   std::string auction_only;
-  // TODO(crbug.com/1448564): Remove old names once API users have migrated to
+  // TODO(crbug.com/40269364): Remove old names once API users have migrated to
   // new names.
   if (!factory_params_->is_trusted && response_->headers &&
       (response_->headers->GetNormalizedHeader("Ad-Auction-Only",
@@ -2115,11 +2124,23 @@ void URLLoader::OnReadCompleted(net::URLRequest* url_request, int bytes_read) {
 int URLLoader::OnBeforeStartTransaction(
     const net::HttpRequestHeaders& headers,
     net::NetworkDelegate::OnBeforeStartTransactionCallback callback) {
+  const net::HttpRequestHeaders* used_headers = &headers;
+  net::HttpRequestHeaders headers_with_bonus_cookies;
+  if (!cookies_from_browser_.empty()) {
+    headers_with_bonus_cookies = AttachCookies(headers, cookies_from_browser_);
+    used_headers = &headers_with_bonus_cookies;
+  }
+
+  if (include_request_cookies_with_response_) {
+    request_cookies_.clear();
+    std::string cookie_header;
+    used_headers->GetHeader(net::HttpRequestHeaders::kCookie, &cookie_header);
+    net::cookie_util::ParseRequestCookieLine(cookie_header, &request_cookies_);
+  }
+
   if (header_client_) {
     header_client_->OnBeforeSendHeaders(
-        cookies_from_browser_.empty()
-            ? headers
-            : AttachCookies(headers, cookies_from_browser_),
+        *used_headers,
         base::BindOnce(&URLLoader::OnBeforeSendHeadersComplete,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
     return net::ERR_IO_PENDING;
@@ -2128,10 +2149,10 @@ int URLLoader::OnBeforeStartTransaction(
   // Additional cookies were added to the existing headers, so `callback` must
   // be invoked to ensure that the cookies are included in the request.
   if (!cookies_from_browser_.empty()) {
+    CHECK_EQ(used_headers, &headers_with_bonus_cookies);
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(callback), net::OK,
-                       AttachCookies(headers, cookies_from_browser_)));
+        FROM_HERE, base::BindOnce(std::move(callback), net::OK,
+                                  std::move(headers_with_bonus_cookies)));
     return net::ERR_IO_PENDING;
   }
 
@@ -2503,6 +2524,9 @@ void URLLoader::DispatchOnRawRequest(
 
   emitted_devtools_raw_request_ = true;
 
+  bool is_main_frame_navigation =
+      url_request_->isolation_info().IsMainFrameRequest() ||
+      url_request_->force_main_frame_for_same_site_cookies();
   // TODO when crbug.com/40093296 "Don't trust |site_for_cookies| provided by
   // the renderer" is fixed. Update the FromNetworkIsolationKey method to use
   // url_request_->isolation_info().site_for_cookies() instead of
@@ -2513,7 +2537,8 @@ void URLLoader::DispatchOnRawRequest(
           net::CookiePartitionKey::FromNetworkIsolationKey(
               url_request_->isolation_info().network_isolation_key(),
               url_request_->site_for_cookies(),
-              net::SchemefulSite(url_request_->url())));
+              net::SchemefulSite(url_request_->url()),
+              is_main_frame_navigation));
   network::mojom::OtherPartitionInfoPtr other_partition_info = nullptr;
   if (site_has_cookie_in_other_partition.has_value()) {
     other_partition_info = network::mojom::OtherPartitionInfo::New();
@@ -2545,7 +2570,6 @@ bool URLLoader::DispatchOnRawResponse() {
     return false;
   }
 
-
   // This is gated by enable_reporting_raw_headers_ to be backwards compatible
   // with the old report_raw_headers behavior, where we wouldn't even send
   // raw_response_headers_ to the trusted browser process based devtools
@@ -2554,7 +2578,7 @@ bool URLLoader::DispatchOnRawResponse() {
   // Non-Authoritative-Reason, but raw_response_headers_ has something else
   // which doesn't include HSTS information. This is tested by
   // DevToolsTest.TestRawHeadersWithRedirectAndHSTS.
-  // TODO(crbug.com/1234823): Remove enable_reporting_raw_headers_
+  // TODO(crbug.com/40781698): Remove enable_reporting_raw_headers_
   const net::HttpResponseHeaders* response_headers =
       raw_response_headers_ && enable_reporting_raw_headers_
           ? raw_response_headers_.get()
@@ -2626,6 +2650,12 @@ void URLLoader::OnBeforeSendHeadersComplete(
     net::NetworkDelegate::OnBeforeStartTransactionCallback callback,
     int result,
     const std::optional<net::HttpRequestHeaders>& headers) {
+  if (include_request_cookies_with_response_ && headers) {
+    request_cookies_.clear();
+    std::string cookie_header;
+    headers->GetHeader(net::HttpRequestHeaders::kCookie, &cookie_header);
+    net::cookie_util::ParseRequestCookieLine(cookie_header, &request_cookies_);
+  }
   std::move(callback).Run(result, headers);
 }
 

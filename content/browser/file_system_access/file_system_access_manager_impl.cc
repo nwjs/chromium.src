@@ -731,7 +731,7 @@ void FileSystemAccessManagerImpl::ResolveDataTransferTokenWithFileType(
       url.type() == storage::FileSystemType::kFileSystemTypeLocal
           ? PathType::kLocal
           : PathType::kExternal;
-  // TODO(https://crbug.com/1370433): Add a prompt specific to D&D. For now, run
+  // TODO(crbug.com/40061211): Add a prompt specific to D&D. For now, run
   // the same security checks and show the same prompt for D&D as for the file
   // picker.
   permission_context_->ConfirmSensitiveEntryAccess(
@@ -1542,7 +1542,7 @@ void FileSystemAccessManagerImpl::DidCreateAndTruncateSaveFile(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   std::vector<blink::mojom::FileSystemAccessEntryPtr> result_entries;
   if (!success) {
-    // TODO(https://crbug.com/1124871): Failure to create or truncate the file
+    // TODO(crbug.com/40717501): Failure to create or truncate the file
     // should probably not just result in a generic error, but instead inform
     // the user of the problem?
     std::move(callback).Run(
@@ -1750,7 +1750,7 @@ FileSystemAccessManagerImpl::GetSharedHandleStateForSandboxedPath() {
 base::Uuid FileSystemAccessManagerImpl::GetUniqueId(
     const FileSystemAccessFileHandleImpl& file) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(https://crbug.com/1342961): This is a temporary hack to put something
+  // TODO(crbug.com/40852050): This is a temporary hack to put something
   // that works behind a flag. Persist handle IDs such that they're stable
   // across browsing sessions.
 
@@ -1768,7 +1768,7 @@ base::Uuid FileSystemAccessManagerImpl::GetUniqueId(
 base::Uuid FileSystemAccessManagerImpl::GetUniqueId(
     const FileSystemAccessDirectoryHandleImpl& directory) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // TODO(https://crbug.com/1342961): This is a temporary hack to put something
+  // TODO(crbug.com/40852050): This is a temporary hack to put something
   // that works behind a flag. Persist handle IDs such that they're stable
   // across browsing sessions.
 

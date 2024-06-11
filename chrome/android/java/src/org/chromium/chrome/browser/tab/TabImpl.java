@@ -17,6 +17,7 @@ import android.view.ViewStructure;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.autofill.AutofillValue;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -78,6 +79,7 @@ import org.chromium.content_public.browser.SelectionPopupController;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
+import org.chromium.content_public.common.Referrer;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
@@ -116,6 +118,13 @@ class TabImpl implements Tab {
     /** The current native page (e.g. chrome-native://newtab), or {@code null} if there is none. */
     private NativePage mNativePage;
 
+    /**
+     * True after a native page has been hidden, before a new background color has been explicitly
+     * set. This is useful when the implicit background color (previously set before showing the
+     * native page) is no longer necessarily relevant.
+     */
+    private boolean mWaitingOnBgColorAfterHidingNativePage;
+
     /** {@link WebContents} showing the current page, or {@code null} if the tab is frozen. */
     private WebContents mWebContents;
 
@@ -124,6 +133,8 @@ class TabImpl implements Tab {
 
     /** The view provided by {@link TabViewManager} to be shown on top of Content view. */
     private View mCustomView;
+
+    private @ColorInt Integer mCustomViewBackgroundColor;
 
     AutofillProvider mAutofillProvider;
 
@@ -205,7 +216,7 @@ class TabImpl implements Tab {
     private boolean mIsDestroyed;
 
     private int mThemeColor;
-    private int mBackgroundColor;
+    private int mWebContentBackgroundColor;
     private boolean mIsWebContentObscured;
     private long mTimestampMillis = INVALID_TIMESTAMP;
     private int mParentId = INVALID_TAB_ID;
@@ -264,7 +275,7 @@ class TabImpl implements Tab {
         // Tab are inflated from activity context instead of application context. This is to
         // avoid getting the wrong night mode state when application context inherits a system UI
         // mode different from the UI mode we need.
-        // TODO(https://crbug.com/938641): Remove this once Tab UIs are all inflated from
+        // TODO(crbug.com/41445155): Remove this once Tab UIs are all inflated from
         // activity.
         mThemedApplicationContext =
                 NightModeUtils.wrapContextWithNightModeConfig(
@@ -376,9 +387,11 @@ class TabImpl implements Tab {
     }
 
     /** Sets a custom {@link View} for this {@link Tab} that replaces Content view. */
-    void setCustomView(@Nullable View view) {
+    void setCustomView(@Nullable View view, @Nullable Integer backgroundColor) {
         mCustomView = view;
+        mCustomViewBackgroundColor = backgroundColor;
         notifyContentChanged();
+        onBackgroundColorChanged();
     }
 
     @Override
@@ -479,9 +492,14 @@ class TabImpl implements Tab {
     @Override
     public int getBackgroundColor() {
         if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) {
-            return mNativePage != null ? mNativePage.getBackgroundColor() : mBackgroundColor;
+            if (mCustomView != null && mCustomViewBackgroundColor != null) {
+                return mCustomViewBackgroundColor;
+            }
+            if (mNativePage != null) {
+                return mNativePage.getBackgroundColor();
+            }
         }
-        return mBackgroundColor;
+        return mWebContentBackgroundColor;
     }
 
     @Override
@@ -587,6 +605,9 @@ class TabImpl implements Tab {
                 boolean isPdf = PdfUtils.isPdfNavigation(params.getUrl(), params);
                 mIsNativePageCommitPending =
                         maybeShowNativePage(params.getUrl(), false, isPdf ? new PdfInfo() : null);
+                if (isPdf) {
+                    params.setIsPdf(true);
+                }
             }
 
             if ("chrome://java-crash/".equals(params.getUrl())) {
@@ -605,7 +626,7 @@ class TabImpl implements Tab {
                 throw new RuntimeException("Tab.loadUrl called when no native side exists");
             }
 
-            // TODO(https://crbug.com/783819): Don't fix up all URLs. Documentation on
+            // TODO(crbug.com/40549331): Don't fix up all URLs. Documentation on
             // FixupURL explicitly says not to use it on URLs coming from untrustworthy
             // sources, like other apps. Once migrations of Java code to GURL are complete
             // and incoming URLs are converted to GURLs at their source, we can make
@@ -649,6 +670,45 @@ class TabImpl implements Tab {
         params.setUrl(fixedUrl.getSpec());
         NavigationHandle handle = mWebContents.getNavigationController().loadUrl(params);
         return new LoadUrlResult(TabLoadStatus.DEFAULT_PAGE_LOAD, handle);
+    }
+
+    @Override
+    public void freezeAndAppendPendingNavigation(LoadUrlParams params, @Nullable String title) {
+        assert isHidden();
+        WebContentsState oldWebContentsState = TabStateExtractor.getWebContentsState(this);
+        WebContents oldWebContents = mWebContents;
+        destroyWebContents(false);
+        mWebContents = null;
+        RewindableIterator<TabObserver> observers = getTabObservers();
+        if (oldWebContents != null) {
+            while (observers.hasNext()) {
+                observers.next().onContentChanged(this);
+            }
+            observers.rewind();
+            oldWebContents.destroy();
+        }
+        Referrer referrer = params.getReferrer();
+        mWebContentsState =
+                WebContentsStateBridge.appendPendingNavigation(
+                        oldWebContentsState,
+                        title,
+                        params.getUrl(),
+                        referrer != null ? referrer.getUrl() : null,
+                        // Policy will be ignored for null referrer url, 0 is just a placeholder.
+                        referrer != null ? referrer.getPolicy() : 0,
+                        params.getInitiatorOrigin(),
+                        isIncognito());
+        mUrl = new GURL(mWebContentsState.getVirtualUrlFromState());
+        notifyFaviconChanged();
+        while (observers.hasNext()) {
+            observers.next().onUrlUpdated(this);
+        }
+        observers.rewind();
+        updateTitle(title);
+
+        while (observers.hasNext()) {
+            observers.next().onNavigationEntriesAppended(this);
+        }
     }
 
     @Override
@@ -788,7 +848,7 @@ class TabImpl implements Tab {
 
             loadIfNeeded(caller);
 
-            // TODO(crbug.com/1253938): We should provide a timestamp that apporoximates the input
+            // TODO(crbug.com/40199376): We should provide a timestamp that apporoximates the input
             // event timestamp. When presenting a Tablet UI, StripLayoutTab.handleClick does
             // receive a timestamp. When presenting a Phone UI
             // TabGridViewBinder.bindClosableTabProperties is called by Android.View.performClick,
@@ -941,20 +1001,22 @@ class TabImpl implements Tab {
      * @param creationState State in which the tab is created.
      * @param loadUrlParams Parameters used for a lazily loaded Tab or null if we initialize a tab
      *     without an URL.
+     * @param pendingTitle The title used for a lazily load Tab. Ignored if {@code loadUrlParams} is
+     *     {@code null}.
      * @param webContents A {@link WebContents} object or {@code null} if one should be created.
      * @param delegateFactory The {@link TabDelegateFactory} to be used for delegate creation.
      * @param initiallyHidden Only used if {@code webContents} is {@code null}. Determines whether
      *     or not the newly created {@link WebContents} will be hidden or not.
      * @param tabState State containing information about this Tab, if it was persisted.
      * @param initializeRenderer Determines whether or not we initialize renderer with {@link
-     *     WebContents} creation. The CREATE_NEW_TAB_INITIALIZE_RENDERER feature also controls this
-     *     parameter, which initializes the renderer when it is enabled.
+     *     WebContents} creation.
      */
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     void initialize(
             Tab parent,
             @Nullable @TabCreationState Integer creationState,
             @Nullable LoadUrlParams loadUrlParams,
+            @Nullable String pendingTitle,
             WebContents webContents,
             @Nullable TabDelegateFactory delegateFactory,
             boolean initiallyHidden,
@@ -962,23 +1024,21 @@ class TabImpl implements Tab {
             boolean initializeRenderer) {
         try {
             TraceEvent.begin("Tab.initialize");
-            // If the feature is enabled, the renderer will always be initialized during the
-            // WebContents creation. It is an experimental performance optimization to speed
-            // up navigation.
-            initializeRenderer =
-                    ChromeFeatureList.isEnabled(
-                                    ChromeFeatureList.CREATE_NEW_TAB_INITIALIZE_RENDERER)
-                            ? true
-                            : initializeRenderer;
+
             if (parent != null) {
                 mParentId = parent.getId();
             }
 
             mTabLaunchTypeAtCreation = mLaunchType;
             mCreationState = creationState;
+
+            // If applicable set up for a lazy background tab load.
             mPendingLoadParams = loadUrlParams;
             if (loadUrlParams != null) {
                 mUrl = new GURL(loadUrlParams.getUrl());
+                if (pendingTitle != null) {
+                    setTitle(pendingTitle);
+                }
             }
 
             // The {@link mDelegateFactory} needs to be set before calling
@@ -1302,7 +1362,8 @@ class TabImpl implements Tab {
         // so we can't create the native page. The native page will be created once reparenting is
         // completed.
         if (isDetached()) return false;
-        // TODO(crbug/1503182): Remove the assert after determining why WebContents can be null.
+        // TODO(crbug.com/40943608): Remove the assert after determining why WebContents can be
+        // null.
         WebContents webContents = getWebContents();
         assert webContents != null;
         if (webContents == null) return false;
@@ -1393,7 +1454,7 @@ class TabImpl implements Tab {
         // crash the underlying tab. This is because it is safe to keep the spare tab around without
         // a renderer process, and since the tab is hidden, we don't need to show a sad tab. When
         // the spare tab is used for navigation it will create a new renderer process.
-        // TODO(crbug.com/1447250): Make this logic more robust for all hidden tab cases.
+        // TODO(crbug.com/40268909): Make this logic more robust for all hidden tab cases.
         if (!WarmupManager.getInstance().isSpareTab(this)) {
             while (observers.hasNext()) observers.next().onCrash(this);
         }
@@ -1405,10 +1466,19 @@ class TabImpl implements Tab {
      *
      * @param color The current for the background.
      */
-    void changeBackgroundColor(int color) {
-        // TODO(https://crbug.com/329287585): Account for native pages.
-        mBackgroundColor = color;
+    void changeWebContentBackgroundColor(int color) {
+        mWebContentBackgroundColor = color;
         onBackgroundColorChanged();
+        mWaitingOnBgColorAfterHidingNativePage = false;
+    }
+
+    /** Called to notify when the page had painted something non-empty. */
+    void notifyDidFirstVisuallyNonEmptyPaint() {
+        if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()
+                && mWaitingOnBgColorAfterHidingNativePage) {
+            onBackgroundColorChanged();
+        }
+        mWaitingOnBgColorAfterHidingNativePage = false;
     }
 
     private void onBackgroundColorChanged() {
@@ -1555,7 +1625,7 @@ class TabImpl implements Tab {
                             .getResources()
                             .getString(R.string.accessibility_content_view));
             mContentView = cv;
-            webContents.initialize(
+            webContents.setDelegates(
                     PRODUCT_VERSION,
                     new TabViewAndroidDelegate(this, cv),
                     cv,
@@ -1579,7 +1649,8 @@ class TabImpl implements Tab {
 
             mWebContentsDelegate = createWebContentsDelegate();
 
-            // TODO(crbug/1501849): Find a better way of indicating this is a background tab (or
+            // TODO(crbug.com/40942165): Find a better way of indicating this is a background tab
+            // (or
             // move the logic elsewhere).
             boolean isBackgroundTab = isDetached();
 
@@ -1650,9 +1721,7 @@ class TabImpl implements Tab {
                 mNativePage.getView().removeOnAttachStateChangeListener(mAttachStateChangeListener);
             }
             mNativePage = null;
-            if (ChromeFeatureList.sNavBarColorMatchesTabBackground.isEnabled()) {
-                onBackgroundColorChanged();
-            }
+            mWaitingOnBgColorAfterHidingNativePage = true;
         }
         if (postHideTask != null) postHideTask.run();
         if (notify) notifyContentChanged();
@@ -1921,6 +1990,10 @@ class TabImpl implements Tab {
         mTitle = title;
     }
 
+    public void setTimestampMillisForTesting(long timestamp) {
+        mTimestampMillis = timestamp;
+    }
+
     @Override
     public long getLastNavigationCommittedTimestampMillis() {
         return mLastNavigationCommittedTimestampMillis;
@@ -2016,7 +2089,7 @@ class TabImpl implements Tab {
             // This call is just a workaround, Chrome should clean up the WebContentsObservers
             // itself.
             contentsToDestroy.clearJavaWebContentsObservers();
-            contentsToDestroy.initialize(
+            contentsToDestroy.setDelegates(
                     PRODUCT_VERSION,
                     ViewAndroidDelegate.createBasicDelegate(/* containerView= */ null),
                     /* accessDelegate= */ null,
@@ -2068,7 +2141,7 @@ class TabImpl implements Tab {
         return userAgentOverrideOption;
     }
 
-    // TODO(crbug.com/1243758): Confirm if a new histogram should be used.
+    // TODO(crbug.com/40195571): Confirm if a new histogram should be used.
     private void recordHistogramUseDesktopUserAgent(boolean value) {
         RecordHistogram.recordBooleanHistogram(
                 "Android.RequestDesktopSite.UseDesktopUserAgent", value);
@@ -2102,8 +2175,10 @@ class TabImpl implements Tab {
      * to show (potentially animate) so that web content can be adapted to the controls sooner.
      */
     public void willShowBrowserControls() {
+        assert mWebContents != null;
+        boolean hasViewTransitionOptIn = mWebContents.hasViewTransitionOptIn();
         for (TabObserver observer : mObservers) {
-            observer.onWillShowBrowserControls(this);
+            observer.onWillShowBrowserControls(this, hasViewTransitionOptIn);
         }
     }
 

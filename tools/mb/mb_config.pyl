@@ -63,8 +63,8 @@
       'lacros-amd64-generic-pgo': 'official_lacros_amd64_pgo',
       'lacros-arm64-generic-pgo': 'official_lacros_arm64_pgo',
       'linux-pgo': 'official_linux_pgo',
-      'mac-arm-pgo': 'official_mac_arm_pgo',
-      'mac-pgo': 'official_mac_pgo',
+      'mac-arm-pgo': 'official_mac_arm_pgo_with_symbols',
+      'mac-pgo': 'official_mac_pgo_with_symbols',
       'win-arm64-pgo': 'official_win_arm64_pgo',
       'win32-pgo': 'official_x86_pgo',
       'win64-pgo': 'official_x64_pgo',
@@ -90,10 +90,6 @@
       'ToTMacOfficial': 'mac_clang_tot_official',
       'ToTWinOfficial': 'clang_tot_win_official_full_symbols_static_x86',
       'ToTWinOfficial64': 'clang_tot_win_official_full_symbols_static',
-    },
-
-    'chromium.devtools-frontend': {
-      'DevTools Linux (chromium)': 'release_trybot_blink_do_typecheck',
     },
 
     'chromium.infra.codesearch': {
@@ -228,14 +224,16 @@
     },
 
     'internal.optimization_guide': {
+      # Linux and win64 CI bots use official builds to catch official-specific ODML bugs. These
+      # take significantly longer to compile, and thus are only for these two builders.
       'optimization_guide-android-arm64': 'optimization_guide_android_arm64_rel',
       'optimization_guide-chromeos': 'optimization_guide_cros_rel',
-      'optimization_guide-linux': 'optimization_guide_rel',
       'optimization_guide-mac-arm64': 'optimization_guide_mac_arm64_rel',
       'optimization_guide-mac-x64': 'optimization_guide_rel',
       'optimization_guide-win-arm64': 'optimization_guide_win_arm64_rel',
       'optimization_guide-win32': 'optimization_guide_x86_rel',
-      'optimization_guide-win64': 'optimization_guide_rel',
+      'optimization_guide_official-linux': 'optimization_guide_official_rel',
+      'optimization_guide_official-win64': 'optimization_guide_official_rel',
     },
 
     # Internal codesearch builders.
@@ -297,12 +295,12 @@
       'android-arm64-pgo': 'official_android_arm64_pgo',
       'lacros-amd64-generic-pgo': 'official_lacros_amd64_pgo',
       'lacros-arm64-generic-pgo': 'official_lacros_arm64_pgo',
-      'linux-pgo': 'official_linux_pgo',
-      'mac-arm-pgo': 'official_mac_arm_pgo',
-      'mac-pgo': 'official_mac_pgo',
-      'win-arm64-pgo': 'official_win_arm64_pgo',
-      'win32-pgo': 'official_x86_pgo',
-      'win64-pgo': 'official_x64_pgo',
+      'linux-pgo': 'official_linux_pgo_with_symbols',
+      'mac-arm-pgo': 'official_mac_arm_pgo_with_symbols',
+      'mac-pgo': 'official_mac_pgo_with_symbols',
+      'win-arm64-pgo': 'official_win_arm64_pgo_with_symbols',
+      'win32-pgo': 'official_x86_pgo_with_symbols',
+      'win64-pgo': 'official_x64_pgo_with_symbols',
     },
 
     'tryserver.chromium.perf': {
@@ -346,6 +344,8 @@
       'optimization_guide-win-arm64': 'optimization_guide_win_arm64_rel',
       'optimization_guide-win32': 'optimization_guide_x86_rel',
       'optimization_guide-win64': 'optimization_guide_rel',
+      'optimization_guide_official-linux': 'optimization_guide_official_rel',
+      'optimization_guide_official-win64': 'optimization_guide_official_rel',
     },
 
     'tryserver.v8': {
@@ -764,12 +764,16 @@
       'official', 'reclient', 'no_symbols', 'pgo_phase_1', 'release'
     ],
 
-    'official_mac_arm_pgo': [
-      'official', 'reclient', 'no_widevine_cdm_host_verification', 'arm64', 'disable_widevine_signing', 'no_symbols', 'pgo_phase_1', 'release'
+    'official_linux_pgo_with_symbols': [
+      'official', 'reclient', 'minimal_symbols', 'pgo_phase_1', 'release'
     ],
 
-    'official_mac_pgo': [
-      'official', 'reclient', 'no_widevine_cdm_host_verification', 'disable_widevine_signing', 'no_symbols', 'pgo_phase_1', 'release'
+    'official_mac_arm_pgo_with_symbols': [
+      'official', 'reclient', 'no_widevine_cdm_host_verification', 'arm64', 'disable_widevine_signing', 'minimal_symbols', 'pgo_phase_1', 'release', 'disable_stripping'
+    ],
+
+    'official_mac_pgo_with_symbols': [
+      'official', 'reclient', 'no_widevine_cdm_host_verification', 'x64', 'disable_widevine_signing', 'minimal_symbols', 'pgo_phase_1', 'release', 'disable_stripping'
     ],
 
     'official_minimal_symbols_android_arm64': [
@@ -870,13 +874,27 @@
       'official', 'reclient', 'arm64', 'no_symbols', 'pgo_phase_1', 'release'
     ],
 
+    'official_win_arm64_pgo_with_symbols': [
+      'official', 'reclient', 'arm64', 'minimal_symbols', 'pgo_phase_1', 'release'
+    ],
+
     'official_x64_pgo': [
       'official', 'reclient', 'x64', 'no_symbols', 'pgo_phase_1', 'release'
     ],
 
+    'official_x64_pgo_with_symbols': [
+      'official', 'reclient', 'x64', 'minimal_symbols', 'pgo_phase_1', 'release'
+    ],
+
+
     'official_x86_pgo': [
       'official', 'reclient', 'x86', 'no_symbols', 'pgo_phase_1', 'release'
     ],
+
+    'official_x86_pgo_with_symbols': [
+      'official', 'reclient', 'x86', 'minimal_symbols', 'pgo_phase_1', 'release'
+    ],
+
 
     'optimization_guide_android_arm64_rel': [
       'minimal_symbols', 'reclient', 'release', 'android', 'arm64',
@@ -887,19 +905,23 @@
     ],
 
     'optimization_guide_mac_arm64_rel': [
-      'minimal_symbols', 'ml_internal', 'no_widevine_cdm_host_verification', 'official', 'optimization_guide', 'pgo_phase_0',  'reclient', 'release', 'arm64',
+      'chrome_branded', 'minimal_symbols', 'ml_internal', 'optimization_guide', 'reclient', 'release', 'arm64',
     ],
 
-    'optimization_guide_rel': [
+    'optimization_guide_official_rel': [
       'minimal_symbols', 'ml_internal', 'no_widevine_cdm_host_verification', 'official', 'optimization_guide', 'pgo_phase_0', 'reclient', 'release',
     ],
 
+    'optimization_guide_rel': [
+      'chrome_branded', 'minimal_symbols', 'ml_internal', 'optimization_guide', 'reclient', 'release',
+    ],
+
     'optimization_guide_win_arm64_rel': [
-      'minimal_symbols', 'ml_internal', 'official', 'optimization_guide', 'pgo_phase_0', 'reclient', 'release', 'x86', 'arm64'
+      'chrome_branded', 'minimal_symbols', 'ml_internal', 'optimization_guide', 'reclient', 'release', 'x86', 'arm64'
     ],
 
     'optimization_guide_x86_rel': [
-      'minimal_symbols', 'ml_internal', 'official', 'optimization_guide', 'pgo_phase_0', 'reclient', 'release', 'x86',
+      'chrome_branded', 'minimal_symbols', 'ml_internal', 'optimization_guide', 'reclient', 'release', 'x86',
     ],
 
     'release_bot_blink': [
@@ -1212,6 +1234,10 @@
     # Representative GN args for developer builds.
     'devtools_do_typecheck': {
       'gn_args': 'devtools_skip_typecheck=false',
+    },
+
+    'disable_stripping': {
+      'gn_args': 'enable_stripping=false',
     },
 
     'disable_widevine_signing': {

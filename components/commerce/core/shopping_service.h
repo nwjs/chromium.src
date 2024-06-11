@@ -25,6 +25,7 @@
 #include "components/commerce/core/account_checker.h"
 #include "components/commerce/core/commerce_info_cache.h"
 #include "components/commerce/core/commerce_types.h"
+#include "components/commerce/core/product_specifications/product_specifications_service.h"
 #include "components/commerce/core/product_specifications/product_specifications_set.h"
 #include "components/commerce/core/proto/commerce_subscription_db_content.pb.h"
 #include "components/commerce/core/proto/discounts_db_content.pb.h"
@@ -396,13 +397,13 @@ class ShoppingService : public KeyedService,
 
   // Returns a list of URLs corresponding to active WebWrappers the shopping
   // service is keeping track of. This does not map to open tabs across all
-  // platforms.
+  // platforms. Excludes non-HTTP/HTTPS URLs.
   virtual const std::vector<UrlInfo> GetUrlInfosForActiveWebWrappers();
 
   // Gets a list of URLs from web wrappers that were recently viewed by the
   // user (ordered by most recent first). This generally aligns with recently
   // viewed tabs.
-  virtual std::vector<UrlInfo> GetRecentlyViewedWebWrapperUrls();
+  virtual const std::vector<UrlInfo> GetUrlInfosForRecentlyViewedWebWrappers();
 
   // Starts tracking a list of parcels from a given page.
   void StartTrackingParcels(
@@ -427,6 +428,13 @@ class ShoppingService : public KeyedService,
 
   // Called to stop tracking all parcels.
   void StopTrackingAllParcels(base::OnceCallback<void(bool)> callback);
+
+  virtual ProductSpecificationsService* GetProductSpecificationsService();
+
+  // ClusterManager APIs.
+  virtual std::optional<EntryPointInfo> GetEntryPointInfoForSelection(
+      GURL old_url,
+      GURL new_url);
 
   // Get a weak pointer for this service instance.
   base::WeakPtr<ShoppingService> AsWeakPtr();
@@ -503,7 +511,8 @@ class ShoppingService : public KeyedService,
   void PDPMetricsCallback(
       bool is_off_the_record,
       optimization_guide::OptimizationGuideDecision decision,
-      const optimization_guide::OptimizationMetadata& metadata);
+      const optimization_guide::OptimizationMetadata& metadata,
+      const GURL& url);
 
   void HandleOptGuideProductInfoResponse(
       const GURL& url,
@@ -624,7 +633,7 @@ class ShoppingService : public KeyedService,
                                   UrlProductIdentifierTupleCallback callback);
 
   // Return all ProductSpecificationsSets from ProductSpecificationsService.
-  virtual const std::vector<const ProductSpecificationsSet>
+  virtual const std::vector<ProductSpecificationsSet>
   GetAllProductSpecificationSets();
 
   // Updates the bookmark model used for sync (and shopping) if needed. Invoked

@@ -9,11 +9,14 @@ import androidx.annotation.NonNull;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.url.GURL;
 
+import java.util.List;
+
 /**
  * The core service class for handling tab group sync across devices. Provides 1. Mutation methods
  * to propagate local changes to remote. 2. Observer interface to propagate remote changes to local.
  */
 public interface TabGroupSyncService {
+
     /**
      * Observers observing updates to the sync data which can be originated by either the local or
      * remote clients.
@@ -30,33 +33,37 @@ public interface TabGroupSyncService {
          * be created.
          *
          * @param group The {@link SavedTabGroup} that was added from sync.
+         * @param source The source of the event which can be local or remote.
          */
-        void onTabGroupAdded(SavedTabGroup group);
+        void onTabGroupAdded(SavedTabGroup group, @TriggerSource int source);
 
         /**
          * Called when a tab group is updated from sync. The corresponding local tab group should be
          * updated to match the sync representation.
          *
          * @param group The {@link SavedTabGroup} that was updated from sync.
+         * @param source The source of the event which can be local or remote.
          */
-        void onTabGroupUpdated(SavedTabGroup group);
+        void onTabGroupUpdated(SavedTabGroup group, @TriggerSource int source);
 
         /**
          * Called when a tab group is deleted from sync. The local tab group should be deleted in
          * response and all the corresponding tabs should be closed.
          *
-         * @param localId The local ID corresponding to the tab group that was removed.
+         * @param localTabGroupId The local ID corresponding to the tab group that was removed.
+         * @param source The source of the event which can be local or remote.
          */
-        void onTabGroupRemoved(int localId);
+        void onTabGroupRemoved(LocalTabGroupId localTabGroupId, @TriggerSource int source);
 
         /**
          * Called when a tab group is deleted from sync. This signal is used by revisit surface that
          * needs to show both open and closed tab groups. All other consumers should use the local
          * ID variant of this signal.
          *
-         * @param syncId The sync ID corresponding to the tab group that was removed.
+         * @param syncTabGroupId The sync ID corresponding to the tab group that was removed.
+         * @param source The source of the event which can be local or remote.
          */
-        void onTabGroupRemoved(String syncId);
+        void onTabGroupRemoved(String syncTabGroupId, @TriggerSource int source);
     }
 
     /**
@@ -76,17 +83,24 @@ public interface TabGroupSyncService {
     /**
      * Creates a remote tab group with the given local group ID.
      *
-     * @param groupId The local group ID.
+     * @param localTabGroupId The local tab group ID.
      * @return The sync ID of the group after it has been added to sync.
      */
-    String createGroup(int groupId);
+    String createGroup(LocalTabGroupId localTabGroupId);
 
     /**
-     * Removes a remote tab group in response to a local group removal.
+     * Removes a remote tab group which is open locally.
      *
-     * @param groupId The ID of the tab group removed. Currently this is the root ID of the group.
+     * @param localTabGroupId The local ID of the tab group removed.
      */
-    void removeGroup(int groupId);
+    void removeGroup(LocalTabGroupId localTabGroupId);
+
+    /**
+     * Removes a remote tab group which could be closed or open locally.
+     *
+     * @param syncTabGroupId The sync ID of the tab group removed.
+     */
+    void removeGroup(String syncTabGroupId);
 
     /**
      * Updates the visual info of the remote tab group.
@@ -95,7 +109,8 @@ public interface TabGroupSyncService {
      * @param title The title of the tab group.
      * @param color The color of the tab group.
      */
-    void updateVisualData(int tabGroupId, @NonNull String title, @TabGroupColorId int color);
+    void updateVisualData(
+            LocalTabGroupId tabGroupId, @NonNull String title, @TabGroupColorId int color);
 
     /**
      * Adds a tab to a remote group. Should be called with response to a local tab addition to a tab
@@ -108,7 +123,7 @@ public interface TabGroupSyncService {
      * @param position The position in the remote tab group at which the tab should be inserted. If
      *     -1, inserts it at the end of the group.
      */
-    void addTab(int tabGroupId, int tabId, String title, GURL url, int position);
+    void addTab(LocalTabGroupId tabGroupId, int tabId, String title, GURL url, int position);
 
     /**
      * Updates a remote tab corresponding to local tab ID {@param tabId}.
@@ -120,7 +135,7 @@ public interface TabGroupSyncService {
      * @param position The position in the remote tab group at which the tab should be inserted. If
      *     -1, inserts it at the end of the group.
      */
-    void updateTab(int tabGroupId, int tabId, String title, GURL url, int position);
+    void updateTab(LocalTabGroupId tabGroupId, int tabId, String title, GURL url, int position);
 
     /**
      * Removes a tab from the remote tab group.
@@ -128,7 +143,16 @@ public interface TabGroupSyncService {
      * @param tabGroupId The local group ID of the corresponding tab group.
      * @param tabId The local tab ID of the tab being removed.
      */
-    void removeTab(int tabGroupId, int tabId);
+    void removeTab(LocalTabGroupId tabGroupId, int tabId);
+
+    /**
+     * Moves a tab within a group.
+     *
+     * @param tabGroupId The local group ID of the corresponding tab group.
+     * @param tabId The local tab ID of the tab being removed.
+     * @param newIndexInGroup The new index of the tab in the group.
+     */
+    void moveTab(LocalTabGroupId tabGroupId, int tabId, int newIndexInGroup);
 
     /**
      * Called to return all the remote tab group IDs currently existing in the system.
@@ -151,7 +175,7 @@ public interface TabGroupSyncService {
      * @param localGroupId The local ID of the group to be returned.
      * @return The associated {@link SavedTabGroup}.
      */
-    SavedTabGroup getGroup(int localGroupId);
+    SavedTabGroup getGroup(LocalTabGroupId localGroupId);
 
     /**
      * Updates the in-memory mapping between sync and local tab group IDs.
@@ -159,7 +183,23 @@ public interface TabGroupSyncService {
      * @param syncId The remote tab group ID.
      * @param localId The local tab group ID.
      */
-    void updateLocalTabGroupId(String syncId, int localId);
+    void updateLocalTabGroupMapping(String syncId, LocalTabGroupId localId);
+
+    /**
+     * Removes the in-memory mapping between sync and local tab group IDs.
+     *
+     * @param localTabGroupId The local tab group ID whose mapping is to be forgotten.
+     */
+    void removeLocalTabGroupMapping(LocalTabGroupId localTabGroupId);
+
+    /**
+     * Retrieves a list of group IDs that have been deleted from sync but haven't closed locally.
+     * This can happen a lot in multi-window scenario where the deletion happened for a group that
+     * belongs to a window that was closed when sync received this event.
+     *
+     * @return A list of {@link LocalTabGroupId} for groups that have been deleted.
+     */
+    List<LocalTabGroupId> getDeletedGroupIds();
 
     /**
      * Updates the in-memory mapping between sync and local IDs for a given tab.
@@ -168,5 +208,5 @@ public interface TabGroupSyncService {
      * @param syncTabId The sync ID of the corresponding tab.
      * @param localTabId The local ID of the corresponding tab.
      */
-    void updateLocalTabId(int localGroupId, String syncTabId, int localTabId);
+    void updateLocalTabId(LocalTabGroupId localGroupId, String syncTabId, int localTabId);
 }

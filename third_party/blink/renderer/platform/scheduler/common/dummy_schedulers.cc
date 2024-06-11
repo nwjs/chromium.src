@@ -55,10 +55,8 @@ class DummyWidgetScheduler final : public WidgetScheduler {
       const WebInputEventAttribution& web_input_event_attribution) override {}
   void DidHandleInputEventOnMainThread(const WebInputEvent& web_input_event,
                                        WebInputEventResult result) override {}
-  void DidAnimateForInputOnCompositorThread() override {}
   void DidRunBeginMainFrame() override {}
   void SetHidden(bool hidden) override {}
-  void SetHasTouchHandler(bool has_touch_handler) override {}
 };
 
 class DummyFrameScheduler : public FrameScheduler {

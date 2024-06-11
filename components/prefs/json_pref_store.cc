@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/feature_list.h"
@@ -27,7 +28,6 @@
 #include "base/observer_list.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/default_clock.h"
@@ -128,8 +128,10 @@ const char* GetHistogramSuffix(const base::FilePath& path) {
   std::string spaceless_basename;
   base::ReplaceChars(path.BaseName().MaybeAsASCII(), " ", "_",
                      &spaceless_basename);
-  static constexpr std::array<const char*, 3> kAllowList{
-      "Secure_Preferences", "Preferences", "Local_State"};
+  // Entries here should be reflected in the ImportantFileClients variant in
+  // histograms.xml.
+  static constexpr std::array<const char*, 4> kAllowList{
+      "Secure_Preferences", "Preferences", "Local_State", "AccountPreferences"};
   auto it = base::ranges::find(kAllowList, spaceless_basename);
   return it != kAllowList.end() ? *it : "";
 }
@@ -170,7 +172,7 @@ JsonPrefStore::JsonPrefStore(
   DCHECK(!path_.empty());
 }
 
-bool JsonPrefStore::GetValue(base::StringPiece key,
+bool JsonPrefStore::GetValue(std::string_view key,
                              const base::Value** result) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 

@@ -7,12 +7,16 @@
 
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list_types.h"
-#include "base/types/strong_alias.h"
 #include "components/keyed_service/core/refcounted_keyed_service.h"
 #include "components/password_manager/core/browser/password_form_digest.h"
 #include "components/password_manager/core/browser/password_store/password_store_change.h"
+
+namespace base {
+class Location;
+}  // namespace base
 
 namespace syncer {
 class ModelTypeControllerDelegate;
@@ -26,7 +30,6 @@ struct PasswordForm;
 class PasswordStoreBackend;
 class PasswordStoreConsumer;
 class SmartBubbleStatsStore;
-class PasswordStoreSyncInterface;
 
 using IsAccountStore = base::StrongAlias<class IsAccountStoreTag, bool>;
 
@@ -100,7 +103,9 @@ class PasswordStoreInterface : public RefcountedKeyedService {
       base::OnceClosure completion = base::DoNothing()) = 0;
 
   // Removes the matching PasswordForm from the secure password store (async).
-  virtual void RemoveLogin(const PasswordForm& form) = 0;
+  // `location` is used for logging purposes and investigations.
+  virtual void RemoveLogin(const base::Location& location,
+                           const PasswordForm& form) = 0;
 
   // Remove all logins whose origins match the given filter and that were
   // created in the given date range. `completion` will be run after deletions
@@ -110,8 +115,10 @@ class PasswordStoreInterface : public RefcountedKeyedService {
   // the user permanently disables Sync or deletions haven't been propagated
   // after 30 seconds). This is only relevant for Sync users and for account
   // store users - for other users, `sync_completion` will be run immediately
-  // after `completion`.
+  // after `completion`. `location` is used for logging purposes and
+  // investigations.
   virtual void RemoveLoginsByURLAndTime(
+      const base::Location& location,
       const base::RepeatingCallback<bool(const GURL&)>& url_filter,
       base::Time delete_begin,
       base::Time delete_end,
@@ -122,8 +129,9 @@ class PasswordStoreInterface : public RefcountedKeyedService {
   // Removes all logins created in the given date range. `completion` is run
   // after deletions have been completed and notifications have been sent out.
   // If any logins were removed 'true' will be passed to `completion`, 'false'
-  // otherwise.
+  // otherwise. `location` is used for logging purposes and investigations.
   virtual void RemoveLoginsCreatedBetween(
+      const base::Location& location,
       base::Time delete_begin,
       base::Time delete_end,
       base::OnceCallback<void(bool)> completion = base::NullCallback()) = 0;
@@ -145,25 +153,25 @@ class PasswordStoreInterface : public RefcountedKeyedService {
 
   // Searches for a matching PasswordForm, and notifies `consumer` on
   // completion.
-  // TODO(crbug.com/1217070): Use a smart pointer for consumer.
+  // TODO(crbug.com/40185049): Use a smart pointer for consumer.
   virtual void GetLogins(const PasswordFormDigest& form,
                          base::WeakPtr<PasswordStoreConsumer> consumer) = 0;
 
   // Gets the complete list of non-blocklist PasswordForms.`consumer` will be
   // notified on completion.
-  // TODO(crbug.com/1217070): Use a smart pointer for consumer.
+  // TODO(crbug.com/40185049): Use a smart pointer for consumer.
   virtual void GetAutofillableLogins(
       base::WeakPtr<PasswordStoreConsumer> consumer) = 0;
 
   // Gets the complete list of PasswordForms (regardless of their blocklist
   // status) and notify `consumer` on completion.
-  // TODO(crbug.com/1217070): Use a smart pointer for consumer.
+  // TODO(crbug.com/40185049): Use a smart pointer for consumer.
   virtual void GetAllLogins(base::WeakPtr<PasswordStoreConsumer> consumer) = 0;
 
   // Gets the complete list of PasswordForms, regardless of their blocklist
   // status. Also fills in affiliation and branding information for Android
   // credentials.
-  // TODO(crbug.com/1217070): Use a smart pointer for consumer.
+  // TODO(crbug.com/40185049): Use a smart pointer for consumer.
   virtual void GetAllLoginsWithAffiliationAndBrandingInformation(
       base::WeakPtr<PasswordStoreConsumer> consumer) = 0;
 
@@ -186,7 +194,9 @@ class PasswordStoreInterface : public RefcountedKeyedService {
   // have started yet but its preferences can already be queried.
   virtual void OnSyncServiceInitialized(syncer::SyncService* sync_service) = 0;
 
-  virtual PasswordStoreSyncInterface* GetPasswordStoreSyncInterface() = 0;
+  // The passed callback will be invoked whenever sync is enabled/disabled.
+  virtual base::CallbackListSubscription AddSyncEnabledOrDisabledCallback(
+      base::RepeatingClosure sync_enabled_or_disabled_cb) = 0;
 
   // Tests only can retrieve the backend.
   virtual PasswordStoreBackend* GetBackendForTesting() = 0;

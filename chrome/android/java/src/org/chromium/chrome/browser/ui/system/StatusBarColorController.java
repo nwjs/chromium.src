@@ -25,7 +25,6 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.DestroyObserver;
 import org.chromium.chrome.browser.ntp.NewTabPage;
-import org.chromium.chrome.browser.omnibox.OmniboxFeatures;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsDropdownScrollListener;
 import org.chromium.chrome.browser.status_indicator.StatusIndicatorCoordinator;
@@ -40,6 +39,7 @@ import org.chromium.chrome.browser.toolbar.top.TopToolbarCoordinator;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.scrim.ScrimProperties;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.util.ColorUtils;
@@ -47,7 +47,7 @@ import org.chromium.ui.util.ColorUtils;
 /**
  * Maintains the status bar color for a {@link Window}.
  *
- * <p>TODO(crbug.com/1450945): Prevent initialization of StatusBarColorController for automotive.
+ * <p>TODO(crbug.com/40915553): Prevent initialization of StatusBarColorController for automotive.
  */
 public class StatusBarColorController
         implements DestroyObserver,
@@ -182,23 +182,17 @@ public class StatusBarColorController
                 ChromeColors.getSurfaceColor(
                         context, R.dimen.home_surface_background_color_elevation);
         mStatusIndicatorColor = UNDEFINED_STATUS_BAR_COLOR;
-        if (OmniboxFeatures.shouldShowModernizeVisualUpdate(context)) {
-            // TODO(crbug.com/1521964): Share code with LocationBarCoordinator's constructor.
-            mActiveOmniboxDefaultColor =
-                    ChromeColors.getSurfaceColor(
-                            context, R.dimen.omnibox_suggestion_dropdown_bg_elevation);
-            mIncognitoActiveOmniboxColor = context.getColor(R.color.omnibox_dropdown_bg_incognito);
-            // TODO(crbug.com/1521964): Share code with ToolbarPhone#getToolbarDefaultColor().
-            mStandardScrolledOmniboxColor =
-                    ChromeColors.getSurfaceColor(context, R.dimen.toolbar_text_box_elevation);
-            mIncognitoScrolledOmniboxColor =
-                    context.getColor(R.color.default_bg_color_dark_elev_2_baseline);
-        } else {
-            mActiveOmniboxDefaultColor = mStandardDefaultThemeColor;
-            mIncognitoActiveOmniboxColor = mIncognitoPrimaryBgColor;
-            mStandardScrolledOmniboxColor = mStandardDefaultThemeColor;
-            mIncognitoScrolledOmniboxColor = mIncognitoPrimaryBgColor;
-        }
+
+        // TODO(b/41494931): Share code with LocationBarCoordinator's constructor.
+        mActiveOmniboxDefaultColor =
+                ChromeColors.getSurfaceColor(
+                        context, R.dimen.omnibox_suggestion_dropdown_bg_elevation);
+        mIncognitoActiveOmniboxColor = context.getColor(R.color.omnibox_dropdown_bg_incognito);
+        // TODO(b/41494931): Share code with ToolbarPhone#getToolbarDefaultColor().
+        mStandardScrolledOmniboxColor =
+                ChromeColors.getSurfaceColor(context, R.dimen.toolbar_text_box_elevation);
+        mIncognitoScrolledOmniboxColor =
+                context.getColor(R.color.default_bg_color_dark_elev_2_baseline);
 
         mStatusBarColorTabObserver =
                 new ActivityTabProvider.ActivityTabTabObserver(tabProvider) {

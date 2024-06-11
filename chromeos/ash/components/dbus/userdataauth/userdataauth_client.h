@@ -50,7 +50,7 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) UserDataAuthClient {
   };
 
   // Processes sub messages embedded in the PrepareAuthFactorProgress signal
-  // received.
+  // received
   class PrepareAuthFactorProgressObserver : public base::CheckedObserver {
    public:
     // Called when a fingerprint auth message is received.
@@ -64,6 +64,8 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) UserDataAuthClient {
 
   using IsMountedCallback =
       chromeos::DBusMethodCallback<::user_data_auth::IsMountedReply>;
+  using GetVaultPropertiesCallback =
+      chromeos::DBusMethodCallback<::user_data_auth::GetVaultPropertiesReply>;
   using UnmountCallback =
       chromeos::DBusMethodCallback<::user_data_auth::UnmountReply>;
   using RemoveCallback =
@@ -99,8 +101,6 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) UserDataAuthClient {
   using GetAuthFactorExtendedInfoCallback = chromeos::DBusMethodCallback<
       ::user_data_auth::GetAuthFactorExtendedInfoReply>;
 
-  using GetRecoveryRequestCallback =
-      chromeos::DBusMethodCallback<::user_data_auth::GetRecoveryRequestReply>;
   // Asynchronous (biometric) AuthFactors API.
   using PrepareAuthFactorCallback =
       chromeos::DBusMethodCallback<::user_data_auth::PrepareAuthFactorReply>;
@@ -188,6 +188,11 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) UserDataAuthClient {
   // Queries if user's vault is mounted.
   virtual void IsMounted(const ::user_data_auth::IsMountedRequest& request,
                          IsMountedCallback callback) = 0;
+
+  // Queries user's vault properties.
+  virtual void GetVaultProperties(
+      const ::user_data_auth::GetVaultPropertiesRequest& request,
+      GetVaultPropertiesCallback callback) = 0;
 
   // Unmounts user's vault.
   virtual void Unmount(const ::user_data_auth::UnmountRequest& request,
@@ -314,12 +319,6 @@ class COMPONENT_EXPORT(USERDATAAUTH_CLIENT) UserDataAuthClient {
   virtual void GetAuthFactorExtendedInfo(
       const ::user_data_auth::GetAuthFactorExtendedInfoRequest& request,
       GetAuthFactorExtendedInfoCallback callback) = 0;
-
-  // This is called when a user authenticates with recovery to obtain the
-  // request to be sent to the recovery service.
-  virtual void GetRecoveryRequest(
-      const ::user_data_auth::GetRecoveryRequestRequest& request,
-      GetRecoveryRequestCallback callback) = 0;
 
   // This is called when a user wants to get an AuthSession status.
   virtual void GetAuthSessionStatus(

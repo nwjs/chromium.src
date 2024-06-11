@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "os", "reclient", "sheriff_rotations", "siso")
+load("//lib/builders.star", "free_space", "os", "reclient", "sheriff_rotations")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
 load("//lib/gn_args.star", "gn_args")
@@ -25,11 +25,7 @@ ci.defaults.set(
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
     shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
-    siso_configs = ["builder"],
-    siso_enable_cloud_profiler = True,
-    siso_enable_cloud_trace = True,
     siso_enabled = True,
-    siso_project = siso.project.DEFAULT_TRUSTED,
     siso_remote_jobs = reclient.jobs.DEFAULT,
 )
 
@@ -54,7 +50,6 @@ ci.builder(
             target_platform = builder_config.target_platform.FUCHSIA,
         ),
         build_gs_bucket = "chromium-fyi-archive",
-        run_tests_serially = True,
     ),
     gn_args = gn_args.config(
         configs = [
@@ -64,6 +59,7 @@ ci.builder(
             "arm64_host",
         ],
     ),
+    free_space = free_space.high,
     console_view_entry = [
         consoles.console_view_entry(
             branch_selector = branches.selector.MAIN,
@@ -94,6 +90,8 @@ ci.builder(
             target_platform = builder_config.target_platform.FUCHSIA,
         ),
         build_gs_bucket = "chromium-fyi-archive",
+        # This builder is slow naturally, running everything in serial to avoid
+        # using too much resource.
         run_tests_serially = True,
     ),
     gn_args = gn_args.config(
@@ -135,7 +133,6 @@ ci.builder(
             target_platform = builder_config.target_platform.FUCHSIA,
         ),
         build_gs_bucket = "chromium-fyi-archive",
-        run_tests_serially = True,
     ),
     gn_args = gn_args.config(
         configs = [
@@ -144,6 +141,7 @@ ci.builder(
             "fuchsia_smart_display",
         ],
     ),
+    free_space = free_space.high,
     console_view_entry = [
         consoles.console_view_entry(
             branch_selector = branches.selector.MAIN,
@@ -176,6 +174,7 @@ ci.builder(
             target_platform = builder_config.target_platform.FUCHSIA,
         ),
         build_gs_bucket = "chromium-fyi-archive",
+        # Testing purpose, lower priority and less resource consumption.
         run_tests_serially = True,
     ),
     console_view_entry = [

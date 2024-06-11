@@ -45,6 +45,7 @@
 #include "base/version.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "media/base/limits.h"
 #include "media/base/media_switches.h"
 #include "media/base/platform_features.h"
 #include "media/base/video_codecs.h"
@@ -645,67 +646,48 @@ bool IsModeEncoding(VaapiWrapper::CodecMode mode) {
          mode == VaapiWrapper::CodecMode::kEncodeVariableBitrate;
 }
 
-bool GetNV12VisibleWidthBytes(int visible_width,
-                              uint32_t plane,
-                              size_t* bytes) {
-  if (plane == 0) {
-    *bytes = base::checked_cast<size_t>(visible_width);
-    return true;
-  }
-
-  *bytes = base::checked_cast<size_t>(visible_width);
-  return visible_width % 2 == 0 ||
-         base::CheckAdd<int>(visible_width, 1).AssignIfValid(bytes);
-}
-
-// Fill 0 on VAImage's non visible area.
-bool ClearNV12Padding(const VAImage& image,
-                      const gfx::Size& visible_size,
-                      uint8_t* data) {
-  DCHECK_EQ(2u, image.num_planes);
-  DCHECK_EQ(image.format.fourcc, static_cast<uint32_t>(VA_FOURCC_NV12));
-
-  size_t visible_width_bytes[2] = {};
-  if (!GetNV12VisibleWidthBytes(visible_size.width(), 0u,
-                                &visible_width_bytes[0]) ||
-      !GetNV12VisibleWidthBytes(visible_size.width(), 1u,
-                                &visible_width_bytes[1])) {
-    return false;
-  }
+// Fill VAImage's non-visible area with 0s.
+void FillNV12Padding(const VAImage& image,
+                     const gfx::Size& visible_size,
+                     uint8_t* data) {
+  CHECK_NE(data, nullptr);
+  CHECK_EQ(2u, image.num_planes);
+  CHECK_EQ(image.format.fourcc, base::checked_cast<uint32_t>(VA_FOURCC_NV12));
+  CHECK_LE(base::strict_cast<int>(image.width), media::limits::kMaxDimension);
+  CHECK_GE(base::strict_cast<int>(image.width), visible_size.width());
+  CHECK_LE(base::strict_cast<int>(image.height), media::limits::kMaxDimension);
+  CHECK_GE(base::strict_cast<int>(image.height), visible_size.height());
 
   for (uint32_t plane = 0; plane < image.num_planes; plane++) {
-    size_t row_bytes = base::strict_cast<size_t>(image.pitches[plane]);
-    if (row_bytes == visible_width_bytes[plane])
-      continue;
-
-    CHECK_GT(row_bytes, visible_width_bytes[plane]);
-    int visible_height = visible_size.height();
-    if (plane == 1 && !(base::CheckAdd<int>(visible_size.height(), 1) / 2)
-                           .AssignIfValid(&visible_height)) {
-      return false;
-    }
-
-    const size_t padding_bytes = row_bytes - visible_width_bytes[plane];
     uint8_t* plane_data = data + image.offsets[plane];
-    for (int row = 0; row < visible_height; row++, plane_data += row_bytes)
-      memset(plane_data + visible_width_bytes[plane], 0, padding_bytes);
+    const int stride = base::checked_cast<int>(image.pitches[plane]);
+    const int visible_width_in_bytes =
+        plane == 0 ? visible_size.width()
+                   : 2 * ((visible_size.width() + 1) / 2);
+    const size_t visible_height =
+        VideoFrame::Rows(plane, PIXEL_FORMAT_NV12, visible_size.height());
+    const size_t image_height =
+        VideoFrame::Rows(plane, PIXEL_FORMAT_NV12, image.height);
 
-    CHECK_GE(base::strict_cast<int>(image.height), visible_height);
-    size_t image_height = base::strict_cast<size_t>(image.height);
-    if (plane == 1 && !(base::CheckAdd<size_t>(image.height, 1) / 2)
-                           .AssignIfValid(&image_height)) {
-      return false;
-    }
+    // Fill 0 to the right non-visible area.
+    CHECK_GE(stride, visible_width_in_bytes);
+    libyuv::SetPlane(/*dst_y=*/plane_data + visible_width_in_bytes,
+                     /*dst_stride_y=*/stride,
+                     /*width=*/stride - visible_width_in_bytes,
+                     /*height=*/base::checked_cast<int>(visible_height),
+                     /*value=*/0u);
 
-    base::CheckedNumeric<size_t> remaining_area(image_height);
-    remaining_area -= base::checked_cast<size_t>(visible_height);
-    remaining_area *= row_bytes;
-    if (!remaining_area.IsValid())
-      return false;
-    memset(plane_data, 0, remaining_area.ValueOrDie());
+    // Fill 0 to the bottom non-visible area.
+    CHECK_GE(image_height, visible_height);
+    base::CheckedNumeric<size_t> num_bytes_above(visible_height);
+    num_bytes_above *= base::checked_cast<size_t>(stride);
+    libyuv::SetPlane(
+        /*dst_y=*/plane_data + num_bytes_above.ValueOrDie(),
+        /*dst_stride_y=*/stride,
+        /*width=*/stride,
+        /*height=*/base::checked_cast<int>(image_height - visible_height),
+        /*value=*/0u);
   }
-
-  return true;
 }
 
 // Creates an AutoLock iff |va_lock_| is not null and the libva backend is
@@ -2268,13 +2250,14 @@ bool VaapiWrapper::CreateProtectedSession(
     VA_SUCCESS_OR_RETURN(va_res, VaapiFunctions::kVAProtectedSessionExecute,
                          false);
 
-    ScopedVABufferMapping mapping(va_lock_, va_display_, hw_update->id());
-    if (!mapping.IsValid()) {
+    auto mapping =
+        ScopedVABufferMapping::Create(va_lock_, va_display_, hw_update->id());
+    if (!mapping) {
       LOG(ERROR) << "Failed mapping returned Execute buf";
       return false;
     }
     auto* hw_update_buf_out =
-        reinterpret_cast<VAProtectedSessionExecuteBuffer*>(mapping.data());
+        reinterpret_cast<VAProtectedSessionExecuteBuffer*>(mapping->data());
     if (!hw_update_buf_out->output.data_size) {
       LOG(ERROR) << "Received empty HW identifier";
       return false;
@@ -2434,13 +2417,7 @@ scoped_refptr<VASurface> VaapiWrapper::CreateVASurfaceForFrameResource(
     bool protected_content) {
   CHECK(!enforce_sequence_affinity_ ||
         sequence_checker_.CalledOnValidSequence());
-  scoped_refptr<const gfx::NativePixmap> pixmap;
-  if (frame.HasNativePixmap()) {
-    pixmap = frame.GetNativePixmapDmaBuf();
-  } else {
-    pixmap = frame.CreateNativePixmapDmaBuf();
-  }
-
+  auto pixmap = frame.GetNativePixmapDmaBuf();
   if (!pixmap) {
     LOG(ERROR) << "Failed to create NativePixmap from FrameResource";
     return nullptr;
@@ -2621,7 +2598,7 @@ VaapiWrapper::ExportVASurfaceAsNativePixmapDmaBufUnwrapped(
   // We only support one bo containing all the planes. The fd should be owned by
   // us: per va/va.h, "the exported handles are owned by the caller."
   //
-  // TODO(crbug.com/974438): support multiple buffer objects so that this can
+  // TODO(crbug.com/40632250): support multiple buffer objects so that this can
   // work in AMD.
   CHECK_EQ(descriptor.num_objects, 1u)
       << "Only surface descriptors with one bo are supported";
@@ -2814,7 +2791,7 @@ bool VaapiWrapper::MapAndCopyAndExecute(
 
 std::unique_ptr<ScopedVAImage> VaapiWrapper::CreateVaImage(
     VASurfaceID va_surface_id,
-    VAImageFormat* format,
+    const VAImageFormat& format,
     const gfx::Size& size) {
   CHECK(!enforce_sequence_affinity_ ||
         sequence_checker_.CalledOnValidSequence());
@@ -2825,10 +2802,10 @@ std::unique_ptr<ScopedVAImage> VaapiWrapper::CreateVaImage(
     VAStatus va_res = vaSyncSurface(va_display_, va_surface_id);
     VA_SUCCESS_OR_RETURN(va_res, VaapiFunctions::kVASyncSurface, nullptr);
 
-    scoped_image = std::make_unique<ScopedVAImage>(va_lock_, va_display_,
-                                                   va_surface_id, format, size);
+    scoped_image = ScopedVAImage::Create(va_lock_, va_display_, va_surface_id,
+                                         format, size);
   }
-  return scoped_image->IsValid() ? std::move(scoped_image) : nullptr;
+  return scoped_image;
 }
 
 bool VaapiWrapper::UploadVideoFrameToSurface(const VideoFrame& frame,
@@ -2884,17 +2861,13 @@ bool VaapiWrapper::UploadVideoFrameToSurface(const VideoFrame& frame,
     return false;
   }
 
-  ScopedVABufferMapping mapping(auto_lock ? va_lock_ : nullptr, va_display_,
-                                image.buf);
-  if (!mapping.IsValid()) {
+  auto mapping = ScopedVABufferMapping::Create(auto_lock ? va_lock_ : nullptr,
+                                               va_display_, image.buf);
+  if (!mapping) {
     return false;
   }
-  uint8_t* image_ptr = static_cast<uint8_t*>(mapping.data());
 
-  if (!ClearNV12Padding(image, visible_size, image_ptr)) {
-    LOG(ERROR) << "Failed to clear non visible area of VAImage";
-    return false;
-  }
+  uint8_t* image_ptr = static_cast<uint8_t*>(mapping->data());
 
   int ret = 0;
   {
@@ -2906,18 +2879,22 @@ bool VaapiWrapper::UploadVideoFrameToSurface(const VideoFrame& frame,
     }
 
     if (frame.format() == PIXEL_FORMAT_I420) {
-      ret = libyuv::I420ToNV12(
-          frame.data(VideoFrame::kYPlane), frame.stride(VideoFrame::kYPlane),
-          frame.data(VideoFrame::kUPlane), frame.stride(VideoFrame::kUPlane),
-          frame.data(VideoFrame::kVPlane), frame.stride(VideoFrame::kVPlane),
-          image_ptr + image.offsets[0], image.pitches[0],
-          image_ptr + image.offsets[1], image.pitches[1], visible_size.width(),
-          visible_size.height());
+      ret = libyuv::I420ToNV12(frame.data(VideoFrame::Plane::kY),
+                               frame.stride(VideoFrame::Plane::kY),
+                               frame.data(VideoFrame::Plane::kU),
+                               frame.stride(VideoFrame::Plane::kU),
+                               frame.data(VideoFrame::Plane::kV),
+                               frame.stride(VideoFrame::Plane::kV),
+                               image_ptr + image.offsets[0], image.pitches[0],
+                               image_ptr + image.offsets[1], image.pitches[1],
+                               visible_size.width(), visible_size.height());
     } else {
       LOG(ERROR) << "Unsupported pixel format: "
                  << VideoPixelFormatToString(frame.format());
       return false;
     }
+
+    FillNV12Padding(image, visible_size, image_ptr);
   }
   if (needs_va_put_image) {
     va_res = vaPutImage(va_display_, va_surface_id, image.image_id, 0, 0,
@@ -2969,14 +2946,15 @@ uint64_t VaapiWrapper::GetEncodedChunkSize(VABufferID buffer_id,
     VA_SUCCESS_OR_RETURN(va_res, VaapiFunctions::kVASyncSurface, 0u);
   }
 
-  ScopedVABufferMapping mapping(auto_lock ? va_lock_ : nullptr, va_display_,
-                                buffer_id);
-  if (!mapping.IsValid())
+  auto mapping = ScopedVABufferMapping::Create(auto_lock ? va_lock_ : nullptr,
+                                               va_display_, buffer_id);
+  if (!mapping) {
     return 0u;
+  }
 
   uint64_t coded_data_size = 0;
   for (auto* buffer_segment =
-           reinterpret_cast<VACodedBufferSegment*>(mapping.data());
+           reinterpret_cast<VACodedBufferSegment*>(mapping->data());
        buffer_segment; buffer_segment = reinterpret_cast<VACodedBufferSegment*>(
                            buffer_segment->next)) {
     coded_data_size += buffer_segment->size;
@@ -3009,12 +2987,14 @@ bool VaapiWrapper::DownloadFromVABuffer(
     VA_SUCCESS_OR_RETURN(va_res, VaapiFunctions::kVASyncSurface, false);
   }
 
-  ScopedVABufferMapping mapping(auto_lock ? va_lock_ : nullptr, va_display_,
-                                buffer_id);
-  if (!mapping.IsValid())
+  auto mapping = ScopedVABufferMapping::Create(auto_lock ? va_lock_ : nullptr,
+                                               va_display_, buffer_id);
+  if (!mapping) {
     return false;
+  }
+
   auto* buffer_segment =
-      reinterpret_cast<VACodedBufferSegment*>(mapping.data());
+      reinterpret_cast<VACodedBufferSegment*>(mapping->data());
 
   // memcpy calls should be fast, unlocking and relocking for unmapping might
   // cause another thread to acquire the lock and we'd have to wait delaying the
@@ -3130,12 +3110,13 @@ bool VaapiWrapper::BlitSurface(const VASurface& va_surface_src,
   VARectangle input_region;
   VARectangle output_region;
   {
-    ScopedVABufferMapping mapping(va_lock_, va_display_,
-                                  va_buffer_for_vpp_->id());
-    if (!mapping.IsValid())
+    auto mapping = ScopedVABufferMapping::Create(va_lock_, va_display_,
+                                                 va_buffer_for_vpp_->id());
+    if (!mapping) {
       return false;
+    }
     auto* pipeline_param =
-        reinterpret_cast<VAProcPipelineParameterBuffer*>(mapping.data());
+        reinterpret_cast<VAProcPipelineParameterBuffer*>(mapping->data());
 
     memset(pipeline_param, 0, sizeof *pipeline_param);
     if (!src_rect)
@@ -3608,13 +3589,13 @@ bool VaapiWrapper::MapAndCopy_Locked(VABufferID va_buffer_id,
   DCHECK(IsValidVABufferType(va_buffer.type));
   DCHECK(va_buffer.data);
 
-  ScopedVABufferMapping mapping(
-      va_lock_, va_display_, va_buffer_id,
-      base::BindOnce(base::IgnoreResult(&vaDestroyBuffer), va_display_));
-  if (!mapping.IsValid())
+  auto mapping =
+      ScopedVABufferMapping::Create(va_lock_, va_display_, va_buffer_id);
+  if (!mapping) {
     return false;
+  }
 
-  return memcpy(mapping.data(), va_buffer.data, va_buffer.size);
+  return memcpy(mapping->data(), va_buffer.data, va_buffer.size);
 }
 
 void VaapiWrapper::MaybeSetLowQualityEncoding_Locked() {

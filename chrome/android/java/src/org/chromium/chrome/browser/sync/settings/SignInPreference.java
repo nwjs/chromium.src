@@ -132,7 +132,7 @@ public class SignInPreference extends Preference
     private void update() {
         setVisible(!mIsShowingSigninPromo);
         if (mSigninManager.isSigninDisabledByPolicy()) {
-            // TODO(https://crbug.com/1133739): Clean up after revising isSigninDisabledByPolicy.
+            // TODO(crbug.com/40722691): Clean up after revising isSigninDisabledByPolicy.
             if (mPrefService.isManagedPreference(Pref.SIGNIN_ALLOWED)) {
                 setupSigninDisabledByPolicy();
             } else {
@@ -172,8 +172,14 @@ public class SignInPreference extends Preference
     }
 
     private void setupGenericPromo() {
-        setTitle(R.string.sync_promo_turn_on_sync);
-        setSummary(R.string.signin_pref_summary);
+        if (ChromeFeatureList.isEnabled(
+                ChromeFeatureList.REPLACE_SYNC_PROMOS_WITH_SIGN_IN_PROMOS)) {
+            setTitle(R.string.signin_settings_title);
+            setSummary(R.string.signin_settings_subtitle);
+        } else {
+            setTitle(R.string.sync_promo_turn_on_sync);
+            setSummary(R.string.signin_pref_summary);
+        }
 
         setFragment(null);
         setIcon(AppCompatResources.getDrawable(getContext(), R.drawable.logo_avatar_anonymous));
@@ -229,9 +235,8 @@ public class SignInPreference extends Preference
         setIcon(profileData.getImage());
         setViewEnabledAndShowAlertIcon(
                 /* enabled= */ true,
-                /* alertIconVisible= */ ChromeFeatureList.isEnabled(
-                                ChromeFeatureList.SYNC_SHOW_IDENTITY_ERRORS_FOR_SIGNED_IN_USERS)
-                        && SyncSettingsUtils.getIdentityError(mProfile) != SyncError.NO_ERROR);
+                /* alertIconVisible= */ SyncSettingsUtils.getIdentityError(mProfile)
+                        != SyncError.NO_ERROR);
         setOnPreferenceClickListener(null);
 
         mWasGenericSigninPromoDisplayed = false;

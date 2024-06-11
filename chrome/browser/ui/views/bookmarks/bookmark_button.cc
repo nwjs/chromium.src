@@ -3,9 +3,9 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/views/bookmarks/bookmark_button.h"
+
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/browser_features.h"
-#include "chrome/browser/page_load_metrics/observers/navigation_handle_user_data.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_config.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/views/event_utils.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/grit/generated_resources.h"
+#include "content/public/browser/navigation_handle.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/views/widget/tooltip_manager.h"
@@ -63,11 +64,6 @@ BookmarkButtonBase::BookmarkButtonBase(PressedCallback callback,
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
   views::FocusRing::Get(this)->SetOutsetFocusRingDisabled(true);
   SetHideInkDropWhenShowingContextMenu(false);
-
-  if (features::IsChromeRefresh2023() &&
-      base::FeatureList::IsEnabled(features::kChromeRefresh2023TopChromeFont)) {
-    label()->SetTextStyle(views::style::STYLE_BODY_4_EMPHASIS);
-  }
 
   show_animation_ = std::make_unique<gfx::SlideAnimation>(this);
   if (!BookmarkBarView::GetAnimationsEnabled()) {
@@ -252,8 +248,6 @@ void BookmarkButton::StartPreconnecting(GURL url) {
 }
 
 void BookmarkButton::StartPrerendering(GURL url) {
-  // TODO(crbug.com/40259793): Prerender only for https scheme, and add
-  // an enum metric to report the protocol scheme.
   CHECK(base::FeatureList::IsEnabled(features::kBookmarkTriggerForPrerender2));
   if (prerender_handle_) {
     return;
@@ -265,9 +259,9 @@ void BookmarkButton::StartPrerendering(GURL url) {
   }
 
   prerender_web_contents_ = active_web_contents->GetWeakPtr();
-  PrerenderManager::CreateForWebContents(&(*prerender_web_contents_));
+  PrerenderManager::CreateForWebContents(prerender_web_contents_.get());
   auto* prerender_manager =
-      PrerenderManager::FromWebContents(&(*prerender_web_contents_));
+      PrerenderManager::FromWebContents(prerender_web_contents_.get());
   prerender_handle_ = prerender_manager->StartPrerenderBookmark(url);
 }
 

@@ -67,7 +67,8 @@ IN_PROC_BROWSER_TEST_F(ChromeOSInfoPrivateTest, DISABLED_TestGetAndSet) {
   ASSERT_FALSE(prefs->GetBoolean(ash::prefs::kAccessibilityAutoclickEnabled));
   ASSERT_FALSE(prefs->GetBoolean(ash::prefs::kAccessibilityCursorColorEnabled));
 
-  ASSERT_FALSE(profile()->GetPrefs()->GetBoolean(ash::prefs::kSendFunctionKeys));
+  ASSERT_FALSE(
+      profile()->GetPrefs()->GetBoolean(ash::prefs::kSendFunctionKeys));
 
   ASSERT_TRUE(RunExtensionTest("chromeos_info_private/basic", {},
                                {.load_as_component = true}))
@@ -199,7 +200,7 @@ IN_PROC_BROWSER_TEST_F(ChromeOSInfoPrivateTest, StylusSupported) {
       << message_;
 }
 
-// TODO(https://crbug.com/814675): Excluded from Mash because pointer events
+// TODO(crbug.com/40564126): Excluded from Mash because pointer events
 // aren't seen.
 IN_PROC_BROWSER_TEST_F(ChromeOSInfoPrivateTest, StylusSeen) {
   ui::DeviceDataManagerTestApi test_api;

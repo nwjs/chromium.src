@@ -7,7 +7,7 @@
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
 #import "base/i18n/rtl.h"
-#import "components/autofill/core/browser/ui/popup_item_ids.h"
+#import "components/autofill/core/browser/ui/suggestion_type.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_client.h"
 #import "ios/chrome/browser/autofill/model/form_suggestion_constants.h"
@@ -27,6 +27,9 @@ constexpr CGFloat kSuggestionVerticalMargin = 6;
 // Horizontal margin around suggestions (i.e. between suggestions, and between
 // the end suggestions and the suggestion content frame).
 constexpr CGFloat kSuggestionHorizontalMargin = 6;
+
+// Horizontal space between suggestions.
+constexpr CGFloat kSpacing = 4;
 
 // Horizontal margin at the end of the last suggestion.
 constexpr CGFloat kSuggestionEndHorizontalMargin = 10;
@@ -161,7 +164,9 @@ constexpr CGFloat kScrollHintDuration = 0.5;
       kSuggestionVerticalMargin,
       IsKeyboardAccessoryUpgradeEnabled() ? kSuggestionEndHorizontalMargin
                                           : kSuggestionHorizontalMargin);
-  stackView.spacing = kSuggestionHorizontalMargin;
+  stackView.spacing = IsKeyboardAccessoryUpgradeEnabled()
+                          ? kSpacing
+                          : kSuggestionHorizontalMargin;
   stackView.translatesAutoresizingMaskIntoConstraints = NO;
   [self addSubview:stackView];
   AddSameConstraints(stackView, self);

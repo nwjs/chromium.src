@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.signin;
 
+import android.accounts.AccountManager;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -27,11 +29,14 @@ import org.chromium.chrome.browser.ui.signin.SigninAndHistoryOptInCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistoryOptInCoordinator.HistoryOptInMode;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistoryOptInCoordinator.NoAccountSigninMode;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistoryOptInCoordinator.WithAccountSigninMode;
+import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.chrome.browser.ui.signin.UpgradePromoCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.components.browser_ui.modaldialog.AppModalPresenter;
+import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 
@@ -67,15 +72,16 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
     private final Promise<Void> mNativeInitializationPromise = new Promise<>();
     // These two coordinators are mutually exclusive: if one is initialized the other should be
     // null.
-    // TODO(b/41493788): Consider making each of these implement a common interface to skip the
+    // TODO(b/326019991): Consider making each of these implement a common interface to skip the
     // redundancy.
     private SigninAndHistoryOptInCoordinator mCoordinator;
     private UpgradePromoCoordinator mUpgradePromoCoordinator;
 
     @Override
     protected void onPreCreate() {
+        super.onPreCreate();
         // Temporarily ensure that the native is initialized before calling super.onCreate().
-        // TODO(https://crbug.com/1520783): Handle the case where the UI is shown before the end of
+        // TODO(crbug.com/41493758): Handle the case where the UI is shown before the end of
         // native initialization.
         ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
     }
@@ -210,17 +216,18 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
         super.onDestroy();
     }
 
+    /** Implements {@link FirstRunActivityBase} */
     @Override
-    public int handleBackPress() {
-        // TODO(b/41493788): Implement this method to handle back press correctly from the re-FRE
-        // and the usual flow.
+    public @BackPressResult int handleBackPress() {
+        if (mUpgradePromoCoordinator != null) {
+            mUpgradePromoCoordinator.handleBackPress();
+            return BackPressResult.SUCCESS;
+        }
         return BackPressResult.UNKNOWN;
     }
 
     @Override
-    public int getSecondaryActivity() {
-        // TODO(b/41493788): Move the logic from the coordinator here (or vice-versa) to avoid
-        // redundant code.
+    public @SecondaryActivityBackPressUma.SecondaryActivity int getSecondaryActivity() {
         return SecondaryActivityBackPressUma.SecondaryActivity.SIGNIN_AND_HISTORY_OPT_IN;
     }
 
@@ -266,10 +273,42 @@ public class SigninAndHistoryOptInActivity extends FirstRunActivityBase
         return intent;
     }
 
-    /** Implements {@link UpgradePromoCoordinator.Delegate} */
+    /**
+     * Implements {@link UpgradePromoCoordinator.Delegate} and {@link
+     * SigninAndHistoryOptInCoordinator.Delegate}
+     */
     @Override
-    public void addAccountInUpgradePromo() {
-        // TODO(b/41493788): Implement this method
+    public void addAccount() {
+        // TODO(crbug.com/41493767): Handle result in onActivityResult rather than using
+        // IntentCallback to resume the flow when Chrome is killed.
+        final WindowAndroid.IntentCallback onAddAccountCompleted =
+                (int resultCode, Intent data) -> {
+                    final String accountEmail =
+                            data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+                    if (resultCode != Activity.RESULT_OK || accountEmail == null) {
+                        onFlowComplete();
+                        return;
+                    }
+
+                    if (mUpgradePromoCoordinator != null) {
+                        mUpgradePromoCoordinator.onAccountSelected(accountEmail);
+                    } else {
+                        assert mCoordinator != null;
+                        mCoordinator.onAccountAdded(accountEmail);
+                    }
+                };
+        AccountManagerFacadeProvider.getInstance()
+                .createAddAccountIntent(
+                        intent -> {
+                            if (intent == null) {
+                                // AccountManagerFacade couldn't create the intent, use SigninUtils
+                                // to open settings instead.
+                                SigninUtils.openSettingsForAllAccounts(this);
+                                return;
+                            }
+
+                            getWindowAndroid().showIntent(intent, onAddAccountCompleted, null);
+                        });
     }
 
     /** Implements {@link UpgradePromoCoordinator.Delegate} */

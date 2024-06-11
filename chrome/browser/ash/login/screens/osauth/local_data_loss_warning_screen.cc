@@ -4,11 +4,24 @@
 
 #include "chrome/browser/ash/login/screens/osauth/local_data_loss_warning_screen.h"
 
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+
+#include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
+#include "base/memory/weak_ptr.h"
+#include "base/notreached.h"
+#include "chrome/browser/ash/login/oobe_screen.h"
+#include "chrome/browser/ash/login/screens/oobe_mojo_binder.h"
+#include "chrome/browser/ash/login/screens/osauth/base_osauth_setup_screen.h"
 #include "chrome/browser/ash/login/wizard_context.h"
-#include "chrome/browser/ui/webui/ash/login/mojom/screens_osauth.mojom.h"
 #include "chrome/browser/ui/webui/ash/login/osauth/local_data_loss_warning_screen_handler.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
+#include "chromeos/ash/components/login/auth/mount_performer.h"
+#include "chromeos/ash/components/login/auth/public/authentication_error.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
 #include "components/crash/core/app/crashpad.h"
 #include "components/device_event_log/device_event_log.h"
@@ -33,9 +46,10 @@ bool isOwner(const AccountId& account_id) {
 
 // static
 std::string LocalDataLossWarningScreen::GetResultString(Result result) {
+  // LINT.IfChange(UsageMetrics)
   switch (result) {
     case Result::kRemoveUser:
-      return "removeUser";
+      return "RemoveUser";
     case Result::kBackToLocalAuth:
       return "Back";
     case Result::kBackToOnlineAuth:
@@ -45,6 +59,7 @@ std::string LocalDataLossWarningScreen::GetResultString(Result result) {
     case Result::kCancel:
       return "Cancel";
   }
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/oobe/histograms.xml)
 }
 
 LocalDataLossWarningScreen::LocalDataLossWarningScreen(

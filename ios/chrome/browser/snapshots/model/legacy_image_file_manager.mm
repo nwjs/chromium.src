@@ -122,10 +122,10 @@ UIImage* ReadImageForSnapshotIDFromDisk(SnapshotID snapshot_id,
   base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
                                                 base::BlockingType::WILL_BLOCK);
 
-  // TODO(crbug.com/295891): consider changing back to -imageWithContentsOfFile
-  // instead of -imageWithData if both rdar://15747161 and the bug incorrectly
-  // reporting the image as damaged https://stackoverflow.com/q/5081297/5353
-  // are fixed.
+  // TODO(crbug.com/41056111): consider changing back to
+  // -imageWithContentsOfFile instead of -imageWithData if both rdar://15747161
+  // and the bug incorrectly reporting the image as damaged
+  // https://stackoverflow.com/q/5081297/5353 are fixed.
   base::FilePath file_path =
       ImagePath(snapshot_id, IMAGE_TYPE_COLOR, image_scale, directory);
   NSString* path = base::apple::FilePathToNSString(file_path);
@@ -141,7 +141,7 @@ void WriteImageToDisk(UIImage* image, const base::FilePath& file_path) {
   if (!image.CGImage) {
     // It's possible that CGImage doesn't exist for the chrome:// pages when
     // it's an official build.
-    // TODO(crbug.com/1490496): Investigate why it happens and how to solve it.
+    // TODO(crbug.com/40284759): Investigate why it happens and how to solve it.
     return;
   }
   base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,

@@ -7,17 +7,19 @@
 
 #include <deque>
 
+#include "base/android/scoped_java_ref.h"
 #include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/android/webapk/webapk_restore_task.h"
-#include "components/sync/protocol/web_apk_specifics.pb.h"
+#include "components/webapps/common/web_app_id.h"
 
 class Profile;
 
 namespace webapps {
+struct ShortcutInfo;
 enum class WebApkInstallResult;
 }
 
@@ -30,31 +32,59 @@ class WebApkRestoreManager {
   using PassKey = base::PassKey<WebApkRestoreManager>;
   static PassKey PassKeyForTesting();
 
-  explicit WebApkRestoreManager(Profile* profile);
+  explicit WebApkRestoreManager(Profile* proqfile);
   WebApkRestoreManager(const WebApkRestoreManager&) = delete;
   WebApkRestoreManager& operator=(const WebApkRestoreManager&) = delete;
   virtual ~WebApkRestoreManager();
 
-  void ScheduleTask(const sync_pb::WebApkSpecifics& webapk_specifics);
+  using RestorableAppsCallback =
+      base::OnceCallback<void(const std::vector<std::string>& app_ids,
+                              const std::vector<std::u16string>& names,
+                              const std::vector<int>& last_used_in_days,
+                              const std::vector<SkBitmap>& icons)>;
+
+  void PrepareRestorableApps(std::vector<WebApkRestoreData>&& apps,
+                             RestorableAppsCallback result_callback);
+  void ScheduleRestoreTasks(
+      const std::vector<webapps::AppId>& app_ids_to_restore);
+
+  // If no restore task is running, clear all tasks and reset states.
+  void ResetIfNotRunning();
+
+  base::WeakPtr<WebApkRestoreManager> GetWeakPtr();
 
   uint32_t GetTasksCountForTesting() const { return tasks_.size(); }
 
  protected:
   virtual std::unique_ptr<WebApkRestoreTask> CreateNewTask(
-      const sync_pb::WebApkSpecifics& webapk_specifics);
+      std::unique_ptr<webapps::ShortcutInfo> restore_info,
+      base::Time last_used_time);
   virtual void OnTaskFinished(const GURL& manifest_id,
                               webapps::WebApkInstallResult result);
 
   Profile* profile() const { return profile_; }
+  WebApkRestoreWebContentsManager* web_contents_manager() const {
+    return web_contents_manager_.get();
+  }
 
  private:
+  friend class TestWebApkRestoreManager;
+
   void MaybeStartNextTask();
+
+  void DownloadIcon(RestorableAppsCallback apps_info_callback,
+                    webapps::WebAppUrlLoaderResult result);
+  void OnAllIconsDownloaded(RestorableAppsCallback result_callback);
 
   raw_ptr<Profile> profile_;
   std::unique_ptr<WebApkRestoreWebContentsManager> web_contents_manager_;
 
-  // The list of webapk infos to be restored.
-  std::deque<std::unique_ptr<WebApkRestoreTask>> tasks_;
+  // All restorable WebAPKs
+  std::map<webapps::AppId, std::unique_ptr<WebApkRestoreTask>>
+      restorable_tasks_;
+
+  // The list of AppId for WebAPKs to be restored.
+  std::deque<webapps::AppId> tasks_;
   bool is_running_ = false;
 
   scoped_refptr<base::SequencedTaskRunner> sequenced_task_runner_;

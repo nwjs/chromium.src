@@ -85,6 +85,7 @@ bool ShouldUseReauthEndpoint(const AccountId& account_id,
 
 // static
 std::string GaiaScreen::GetResultString(Result result) {
+  // LINT.IfChange(UsageMetrics)
   switch (result) {
     case Result::BACK:
       return "Back";
@@ -101,6 +102,7 @@ std::string GaiaScreen::GetResultString(Result result) {
     case Result::QUICK_START_ONGOING:
       return BaseScreen::kNotApplicable;
   }
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/oobe/histograms.xml)
 }
 
 GaiaScreen::GaiaScreen(base::WeakPtr<TView> view,
@@ -226,8 +228,8 @@ void GaiaScreen::ShowImpl() {
     WizardController::default_controller()
         ->quick_start_controller()
         ->DetermineEntryPointVisibility(
-            base::BindOnce(&GaiaScreen::SetQuickStartButtonVisibility,
-                           weak_ptr_factory_.GetWeakPtr()));
+            base::BindRepeating(&GaiaScreen::SetQuickStartButtonVisibility,
+                                weak_ptr_factory_.GetWeakPtr()));
   } else {
     SetQuickStartButtonVisibility(/*visible=*/false);
   }

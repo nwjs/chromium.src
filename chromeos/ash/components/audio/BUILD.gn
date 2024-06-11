@@ -47,6 +47,7 @@ component("audio") {
     "cros_audio_config.h",
     "cros_audio_config_impl.cc",
     "cros_audio_config_impl.h",
+    "device_activate_type.h",
     "sounds.h",
   ]
 }
@@ -95,6 +96,7 @@ source_set("unit_tests") {
     "audio_device_selection_test_base.cc",
     "audio_device_selection_test_base.h",
     "audio_device_selection_unittest.cc",
+    "audio_device_selection_with_notification_generated_unittest.cc",
     "audio_devices_pref_handler_impl_unittest.cc",
     "audio_selection_notification_handler_unittest.cc",
     "cras_audio_handler_unittest.cc",

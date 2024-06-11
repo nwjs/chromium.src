@@ -127,7 +127,8 @@ void DialogClientView::SetButtonRowInsets(const gfx::Insets& insets) {
   }
 }
 
-gfx::Size DialogClientView::CalculatePreferredSize() const {
+gfx::Size DialogClientView::CalculatePreferredSize(
+    const SizeBounds& available_size) const {
   const gfx::Insets& content_margins = GetDialogDelegate()->margins();
 
   gfx::Size contents_size;
@@ -137,7 +138,10 @@ gfx::Size DialogClientView::CalculatePreferredSize() const {
     contents_size = gfx::Size(content_width,
                               ClientView::GetHeightForWidth(content_width));
   } else {
-    contents_size = ClientView::CalculatePreferredSize();
+    SizeBounds content_available_size(available_size);
+    content_available_size.Enlarge(-content_margins.width(),
+                                   -content_margins.height());
+    contents_size = ClientView::CalculatePreferredSize(content_available_size);
   }
   contents_size.Enlarge(content_margins.width(), content_margins.height());
   return GetBoundingSizeForVerticalStack(
@@ -145,12 +149,9 @@ gfx::Size DialogClientView::CalculatePreferredSize() const {
 }
 
 gfx::Size DialogClientView::GetMinimumSize() const {
-  // TODO(pbos): Try to find a way for ClientView::GetMinimumSize() to be
-  // fixed-width aware. For now this uses min-size = preferred size for
-  // fixed-width dialogs (even though min height might not be preferred height).
-  // Fixing this might require View::GetMinHeightForWidth().
   if (GetDialogDelegate()->fixed_width()) {
-    return CalculatePreferredSize();
+    return CalculatePreferredSize(
+        SizeBounds(GetDialogDelegate()->fixed_width(), {}));
   }
 
   return GetBoundingSizeForVerticalStack(
@@ -470,7 +471,7 @@ void DialogClientView::SetupLayout() {
     // TableLayout will force its child views to be visible if they aren't
     // explicitly ignored, which will cause the extra view the client supplied
     // to be shown when they don't want it to.
-    // TODO(https://crbug.com/1474952): Remove this workaround.
+    // TODO(crbug.com/40279463): Remove this workaround.
     extra_view_->SetProperty(kViewIgnoredByLayoutKey,
                              !extra_view_->GetVisible());
   }

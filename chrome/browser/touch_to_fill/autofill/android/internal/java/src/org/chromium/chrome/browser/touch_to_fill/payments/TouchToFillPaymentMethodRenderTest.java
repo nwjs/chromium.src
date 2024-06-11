@@ -212,7 +212,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsOneCard() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new CreditCard[] {VISA}, true);
+                    mCoordinator.showSheet(List.of(VISA), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -226,7 +226,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsOneCardHalfState() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new CreditCard[] {VISA}, true);
+                    mCoordinator.showSheet(List.of(VISA), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -243,7 +243,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsTwoCards() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new CreditCard[] {VISA, MASTER_CARD}, true);
+                    mCoordinator.showSheet(List.of(VISA, MASTER_CARD), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -257,7 +257,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsTwoCardsHalfState() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new CreditCard[] {VISA, MASTER_CARD}, true);
+                    mCoordinator.showSheet(List.of(VISA, MASTER_CARD), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -274,7 +274,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsThreeCards() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new CreditCard[] {VISA, MASTER_CARD, DISCOVER}, true);
+                    mCoordinator.showSheet(List.of(VISA, MASTER_CARD, DISCOVER), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -288,7 +288,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsThreeCardsHalfState() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new CreditCard[] {VISA, MASTER_CARD, DISCOVER}, true);
+                    mCoordinator.showSheet(List.of(VISA, MASTER_CARD, DISCOVER), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -306,7 +306,7 @@ public class TouchToFillPaymentMethodRenderTest {
         runOnUiThreadBlocking(
                 () -> {
                     mCoordinator.showSheet(
-                            new CreditCard[] {VISA, MASTER_CARD, DISCOVER, AMERICAN_EXPRESS}, true);
+                            List.of(VISA, MASTER_CARD, DISCOVER, AMERICAN_EXPRESS), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -321,7 +321,7 @@ public class TouchToFillPaymentMethodRenderTest {
         runOnUiThreadBlocking(
                 () -> {
                     mCoordinator.showSheet(
-                            new CreditCard[] {VISA, MASTER_CARD, DISCOVER, AMERICAN_EXPRESS}, true);
+                            List.of(VISA, MASTER_CARD, DISCOVER, AMERICAN_EXPRESS), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -339,8 +339,7 @@ public class TouchToFillPaymentMethodRenderTest {
         runOnUiThreadBlocking(
                 () -> {
                     mCoordinator.showSheet(
-                            new CreditCard[] {VISA, MASTERCARD_VIRTUAL_CARD, SERVER_MASTER_CARD},
-                            true);
+                            List.of(VISA, MASTERCARD_VIRTUAL_CARD, SERVER_MASTER_CARD), true);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -356,7 +355,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testScanNewCardButtonIsHidden() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new CreditCard[] {VISA}, false);
+                    mCoordinator.showSheet(List.of(VISA), false);
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -371,7 +370,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsOneIban() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new Iban[] {LOCAL_IBAN});
+                    mCoordinator.showSheet(List.of(LOCAL_IBAN));
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -385,7 +384,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsOneIbanHalfState() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new Iban[] {LOCAL_IBAN});
+                    mCoordinator.showSheet(List.of(LOCAL_IBAN));
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -402,7 +401,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsTwoIbans() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new Iban[] {LOCAL_IBAN, LOCAL_IBAN_NO_NICKNAME});
+                    mCoordinator.showSheet(List.of(LOCAL_IBAN, LOCAL_IBAN_NO_NICKNAME));
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 
@@ -416,7 +415,7 @@ public class TouchToFillPaymentMethodRenderTest {
     public void testShowsTwoIbansHalfState() throws IOException {
         runOnUiThreadBlocking(
                 () -> {
-                    mCoordinator.showSheet(new Iban[] {LOCAL_IBAN, LOCAL_IBAN_NO_NICKNAME});
+                    mCoordinator.showSheet(List.of(LOCAL_IBAN, LOCAL_IBAN_NO_NICKNAME));
                 });
         BottomSheetTestSupport.waitForOpen(mBottomSheetController);
 

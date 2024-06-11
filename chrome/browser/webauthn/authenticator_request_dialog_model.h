@@ -50,7 +50,7 @@ class RenderFrameHost;
 namespace device {
 class AuthenticatorGetAssertionResponse;
 class DiscoverableCredentialMetadata;
-}
+}  // namespace device
 
 namespace gfx {
 struct VectorIcon;
@@ -98,6 +98,11 @@ class AuthenticatorRequestDialogController;
   /* powered. Valid action when at step: kBlePowerOnManual, */                \
   /* kBlePowerOnAutomatic. */                                                 \
   AUTHENTICATOR_REQUEST_EVENT_0(ContinueWithFlowAfterBleAdapterPowered)       \
+  /* Called when the enclave authenticator is available for a request. */     \
+  AUTHENTICATOR_REQUEST_EVENT_0(EnclaveEnabled)                               \
+  /* Called when the enclave authenticator needs a reauth before it is */     \
+  /* available for a request. */                                              \
+  AUTHENTICATOR_REQUEST_EVENT_0(EnclaveNeedsReauth)                           \
   AUTHENTICATOR_REQUEST_EVENT_0(OnBioEnrollmentDone)                          \
   /* Called when the power state of the Bluetooth adapter has changed. */     \
   AUTHENTICATOR_REQUEST_EVENT_0(OnBluetoothPoweredStateChanged)               \
@@ -116,9 +121,14 @@ class AuthenticatorRequestDialogController;
   /* TODO(enclave): Add transition to authentication or bootstrapping  */     \
   /* device. */                                                               \
   AUTHENTICATOR_REQUEST_EVENT_0(OnGPMCreatePasskey)                           \
+  /* Called when the user accepts the warning dialog for creating a GPM */    \
+  /* passkey in incognito mode.*/                                             \
+  AUTHENTICATOR_REQUEST_EVENT_0(OnGPMConfirmOffTheRecordCreate)               \
   /* Called when the user accepts a bubble confirming that they want to */    \
   /* start using passkeys. */                                                 \
   AUTHENTICATOR_REQUEST_EVENT_0(OnGPMOnboardingAccepted)                      \
+  /* Called when the user clicks "Forgot PIN" during UV. */                   \
+  AUTHENTICATOR_REQUEST_EVENT_0(OnForgotGPMPinPressed)                        \
   /* Called when the user clicks “Manage Devices” to manage their */      \
   /* phones. */                                                               \
   AUTHENTICATOR_REQUEST_EVENT_0(OnManageDevicesClicked)                       \
@@ -167,8 +177,7 @@ class AuthenticatorRequestDialogController;
   /* allows or disallows an attestation permission request. */                \
   AUTHENTICATOR_REQUEST_EVENT_1(OnAttestationPermissionResponse, bool)        \
   /* Called when the user selects a GPM passkey. */                           \
-  AUTHENTICATOR_REQUEST_EVENT_1(OnGPMPasskeySelected,                         \
-                                base::span<const uint8_t>)                    \
+  AUTHENTICATOR_REQUEST_EVENT_1(OnGPMPasskeySelected, std::vector<uint8_t>)   \
   /* Called when the user enters the GPM pin in the UI (during initial */     \
   /* setup or authentication). */                                             \
   AUTHENTICATOR_REQUEST_EVENT_1(OnGPMPinEntered, const std::u16string&)       \
@@ -273,7 +282,7 @@ struct AuthenticatorRequestDialogModel {
 
     kPreSelectAccount,
 
-    // TODO(crbug.com/1490293): Merge with kSelectPriorityMechanism.
+    // TODO(crbug.com/40284700): Merge with kSelectPriorityMechanism.
     kPreSelectSingleAccount,
 
     // kSelectPriorityMechanism lets the user confirm a single "priority"
@@ -298,9 +307,11 @@ struct AuthenticatorRequestDialogModel {
     // GPM passkey creation.
     kGPMOnboarding,
     kGPMCreatePasskey,
+    kGPMConfirmOffTheRecordCreate,
     kGPMPasskeySaved,
     kCreatePasskey,
     kGPMError,
+    kGPMConnecting,
 
     // Device bootstrap to use GPM passkeys.
     kRecoverSecurityDomain,
@@ -308,7 +319,7 @@ struct AuthenticatorRequestDialogModel {
     kTrustThisComputerCreation,
 
     // Changing GPM PIN.
-    kGPMReauthAccount,
+    kGPMReauthForPinReset,
   };
 
   // Views and controllers implement this interface to receive events, which
@@ -415,6 +426,10 @@ struct AuthenticatorRequestDialogModel {
 #undef AUTHENTICATOR_REQUEST_EVENT_0
 #undef AUTHENTICATOR_REQUEST_EVENT_1
 
+  // Below methods are used for base::ScopedObserver:
+  void AddObserver(AuthenticatorRequestDialogModel::Observer* observer);
+  void RemoveObserver(AuthenticatorRequestDialogModel::Observer* observer);
+
   // Views and controllers add themselves as observers here to receive events.
   base::ObserverList<Observer> observers;
 
@@ -488,6 +503,9 @@ struct AuthenticatorRequestDialogModel {
   // a notification.
   std::optional<std::string> selected_phone_name;
 
+  // The name of the current GPM account, or else empty. E.g.
+  // "example@gmail.com".
+  std::string account_name;
   // Records the error during GPM pin entry / creation, if any.
   GpmPinError gpm_pin_error = GpmPinError::kNone;
 
@@ -592,6 +610,10 @@ class AuthenticatorRequestDialogController
   // actives the platform authenticator of the given type.
   void HideDialogAndDispatchToPlatformAuthenticator(
       std::optional<device::AuthenticatorType> type = std::nullopt);
+
+  void EnclaveEnabled() override;
+
+  void EnclaveNeedsReauth() override;
 
   void OnCreatePasskeyAccepted() override;
 
@@ -753,8 +775,14 @@ class AuthenticatorRequestDialogController
   // OnAccountPreselected is called when the user selects a discoverable
   // credential from a platform authenticator prior to providing user
   // authentication. `crededential_id` must match one of the credentials in
-  // `transport_availability_.recognized_credentials`.
-  void OnAccountPreselected(const std::vector<uint8_t>& credential_id);
+  // `transport_availability_.recognized_credentials`. Returns the source of the
+  // credential.
+  //
+  // Note: it's important not to pass a reference to `credential_id` here
+  // because this function clears `model_->creds`, which is where such a
+  // reference would often point.
+  device::AuthenticatorType OnAccountPreselected(
+      const std::vector<uint8_t> credential_id);
 
   void OnAccountPreselectedIndex(size_t index) override;
   void SetSelectedAuthenticatorForTesting(AuthenticatorReference authenticator);
@@ -828,7 +856,6 @@ class AuthenticatorRequestDialogController
 
   void set_allow_icloud_keychain(bool);
   void set_should_create_in_icloud_keychain(bool);
-  void set_enclave_enabled(bool);
 
 #if BUILDFLAG(IS_MAC)
   void RecordMacOsStartedHistogram();
@@ -836,7 +863,6 @@ class AuthenticatorRequestDialogController
                                    device::AuthenticatorType);
   void set_is_active_profile_authenticator_user(bool);
   void set_has_icloud_drive_enabled(bool);
-  void set_local_biometrics_override_for_testing(bool);
 #endif
 
   base::WeakPtr<AuthenticatorRequestDialogController> GetWeakPtr();
@@ -899,6 +925,9 @@ class AuthenticatorRequestDialogController
 
   void StartICloudKeychain();
   void StartEnclave();
+
+  // Triggers gaia account reauth to restore sync to working order.
+  void ReauthForSyncRestore();
 
   // Contacts a paired phone. The phone is specified by name.
   void ContactPhone(const std::string& name);
@@ -1041,9 +1070,16 @@ class AuthenticatorRequestDialogController
   // offered as a mechanism for creating a credential.
   bool enclave_enabled_ = false;
 
+  // enclave_needs_reauth_ is true if a "Reauth to use Google Password Manager"
+  // entry should be offered as a mechanism for creating or using a credential.
+  bool enclave_needs_reauth_ = false;
+
   // The RP's hints. See
   // https://w3c.github.io/webauthn/#enumdef-publickeycredentialhints
   content::AuthenticatorRequestClientDelegate::Hints hints_;
+
+  // True when the priority mechanism was determined to be the enclave.
+  bool enclave_was_priority_mechanism_ = false;
 
 #if BUILDFLAG(IS_MAC)
   // did_record_macos_start_histogram_ is set to true if a histogram record of
@@ -1060,12 +1096,6 @@ class AuthenticatorRequestDialogController
   // enabled. This is used as an approximation for whether iCloud Keychain
   // syncing is enabled.
   bool has_icloud_drive_enabled_ = false;
-
-  // local_biometrics_override_for_testing_ can be set in tests to override
-  // whether or not the this model should consider local biometrics to be
-  // available. Biometrics can be unavailable on Macs because they're not
-  // present (e.g. a Mac Mini) or because it's a laptop in clamshell mode.
-  std::optional<bool> local_biometrics_override_for_testing_;
 #endif
 
   base::ScopedObservation<webauthn::PasskeyModel,

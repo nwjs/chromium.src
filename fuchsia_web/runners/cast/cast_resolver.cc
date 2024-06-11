@@ -19,7 +19,6 @@
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/notreached.h"
 #include "base/numerics/byte_conversions.h"
-#include "base/strings/string_piece.h"
 
 namespace {
 
@@ -74,7 +73,7 @@ void CastResolver::Resolve(CastResolver::ResolveRequest& request,
           }},
       }},
 
-      // TODO(crbug.com/1379385): Replace with attributed-capability expose
+      // TODO(crbug.com/40875550): Replace with attributed-capability expose
       // rules for each protocol, when supported by the framework.
       .uses =
           std::vector{

@@ -76,7 +76,6 @@
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/prefs/profile_pref_store_manager.h"
-#include "chrome/browser/preloading/prefetch/no_state_prefetch/no_state_prefetch_manager_factory.h"
 #include "chrome/browser/privacy/privacy_metrics_service_factory.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service_factory.h"
 #include "chrome/browser/profiles/bookmark_model_loaded_observer.h"
@@ -201,7 +200,7 @@
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/standalone_browser/browser_support.h"
-#include "chromeos/ash/components/standalone_browser/migrator_util.h"
+#include "chromeos/ash/components/standalone_browser/lacros_selection.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user.h"
@@ -491,7 +490,7 @@ ProfileImpl::ProfileImpl(
   SimpleKeyMap::GetInstance()->Associate(this, key_.get());
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  // TODO(crbug.com/1325210): Move this into
+  // TODO(crbug.com/40225390): Move this into
   // ChromeUserManagerImpl::OnProfileCreationStarted().
   if (ash::ProfileHelper::IsUserProfile(this)) {
     // |ash::InitializeAccountManager| is called during a User's session
@@ -500,7 +499,7 @@ ProfileImpl::ProfileImpl(
     // tests.
     // Note: |ash::InitializeAccountManager| is idempotent and safe to call
     // multiple times.
-    // TODO(https://crbug.com/982233): Remove this call.
+    // TODO(crbug.com/40635309): Remove this call.
     ash::InitializeAccountManager(
         path_, base::DoNothing() /* initialization_callback */);
 
@@ -669,10 +668,11 @@ void ProfileImpl::LoadPrefsForNormalStartup(bool async_prefs) {
       ash::ProfileHelper::IsPrimaryProfile(this)) {
     auto& map = profile_policy_connector_->policy_service()->GetPolicies(
         policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, std::string()));
-    ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(map);
+    ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(
+        map, IsNewProfile(), IsRegularProfile());
     crosapi::browser_util::CacheLacrosAvailability(map);
     crosapi::browser_util::CacheLacrosDataBackwardMigrationMode(map);
-    crosapi::browser_util::CacheLacrosSelection(map);
+    ash::standalone_browser::CacheLacrosSelection(map);
   }
 #endif
 }
@@ -1147,29 +1147,6 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   arc::ArcServiceLauncher::Get()->MaybeSetProfile(this);
-
-  // If the user is a new user, mark profile migration to Lacros as completed.
-  // Because setting migration as marked changes the return value of
-  // `crosapi::browser_util::IsLacrosEnabled()`, the check should happen before
-  // `CreateBrowserContextServices()` is called. Otherwise the value of
-  // `IsLacrosEnabled()` can change after these services are initialized.
-  const user_manager::User* user =
-      ash::ProfileHelper::Get()->GetUserByProfile(this);
-  if (user && IsNewProfile() && Profile::IsRegularProfile() &&
-      ash::ProfileHelper::IsPrimaryProfile(this) &&
-      crosapi::browser_util::IsLacrosEnabledForMigration(
-          user, crosapi::browser_util::PolicyInitState::kAfterInit)) {
-    // TODO(crbug.com/1277848): Once `BrowserDataMigrator` stabilises, remove
-    // this log message.
-    LOG(WARNING) << "Setting migration as completed since it is a new user.";
-    const std::string user_id_hash = user->username_hash();
-    PrefService* local_state = g_browser_process->local_state();
-    crosapi::browser_util::RecordDataVer(local_state, user_id_hash,
-                                         version_info::GetVersion());
-    ash::standalone_browser::migrator_util::SetProfileMigrationCompletedForUser(
-        local_state, user_id_hash,
-        ash::standalone_browser::migrator_util::MigrationMode::kSkipForNewUser);
-  }
 #endif
 
   FullBrowserTransitionManager::Get()->OnProfileCreated(this);
@@ -1207,10 +1184,11 @@ void ProfileImpl::OnPrefsLoaded(CreateMode create_mode, bool success) {
     if (ash::ProfileHelper::IsPrimaryProfile(this)) {
       auto& map = profile_policy_connector_->policy_service()->GetPolicies(
           policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, std::string()));
-      ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(map);
+      ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(
+          map, IsNewProfile(), IsRegularProfile());
       crosapi::browser_util::CacheLacrosAvailability(map);
       crosapi::browser_util::CacheLacrosDataBackwardMigrationMode(map);
-      crosapi::browser_util::CacheLacrosSelection(map);
+      ash::standalone_browser::CacheLacrosSelection(map);
     }
 
     ash::UserSessionManager::GetInstance()->RespectLocalePreferenceWrapper(
@@ -1269,7 +1247,7 @@ ChromeZoomLevelPrefs* ProfileImpl::GetZoomLevelPrefs() {
       GetDefaultStoragePartition()->GetZoomLevelDelegate());
 }
 
-// TODO(crbug.com/734484): Remove this function.
+// TODO(crbug.com/40526371): Remove this function.
 PrefService* ProfileImpl::GetReadOnlyOffTheRecordPrefs() {
   if (!dummy_otr_prefs_) {
     dummy_otr_prefs_ = CreateIncognitoPrefServiceSyncable(
@@ -1296,6 +1274,25 @@ policy::ProfileCloudPolicyManager* ProfileImpl::GetProfileCloudPolicyManager() {
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+policy::CloudPolicyManager* ProfileImpl::GetCloudPolicyManager() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  return GetUserCloudPolicyManagerAsh();
+#else
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  if (IsMainProfile()) {
+    return nullptr;
+  }
+#endif
+  if (user_cloud_policy_manager_) {
+    return GetUserCloudPolicyManager();
+  }
+  if (profile_cloud_policy_manager_) {
+    return GetProfileCloudPolicyManager();
+  }
+  return nullptr;
+#endif // BUILDFLAG(IS_CHROMEOS_ASH)
+}
 
 policy::ConfigurationPolicyProvider*
 ProfileImpl::configuration_policy_provider() {

@@ -112,6 +112,12 @@ class WebAppCommandScheduler {
       webapps::ManifestId parent_manifest_id,
       base::OnceCallback<void(std::unique_ptr<WebAppInstallInfo>)> callback);
 
+  // Same as the overload above, but without parent_manifest_id.
+  void FetchInstallInfoFromInstallUrl(
+      webapps::ManifestId manifest_id,
+      GURL install_url,
+      base::OnceCallback<void(std::unique_ptr<WebAppInstallInfo>)> callback);
+
   // Install with provided `WebAppInstallInfo` instead of fetching data from
   // manifest.
   // `InstallFromInfo` doesn't install OS hooks. `InstallFromInfoWithParams`
@@ -255,7 +261,7 @@ class WebAppCommandScheduler {
   // for that install source which in turn will remove the web app if there are
   // no remaining install sources for the web app.
   // Virtual for testing.
-  // TODO(crbug.com/1434692): There could potentially be multiple app matches
+  // TODO(crbug.com/40264854): There could potentially be multiple app matches
   // for `install_source` and `install_url` when `app_id` is not provided,
   // handle this case better than "first matching".
   virtual void RemoveInstallUrlMaybeUninstall(
@@ -423,15 +429,17 @@ class WebAppCommandScheduler {
                  LaunchWebAppCallback callback,
                  const base::Location& location = FROM_HERE);
 
-  // Launches the given app to the given url, using keep-alives to guarantee the
+  // Launches the given app to the given url if specified, or the app
+  // `start_url` if not specified. This uses keep-alives to guarantee the
   // browser and profile stay alive. Will CHECK-fail if `url` is not valid.
-  void LaunchUrlInApp(const webapps::AppId& app_id,
-                      const GURL& url,
-                      LaunchWebAppCallback callback,
-                      const base::Location& location = FROM_HERE);
+  void LaunchApp(const webapps::AppId& app_id,
+                 const std::optional<GURL>& url,
+                 LaunchWebAppCallback callback,
+                 const base::Location& location = FROM_HERE);
 
   // Used to launch apps with a custom launch params. This does not respect the
-  // configuration of the app, and will respect whatever the params say.
+  // configuration of the app, and will respect whatever the params say. If you
+  // are launching an app, you likely do NOT want to use this method.
   void LaunchAppWithCustomParams(apps::AppLaunchParams params,
                                  LaunchWebAppCallback callback,
                                  const base::Location& location = FROM_HERE);
@@ -488,7 +496,7 @@ class WebAppCommandScheduler {
 
   base::WeakPtr<WebAppCommandScheduler> GetWeakPtr();
 
-  // TODO(https://crbug.com/1298130): expose all commands for web app
+  // TODO(crbug.com/40215411): expose all commands for web app
   // operations.
 
  private:
@@ -514,7 +522,7 @@ class WebAppCommandScheduler {
 
   // Track how many times ScheduleDedupeInstallUrls() is invoked for metrics to
   // check that it's not happening excessively.
-  // TODO(crbug.com/1434692): Remove once validating that the numbers look okay
+  // TODO(crbug.com/40264854): Remove once validating that the numbers look okay
   // out in the wild.
   size_t dedupe_install_urls_run_count_ = 0;
 

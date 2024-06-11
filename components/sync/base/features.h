@@ -11,6 +11,10 @@
 namespace syncer {
 
 // Customizes the delay of a deferred sync startup.
+// Note from 04/2024: The first attempt to roll this out on 05/2023 ran into
+// performance regressions (go/deferred-startup-experiment-metrics, sorry
+// Googlers only). It might still be possible to launch by investigating and
+// fixing the performance issues. crbug.com/40872516 tracks that.
 BASE_DECLARE_FEATURE(kDeferredSyncStartupCustomDelay);
 inline constexpr base::FeatureParam<int>
     kDeferredSyncStartupCustomDelayInSeconds{
@@ -55,7 +59,7 @@ BASE_DECLARE_FEATURE(kChromeOSSyncedSessionSharing);
 
 // If enabled, all incoming invalidations will be stored in ModelTypeState
 // proto message.
-// TODO(crbug/1365292): Add more information about this feature after
+// TODO(crbug.com/40239360): Add more information about this feature after
 // upload/download invalidations support from ModelTypeState msg will be added.
 BASE_DECLARE_FEATURE(kSyncPersistInvalidations);
 
@@ -93,7 +97,7 @@ BASE_DECLARE_FEATURE(kEnablePreferencesAccountStorage);
 
 // If enabled, Sync will send a poll GetUpdates request on every browser
 // startup. This is a temporary hack; see crbug.com/1425026.
-// TODO(crbug.com/1425071): Remove this.
+// TODO(crbug.com/40260698): Remove this.
 BASE_DECLARE_FEATURE(kSyncPollImmediatelyOnEveryStartup);
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -123,7 +127,7 @@ BASE_DECLARE_FEATURE(kReplaceSyncPromosWithSignInPromos);
 // in separate permanent folders in BookmarkModel. The flag has to be in the
 // sync namespace as it controls whether BOOKMARKS datatype is enabled in the
 // transport mode.
-// TODO(crbug.com/1503127): Remove this.
+// TODO(crbug.com/40943550): Remove this.
 BASE_DECLARE_FEATURE(kEnableBookmarkFoldersForAccountStorage);
 
 // Feature flag used for enabling sync (transport mode) for signed-in users that
@@ -193,14 +197,9 @@ inline constexpr base::FeatureParam<double>
 // to schedule poll requests.
 BASE_DECLARE_FEATURE(kSyncSchedulerUseWallClockTimer);
 
-#if BUILDFLAG(IS_ANDROID)
-// If enabled, shows identity errors for signed-in non-syncing users.
-BASE_DECLARE_FEATURE(kSyncShowIdentityErrorsForSignedInUsers);
-#endif  // BUILDFLAG(IS_ANDROID)
-
-// If enabled, custom passphrase will be remembered after sign-out. Otherwise,
-// it is cleared on sign-out.
-BASE_DECLARE_FEATURE(kSyncRememberCustomPassphraseAfterSignout);
+// Guards the registration of synthetic field trials based on information in
+// Nigori's TrustedVaultDebugInfo.
+BASE_DECLARE_FEATURE(kTrustedVaultAutoUpgradeSyntheticFieldTrial);
 
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, WebAPK data will be synced for Backup&Restore purposes.

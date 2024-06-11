@@ -96,6 +96,7 @@ public class SyncSettingsUtils {
     // These are the actions users can taken on error cards, messages, and notifications.
     // Keep in sync with SyncErrorUiAction enum in sync/enums.xml, and SyncErrorPromptUIAction enum
     // in signin/enums.xml.
+    // LINT.IfChange(SyncErrorUiAction)
     @IntDef({
         ErrorUiAction.SHOWN,
         ErrorUiAction.DISMISSED,
@@ -109,6 +110,8 @@ public class SyncSettingsUtils {
         int BUTTON_CLICKED = 2;
         int NUM_ENTRIES = 3;
     }
+
+    // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncErrorUiAction)
 
     // Class to wrap the details of an error card.
     public static class ErrorCardDetails {
@@ -391,10 +394,11 @@ public class SyncSettingsUtils {
 
     /**
      * Opens web dashboard to manage sync in a custom tab.
+     *
      * @param activity The activity to use for starting the intent.
      */
     public static void openSyncDashboard(Activity activity) {
-        // TODO(https://crbug.com/948103): Create a builder for custom tab intents.
+        // TODO(crbug.com/41450409): Create a builder for custom tab intents.
         openCustomTabWithURL(activity, DASHBOARD_URL);
     }
 
@@ -572,7 +576,7 @@ public class SyncSettingsUtils {
     /** Returns the type of the sync error/identity error for signed-in non-syncing users. */
     public static @SyncError int getIdentityError(Profile profile) {
         SyncService syncService = SyncServiceFactory.getForProfile(profile);
-        // TODO(crbug.com/1503649): Consider converting this to an assertion instead.
+        // TODO(crbug.com/40944114): Consider converting this to an assertion instead.
         if (syncService == null) {
             return SyncError.NO_ERROR;
         }
@@ -591,7 +595,7 @@ public class SyncSettingsUtils {
 
         @SyncError int error = getSyncErrorFromSyncService(syncService);
         // Do not show identity error for unrecoverable errors, since they are not actionable.
-        // TODO(crbug.com/1503649): Remove these unused values after sync-to-signin transition.
+        // TODO(crbug.com/40944114): Remove these unused values after sync-to-signin transition.
         if (error == SyncError.OTHER_ERRORS) {
             return SyncError.NO_ERROR;
         }

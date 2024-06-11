@@ -143,13 +143,9 @@ class ScreenTimeControllerTest : public MixinBasedInProcessBrowserTest {
   raw_ptr<Profile, DanglingUntriaged> child_profile_ = nullptr;
 
  private:
-  LoggedInUserMixin logged_in_user_mixin_{&mixin_host_,
-                                          LoggedInUserMixin::LogInType::kChild,
-                                          embedded_test_server(),
-                                          this,
-                                          true /*should_launch_browser*/,
-                                          std::nullopt /*account_id*/,
-                                          false /*include_initial_user*/};
+  LoggedInUserMixin logged_in_user_mixin_{
+      &mixin_host_, /*test_base=*/this, embedded_test_server(),
+      LoggedInUserMixin::LogInType::kChild, /*include_initial_user=*/false};
 };
 
 // Tests a simple lock override.

@@ -22,10 +22,13 @@
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/accounts_mutator.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/features.h"
 #include "content/public/test/browser_test.h"
+#include "google_apis/gaia/gaia_auth_consumer.h"
 
 namespace {
 constexpr char kButton[] = "SignInButton";
@@ -58,10 +61,8 @@ class AutofillBubbleSignInPromoInteractiveUITest : public ManagePasswordsTest {
   }
 
   // Trigger the password save by simulating an "Accept" in the password bubble,
-  // and wait for it to appear in the store. If |store| is kAccountStore, it
-  // will wait for a password to appear in the account store, if not, in the
-  // profile store.
-  void SavePassword(password_manager::PasswordForm::Store store);
+  // and wait for it to appear in the profile store.
+  void SavePassword();
 
   // Perform a sign in with the password bubble access point and wait for an
   // event in the account store.
@@ -73,6 +74,9 @@ class AutofillBubbleSignInPromoInteractiveUITest : public ManagePasswordsTest {
   // Returns true if there is a primary account without a refresh token in
   // persistent error state.
   bool IsSignedIn();
+
+  // Add additional account info for pixel tests.
+  void ExtendAccountInfo(AccountInfo& info);
 
   network::TestURLLoaderFactory* test_url_loader_factory() {
     return url_loader_factory_helper_.test_url_loader_factory();
@@ -92,12 +96,9 @@ class AutofillBubbleSignInPromoInteractiveUITest : public ManagePasswordsTest {
   scoped_refptr<password_manager::TestPasswordStore> account_password_store_;
 };
 
-void AutofillBubbleSignInPromoInteractiveUITest::SavePassword(
-    password_manager::PasswordForm::Store store) {
-  auto store_waiter =
-      store == password_manager::PasswordForm::Store::kAccountStore
-          ? password_manager::PasswordStoreWaiter(account_password_store_.get())
-          : password_manager::PasswordStoreWaiter(local_password_store_.get());
+void AutofillBubbleSignInPromoInteractiveUITest::SavePassword() {
+  password_manager::PasswordStoreWaiter store_waiter(
+      local_password_store_.get());
 
   PasswordBubbleViewBase* bubble =
       PasswordBubbleViewBase::manage_password_bubble();
@@ -131,6 +132,13 @@ bool AutofillBubbleSignInPromoInteractiveUITest::IsSignedIn() {
                  signin::ConsentLevel::kSignin));
 }
 
+void AutofillBubbleSignInPromoInteractiveUITest::ExtendAccountInfo(
+    AccountInfo& info) {
+  info.given_name = "FirstName";
+  info.full_name = "FirstName LastName";
+  signin::UpdateAccountInfoForAccount(identity_manager(), info);
+}
+
 IN_PROC_BROWSER_TEST_F(AutofillBubbleSignInPromoInteractiveUITest,
                        SignInPromoNoAccountPresent) {
   // Set up password and password stores.
@@ -138,20 +146,21 @@ IN_PROC_BROWSER_TEST_F(AutofillBubbleSignInPromoInteractiveUITest,
       local_password_store_.get(), account_password_store_.get()));
 
   // Save the password and check that it was properly saved to profile store.
-  SavePassword(password_manager::PasswordForm::Store::kProfileStore);
+  SavePassword();
   EXPECT_EQ(1u, local_password_store_->stored_passwords().size());
   EXPECT_EQ(0u, account_password_store_->stored_passwords().size());
 
   // Wait for the bubble to be replaced with the sign in promo and click the
   // sign in button.
   RunTestSequence(
-      WaitForShow(BubbleSignInPromoSignInButtonView::kPromoSignInButton),
+      WaitForEvent(BubbleSignInPromoSignInButtonView::kPromoSignInButton,
+                   kBubbleSignInPromoSignInButtonHasCallback),
       EnsurePresent(PasswordSaveUpdateView::kPasswordBubble),
       SetOnIncompatibleAction(
           OnIncompatibleAction::kIgnoreAndContinue,
           "Screenshot can only run in pixel_tests on Windows."),
       Screenshot(PasswordSaveUpdateView::kPasswordBubble, std::string(),
-                 "5231400"),
+                 "5455375"),
       NameChildViewByType<views::MdTextButton>(
           BubbleSignInPromoSignInButtonView::kPromoSignInButton, kButton),
       PressButton(kButton).SetMustRemainVisible(false),
@@ -190,19 +199,20 @@ IN_PROC_BROWSER_TEST_F(AutofillBubbleSignInPromoInteractiveUITest,
                        SignInPromoWithWebSignedInAccount) {
   // Sign in with an account, but only on the web. The primary account is not
   // set.
-  signin::MakeAccountAvailable(
+  AccountInfo info = signin::MakeAccountAvailable(
       identity_manager(),
       signin::AccountAvailabilityOptionsBuilder(test_url_loader_factory())
           .WithCookie()
           .WithAccessPoint(signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN)
           .Build("test@email.com"));
+  ExtendAccountInfo(info);
 
   // Set up password and password stores.
   GetController()->OnPasswordSubmitted(CreateFormManager(
       local_password_store_.get(), account_password_store_.get()));
 
   // Save the password and check that it was properly saved to profile store.
-  SavePassword(password_manager::PasswordForm::Store::kProfileStore);
+  SavePassword();
   EXPECT_EQ(1u, local_password_store_->stored_passwords().size());
   EXPECT_EQ(0u, account_password_store_->stored_passwords().size());
 
@@ -219,7 +229,7 @@ IN_PROC_BROWSER_TEST_F(AutofillBubbleSignInPromoInteractiveUITest,
           OnIncompatibleAction::kIgnoreAndContinue,
           "Screenshot can only run in pixel_tests on Windows."),
       Screenshot(PasswordSaveUpdateView::kPasswordBubble, std::string(),
-                 "5231400"),
+                 "5455375"),
       NameChildViewByType<views::MdTextButton>(
           BubbleSignInPromoSignInButtonView::kPromoSignInButton, kButton),
       PressButton(kButton).SetMustRemainVisible(false),
@@ -251,22 +261,19 @@ IN_PROC_BROWSER_TEST_F(AutofillBubbleSignInPromoInteractiveUITest,
   // state. This simulates the "sign in paused" state.
   AccountInfo info = signin::MakePrimaryAccountAvailable(
       identity_manager(), "test@email.com", signin::ConsentLevel::kSignin);
+  ExtendAccountInfo(info);
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
       identity_manager(), info.account_id,
       GoogleServiceAuthError(
           GoogleServiceAuthError::State::USER_NOT_SIGNED_UP));
-
   // Set up password and password stores.
   GetController()->OnPasswordSubmitted(CreateFormManager(
       local_password_store_.get(), account_password_store_.get()));
 
-  // Simulate the use of account store.
-  SetupSaveToAccountStore();
-
-  // Save the password and check that it was properly saved to account store.
-  SavePassword(password_manager::PasswordForm::Store::kAccountStore);
-  EXPECT_EQ(0u, local_password_store_->stored_passwords().size());
-  EXPECT_EQ(1u, account_password_store_->stored_passwords().size());
+  // Save the password and check that it was properly saved to profile store.
+  SavePassword();
+  EXPECT_EQ(1u, local_password_store_->stored_passwords().size());
+  EXPECT_EQ(0u, account_password_store_->stored_passwords().size());
 
   // Wait for the bubble to be replaced with the sign in promo and click
   // the sign in button.
@@ -278,7 +285,7 @@ IN_PROC_BROWSER_TEST_F(AutofillBubbleSignInPromoInteractiveUITest,
           OnIncompatibleAction::kIgnoreAndContinue,
           "Screenshot can only run in pixel_tests on Windows."),
       Screenshot(PasswordSaveUpdateView::kPasswordBubble, std::string(),
-                 "5231400"),
+                 "5455375"),
       NameChildViewByType<views::MdTextButton>(
           BubbleSignInPromoSignInButtonView::kPromoSignInButton, kButton),
       PressButton(kButton).SetMustRemainVisible(false),
@@ -287,21 +294,30 @@ IN_PROC_BROWSER_TEST_F(AutofillBubbleSignInPromoInteractiveUITest,
   // Check that clicking the sign in button navigated to a sign in page.
   EXPECT_TRUE(IsSignInURL());
 
-  // Check that there is no helper attached to the sign in tab, because the
-  // password does not need to be moved.
-  EXPECT_FALSE(autofill::AutofillSigninPromoTabHelper::GetForWebContents(
-                   *browser()->tab_strip_model()->GetActiveWebContents())
-                   ->IsInitializedForTesting());
+  // Check that there is a helper attached to the sign in tab, because the
+  // password still needs to be moved.
+  EXPECT_TRUE(autofill::AutofillSigninPromoTabHelper::GetForWebContents(
+                  *browser()->tab_strip_model()->GetActiveWebContents())
+                  ->IsInitializedForTesting());
+  EXPECT_FALSE(IsSignedIn());
 
   // Set a new refresh token for the primary account, which verifies the
-  // user's identity and signs them back in. The password will stay in the
+  // user's identity and signs them back in. The password will be moved to
   // account store.
-  signin::SetRefreshTokenForPrimaryAccount(identity_manager());
+  auto account_store_waiter =
+      password_manager::PasswordStoreWaiter(account_password_store_.get());
+  identity_manager()->GetAccountsMutator()->AddOrUpdateAccount(
+      info.gaia, info.email, "dummy_refresh_token",
+      /*is_under_advanced_protection=*/false,
+      signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE,
+      signin_metrics::SourceForRefreshTokenOperation::
+          kDiceResponseHandler_PasswordPromoSignin);
+  account_store_waiter.WaitOrReturn();
 
   // Check that the sign in was successful.
   EXPECT_TRUE(IsSignedIn());
 
-  // Check that password is still account store.
+  // Check that password was moved to account store.
   EXPECT_EQ(0u, local_password_store_->stored_passwords().size());
   EXPECT_EQ(1u, account_password_store_->stored_passwords().size());
 

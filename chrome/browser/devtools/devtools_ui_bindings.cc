@@ -405,6 +405,10 @@ std::string SanitizeFrontendQueryParam(
     return value;
   }
 
+  if (key == "ci_disallowLogging" && value == "true") {
+    return value;
+  }
+
   if (key == "ci_blockedByGeo" && value == "true") {
     return value;
   }
@@ -414,6 +418,10 @@ std::string SanitizeFrontendQueryParam(
   }
 
   if (key == "ci_disabledByDefault" && value == "true") {
+    return value;
+  }
+
+  if (key == "disableSelfXssWarnings" && value == "true") {
     return value;
   }
 
@@ -437,8 +445,9 @@ GURL SanitizeFrontendURL(const GURL& url,
             base::StringPrintf("%s=%s", key.c_str(), value.c_str()));
       }
     }
-    if (url.has_ref() && url.ref_piece().find('\'') == base::StringPiece::npos)
+    if (url.has_ref() && url.ref_piece().find('\'') == std::string_view::npos) {
       fragment = '#' + url.ref();
+    }
   }
   std::string query =
       query_parts.empty() ? "" : "?" + base::JoinString(query_parts, "&");
@@ -1184,8 +1193,9 @@ void DevToolsUIBindings::ShowItemInFolder(const std::string& file_system_path) {
 
 void DevToolsUIBindings::SaveToFile(const std::string& url,
                                     const std::string& content,
-                                    bool save_as) {
-  file_helper_->Save(url, content, save_as,
+                                    bool save_as,
+                                    bool is_base64) {
+  file_helper_->Save(url, content, save_as, is_base64,
                      base::BindOnce(&DevToolsUIBindings::FileSavedAs,
                                     weak_factory_.GetWeakPtr(), url),
                      base::BindOnce(&DevToolsUIBindings::CanceledFileSaveAs,
@@ -2009,6 +2019,10 @@ void DevToolsUIBindings::DoAidaConversation(DispatchCallback callback,
                                             const std::string& request,
                                             int stream_id) {
   if (AidaClient::CanUseAida(profile_).blocked) {
+    base::Value::Dict response_dict;
+    response_dict.Set("error", "AIDA request was blocked");
+    base::Value response = base::Value(std::move(response_dict));
+    std::move(callback).Run(&response);
     return;
   }
   if (!aida_client_) {

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/process/process_metrics.h"
 
 #include <stddef.h>
@@ -690,9 +695,17 @@ TEST_F(SystemMetricsTest, MeasureChildCpuUsage) {
       child_launcher.CreateChildProcessMetrics();
 
   const TimeDelta cpu_usage1 = TestCumulativeCPU(metrics.get(), TimeDelta());
-  PlatformThread::Sleep(TestTimeouts::tiny_timeout());
 
-  const TimeDelta cpu_usage2 = TestCumulativeCPU(metrics.get(), cpu_usage1);
+  // The child thread does busy work, so it should get some CPU usage. There's a
+  // small chance it won't be scheduled during the delay so loop several times.
+  const auto abort_time =
+      base::TimeTicks::Now() + TestTimeouts::action_max_timeout();
+  TimeDelta cpu_usage2;
+  while (cpu_usage2.is_zero() && !HasFailure() &&
+         base::TimeTicks::Now() < abort_time) {
+    PlatformThread::Sleep(TestTimeouts::tiny_timeout());
+    cpu_usage2 = TestCumulativeCPU(metrics.get(), cpu_usage1);
+  }
   EXPECT_TRUE(cpu_usage2.is_positive());
 
   ASSERT_TRUE(child_launcher.TerminateChildProcess());
@@ -783,7 +796,7 @@ TEST(SystemMetrics2Test, GetSystemMemoryInfo) {
 
   // All the values should be less than the total amount of memory.
 #if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_IOS)
-  // TODO(crbug.com/711450): re-enable the following assertion on iOS.
+  // TODO(crbug.com/40515565): re-enable the following assertion on iOS.
   EXPECT_LT(info.free, info.total);
 #endif
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)

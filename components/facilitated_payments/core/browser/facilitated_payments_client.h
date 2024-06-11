@@ -7,21 +7,43 @@
 
 #include <cstdint>
 
+#include "base/containers/span.h"
 #include "base/functional/callback_forward.h"
+#include "components/autofill/core/browser/payments/risk_data_loader.h"
+
+namespace autofill {
+class BankAccount;
+class PersonalDataManager;
+}  // namespace autofill
 
 namespace payments::facilitated {
 
+class FacilitatedPaymentsNetworkInterface;
+
 // A cross-platform client interface for showing UI for non-form based FOPs.
-class FacilitatedPaymentsClient {
+class FacilitatedPaymentsClient : public autofill::RiskDataLoader {
  public:
-  virtual ~FacilitatedPaymentsClient() = default;
+  ~FacilitatedPaymentsClient() override;
+
+  // Gets the `PersonalDataManager` instance associated with the Chrome profile.
+  // It is used to get user's account info.
+  virtual autofill::PersonalDataManager* GetPersonalDataManager() = 0;
+
+  // Gets the `FacilitatedPaymentsNetworkInterface` instance owned by the client
+  // used for making payment requests. It can be null if the browser context
+  // associated with the WebContents is null.
+  virtual FacilitatedPaymentsNetworkInterface*
+  GetFacilitatedPaymentsNetworkInterface() = 0;
 
   // Shows the user's PIX accounts from their Google Wallet, and prompts to pay.
-  // If the UI was shown, then returns true and later invokes the `callback`
-  // with the result of user's selection: a boolean for acceptance or
-  // cancellation and the selected instrument ID in case of acceptance. If the
-  // UI was not shown, then returns false and does not invoke the callback.
+  // If the UI was shown, then returns true and later invokes the
+  // `on_user_decision_callback` with the result of user's selection: a boolean
+  // for acceptance or cancellation and the selected instrument ID in case of
+  // acceptance. `pix_account_suggestions` is the list of PIX accounts to be
+  // shown to the user for payment. If the UI was not shown, then returns false
+  // and does not invoke the callback.
   virtual bool ShowPixPaymentPrompt(
+      base::span<autofill::BankAccount> bank_account_suggestions,
       base::OnceCallback<void(bool, int64_t)> on_user_decision_callback);
 };
 

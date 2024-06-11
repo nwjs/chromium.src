@@ -83,7 +83,8 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl final
   void RegisterDataHost(
       mojo::PendingReceiver<blink::mojom::AttributionDataHost> data_host,
       AttributionSuitableContext,
-      attribution_reporting::mojom::RegistrationEligibility) override;
+      attribution_reporting::mojom::RegistrationEligibility,
+      bool is_for_background_requests) override;
   bool RegisterNavigationDataHost(
       mojo::PendingReceiver<blink::mojom::AttributionDataHost> data_host,
       const blink::AttributionSrcToken& attribution_src_token) override;
@@ -115,7 +116,7 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl final
       const net::HttpResponseHeaders* headers,
       GURL reporting_url,
       network::AttributionReportingRuntimeFeatures,
-      std::vector<network::TriggerVerification>) override;
+      const std::vector<network::TriggerVerification>&) override;
   void NotifyBackgroundRegistrationCompleted(
       BackgroundRegistrationsId id) override;
 
@@ -232,15 +233,12 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl final
   void HandleNextWebDecode(const Registrations&);
   void OnWebHeaderParsed(
       RegistrationsId,
-      attribution_reporting::mojom::RegistrationType,
-      std::optional<std::vector<network::TriggerVerification>>,
       data_decoder::DataDecoder::ValueOrError result);
   void HandleParsedWebSource(const Registrations&,
-                             const HeaderPendingDecode&,
+                             HeaderPendingDecode&,
                              data_decoder::DataDecoder::ValueOrError result);
   void HandleParsedWebTrigger(const Registrations&,
-                              const HeaderPendingDecode&,
-                              std::vector<network::TriggerVerification>,
+                              HeaderPendingDecode&,
                               data_decoder::DataDecoder::ValueOrError result);
 
   void HandleNextOsDecode(const Registrations&);
@@ -253,7 +251,6 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl final
   using OsParseResult =
       base::expected<net::structured_headers::List, std::string>;
   void OnOsHeaderParsed(RegistrationsId,
-                        attribution_reporting::mojom::RegistrationType,
                         OsParseResult);
 
   void MaybeOnRegistrationsFinished(
@@ -261,6 +258,11 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl final
 
   void MaybeStartNavigation(int64_t navigation_id);
   void MaybeDoneWithNavigation(int64_t navigation_id, bool due_to_timeout);
+
+  void AddNavigationSourceRegistrationToBatchMap(
+      int64_t navigation_id,
+      const attribution_reporting::SuitableOrigin& reporting_origin);
+  void ClearRegistrationsForNavigationBatch(int64_t navigation_id);
 
   void MaybeBindDeferredReceivers(int64_t navigation_id, bool due_to_timeout);
   void ClearRegistrationsDeferUntilNavigation(int64_t navigation_id);
@@ -385,6 +387,13 @@ class CONTENT_EXPORT AttributionDataHostManagerImpl final
   // Guardrail to ensure that a navigation which can receive registrations is
   // always eventually considered done.
   SequentialTimeoutsTimer navigation_registrations_timer_;
+
+  // Stores the reporting origin of each registration tied to navigation keyed
+  // by the navigation id.
+  base::flat_map<
+      int64_t,
+      base::flat_map<attribution_reporting::SuitableOrigin, int /*count*/>>
+      registrations_per_navigation_;
 
   data_decoder::DataDecoder data_decoder_;
 

@@ -14,7 +14,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/web_applications/web_app_controller_browsertest.h"
+#include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_constants.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
@@ -93,15 +93,15 @@ base::Value::Dict GetCustomAppIconAndNameItem() {
 
 }  // namespace
 
-class WebAppPolicyManagerBrowserTest : public WebAppControllerBrowserTest {
+class WebAppPolicyManagerBrowserTest : public WebAppBrowserTestBase {
  public:
   WebAppPolicyManagerBrowserTest() = default;
 
   void SetUpOnMainThread() override {
-    WebAppControllerBrowserTest::SetUpOnMainThread();
+    WebAppBrowserTestBase::SetUpOnMainThread();
   }
 
-  void TearDown() override { WebAppControllerBrowserTest::TearDown(); }
+  void TearDown() override { WebAppBrowserTestBase::TearDown(); }
 
   Profile* profile() { return browser()->profile(); }
 
@@ -212,7 +212,7 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest, AppIdWhenNoManifestId) {
 // specified in manifest. Next time we navigate to kStartUrl, but we still
 // need to override the manifest even though the policy key is kInstallUrl.
 // This is done by matching the webapps::AppId.
-// TODO(crbug.com/1415979): Flaky on Mac.
+// TODO(crbug.com/40256661): Flaky on Mac.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_MismatchedInstallAndStartUrl DISABLED_MismatchedInstallAndStartUrl
 #else
@@ -274,8 +274,8 @@ IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest,
 // AppServiceProxyLacros::UninstallSilently() has not yet been implemented.
 IN_PROC_BROWSER_TEST_F(WebAppPolicyManagerBrowserTest, MigratingPolicyApp) {
   // Install old app to replace.
-  auto install_info = std::make_unique<WebAppInstallInfo>();
-  install_info->start_url = GURL("https://some.app.com");
+  auto install_info = WebAppInstallInfo::CreateWithStartUrlForTesting(
+      GURL("https://some.app.com"));
   install_info->title = u"some app";
   webapps::AppId old_app_id =
       test::InstallWebApp(profile(), std::move(install_info));

@@ -7,13 +7,14 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/version.h"
-#include "chrome/browser/ui/web_applications/web_app_controller_browsertest.h"
+#include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_source.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_storage_location.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -43,7 +44,7 @@ namespace web_app {
 
 class IsolatedWebAppUrlInfo;
 
-class IsolatedWebAppBrowserTestHarness : public WebAppControllerBrowserTest {
+class IsolatedWebAppBrowserTestHarness : public WebAppBrowserTestBase {
  public:
   IsolatedWebAppBrowserTestHarness();
   IsolatedWebAppBrowserTestHarness(const IsolatedWebAppBrowserTestHarness&) =
@@ -58,7 +59,7 @@ class IsolatedWebAppBrowserTestHarness : public WebAppControllerBrowserTest {
   IsolatedWebAppUrlInfo InstallDevModeProxyIsolatedWebApp(
       const url::Origin& origin);
   content::RenderFrameHost* OpenApp(const webapps::AppId& app_id,
-                                    base::StringPiece path = "");
+                                    std::string_view path = "");
   content::RenderFrameHost* NavigateToURLInNewTab(
       Browser* window,
       const GURL& url,
@@ -83,7 +84,7 @@ IsolatedWebAppUrlInfo InstallDevModeProxyIsolatedWebApp(
 
 content::RenderFrameHost* OpenIsolatedWebApp(Profile* profile,
                                              const webapps::AppId& app_id,
-                                             base::StringPiece path = "");
+                                             std::string_view path = "");
 
 void CreateIframe(content::RenderFrameHost* parent_frame,
                   const std::string& iframe_id,

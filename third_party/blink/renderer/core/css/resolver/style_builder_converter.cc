@@ -510,6 +510,21 @@ StyleBuilderConverter::ConvertFontVariantPosition(StyleResolverState&,
   }
 }
 
+FontVariantEmoji StyleBuilderConverter::ConvertFontVariantEmoji(
+    StyleResolverState&,
+    const CSSValue& value) {
+  // When the font shorthand is specified, font-variant-emoji property should
+  // be reset to it's initial value. In this case, the CSS parser uses a special
+  // value CSSPendingSystemFontValue to defer resolution of system font
+  // properties. The auto generated converter does not handle this incoming
+  // value.
+  if (value.IsPendingSystemFontValue()) {
+    return kNormalVariantEmoji;
+  }
+
+  return To<CSSIdentifierValue>(value).ConvertTo<FontVariantEmoji>();
+}
+
 OpticalSizing StyleBuilderConverter::ConvertFontOpticalSizing(
     StyleResolverState&,
     const CSSValue& value) {
@@ -2498,15 +2513,14 @@ TextBoxEdge StyleBuilderConverter::ConvertTextBoxEdge(
     StyleResolverState& status,
     const CSSValue& value) {
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
-    return TextBoxEdge(
-        identifier_value->ConvertTo<TextBoxEdge::TextBoxEdgeType>());
+    return TextBoxEdge(identifier_value->ConvertTo<TextBoxEdge::Type>());
   }
   const auto* const list = DynamicTo<CSSValueList>(&value);
   DCHECK_EQ(list->length(), 2u);
   const CSSIdentifierValue& over = To<CSSIdentifierValue>(list->Item(0));
   const CSSIdentifierValue& under = To<CSSIdentifierValue>(list->Item(1));
-  return TextBoxEdge(over.ConvertTo<TextBoxEdge::TextBoxEdgeType>(),
-                     under.ConvertTo<TextBoxEdge::TextBoxEdgeType>());
+  return TextBoxEdge(over.ConvertTo<TextBoxEdge::Type>(),
+                     under.ConvertTo<TextBoxEdge::Type>());
 }
 
 TextDecorationThickness StyleBuilderConverter::ConvertTextDecorationThickness(
@@ -2920,23 +2934,27 @@ static const CSSValue& ComputeRegisteredPropertyValue(
     }
   }
 
+  mojom::blink::ColorScheme color_scheme =
+      state ? state->StyleBuilder().UsedColorScheme()
+            : mojom::blink::ColorScheme::kLight;
+
+  const bool not_for_visited_link = false;
+
   if (auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     CSSValueID value_id = identifier_value->GetValueID();
     if (value_id == CSSValueID::kCurrentcolor) {
       return value;
     }
     if (StyleColor::IsColorKeyword(value_id)) {
-      mojom::blink::ColorScheme scheme =
-          state ? state->StyleBuilder().UsedColorScheme()
-                : mojom::blink::ColorScheme::kLight;
       Color color;
       if (IsQuirkOrLinkOrFocusRingColor(value_id)) {
         color = ResolveQuirkOrLinkOrFocusRingColor(
-            value_id, document.GetTextLinkColors(), scheme,
-            /*for_visited_link=*/false);
+            value_id, document.GetTextLinkColors(), color_scheme,
+            not_for_visited_link);
       } else {
         color = StyleColor::ColorFromKeyword(
-            value_id, scheme, document.GetColorProviderForPainting(scheme));
+            value_id, color_scheme,
+            document.GetColorProviderForPainting(color_scheme));
       }
       return *cssvalue::CSSColor::Create(color);
     }
@@ -2947,6 +2965,26 @@ static const CSSValue& ComputeRegisteredPropertyValue(
     const WTF::TextEncoding& charset =
         context ? context->Charset() : WTF::TextEncoding();
     return *uri_value->ComputedCSSValue(base_url, charset);
+  }
+
+  if (const auto* light_dark_pair = DynamicTo<CSSLightDarkValuePair>(value)) {
+    const CSSValue& color_value =
+        color_scheme == mojom::blink::ColorScheme::kLight
+            ? light_dark_pair->First()
+            : light_dark_pair->Second();
+    return ComputeRegisteredPropertyValue(
+        document, state, css_to_length_conversion_data, color_value, context);
+  }
+
+  if (auto* color_mix_value = DynamicTo<cssvalue::CSSColorMixValue>(value)) {
+    StyleColor style_color = ResolveColorValue(
+        *color_mix_value, document.GetTextLinkColors(), color_scheme,
+        document.GetColorProviderForPainting(color_scheme),
+        not_for_visited_link);
+    if (style_color.IsUnresolvedColorMixFunction()) {
+      return *style_color.GetUnresolvedColorMix().ToCSSColorMixValue();
+    }
+    return *cssvalue::CSSColor::Create(style_color.GetColor());
   }
 
   return value;
@@ -3080,16 +3118,16 @@ RubyPosition StyleBuilderConverter::ConvertRubyPosition(
     const CSSValue& value) {
   if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     CSSValueID value_id = identifier_value->GetValueID();
-    if (value_id == CSSValueID::kOver) {
-      return RubyPosition::kBefore;
+    if (value_id == CSSValueID::kBefore) {
+      return RubyPosition::kOver;
     }
-    if (value_id == CSSValueID::kUnder) {
-      return RubyPosition::kAfter;
+    if (value_id == CSSValueID::kAfter) {
+      return RubyPosition::kUnder;
     }
     return identifier_value->ConvertTo<blink::RubyPosition>();
   }
   NOTREACHED();
-  return RubyPosition::kBefore;
+  return RubyPosition::kOver;
 }
 
 StyleScrollbarColor* StyleBuilderConverter::ConvertScrollbarColor(

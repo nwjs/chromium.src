@@ -46,9 +46,9 @@ import org.chromium.ui.display.DisplayAndroid;
  * cancels previous session and starts a new one, the calling of other methods shall associate with
  * current session.
  *
- * <p>This class doesn't have 1:1 mapping to native AutofillProviderAndroid; the normal ownership
+ * <p>This class doesn't have 1:1 mapping to native AndroidAutofillProvider; the normal ownership
  * model is that this object is owned by the embedder-specific Java WebContents wrapper (e.g.,
- * AwContents.java in //android_webview), and AutofillProviderAndroid is owned by the
+ * AwContents.java in //android_webview), and AndroidAutofillProvider is owned by the
  * embedder-specific C++ WebContents wrapper (e.g., native AwContents in //android_webview).
  */
 @JNINamespace("autofill")
@@ -259,14 +259,15 @@ public class AutofillProvider {
             float width,
             float height,
             boolean hasServerPrediction) {
+        Rect absBound = transformToWindowBounds(new RectF(x, y, x + width, y + height));
+        if (mRequest != null) notifyViewExitBeforeDestroyRequest();
+
         // Check focusField inside short value? Autofill Manager might have session that wasn't
         // started by AutofillProvider, we just always cancel existing session here.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
             mAutofillManager.cancel();
         }
 
-        Rect absBound = transformToWindowBounds(new RectF(x, y, x + width, y + height));
-        if (mRequest != null) notifyViewExitBeforeDestroyRequest();
         transformFormFieldToContainViewCoordinates(formData);
         mAutofillUMA.onSessionStarted(mAutofillManager.isDisabled());
         mRequest =
@@ -513,7 +514,7 @@ public class AutofillProvider {
             float width,
             float height,
             boolean causedByValueChange) {
-        // Check focusField inside short value? FocusNoLongerOnForm is called after form
+        // Check focusField inside short value? FocusOnNonFormField is called after form
         // submitted.
         if (mRequest == null) return;
         FocusField prev = mRequest.getFocusField();
@@ -573,7 +574,7 @@ public class AutofillProvider {
                             .setLabel(datalistValues[i])
                             .setSubLabel(datalistLabels[i])
                             .setItemTag("")
-                            .setPopupItemId(PopupItemId.DATALIST_ENTRY)
+                            .setSuggestionType(SuggestionType.DATALIST_ENTRY)
                             .setFeatureForIPH("")
                             .build();
         }
@@ -794,16 +795,16 @@ public class AutofillProvider {
     interface Natives {
         void init(AutofillProvider caller, WebContents webContents);
 
-        void detachFromJavaAutofillProvider(long nativeAutofillProviderAndroidBridgeImpl);
+        void detachFromJavaAutofillProvider(long nativeAndroidAutofillProviderBridgeImpl);
 
-        void onAutofillAvailable(long nativeAutofillProviderAndroidBridgeImpl);
+        void onAutofillAvailable(long nativeAndroidAutofillProviderBridgeImpl);
 
         void onAcceptDataListSuggestion(
-                long nativeAutofillProviderAndroidBridgeImpl,
+                long nativeAndroidAutofillProviderBridgeImpl,
                 @JniType("std::u16string") String value);
 
         void setAnchorViewRect(
-                long nativeAutofillProviderAndroidBridgeImpl,
+                long nativeAndroidAutofillProviderBridgeImpl,
                 View anchorView,
                 float x,
                 float y,
@@ -811,7 +812,7 @@ public class AutofillProvider {
                 float height);
 
         void onShowBottomSheetResult(
-                long nativeAutofillProviderAndroidBridgeImpl,
+                long nativeAndroidAutofillProviderBridgeImpl,
                 boolean isShown,
                 boolean providedAutofillStructure);
     }

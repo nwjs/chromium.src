@@ -440,7 +440,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // to be locked to the WebUI origin. Note: This method can be called from
   // multiple threads. It is not safe to assume it runs only on the UI thread.
   //
-  // TODO(crbug.com/566091): Remove this exception once most visited tiles can
+  // TODO(crbug.com/40447789): Remove this exception once most visited tiles can
   // load in OOPIFs on the NTP.  Ideally, all WebUI urls should load in locked
   // processes.
   virtual bool DoesWebUIUrlRequireProcessLock(const GURL& url);
@@ -542,7 +542,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns whether a custom handler is registered for the scheme of the
   // specified URL scheme.
   // https://html.spec.whatwg.org/multipage/system-state.html#custom-handlers
-  // TODO(crbug.com/1139176) Move custom protocol handler code to content.
+  // TODO(crbug.com/40153317) Move custom protocol handler code to content.
   virtual bool HasCustomSchemeHandler(content::BrowserContext* browser_context,
                                       const std::string& scheme);
 
@@ -877,7 +877,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       const std::vector<GlobalRenderFrameHostId>& render_frames);
 
   // Allow the embedder to control whether we can use Web Bluetooth.
-  // TODO(crbug.com/589228): Replace this with a use of the permission system.
+  // TODO(crbug.com/40458188): Replace this with a use of the permission system.
   enum class AllowWebBluetoothResult {
     ALLOW,
     BLOCK_POLICY,
@@ -986,7 +986,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // `kTriggerTransitionalDebugReporting` and
   // `kOsTriggerTransitionalDebugReporting`.
   //
-  // TODO(https://crbug.com/1501357): Clean up `can_bypass` after the cookie
+  // TODO(crbug.com/40941634): Clean up `can_bypass` after the cookie
   // deprecation experiment.
   virtual bool IsAttributionReportingOperationAllowed(
       content::BrowserContext* browser_context,
@@ -1042,30 +1042,45 @@ class CONTENT_EXPORT ContentBrowserClient {
   // details about how the returned boolean result was obtained.
   //
   // Note that `rfh` can be nullptr.
+  //
+  // If non-null, the embedder can use `out_block_is_site_setting_specific` to
+  // relay whether or not a failure to be allowed is due to a site-specific
+  // reason.
   virtual bool IsSharedStorageAllowed(content::BrowserContext* browser_context,
                                       content::RenderFrameHost* rfh,
                                       const url::Origin& top_frame_origin,
                                       const url::Origin& accessing_origin,
-                                      std::string* out_debug_message = nullptr);
+                                      std::string* out_debug_message,
+                                      bool* out_block_is_site_setting_specific);
 
   // Allows the embedder to control if Shared Storage API `selectURL()` can
   // happen in a given context.
   //
   // If non-null, the embedder can use `out_debug_message` to relay further
   // details about how the returned boolean result was obtained.
+  //
+  // If non-null, the embedder can use `out_block_is_site_setting_specific` to
+  // relay whether or not a failure to be allowed is due to a site-specific
+  // reason.
   virtual bool IsSharedStorageSelectURLAllowed(
       content::BrowserContext* browser_context,
 
       const url::Origin& top_frame_origin,
       const url::Origin& accessing_origin,
-      std::string* out_debug_message = nullptr);
+      std::string* out_debug_message,
+      bool* out_block_is_site_setting_specific);
 
   // Allows the embedder to control if Private Aggregation API operations can
   // happen in a given context.
+  //
+  // If non-null, the embedder can use `out_block_is_site_setting_specific` to
+  // relay whether or not a failure to be allowed is due to a site-specific
+  // reason.
   virtual bool IsPrivateAggregationAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
-      const url::Origin& reporting_origin);
+      const url::Origin& reporting_origin,
+      bool* out_block_is_site_setting_specific);
 
   // Allows the embedder to control if Private Aggregation API debug mode
   // operations can happen in a given context.
@@ -1629,6 +1644,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual std::wstring GetAppContainerSidForSandboxType(
       sandbox::mojom::Sandbox sandbox_type,
       AppContainerFlags flags);
+
+  // Returns the AppContainer ID for sandboxed processes to use.
+  virtual std::string GetAppContainerId();
 
   // Returns true if renderer App Container should be disabled.
   // This is called on the UI thread.
@@ -2549,6 +2567,14 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual bool ShouldServiceWorkerInheritPolicyContainerFromCreator(
       const GURL& url);
 
+  // Allows the embedder to grant `child_id` access to additional origins.
+  // This is needed for Service Workers running in non-web-safe origins.
+  // This will only be called if the worker process is locked to the same
+  // origin as `script_url`.
+  virtual void GrantAdditionalRequestPrivilegesToWorkerProcess(
+      int child_id,
+      const GURL& script_url);
+
   enum class PrivateNetworkRequestPolicyOverride {
     kForceAllow,
     kBlockInsteadOfWarn,
@@ -2616,11 +2642,15 @@ class CONTENT_EXPORT ContentBrowserClient {
   // share their identity with the web page. Shows the interstitial if one is
   // needed. Runs callback immediately if no interestitial is needed or after
   // the user dismisses the interstitial if an interstitial is needed.
+  // `is_only_requesting_age` indicates whether the real-world-identity request
+  // is only requesting an assertion about whether the user is over a specific
+  // age.
   using DigitalIdentityInterstitialCallback = base::OnceCallback<void(
       DigitalIdentityProvider::RequestStatusForMetrics status_for_metrics)>;
   virtual void ShowDigitalIdentityInterstitialIfNeeded(
       WebContents& web_contents,
       const url::Origin& origin,
+      bool is_only_requesting_age,
       DigitalIdentityInterstitialCallback callback);
 
   // Creates a digital credential provider to fetch from native apps.
@@ -2702,6 +2732,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Called when a `SharedStorageWorkletHost` is created for `rfh`.
   virtual void OnSharedStorageWorkletHostCreated(RenderFrameHost* rfh) {}
 
+  // Called when `sharedStorage.selectURL()` is called for some frame on a page
+  // whose main frame is `main_rfh`.
+  virtual void OnSharedStorageSelectURLCalled(RenderFrameHost* main_rfh) {}
+
   // Whether the outermost origin should be sent to the renderer. This is
   // needed if the outermost origin is an extension, but for normal pages
   // we do not want to expose this.
@@ -2750,7 +2784,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // resulted in the creation of the FencedFrameReporter that called this
   // function.
   //
-  // TODO(crbug.com/1496395): After 3PCD, this will be dead code and should be
+  // TODO(crbug.com/40286778): After 3PCD, this will be dead code and should be
   // removed.
   virtual bool AreDeprecatedAutomaticBeaconCredentialsAllowed(
       content::BrowserContext* browser_context,

@@ -109,6 +109,29 @@ bool TouchToFillPaymentMethodController::Show(
   return true;
 }
 
+bool TouchToFillPaymentMethodController::Show(
+    std::unique_ptr<TouchToFillPaymentMethodView> view,
+    base::WeakPtr<TouchToFillDelegate> delegate,
+    base::span<const Iban> ibans_to_suggest) {
+  if (!keyboard_suppressor_.is_suppressing()) {
+    return false;
+  }
+
+  // Abort if TTF surface is already shown.
+  if (view_) {
+    return false;
+  }
+
+  if (!view->Show(this, ibans_to_suggest)) {
+    java_object_.Reset();
+    return false;
+  }
+
+  view_ = std::move(view);
+  delegate_ = std::move(delegate);
+  return true;
+}
+
 void TouchToFillPaymentMethodController::Hide() {
   if (view_)
     view_->Hide();
@@ -137,13 +160,22 @@ void TouchToFillPaymentMethodController::ShowPaymentMethodSettings(JNIEnv* env) 
   }
 }
 
-void TouchToFillPaymentMethodController::SuggestionSelected(
+void TouchToFillPaymentMethodController::CreditCardSuggestionSelected(
     JNIEnv* env,
     base::android::JavaParamRef<jstring> unique_id,
     bool is_virtual) {
   if (delegate_) {
-    delegate_->SuggestionSelected(
+    delegate_->CreditCardSuggestionSelected(
         base::android::ConvertJavaStringToUTF8(env, unique_id), is_virtual);
+  }
+}
+
+void TouchToFillPaymentMethodController::IbanSuggestionSelected(
+    JNIEnv* env,
+    base::android::JavaParamRef<jstring> guid) {
+  if (delegate_) {
+    delegate_->IbanSuggestionSelected(
+        Iban::Guid((*env).GetStringUTFChars(guid, nullptr)));
   }
 }
 

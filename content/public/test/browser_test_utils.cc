@@ -415,8 +415,8 @@ bool HasGzipHeader(const base::RefCountedMemory& maybe_gzipped) {
   net::GZipHeader::Status header_status = net::GZipHeader::INCOMPLETE_HEADER;
   const char* header_end = nullptr;
   while (header_status == net::GZipHeader::INCOMPLETE_HEADER) {
-    header_status = header.ReadMore(maybe_gzipped.front_as<char>(),
-                                    maybe_gzipped.size(), &header_end);
+    auto chars = base::as_chars(base::span(maybe_gzipped));
+    header_status = header.ReadMore(chars.data(), chars.size(), &header_end);
   }
   return header_status == net::GZipHeader::COMPLETE_HEADER;
 }
@@ -424,11 +424,13 @@ bool HasGzipHeader(const base::RefCountedMemory& maybe_gzipped) {
 void AppendGzippedResource(const base::RefCountedMemory& encoded,
                            std::string* to_append) {
   auto source_stream = std::make_unique<net::MockSourceStream>();
-  source_stream->AddReadResult(encoded.front_as<char>(), encoded.size(),
+  auto encoded_chars = base::as_chars(base::span(encoded));
+  source_stream->AddReadResult(encoded_chars.data(), encoded_chars.size(),
                                net::OK, net::MockSourceStream::SYNC);
   // Add an EOF.
-  source_stream->AddReadResult(encoded.front_as<char>() + encoded.size(), 0,
-                               net::OK, net::MockSourceStream::SYNC);
+  auto end = encoded_chars.last(0u);
+  source_stream->AddReadResult(end.data(), end.size(), net::OK,
+                               net::MockSourceStream::SYNC);
   std::unique_ptr<net::GzipSourceStream> filter = net::GzipSourceStream::Create(
       std::move(source_stream), net::SourceStream::TYPE_GZIP);
   scoped_refptr<net::IOBufferWithSize> dest_buffer =
@@ -1370,6 +1372,27 @@ void SimulateKeyPressWithoutChar(WebContents* web_contents,
                        command, /*send_char=*/false);
 }
 
+void SimulateProxyHostPostMessage(RenderFrameHost* source_render_frame_host,
+                                  RenderFrameHost* target_render_frame_host,
+                                  blink::TransferableMessage message) {
+  RenderFrameProxyHost* proxy_host =
+      static_cast<RenderFrameHostImpl*>(target_render_frame_host)
+          ->browsing_context_state()
+          ->GetRenderFrameProxyHost(
+              static_cast<SiteInstanceImpl*>(
+                  source_render_frame_host->GetSiteInstance())
+                  ->group());
+  CHECK(proxy_host);
+
+  proxy_host->RouteMessageEvent(
+      source_render_frame_host->GetFrameToken(),
+      base::UTF8ToUTF16(
+          source_render_frame_host->GetLastCommittedOrigin().Serialize()),
+      base::UTF8ToUTF16(
+          target_render_frame_host->GetLastCommittedOrigin().Serialize()),
+      std::move(message));
+}
+
 ScopedSimulateModifierKeyPress::ScopedSimulateModifierKeyPress(
     WebContents* web_contents,
     bool control,
@@ -1547,7 +1570,7 @@ std::string AnnotateAndAdjustJsStackTraces(std::string_view js_error,
   // Loop over each line of |js_error|, and append each to |annotated_error| --
   // possibly rewriting to include extra context.
   std::ostringstream annotated_error;
-  for (const std::string_view& error_line : base::SplitStringPiece(
+  for (std::string_view error_line : base::SplitStringPiece(
            js_error, "\n", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL)) {
     // Does this look like a stack frame whose URL source matches |source_name|?
     if (base::MatchPattern(error_line, source_frame_pattern)) {
@@ -1913,10 +1936,12 @@ bool ExecuteWebUIResourceTest(WebContents* web_contents) {
       ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
           IDR_ASH_WEBUI_COMMON_WEBUI_RESOURCE_TEST_JS);
 
-  if (HasGzipHeader(*bytes))
+  if (HasGzipHeader(*bytes)) {
     AppendGzippedResource(*bytes, &script);
-  else
-    script.append(bytes->front_as<char>(), bytes->size());
+  } else {
+    auto chars = base::as_chars(base::span(*bytes));
+    script.append(chars.data(), chars.size());
+  }
 
   script.append("\n");
   ExecuteScriptAsync(web_contents, script);
@@ -2296,7 +2321,6 @@ ScreenOrientationDelegate* GetScreenOrientationDelegate() {
 std::vector<RenderWidgetHostView*> GetInputEventRouterRenderWidgetHostViews(
     WebContents* web_contents) {
   return static_cast<WebContentsImpl*>(web_contents)
-      ->GetInputEventRouter()
       ->GetRenderWidgetHostViewsForTests();
 }
 
@@ -2533,7 +2557,7 @@ class DOMMessageQueue::MessageObserver : public WebContentsObserver {
 };
 
 DOMMessageQueue::DOMMessageQueue() {
-  // TODO(https://crbug.com/1174774): Remove the need to listen for this
+  // TODO(crbug.com/40746969): Remove the need to listen for this
   // notification.
   for (auto* contents : WebContentsImpl::GetAllWebContents()) {
     observers_.emplace(std::make_unique<MessageObserver>(this, contents));
@@ -2845,6 +2869,10 @@ void InputMsgWatcher::OnInputEventAck(
     if (quit_closure_)
       std::move(quit_closure_).Run();
   }
+}
+
+void InputMsgWatcher::OnInputEvent(const blink::WebInputEvent& event) {
+  last_sent_event_type_ = event.GetType();
 }
 
 bool InputMsgWatcher::HasReceivedAck() const {
@@ -3787,7 +3815,7 @@ blink::mojom::BlobURLStore* BlobURLStoreInterceptor::GetForwardingInterface() {
 void BlobURLStoreInterceptor::Register(
     mojo::PendingRemote<blink::mojom::Blob> blob,
     const GURL& url,
-    // TODO(https://crbug.com/1224926): Remove these once experiment is over.
+    // TODO(crbug.com/40775506): Remove these once experiment is over.
     const base::UnguessableToken& unsafe_agent_cluster_id,
     const std::optional<net::SchemefulSite>& unsafe_top_level_site,
     RegisterCallback callback) {

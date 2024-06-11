@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper_observer.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_web_modal_dialog_manager_delegate.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
@@ -145,7 +146,8 @@ class Browser : public TabStripModelObserver,
                 public content::PageNavigator,
                 public ThemeServiceObserver,
                 public translate::ContentTranslateDriver::TranslationObserver,
-                public ui::SelectFileDialog::Listener {
+                public ui::SelectFileDialog::Listener,
+                public BrowserWindowInterface {
  public:
   using DidFinishFirstNavigationCallback =
                       base::OnceCallback<void(bool did_finish)>;
@@ -204,10 +206,10 @@ class Browser : public TabStripModelObserver,
     FEATURE_LOCATIONBAR = 1 << 3,
     FEATURE_BOOKMARKBAR = 1 << 4,
     FEATURE_NW_FRAMELESS = 1 << 5
-    // TODO(crbug.com/992834): Add FEATURE_PAGECONTROLS to describe the presence
-    // of per-page controls such as Content Settings Icons, which should be
-    // decoupled from FEATURE_LOCATIONBAR as they have independent presence in
-    // Web App browsers.
+    // TODO(crbug.com/40639933): Add FEATURE_PAGECONTROLS to describe the
+    // presence of per-page controls such as Content Settings Icons, which
+    // should be decoupled from FEATURE_LOCATIONBAR as they have independent
+    // presence in Web App browsers.
   };
 
   // The context for a download blocked notification from
@@ -584,6 +586,9 @@ class Browser : public TabStripModelObserver,
   SigninViewController* signin_view_controller() {
     return &signin_view_controller_;
   }
+  BrowserWindowFeatures* browser_window_features() const {
+    return features_.get();
+  }
 
   base::WeakPtr<Browser> AsWeakPtr();
   base::WeakPtr<const Browser> AsWeakPtr() const;
@@ -706,7 +711,7 @@ class Browser : public TabStripModelObserver,
   //
   // Note that there are other cases that may delay closing, such as downloads,
   // but that is done before any of these steps.
-  // TODO(https://crbug.com/1434387): See about unifying IsBrowserClosing() and
+  // TODO(crbug.com/40064092): See about unifying IsBrowserClosing() and
   // is_delete_scheduled().
   bool IsAttemptingToCloseBrowser() const;
   bool IsBrowserClosing() const;
@@ -765,10 +770,6 @@ class Browser : public TabStripModelObserver,
   // Whether the specified WebContents can be saved.
   // Saving can be disabled e.g. for the DevTools window.
   bool CanSaveContents(content::WebContents* web_contents) const;
-
-  std::unique_ptr<content::WebContents> SwapWebContents(
-      content::WebContents* old_contents,
-      std::unique_ptr<content::WebContents> new_contents);
 
   // Returns whether favicon should be shown.
   bool ShouldDisplayFavicon(content::WebContents* web_contents) const;
@@ -900,11 +901,6 @@ class Browser : public TabStripModelObserver,
   bool ShouldRunUnloadListenerBeforeClosing(content::WebContents* web_contents);
   bool RunUnloadListenerBeforeClosing(content::WebContents* web_contents);
 
-  // Set if the browser is currently participating in a tab dragging process.
-  // This information is used to decide if fast resize will be used during
-  // dragging.
-  void SetIsInTabDragging(bool is_in_tab_dragging);
-
   // Sets the browser's user title. Setting it to an empty string clears it.
   void SetWindowUserTitle(const std::string& user_title);
 
@@ -918,6 +914,11 @@ class Browser : public TabStripModelObserver,
   // Sets or clears the flags to force showing bookmark bar.
   void SetForceShowBookmarkBarFlag(ForceShowBookmarkBarFlag flag);
   void ClearForceShowBookmarkBarFlag(ForceShowBookmarkBarFlag flag);
+
+  // BrowserWindowInterface overrides:
+  views::WebView* GetWebView() override;
+  void OpenURL(const GURL& gurl, WindowOpenDisposition disposition) override;
+  const SessionID& GetSessionID() override;
 
  private:
   int last_to_different_document_ = -1;
@@ -1005,8 +1006,7 @@ class Browser : public TabStripModelObserver,
                          const gfx::Rect& bounds) override;
   void UpdateTargetURL(content::WebContents* source, const GURL& url) override;
   void ContentsMouseEvent(content::WebContents* source,
-                          bool motion,
-                          bool exited) override;
+                          const ui::Event& event) override;
   void ContentsZoomChange(bool zoom_in) override;
   bool TakeFocus(content::WebContents* source, bool reverse) override;
   void BeforeUnloadFired(content::WebContents* source,
@@ -1068,8 +1068,7 @@ class Browser : public TabStripModelObserver,
   void RestoreFromWebAPI() override;
   ui::WindowShowState GetWindowShowState() const override;
   bool CanEnterFullscreenModeForTab(
-      content::RenderFrameHost* requesting_frame,
-      const blink::mojom::FullscreenOptions& options) override;
+      content::RenderFrameHost* requesting_frame) override;
   void EnterFullscreenModeForTab(
       content::RenderFrameHost* requesting_frame,
       const blink::mojom::FullscreenOptions& options) override;
@@ -1231,6 +1230,11 @@ class Browser : public TabStripModelObserver,
   // and the browser closed, false if the browser should stay open and the
   // downloads running.
   void InProgressDownloadResponse(bool cancel_downloads);
+
+  // Called when the user has decided whether to proceed or not with the browser
+  // closure, in case the cookie migration notice was shown. |proceed_closing|
+  // is true if the browser can  be closed.
+  void CookieMigrationNoticeResponse(bool proceed_closing);
 
   // Called when all warnings have completed when attempting to close the
   // browser directly (e.g. via hotkey, close button, terminate signal, etc.)

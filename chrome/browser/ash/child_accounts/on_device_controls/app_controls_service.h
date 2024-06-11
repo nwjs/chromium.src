@@ -7,20 +7,22 @@
 
 #include "components/keyed_service/core/keyed_service.h"
 
-namespace ash {
-namespace on_device_controls {
+class PrefRegistrySimple;
+
+namespace ash::on_device_controls {
 
 // Service supporting on-device parental controls features for enabling and
 // blocking apps.
 class AppControlsService : public KeyedService {
  public:
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
+
   AppControlsService();
   ~AppControlsService() override;
   AppControlsService(const AppControlsService&) = delete;
   AppControlsService& operator=(const AppControlsService&) = delete;
 };
 
-}  // namespace on_device_controls
-}  // namespace ash
+}  // namespace ash::on_device_controls
 
 #endif  // CHROME_BROWSER_ASH_CHILD_ACCOUNTS_ON_DEVICE_CONTROLS_APP_CONTROLS_SERVICE_H_

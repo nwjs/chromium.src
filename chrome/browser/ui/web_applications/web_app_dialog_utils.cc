@@ -38,8 +38,8 @@
 #include "content/public/browser/navigation_entry.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/metrics/structured/event_logging_features.h"
-// TODO(crbug.com/1125897): Enable gn check once it handles conditional includes
+// TODO(crbug.com/40147906): Enable gn check once it handles conditional
+// includes
 #include "components/metrics/structured/structured_events.h"  // nogncheck
 #include "components/metrics/structured/structured_metrics_client.h"  // nogncheck
 #endif
@@ -66,7 +66,7 @@ namespace cros_events = metrics::structured::events::v2::cr_os_events;
 // which it may not be. Icon purpose also needs to be considered.
 apps::IconInfo GetIcon(const std::vector<apps::IconInfo>& manifest_icons) {
   for (const auto& icon_info : manifest_icons) {
-    if (icon_info.square_size_px > ash::app_install::kIconSize) {
+    if (icon_info.square_size_px.value_or(0) > ash::app_install::kIconSize) {
       return icon_info;
     }
   }
@@ -100,7 +100,7 @@ void OnManifestFetchedShowCrosDialog(
       base::UTF16ToUTF8(web_app_info->title),
       web_app_info->start_url.GetWithEmptyPath(),
       base::UTF16ToUTF8(web_app_info->description), icon.url,
-      icon.square_size_px.has_value() ? icon.square_size_px.value() : 0,
+      icon.square_size_px.value_or(0),
       icon.purpose == apps::IconInfo::Purpose::kMaskable,
       std::move(dialog_screenshots),
       base::BindOnce(
@@ -146,14 +146,12 @@ void OnWebAppInstallShowInstallDialog(
     case WebAppInstallFlow::kInstallSite:
       web_app_info->user_display_mode = mojom::UserDisplayMode::kStandalone;
 #if BUILDFLAG(IS_CHROMEOS)
-      if (base::FeatureList::IsEnabled(
-              metrics::structured::kAppDiscoveryLogging) &&
-          install_source == webapps::WebappInstallSource::MENU_BROWSER_TAB) {
+      if (install_source == webapps::WebappInstallSource::MENU_BROWSER_TAB) {
         webapps::AppId app_id =
             web_app::GenerateAppIdFromManifestId(web_app_info->manifest_id);
-        metrics::structured::StructuredMetricsClient::Record(std::move(
+        metrics::structured::StructuredMetricsClient::Record(
             cros_events::AppDiscovery_Browser_ClickInstallAppFromMenu()
-                .SetAppId(app_id)));
+                .SetAppId(app_id));
       }
 #endif
       if (!screenshots.empty()) {
@@ -179,14 +177,12 @@ void OnWebAppInstallShowInstallDialog(
       }
     case WebAppInstallFlow::kCreateShortcut:
 #if BUILDFLAG(IS_CHROMEOS)
-      if (base::FeatureList::IsEnabled(
-              metrics::structured::kAppDiscoveryLogging)) {
-        webapps::AppId app_id =
-            web_app::GenerateAppIdFromManifestId(web_app_info->manifest_id);
-        metrics::structured::StructuredMetricsClient::Record(std::move(
-            cros_events::AppDiscovery_Browser_CreateShortcut().SetAppId(
-                app_id)));
-      }
+    {
+      webapps::AppId app_id =
+          web_app::GenerateAppIdFromManifestId(web_app_info->manifest_id);
+      metrics::structured::StructuredMetricsClient::Record(
+          cros_events::AppDiscovery_Browser_CreateShortcut().SetAppId(app_id));
+    }
 #endif
 
       ShowCreateShortcutDialog(initiator_web_contents, std::move(web_app_info),

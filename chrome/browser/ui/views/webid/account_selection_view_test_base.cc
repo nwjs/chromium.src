@@ -134,7 +134,7 @@ void AccountSelectionViewTestBase::CheckHoverableAccountRows(
     size_t& accounts_index,
     bool expect_idp,
     bool is_modal_dialog) {
-  EXPECT_GE(accounts.size(), account_suffixes.size());
+  ASSERT_GE(accounts.size(), account_suffixes.size() + accounts_index);
   // Checks the account rows starting at `accounts[accounts_index]`. Updates
   // `accounts_index` to the first unused index in `accounts`, or to
   // `accounts.size()` if done.
@@ -173,7 +173,8 @@ void AccountSelectionViewTestBase::CheckHoverableAccountRows(
     }
     EXPECT_EQ(icon_view->size(),
               is_modal_dialog ? gfx::Size(kModalAvatarSize, kModalAvatarSize)
-              : expect_idp    ? gfx::Size(kLargerAvatarSize, kLargerAvatarSize)
+              : expect_idp    ? gfx::Size(kDesiredAvatarSize + kIdpBadgeOffset,
+                                          kDesiredAvatarSize + kIdpBadgeOffset)
                            : gfx::Size(kDesiredAvatarSize, kDesiredAvatarSize));
 
     // Check for arrow icon in secondary view.
@@ -183,6 +184,21 @@ void AccountSelectionViewTestBase::CheckHoverableAccountRows(
       EXPECT_TRUE(arrow_icon_view);
     } else {
       EXPECT_FALSE(GetHoverButtonSecondaryView(account_row));
+    }
+    if (expect_idp) {
+      std::vector<raw_ptr<views::View, VectorExperimental>> icon_children =
+          icon_view->children();
+      ASSERT_EQ(icon_children.size(), 2u);
+      EXPECT_STREQ(icon_children[0]->GetClassName(), "AccountImageView");
+      EXPECT_EQ(icon_children[0]->size(),
+                gfx::Size(kDesiredAvatarSize + kIdpBadgeOffset,
+                          kDesiredAvatarSize + kIdpBadgeOffset));
+      EXPECT_STREQ(icon_children[1]->GetClassName(), "BoxLayoutView");
+      ASSERT_EQ(icon_children[1]->children().size(), 1u);
+      views::View* brand_icon_image_view = icon_children[1]->children()[0];
+      EXPECT_STREQ(brand_icon_image_view->GetClassName(), "BrandIconImageView");
+    } else {
+      EXPECT_STREQ(icon_view->GetClassName(), "AccountImageView");
     }
   }
 }

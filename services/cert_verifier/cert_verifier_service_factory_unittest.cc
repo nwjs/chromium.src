@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "base/check_op.h"
@@ -20,6 +21,7 @@
 #include "base/time/time.h"
 #include "crypto/ec_private_key.h"
 #include "crypto/sha2.h"
+#include "mojo/public/cpp/base/proto_wrapper.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -127,7 +129,7 @@ std::tuple<int, net::CertVerifyResult> Verify(
 
 void UpdateCRLSetWithTestFile(
     CertVerifierServiceFactoryImpl* cv_service_factory_impl,
-    base::StringPiece crlset_file_name) {
+    std::string_view crlset_file_name) {
   std::string crl_set_bytes;
   EXPECT_TRUE(base::ReadFileToString(
       net::GetTestCertsDirectory().AppendASCII(crlset_file_name),
@@ -194,15 +196,10 @@ TEST(CertVerifierServiceFactoryTest, GetNewCertVerifierWithUpdatedRootStore) {
   leaf->SetValidity(now - base::Days(1), now + base::Days(1));
 
   // Create updated Chrome Root Store with just the root cert from above.
-  chrome_root_store::RootStore root_store_proto;
-  root_store_proto.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
-  chrome_root_store::TrustAnchor* anchor = root_store_proto.add_trust_anchors();
+  chrome_root_store::RootStore root_store;
+  root_store.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
+  chrome_root_store::TrustAnchor* anchor = root_store.add_trust_anchors();
   anchor->set_der(root->GetDER());
-  std::string proto_serialized;
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
 
   mojo::Remote<mojom::CertVerifierServiceFactory> cv_service_factory_remote;
   CertVerifierServiceFactoryImpl cv_service_factory_impl(
@@ -214,7 +211,7 @@ TEST(CertVerifierServiceFactoryTest, GetNewCertVerifierWithUpdatedRootStore) {
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store), update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -275,21 +272,16 @@ TEST(CertVerifierServiceFactoryTest, UpdateExistingCertVerifierWithRootStore) {
   EXPECT_EQ(cv_service_client.changed_count_, 0u);
 
   // Create updated Chrome Root Store with just the root cert from above.
-  chrome_root_store::RootStore root_store_proto;
-  root_store_proto.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
-  chrome_root_store::TrustAnchor* anchor = root_store_proto.add_trust_anchors();
+  chrome_root_store::RootStore root_store;
+  root_store.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
+  chrome_root_store::TrustAnchor* anchor = root_store.add_trust_anchors();
   anchor->set_der(root->GetDER());
-  std::string proto_serialized;
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
 
   // Feed factory the new Chrome Root Store.
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store), update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -314,15 +306,10 @@ TEST(CertVerifierServiceFactoryTest, OldRootStoreUpdateIgnored) {
 
   // Create updated Chrome Root Store with just the root cert from above, but
   // set the version # so that the version is ignored.
-  chrome_root_store::RootStore root_store_proto;
-  root_store_proto.set_version_major(net::CompiledChromeRootStoreVersion());
-  chrome_root_store::TrustAnchor* anchor = root_store_proto.add_trust_anchors();
+  chrome_root_store::RootStore root_store;
+  root_store.set_version_major(net::CompiledChromeRootStoreVersion());
+  chrome_root_store::TrustAnchor* anchor = root_store.add_trust_anchors();
   anchor->set_der(root->GetDER());
-  std::string proto_serialized;
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
 
   mojo::Remote<mojom::CertVerifierServiceFactory> cv_service_factory_remote;
   CertVerifierServiceFactoryImpl cv_service_factory_impl(
@@ -334,7 +321,7 @@ TEST(CertVerifierServiceFactoryTest, OldRootStoreUpdateIgnored) {
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store), update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -367,15 +354,10 @@ TEST(CertVerifierServiceFactoryTest, BadRootStoreUpdateIgnored) {
   leaf->SetValidity(now - base::Days(1), now + base::Days(1));
 
   // Create updated Chrome Root Store with just the root cert from above.
-  chrome_root_store::RootStore root_store_proto;
-  root_store_proto.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
-  chrome_root_store::TrustAnchor* anchor = root_store_proto.add_trust_anchors();
+  chrome_root_store::RootStore root_store;
+  root_store.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
+  chrome_root_store::TrustAnchor* anchor = root_store.add_trust_anchors();
   anchor->set_der(root->GetDER());
-  std::string proto_serialized;
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
 
   mojo::Remote<mojom::CertVerifierServiceFactory> cv_service_factory_remote;
   CertVerifierServiceFactoryImpl cv_service_factory_impl(
@@ -387,7 +369,7 @@ TEST(CertVerifierServiceFactoryTest, BadRootStoreUpdateIgnored) {
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store), update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -412,22 +394,19 @@ TEST(CertVerifierServiceFactoryTest, BadRootStoreUpdateIgnored) {
 
   // Create updated Chrome Root Store with an invalid cert; update should be
   // ignored.
-  chrome_root_store::RootStore invalid_root_store_proto;
-  invalid_root_store_proto.set_version_major(
-      net::CompiledChromeRootStoreVersion() + 2);
+  chrome_root_store::RootStore invalid_root_store;
+  invalid_root_store.set_version_major(net::CompiledChromeRootStoreVersion() +
+                                       2);
   chrome_root_store::TrustAnchor* invalid_anchor =
-      invalid_root_store_proto.add_trust_anchors();
+      invalid_root_store.add_trust_anchors();
   invalid_anchor->set_der("gibberishcert");
-  invalid_root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr invalid_root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
 
   // Feed factory the new Chrome Root Store.
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(invalid_root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(invalid_root_store),
+        update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -439,17 +418,13 @@ TEST(CertVerifierServiceFactoryTest, BadRootStoreUpdateIgnored) {
   }
 
   // Clear all certs from the proto
-  root_store_proto.clear_trust_anchors();
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr empty_root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
+  root_store.clear_trust_anchors();
 
-  // Feed factory the new Chrome Root Store.
+  // Feed factory the new empty Chrome Root Store.
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(empty_root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store), update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -479,15 +454,10 @@ TEST(CertVerifierServiceFactoryTest, RootStoreInfoWithUpdatedRootStore) {
   leaf->SetValidity(now - base::Days(1), now + base::Days(1));
 
   // Create updated Chrome Root Store with just the root cert from above.
-  chrome_root_store::RootStore root_store_proto;
-  root_store_proto.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
-  chrome_root_store::TrustAnchor* anchor = root_store_proto.add_trust_anchors();
+  chrome_root_store::RootStore root_store;
+  root_store.set_version_major(net::CompiledChromeRootStoreVersion() + 1);
+  chrome_root_store::TrustAnchor* anchor = root_store.add_trust_anchors();
   anchor->set_der(root->GetDER());
-  std::string proto_serialized;
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
 
   mojo::Remote<mojom::CertVerifierServiceFactory> cv_service_factory_remote;
   CertVerifierServiceFactoryImpl cv_service_factory_impl(
@@ -497,7 +467,7 @@ TEST(CertVerifierServiceFactoryTest, RootStoreInfoWithUpdatedRootStore) {
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store), update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -507,20 +477,17 @@ TEST(CertVerifierServiceFactoryTest, RootStoreInfoWithUpdatedRootStore) {
       &GetRootStoreInfo, &info_ptr, request_completed_run_loop.QuitClosure()));
   request_completed_run_loop.Run();
   ASSERT_TRUE(info_ptr);
-  EXPECT_EQ(info_ptr->version, root_store_proto.version_major());
+  EXPECT_EQ(info_ptr->version, root_store.version_major());
   ASSERT_EQ(info_ptr->root_cert_info.size(), static_cast<std::size_t>(1));
-
-  bssl::der::Input subject_tlv(root->GetSubject());
-  bssl::RDNSequence subject_rdn;
-  ASSERT_TRUE(bssl::ParseName(subject_tlv, &subject_rdn));
-  std::string subject_string;
-  ASSERT_TRUE(bssl::ConvertToRFC2253(subject_rdn, &subject_string));
-  EXPECT_EQ(info_ptr->root_cert_info[0]->name, subject_string);
 
   net::SHA256HashValue root_hash =
       net::X509Certificate::CalculateFingerprint256(root->GetCertBuffer());
   EXPECT_EQ(info_ptr->root_cert_info[0]->sha256hash_hex,
             base::HexEncode(root_hash.data));
+  EXPECT_TRUE(net::x509_util::CryptoBufferEqual(
+      net::x509_util::CreateCryptoBuffer(info_ptr->root_cert_info[0]->cert)
+          .get(),
+      root->GetCertBuffer()));
 }
 
 std::string CurVersionString() {
@@ -565,12 +532,6 @@ TEST(CertVerifierServiceFactoryTest, RootStoreInfoWithVersionConstraintUnmet) {
   // root should not be trusted
   constraint->set_max_version_exclusive(PrevVersionString());
 
-  std::string proto_serialized;
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
-
   mojo::Remote<mojom::CertVerifierServiceFactory> cv_service_factory_remote;
   CertVerifierServiceFactoryImpl cv_service_factory_impl(
       cv_service_factory_remote.BindNewPipeAndPassReceiver());
@@ -579,7 +540,8 @@ TEST(CertVerifierServiceFactoryTest, RootStoreInfoWithVersionConstraintUnmet) {
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store_proto),
+        update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 
@@ -614,12 +576,6 @@ TEST(CertVerifierServiceFactoryTest, RootStoreInfoWithVersionConstraintMet) {
   constraint->set_min_version(PrevVersionString());
   constraint->set_max_version_exclusive(NextVersionString());
 
-  std::string proto_serialized;
-  root_store_proto.SerializeToString(&proto_serialized);
-  cert_verifier::mojom::ChromeRootStorePtr root_store_ptr =
-      cert_verifier::mojom::ChromeRootStore::New(
-          base::as_bytes(base::make_span(proto_serialized)));
-
   mojo::Remote<mojom::CertVerifierServiceFactory> cv_service_factory_remote;
   CertVerifierServiceFactoryImpl cv_service_factory_impl(
       cv_service_factory_remote.BindNewPipeAndPassReceiver());
@@ -628,7 +584,8 @@ TEST(CertVerifierServiceFactoryTest, RootStoreInfoWithVersionConstraintMet) {
   {
     base::RunLoop update_run_loop;
     cv_service_factory_impl.UpdateChromeRootStore(
-        std::move(root_store_ptr), update_run_loop.QuitClosure());
+        mojo_base::ProtoWrapper(root_store_proto),
+        update_run_loop.QuitClosure());
     update_run_loop.Run();
   }
 

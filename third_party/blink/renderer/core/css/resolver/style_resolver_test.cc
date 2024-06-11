@@ -1907,66 +1907,6 @@ TEST_P(ParameterizedStyleResolverTest, AnchorQueryBaseComputedStyle) {
   EXPECT_FALSE(StyleResolver::CanReuseBaseComputedStyle(state));
 }
 
-TEST_P(ParameterizedStyleResolverTest, AnchorQueryResults) {
-  GetDocument().documentElement()->setInnerHTML(R"HTML(
-    <style>
-      #anchor {
-        position: absolute;
-        width: 100px;
-        height: 150px;
-        left: 200px;
-        top: 300px;
-        anchor-name: --a;
-      }
-      #anchored {
-        position: absolute;
-        left: anchor(--a right);
-        top: anchor(--a bottom);
-        width: anchor-size(--a height);
-        height: anchor-size(--a width);
-      }
-    </style>
-    <div id=anchor>Anchor</div>
-    <div id=anchored>Anchored</div>
-  )HTML");
-  UpdateAllLifecyclePhasesForTest();
-
-  Element* anchored = GetDocument().getElementById(AtomicString("anchored"));
-  ASSERT_TRUE(anchored);
-
-  EXPECT_EQ("300px", ComputedValue("left", anchored->ComputedStyleRef()));
-  EXPECT_EQ("450px", ComputedValue("top", anchored->ComputedStyleRef()));
-  EXPECT_EQ("150px", ComputedValue("width", anchored->ComputedStyleRef()));
-  EXPECT_EQ("100px", ComputedValue("height", anchored->ComputedStyleRef()));
-
-  // The call to UpdateAllLifecyclePhasesForTest should have populated
-  // the AnchorResults.
-  OutOfFlowData* out_of_flow_data = anchored->GetOutOfFlowData();
-  ASSERT_TRUE(out_of_flow_data);
-  AnchorResults& anchor_results = out_of_flow_data->GetAnchorResults();
-  EXPECT_FALSE(anchor_results.IsEmpty());
-
-  const ComputedStyle* old_style = anchored->GetComputedStyle();
-
-  // Freshen the style using the previous results as the evaluator.
-  // We are using a copy, because UpdateStyleForOutOfFlow clears the results
-  // on the element's OutOfFlowData.
-  AnchorResults anchor_results_copy(anchor_results);
-  GetStyleEngine().UpdateStyleForOutOfFlow(
-      *anchored, /* try_set */ nullptr, kNoTryTactics,
-      /* anchor_evaluator */ &anchor_results_copy);
-
-  // We should have created a new ComputedStyle object with the same computed
-  // values as before.
-  const ComputedStyle* new_style = anchored->GetComputedStyle();
-  ASSERT_TRUE(new_style);
-  EXPECT_NE(old_style, new_style);
-  EXPECT_EQ("300px", ComputedValue("left", *new_style));
-  EXPECT_EQ("450px", ComputedValue("top", *new_style));
-  EXPECT_EQ("150px", ComputedValue("width", *new_style));
-  EXPECT_EQ("100px", ComputedValue("height", *new_style));
-}
-
 TEST_P(ParameterizedStyleResolverTest, NoCascadeLayers) {
   GetDocument().documentElement()->setInnerHTML(R"HTML(
     <style>
@@ -3066,7 +3006,6 @@ TEST_P(ParameterizedStyleResolverTest,
 
 TEST_P(ParameterizedStyleResolverTest, PositionTryStylesBasic_Cascade) {
   ScopedCSSAnchorPositioningForTest enabled(true);
-  ScopedCSSAnchorPositioningCascadeFallbackForTest cascade(true);
 
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3114,7 +3053,6 @@ TEST_P(ParameterizedStyleResolverTest, PositionTryStylesBasic_Cascade) {
 TEST_P(ParameterizedStyleResolverTest,
        PositionTryStylesResolveLogicalProperties_Cascade) {
   ScopedCSSAnchorPositioningForTest enabled(true);
-  ScopedCSSAnchorPositioningCascadeFallbackForTest cascade(true);
 
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3163,7 +3101,6 @@ TEST_P(ParameterizedStyleResolverTest,
 TEST_P(ParameterizedStyleResolverTest,
        PositionTryStylesResolveRelativeLengthUnits_Cascade) {
   ScopedCSSAnchorPositioningForTest enabled(true);
-  ScopedCSSAnchorPositioningCascadeFallbackForTest cascade(true);
 
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3194,7 +3131,6 @@ TEST_P(ParameterizedStyleResolverTest,
 TEST_P(ParameterizedStyleResolverTest,
        PositionTryStylesInBeforePseudoElement_Cascade) {
   ScopedCSSAnchorPositioningForTest enabled(true);
-  ScopedCSSAnchorPositioningCascadeFallbackForTest cascade(true);
 
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3229,7 +3165,6 @@ TEST_P(ParameterizedStyleResolverTest,
 TEST_P(ParameterizedStyleResolverTest,
        PositionTryStylesCSSWideKeywords_Cascade) {
   ScopedCSSAnchorPositioningForTest enabled(true);
-  ScopedCSSAnchorPositioningCascadeFallbackForTest cascade(true);
 
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3289,7 +3224,6 @@ TEST_P(ParameterizedStyleResolverTest,
 
 TEST_P(ParameterizedStyleResolverTest, PositionTryPropertyValueChange_Cascade) {
   ScopedCSSAnchorPositioningForTest enabled(true);
-  ScopedCSSAnchorPositioningCascadeFallbackForTest cascade(true);
 
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3340,7 +3274,6 @@ TEST_P(ParameterizedStyleResolverTest, PositionTryPropertyValueChange_Cascade) {
 
 TEST_P(ParameterizedStyleResolverTest, PositionTry_PaintInvalidation) {
   ScopedCSSAnchorPositioningForTest enabled(true);
-  ScopedCSSAnchorPositioningCascadeFallbackForTest cascade(true);
 
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -3401,9 +3334,9 @@ TEST_P(ParameterizedStyleResolverTest, TrySet_Basic) {
   )CSS");
   ASSERT_TRUE(try_set);
 
-  div->EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
-  const ComputedStyle* try_style =
-      StyleForId("div", StyleRecalcContext{.is_interleaved_oof = true});
+  const ComputedStyle* try_style = StyleForId(
+      "div",
+      StyleRecalcContext{.try_set = try_set, .is_interleaved_oof = true});
   ASSERT_TRUE(try_style);
   EXPECT_EQ("20px", ComputedValue("left", *try_style));
   EXPECT_EQ("30px", ComputedValue("right", *try_style));
@@ -3433,9 +3366,9 @@ TEST_P(ParameterizedStyleResolverTest, TrySet_RevertLayer) {
   )CSS");
   ASSERT_TRUE(try_set);
 
-  div->EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
-  const ComputedStyle* try_style =
-      StyleForId("div", StyleRecalcContext{.is_interleaved_oof = true});
+  const ComputedStyle* try_style = StyleForId(
+      "div",
+      StyleRecalcContext{.try_set = try_set, .is_interleaved_oof = true});
   ASSERT_TRUE(try_style);
   EXPECT_EQ("10px", ComputedValue("left", *try_style));
   EXPECT_EQ("30px", ComputedValue("right", *try_style));
@@ -3465,9 +3398,9 @@ TEST_P(ParameterizedStyleResolverTest, TrySet_Revert) {
   )CSS");
   ASSERT_TRUE(try_set);
 
-  div->EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
-  const ComputedStyle* try_style =
-      StyleForId("div", StyleRecalcContext{.is_interleaved_oof = true});
+  const ComputedStyle* try_style = StyleForId(
+      "div",
+      StyleRecalcContext{.try_set = try_set, .is_interleaved_oof = true});
   ASSERT_TRUE(try_style);
   EXPECT_EQ("auto", ComputedValue("left", *try_style));
   EXPECT_EQ("30px", ComputedValue("right", *try_style));
@@ -3498,9 +3431,9 @@ TEST_P(ParameterizedStyleResolverTest, TrySet_NonAbsPos) {
   )CSS");
   ASSERT_TRUE(try_set);
 
-  div->EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
-  const ComputedStyle* try_style =
-      StyleForId("div", StyleRecalcContext{.is_interleaved_oof = true});
+  const ComputedStyle* try_style = StyleForId(
+      "div",
+      StyleRecalcContext{.try_set = try_set, .is_interleaved_oof = true});
   ASSERT_TRUE(try_style);
   EXPECT_EQ("10px", ComputedValue("left", *try_style));
   EXPECT_EQ("auto", ComputedValue("right", *try_style));
@@ -3534,9 +3467,9 @@ TEST_P(ParameterizedStyleResolverTest, TrySet_NonAbsPosDynamic) {
   ASSERT_TRUE(try_set);
 
   div->SetInlineStyleProperty(CSSPropertyID::kPosition, "static");
-  div->EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
-  const ComputedStyle* try_style =
-      StyleForId("div", StyleRecalcContext{.is_interleaved_oof = true});
+  const ComputedStyle* try_style = StyleForId(
+      "div",
+      StyleRecalcContext{.try_set = try_set, .is_interleaved_oof = true});
   ASSERT_TRUE(try_style);
   EXPECT_EQ("10px", ComputedValue("left", *try_style));
   EXPECT_EQ("auto", ComputedValue("right", *try_style));
@@ -3566,7 +3499,6 @@ TEST_P(ParameterizedStyleResolverTest, TryTacticsSet_Flip) {
       right: 200px;
   )CSS");
   ASSERT_TRUE(try_set);
-  div->EnsureOutOfFlowData().SetTryPropertyValueSet(try_set);
 
   // Add a try-tactics set which flips left and right.
   auto* try_tactics_set =
@@ -3579,10 +3511,11 @@ TEST_P(ParameterizedStyleResolverTest, TryTacticsSet_Flip) {
       *MakeGarbageCollected<cssvalue::CSSFlipRevertValue>(
           CSSPropertyID::kLeft, TryTacticTransform()));
   ASSERT_TRUE(try_tactics_set);
-  div->EnsureOutOfFlowData().SetTryTacticsPropertyValueSet(try_tactics_set);
 
   const ComputedStyle* try_style =
-      StyleForId("div", StyleRecalcContext{.is_interleaved_oof = true});
+      StyleForId("div", StyleRecalcContext{.try_set = try_set,
+                                           .try_tactics_set = try_tactics_set,
+                                           .is_interleaved_oof = true});
   ASSERT_TRUE(try_style);
   EXPECT_EQ("200px", ComputedValue("left", *try_style));
   EXPECT_EQ("100px", ComputedValue("right", *try_style));

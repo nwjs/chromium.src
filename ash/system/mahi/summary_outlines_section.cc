@@ -42,7 +42,8 @@ constexpr int64_t kSectionHeaderChildSpacing = 4;
 constexpr int64_t kSectionHeaderIconSize = 20;
 constexpr gfx::Insets kSectionPadding = gfx::Insets::TLBR(8, 8, 16, 8);
 constexpr int64_t kSectionChildSpacing = 8;
-constexpr int kTextLabelDefaultMaximumWidth = 300;
+constexpr int kTextLabelDefaultMaximumWidth =
+    mahi_constants::kScrollViewWidth - kSectionPadding.width();
 
 std::unique_ptr<views::View> CreateSectionHeader(const gfx::VectorIcon& icon,
                                                  int name_id) {
@@ -89,8 +90,9 @@ SummaryOutlinesSection::SummaryOutlinesSection(MahiUiController* ui_controller)
           .CopyAddressTo(&summary_label_)
           .SetVisible(false)
           .SetID(mahi_constants::ViewId::kSummaryLabel)
+          .SetSelectable(true)
           .SetMultiLine(true)
-          // TODO(crbug.com/1349528): Multiline label right now doesn't
+          // TODO(crbug.com/40233803): Multiline label right now doesn't
           // work well with `FlexLayout`. The size constraint is not
           // passed down from the views tree in the first round of layout,
           // so we impose a maximum width constraint so that the first
@@ -179,6 +181,7 @@ void SummaryOutlinesSection::HandleOutlinesLoaded(
     outlines_container_->AddChildView(
         views::Builder<views::Label>()
             .SetText(outline.outline_content)
+            .SetSelectable(true)
             .SetMultiLine(true)
             .SetEnabledColorId(cros_tokens::kCrosSysOnSurface)
             .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)

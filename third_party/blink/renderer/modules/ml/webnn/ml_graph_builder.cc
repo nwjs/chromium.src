@@ -37,7 +37,6 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_pool_2d_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_reduce_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_resample_2d_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_ml_softplus_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_split_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_transpose_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_ml_triangular_options.h"
@@ -532,8 +531,7 @@ bool ValidateClampOptions(const MLClampOptions* options,
   // non-finite values.
   if (options->hasMinValue() && options->hasMaxValue()) {
     if (options->minValue() > options->maxValue()) {
-      exception_state.ThrowDOMException(
-          DOMExceptionCode::kDataError,
+      exception_state.ThrowTypeError(
           String::Format("The min value (%f) should be less than or equal to "
                          "the max value (%f).",
                          options->minValue(), options->maxValue()));
@@ -718,9 +716,7 @@ MLOperand* BuildReduce(MLGraphBuilder* builder,
       MojoReduceKindToComponent(kind), ConvertToComponentOperand(input), axes,
       options->keepDimensions());
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
 
@@ -734,8 +730,7 @@ MLOperand* BuildReduce(MLGraphBuilder* builder,
       builder, ComponentOperandTypeToBlink(validated_output->data_type),
       Vector<uint32_t>(validated_output->dimensions), reduce);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   reduce->Connect({input}, {output.value()});
@@ -962,8 +957,7 @@ MLOperand* MLGraphBuilder::conv2d(const MLOperand* input,
 
   auto conv2d_attributes = ConvertToConv2dAttributes(options);
   if (!conv2d_attributes.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      conv2d_attributes.error());
+    exception_state.ThrowTypeError(conv2d_attributes.error());
     return nullptr;
   }
 
@@ -971,9 +965,7 @@ MLOperand* MLGraphBuilder::conv2d(const MLOperand* input,
       ConvertToComponentOperand(input), ConvertToComponentOperand(filter),
       std::move(conv2d_attributes.value()));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        WTF::String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
   // Create conv2d operator and its output operand. Connect the conv2d operator
@@ -985,8 +977,7 @@ MLOperand* MLGraphBuilder::conv2d(const MLOperand* input,
       this, ComponentOperandTypeToBlink(validated_output.value().data_type),
       Vector<uint32_t>(validated_output.value().dimensions), conv2d);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   conv2d->Connect(std::move(inputs), {output.value()});
@@ -1011,8 +1002,7 @@ MLOperand* MLGraphBuilder::convTranspose2d(
 
   auto convTranspose2d_attributes = ConvertToConvTranspose2dAttributes(options);
   if (!convTranspose2d_attributes.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      convTranspose2d_attributes.error());
+    exception_state.ThrowTypeError(convTranspose2d_attributes.error());
     return nullptr;
   }
 
@@ -1020,9 +1010,7 @@ MLOperand* MLGraphBuilder::convTranspose2d(
       ConvertToComponentOperand(input), ConvertToComponentOperand(filter),
       std::move(convTranspose2d_attributes.value()));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        WTF::String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
   // Create convTranspose2d operator and its output operand. Connect the
@@ -1034,8 +1022,7 @@ MLOperand* MLGraphBuilder::convTranspose2d(
       this, ComponentOperandTypeToBlink(validated_output.value().data_type),
       Vector<uint32_t>(validated_output.value().dimensions), convTranspose2d);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   convTranspose2d->Connect(std::move(inputs), {output.value()});
@@ -1076,8 +1063,7 @@ BUILD_ELEMENTWISE_BINARY_OP(lesserOrEqual, kLesserOrEqual)
 
 BUILD_ELEMENTWISE_UNARY_OP(abs,
                            kAbs,
-                           Union(webnn::DataTypeConstraint::kFloat,
-                                 webnn::DataTypeConstraint::kSignedInteger))
+                           webnn::DataTypeConstraint::kFloat16To32Int8To32)
 BUILD_ELEMENTWISE_UNARY_OP(ceil, kCeil, webnn::DataTypeConstraint::kFloat)
 BUILD_ELEMENTWISE_UNARY_OP(cos, kCos, webnn::DataTypeConstraint::kFloat)
 BUILD_ELEMENTWISE_UNARY_OP(exp, kExp, webnn::DataTypeConstraint::kFloat)
@@ -1085,8 +1071,7 @@ BUILD_ELEMENTWISE_UNARY_OP(floor, kFloor, webnn::DataTypeConstraint::kFloat)
 BUILD_ELEMENTWISE_UNARY_OP(log, kLog, webnn::DataTypeConstraint::kFloat)
 BUILD_ELEMENTWISE_UNARY_OP(neg,
                            kNeg,
-                           Union(webnn::DataTypeConstraint::kFloat,
-                                 webnn::DataTypeConstraint::kSignedInteger))
+                           webnn::DataTypeConstraint::kFloat16To32Int8To32)
 BUILD_ELEMENTWISE_UNARY_OP(sin, kSin, webnn::DataTypeConstraint::kFloat)
 BUILD_ELEMENTWISE_UNARY_OP(tan, kTan, webnn::DataTypeConstraint::kFloat)
 BUILD_ELEMENTWISE_UNARY_OP(erf, kErf, webnn::DataTypeConstraint::kFloat)
@@ -1148,8 +1133,7 @@ MLOperand* MLGraphBuilder::elu(const MLOperand* input,
   // The current spec doesn't restrict the value of alpha. An issue has been
   // filed to track it: https://github.com/webmachinelearning/webnn/issues/383
   if (options->alpha() <= 0.0f) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
+    exception_state.ThrowTypeError(
         "The value of alpha must be greater than 0.");
     return nullptr;
   }
@@ -1170,8 +1154,7 @@ MLActivation* MLGraphBuilder::elu(const MLEluOptions* options,
   // The current spec doesn't restrict the value of alpha. An issue has been
   // filed to track it: https://github.com/webmachinelearning/webnn/issues/383
   if (options->alpha() <= 0.0f) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
+    exception_state.ThrowTypeError(
         "The value of alpha must be greater than 0.");
     return nullptr;
   }
@@ -1188,8 +1171,7 @@ MLOperand* MLGraphBuilder::expand(const MLOperand* input,
 
   auto output_shape = BroadcastShapes(input->Dimensions(), new_shape, false);
   if (!output_shape) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
+    exception_state.ThrowTypeError(
         "The input shape is not broadcastable to the new shape.");
     return nullptr;
   }
@@ -1200,8 +1182,7 @@ MLOperand* MLGraphBuilder::expand(const MLOperand* input,
   auto output = MLOperand::ValidateAndCreateOutput(
       this, input->DataType(), output_shape.value(), expand);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   expand->Connect({input}, {output.value()});
@@ -1238,6 +1219,25 @@ MLOperand* MLGraphBuilder::gather(const MLOperand* input,
   return output.value();
 }
 
+MLOperand* MLGraphBuilder::gelu(const MLOperand* input,
+                                ExceptionState& exception_state) {
+  THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInput(input), nullptr);
+
+  // According to WebNN spec
+  // https://www.w3.org/TR/webnn/#api-mlgraphbuilder-gelu, the output tensor of
+  // gelu has the same data type and dimensions as its input. And the input data
+  // type must be one of the floating point types.
+  return BuildUnaryOperator(this, exception_state,
+                            webnn::mojom::blink::Operation::Tag::kGelu,
+                            webnn::DataTypeConstraint::kFloat, input);
+}
+
+MLActivation* MLGraphBuilder::gelu(ExceptionState& exception_state) {
+  // Create the gelu operator that would be used as an activation function.
+  return MakeGarbageCollected<MLActivation>(
+      this, webnn::mojom::blink::Activation::Tag::kGelu);
+}
+
 MLOperand* MLGraphBuilder::gemm(const MLOperand* a,
                                 const MLOperand* b,
                                 const MLGemmOptions* options,
@@ -1252,9 +1252,7 @@ MLOperand* MLGraphBuilder::gemm(const MLOperand* a,
       ConvertToComponentOperand(a), ConvertToComponentOperand(b),
       ConvertToGemmAttributes(options));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        WTF::String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
   auto* gemm = MakeGarbageCollected<MLOperator>(
@@ -1264,8 +1262,7 @@ MLOperand* MLGraphBuilder::gemm(const MLOperand* a,
       this, ComponentOperandTypeToBlink(validated_output.value().data_type),
       Vector<uint32_t>(validated_output.value().dimensions), gemm);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   gemm->Connect(std::move(inputs), {output.value()});
@@ -1440,9 +1437,7 @@ MLOperand* MLGraphBuilder::instanceNormalization(
           ConvertToComponentOperand(input),
           ConvertToInstanceNormalizationAttributes(options));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
 
@@ -1454,8 +1449,7 @@ MLOperand* MLGraphBuilder::instanceNormalization(
       this, ComponentOperandTypeToBlink(validated_output->data_type),
       Vector<uint32_t>(validated_output->dimensions), instance_normalization);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
 
@@ -1488,9 +1482,7 @@ MLOperand* MLGraphBuilder::layerNormalization(
       ConvertToComponentOperand(input), axes,
       ConvertToLayerNormalizationAttributes(options));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
 
@@ -1502,8 +1494,7 @@ MLOperand* MLGraphBuilder::layerNormalization(
       this, ComponentOperandTypeToBlink(validated_output->data_type),
       Vector<uint32_t>(validated_output->dimensions), layer_normalization);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
 
@@ -1716,8 +1707,7 @@ MLOperand* MLGraphBuilder::matmul(const MLOperand* a,
   auto validated_output = webnn::ValidateMatmulAndInferOutput(
       ConvertToComponentOperand(a), ConvertToComponentOperand(b));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
+    exception_state.ThrowTypeError(
         WTF::String::FromUTF8(validated_output.error()));
     return nullptr;
   }
@@ -1729,8 +1719,7 @@ MLOperand* MLGraphBuilder::matmul(const MLOperand* a,
       this, ComponentOperandTypeToBlink(validated_output.value().data_type),
       Vector<uint32_t>(validated_output.value().dimensions), matmul);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   matmul->Connect(std::move(inputs), {output.value()});
@@ -1747,9 +1736,7 @@ MLOperand* MLGraphBuilder::pad(const MLOperand* input,
   auto validated_output = webnn::ValidatePadAndInferOutput(
       ConvertToComponentOperand(input), beginning_padding, ending_padding);
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
 
@@ -1769,8 +1756,7 @@ MLOperand* MLGraphBuilder::pad(const MLOperand* input,
       this, input->DataType(), Vector<uint32_t>(validated_output->dimensions),
       pad);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   pad->Connect({input}, {output.value()});
@@ -1782,6 +1768,13 @@ MLOperand* MLGraphBuilder::averagePool2d(const MLOperand* input,
                                          ExceptionState& exception_state) {
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInput(input), nullptr);
 
+  if (!(input->DataType() == V8MLOperandDataType::Enum::kFloat32 ||
+        input->DataType() == V8MLOperandDataType::Enum::kFloat16)) {
+    exception_state.ThrowTypeError(
+        "The input data type must be a floating point type.");
+    return nullptr;
+  }
+
   return BuildPool2d(this, webnn::mojom::blink::Pool2d::Kind::kAveragePool2d,
                      input, options, exception_state);
 }
@@ -1790,6 +1783,13 @@ MLOperand* MLGraphBuilder::l2Pool2d(const MLOperand* input,
                                     const MLPool2dOptions* options,
                                     ExceptionState& exception_state) {
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInput(input), nullptr);
+
+  if (!(input->DataType() == V8MLOperandDataType::Enum::kFloat32 ||
+        input->DataType() == V8MLOperandDataType::Enum::kFloat16)) {
+    exception_state.ThrowTypeError(
+        "The input data type must be a floating point type.");
+    return nullptr;
+  }
 
   return BuildPool2d(this, webnn::mojom::blink::Pool2d::Kind::kL2Pool2d, input,
                      options, exception_state);
@@ -1813,9 +1813,7 @@ MLOperand* MLGraphBuilder::prelu(const MLOperand* input,
   auto validated_output = webnn::ValidatePreluAndInferOutput(
       ConvertToComponentOperand(input), ConvertToComponentOperand(slope));
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
 
@@ -1826,8 +1824,7 @@ MLOperand* MLGraphBuilder::prelu(const MLOperand* input,
       this, ComponentOperandTypeToBlink(validated_output->data_type),
       Vector<uint32_t>(validated_output->dimensions), prelu);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   prelu->Connect(std::move(inputs), {output.value()});
@@ -1841,9 +1838,9 @@ MLOperand* MLGraphBuilder::relu(const MLOperand* input,
   // According to WebNN spec
   // https://www.w3.org/TR/webnn/#api-mlgraphbuilder-relu, the output tensor of
   // relu has the same data type and dimensions as its input.
-  return BuildUnaryOperator(this, exception_state,
-                            webnn::mojom::blink::Operation::Tag::kRelu,
-                            webnn::DataTypeConstraintSet::All(), input);
+  return BuildUnaryOperator(
+      this, exception_state, webnn::mojom::blink::Operation::Tag::kRelu,
+      webnn::DataTypeConstraint::kFloat16To32Int8To32, input);
 }
 
 MLActivation* MLGraphBuilder::relu(ExceptionState& exception_state) {
@@ -1864,9 +1861,7 @@ MLOperand* MLGraphBuilder::reshape(const MLOperand* input,
   for (wtf_size_t i = 0; i < new_shape.size(); ++i) {
     auto dim = new_shape[i];
     if (dim == 0) {
-      exception_state.ThrowDOMException(
-          DOMExceptionCode::kDataError,
-          "The value of new shape should not be 0.");
+      exception_state.ThrowTypeError("The value of new shape should not be 0.");
       return nullptr;
     }
     checked_newshape_number_of_elements *= dim;
@@ -1875,8 +1870,7 @@ MLOperand* MLGraphBuilder::reshape(const MLOperand* input,
   size_t newshape_number_of_elements;
   if (!checked_newshape_number_of_elements.AssignIfValid(
           &newshape_number_of_elements)) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
+    exception_state.ThrowTypeError(
         "The number of elements implied by new shape is too large.");
     return nullptr;
   }
@@ -1884,12 +1878,10 @@ MLOperand* MLGraphBuilder::reshape(const MLOperand* input,
   // The number of elements implied by new shape must be the same as the
   // number of elements in the input tensor.
   if (input->NumberOfElements() != newshape_number_of_elements) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        String::Format(
-            "The number of elements (%zu) implied by new shape doesn't match "
-            "the number of elements (%zu) in the input tensor.",
-            newshape_number_of_elements, input->NumberOfElements()));
+    exception_state.ThrowTypeError(String::Format(
+        "The number of elements (%zu) implied by new shape doesn't match "
+        "the number of elements (%zu) in the input tensor.",
+        newshape_number_of_elements, input->NumberOfElements()));
     return nullptr;
   }
   auto* reshape = MakeGarbageCollected<MLOperator>(
@@ -1897,8 +1889,7 @@ MLOperand* MLGraphBuilder::reshape(const MLOperand* input,
   auto output = MLOperand::ValidateAndCreateOutput(
       this, input->DataType(), std::move(output_shape), reshape);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   reshape->Connect({input}, {output.value()});
@@ -1978,9 +1969,7 @@ MLOperand* MLGraphBuilder::slice(const MLOperand* input,
   auto validated_output = webnn::ValidateSliceAndInferOutput(
       ConvertToComponentOperand(input), attributes);
   if (!validated_output.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        WTF::String::FromUTF8(validated_output.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_output.error()));
     return nullptr;
   }
 
@@ -1989,8 +1978,7 @@ MLOperand* MLGraphBuilder::slice(const MLOperand* input,
       this, ComponentOperandTypeToBlink(validated_output->data_type),
       Vector<uint32_t>(validated_output->dimensions), slice);
   if (!output.has_value()) {
-    exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                      output.error());
+    exception_state.ThrowTypeError(output.error());
     return nullptr;
   }
   slice->Connect({input}, {output.value()});
@@ -2030,7 +2018,6 @@ MLActivation* MLGraphBuilder::softmax(ExceptionState& exception_state) {
 }
 
 MLOperand* MLGraphBuilder::softplus(const MLOperand* input,
-                                    const MLSoftplusOptions* options,
                                     ExceptionState& exception_state) {
   THROW_AND_RETURN_TYPE_IF_ERROR(ValidateInput(input), nullptr);
 
@@ -2043,14 +2030,13 @@ MLOperand* MLGraphBuilder::softplus(const MLOperand* input,
   // tensor of softplus has the same type and dimensions as its input.
   return BuildUnaryOperator(this, exception_state,
                             webnn::mojom::blink::Operation::Tag::kSoftplus,
-                            webnn::DataTypeConstraint::kFloat, input, options);
+                            webnn::DataTypeConstraint::kFloat, input);
 }
 
-MLActivation* MLGraphBuilder::softplus(const MLSoftplusOptions* options,
-                                       ExceptionState& exception_state) {
+MLActivation* MLGraphBuilder::softplus(ExceptionState& exception_state) {
   // Create the softplus operator that would be used as an activation function.
   return MakeGarbageCollected<MLActivation>(
-      this, webnn::mojom::blink::Activation::Tag::kSoftplus, options);
+      this, webnn::mojom::blink::Activation::Tag::kSoftplus);
 }
 
 MLOperand* MLGraphBuilder::softsign(const MLOperand* input,
@@ -2090,9 +2076,7 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
                                             .axis = options->axis(),
                                         });
   if (!validated_outputs.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        WTF::String::FromUTF8(validated_outputs.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_outputs.error()));
     return {};
   }
 
@@ -2103,8 +2087,7 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
         this, ComponentOperandTypeToBlink(validated_output.data_type),
         Vector<uint32_t>(validated_output.dimensions), split);
     if (!output.has_value()) {
-      exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                        output.error());
+      exception_state.ThrowTypeError(output.error());
       return {};
     }
     outputs.push_back(output.value());
@@ -2130,9 +2113,7 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
                                             .axis = options->axis(),
                                         });
   if (!validated_outputs.has_value()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kDataError,
-        WTF::String::FromUTF8(validated_outputs.error()));
+    exception_state.ThrowTypeError(String::FromUTF8(validated_outputs.error()));
     return {};
   }
 
@@ -2143,8 +2124,7 @@ HeapVector<Member<const MLOperand>> MLGraphBuilder::split(
         this, ComponentOperandTypeToBlink(validated_output.data_type),
         Vector<uint32_t>(validated_output.dimensions), split);
     if (!output.has_value()) {
-      exception_state.ThrowDOMException(DOMExceptionCode::kDataError,
-                                        output.error());
+      exception_state.ThrowTypeError(output.error());
       return {};
     }
     outputs.push_back(output.value());

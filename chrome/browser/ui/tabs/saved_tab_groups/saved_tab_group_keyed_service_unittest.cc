@@ -573,8 +573,8 @@ TEST_F(SavedTabGroupKeyedServiceUnitTest,
   ASSERT_EQ(modified_tab_range.length(),
             retrieved_saved_group->saved_tabs().size());
 
-  // TODO(crbug/1450319): Compare tabs and ensure they are in the same order and
-  // contain the same data.
+  // TODO(crbug.com/40915240): Compare tabs and ensure they are in the same
+  // order and contain the same data.
 }
 
 TEST_F(SavedTabGroupKeyedServiceUnitTest,
@@ -638,8 +638,8 @@ TEST_F(SavedTabGroupKeyedServiceUnitTest,
   ASSERT_EQ(modified_tab_range.length(),
             retrieved_saved_group->saved_tabs().size());
 
-  // TODO(crbug/1450319): Compare tabs and ensure they are in the same order and
-  // contain the same data.
+  // TODO(crbug.com/40915240): Compare tabs and ensure they are in the same
+  // order and contain the same data.
 }
 
 TEST_F(SavedTabGroupKeyedServiceUnitTest, NewTabFromSyncOpensInLocalGroup) {
@@ -930,7 +930,7 @@ TEST_F(SavedTabGroupKeyedServiceUnitTest,
 
   std::unique_ptr<content::WebContents> replacement_web_contents =
       content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
-  browser->tab_strip_model()->ReplaceWebContentsAt(
+  browser->tab_strip_model()->DiscardWebContentsAt(
       0, std::move(replacement_web_contents));
 
   // Expect after moving the first tab to the right of the second, that the

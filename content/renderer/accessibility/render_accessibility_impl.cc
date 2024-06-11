@@ -27,7 +27,6 @@
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "content/public/common/content_features.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/renderer/accessibility/annotations/ax_annotators_manager.h"
 #include "content/renderer/accessibility/ax_action_target_factory.h"
@@ -45,8 +44,6 @@
 #include "third_party/blink/public/web/web_plugin_container.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/public/web/web_view.h"
-#include "ui/accessibility/accessibility_features.h"
-#include "ui/accessibility/accessibility_switches.h"
 #include "ui/accessibility/ax_enum_util.h"
 #include "ui/accessibility/ax_event_intent.h"
 #include "ui/accessibility/ax_mode_histogram_logger.h"
@@ -105,39 +102,22 @@ RenderAccessibilityImpl::RenderAccessibilityImpl(
   content::RenderThread::Get()->BindHostReceiver(
       factory.BindNewPipeAndPassReceiver());
   ukm_recorder_ = ukm::MojoUkmRecorder::Create(*factory);
-  WebView* web_view = render_frame_->GetWebView();
-  WebSettings* settings = web_view->GetSettings();
 
 #if BUILDFLAG(IS_ANDROID)
   // Password values are only passed through on Android.
-  settings->SetAccessibilityPasswordValuesEnabled(true);
-#endif
-
-#if BUILDFLAG(IS_MAC)
+  render_frame_->GetWebView()
+      ->GetSettings()
+      ->SetAccessibilityPasswordValuesEnabled(true);
+#elif BUILDFLAG(IS_MAC)
   // aria-modal currently prunes the accessibility tree on Mac only.
-  settings->SetAriaModalPrunesAXTree(true);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS)
+  render_frame_->GetWebView()->GetSettings()->SetAriaModalPrunesAXTree(true);
+#elif BUILDFLAG(IS_CHROMEOS)
   // Do not ignore SVG grouping (<g>) elements on ChromeOS, which is needed so
   // Select-to-Speak can read SVG text nodes in natural reading order.
-  settings->SetAccessibilityIncludeSvgGElement(true);
+  render_frame_->GetWebView()
+      ->GetSettings()
+      ->SetAccessibilityIncludeSvgGElement(true);
 #endif
-
-  // Optionally disable AXMenuList, which makes the internal pop-up menu
-  // UI for a select element directly accessible. Disable by default on
-  // Chrome OS, but some tests may override.
-  bool disable_ax_menu_list = false;
-#if BUILDFLAG(IS_CHROMEOS)
-  disable_ax_menu_list = true;
-#endif
-  auto* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(::switches::kDisableAXMenuList)) {
-    disable_ax_menu_list = command_line->GetSwitchValueASCII(
-                               ::switches::kDisableAXMenuList) != "false";
-  }
-  if (disable_ax_menu_list)
-    settings->SetUseAXMenuList(false);
 
   ax_annotators_manager_ = std::make_unique<AXAnnotatorsManager>(this);
 }
@@ -333,13 +313,14 @@ void RenderAccessibilityImpl::PerformAction(const ui::AXActionData& data) {
   // TODO: think about how to handle this without holding onto a plugin tree
   // source.
   std::unique_ptr<ui::AXActionTarget> target =
-      AXActionTargetFactory::CreateFromNodeId(
-          document, plugin_action_target_adapter_, data.target_node_id);
+      AXActionTargetFactory::CreateFromNodeIdOrRole(
+          document, plugin_action_target_adapter_, data.target_node_id,
+          data.target_role);
   std::unique_ptr<ui::AXActionTarget> anchor =
-      AXActionTargetFactory::CreateFromNodeId(
+      AXActionTargetFactory::CreateFromNodeIdOrRole(
           document, plugin_action_target_adapter_, data.anchor_node_id);
   std::unique_ptr<ui::AXActionTarget> focus =
-      AXActionTargetFactory::CreateFromNodeId(
+      AXActionTargetFactory::CreateFromNodeIdOrRole(
           document, plugin_action_target_adapter_, data.focus_node_id);
 
   ax_annotators_manager_->PerformAction(data.action);
@@ -431,8 +412,8 @@ void RenderAccessibilityImpl::MarkWebAXObjectDirty(
     ax::mojom::Action event_from_action,
     std::vector<ui::AXEventIntent> event_intents,
     ax::mojom::Event event_type) {
-  DCHECK(obj.AccessibilityIsIncludedInTree())
-      << "Cannot serialize unincluded object: " << obj.ToString(true).Utf8();
+  DCHECK(obj.IsIncludedInTree())
+      << "Cannot serialize unincluded object: " << obj.ToString().Utf8();
 
   obj.AddDirtyObjectToSerializationQueue(event_from, event_from_action,
                                          event_intents);
@@ -500,11 +481,12 @@ bool RenderAccessibilityImpl::SendAccessibilitySerialization(
   // Don't send accessibility events for frames that don't yet have an tree id
   // as doing so will cause the browser to discard that message and all
   // subsequent ones.
-  // TODO(1231184): There are some cases where no content is currently rendered,
-  // due to an iframe returning 204 or window.stop() being called. In these
-  // cases there will never be an AXTreeID as there is no commit, which will
-  // prevent accessibility updates from ever being sent even if the rendering is
-  // fixed. See also other TODOs related to 1231184 in this file.
+  // TODO(crbug.com/40190596): There are some cases where no content is
+  // currently rendered, due to an iframe returning 204 or window.stop() being
+  // called. In these cases there will never be an AXTreeID as there is no
+  // commit, which will prevent accessibility updates from ever being sent even
+  // if the rendering is fixed. See also other TODOs related to 1231184 in this
+  // file.
   DCHECK(render_frame_->GetWebFrame()->GetAXTreeID().token());
 
   WebDocument document = GetMainDocument();

@@ -159,6 +159,14 @@ _CONFIG = [
             'base::sequence_manager::TaskTimeObserver',
             'base::span',
             'base::Span(Reader|Writer)',
+            'base::as_byte_span',
+            'base::as_writable_byte_span',
+            'base::as_bytes',
+            'base::as_writable_bytes',
+            'base::as_chars',
+            'base::as_writable_chars',
+            'base::as_string_view',
+            'base::(byte_)?span_from_ref',
             'logging::GetVlogLevel',
             'logging::SetLogItems',
 
@@ -499,6 +507,7 @@ _CONFIG = [
             "gfx::KeyframedFloatAnimationCurve",
             "gfx::KeyframedTransformAnimationCurve",
             "gfx::LinearEasingPoint",
+            "gfx::TimingFunction",
             "gfx::TransformKeyframe",
             "gfx::TransformOperations",
 
@@ -539,8 +548,6 @@ _CONFIG = [
             # View transitions
             'cc::ViewTransitionContentLayer',
             'cc::ViewTransitionRequest',
-            'viz::NavigationId',
-            'viz::TransitionId',
             'viz::ViewTransitionElementResourceId',
 
             # base/types/strong_alias.h
@@ -1075,6 +1082,7 @@ _CONFIG = [
     {
         'paths': [
             'third_party/blink/public/web/web_frame_widget.h',
+            'third_party/blink/renderer/core/frame/animation_frame_timing_monitor',
             'third_party/blink/renderer/core/frame/local_frame_client_impl.cc',
             'third_party/blink/renderer/core/frame/web_frame_widget',
             'third_party/blink/renderer/core/page/chrome_client.h',
@@ -1091,6 +1099,7 @@ _CONFIG = [
         ],
         'allowed': [
             'base::OnceCallback',
+            'gfx::Rect',
         ],
     },
     {
@@ -1279,6 +1288,7 @@ _CONFIG = [
             'viz::SinglePlaneFormat',
             'viz::ToClosestSkColorType',
             'viz::TransferableResource',
+            'wgpu::.+',
         ],
     },
     {
@@ -1648,10 +1658,6 @@ _CONFIG = [
             "absl::Status",
             "absl::StatusOr",
 
-            # Required by liburlpattern API in order to pass string data
-            # efficiently.
-            "absl::string_view",
-
             # Needed to work with std::string values returned from
             # liburlpattern API.
             "base::IsStringASCII",
@@ -1792,7 +1798,6 @@ _CONFIG = [
 
             # Needed to use the liburlpattern API.
             "absl::StatusOr",
-            "absl::string_view",
             'liburlpattern::.+',
         ],
     },

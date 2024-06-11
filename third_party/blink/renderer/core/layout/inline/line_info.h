@@ -191,7 +191,12 @@ class CORE_EXPORT LineInfo {
   unsigned EndTextOffset() const;
   // End text offset of this line, excluding out-of-flow objects such as
   // floating or positioned.
-  unsigned InflowEndOffset() const;
+  unsigned InflowEndOffset() const {
+    return InflowEndOffsetInternal(/* skip_forced_break */ false);
+  }
+  unsigned InflowEndOffsetWithoutForcedBreak() const {
+    return InflowEndOffsetInternal(/* skip_forced_break */ true);
+  }
   // End text offset for `text-align: justify`. This excludes preserved trailing
   // spaces. Available only when |TextAlign()| is |kJustify|.
   unsigned EndOffsetForJustify() const {
@@ -228,6 +233,11 @@ class CORE_EXPORT LineInfo {
   void SetHaveTextCombineOrRubyItem() {
     may_have_text_combine_or_ruby_item_ = true;
   }
+
+  // True if the line might contain ruby overhang. It affects min-max
+  // computation.
+  bool MayHaveRubyOverhang() const { return may_have_ruby_overhang_; }
+  void SetMayHaveRubyOverhang() { may_have_ruby_overhang_ = true; }
 
   // Returns annotation block start adjustment base on annotation and initial
   // letter.
@@ -271,6 +281,7 @@ class CORE_EXPORT LineInfo {
   // The width of preserved trailing spaces.
   LayoutUnit ComputeTrailingSpaceWidth(
       unsigned* end_offset_out = nullptr) const;
+  unsigned InflowEndOffsetInternal(bool skip_forced_break) const;
 
   Member<const InlineItemsData> items_data_;
   Member<const ComputedStyle> line_style_;
@@ -321,6 +332,8 @@ class CORE_EXPORT LineInfo {
   // Note: To avoid scanning |InlineItemResults|, this variable is true
   // when |InlineItemResult| to |results_|.
   bool may_have_text_combine_or_ruby_item_ = false;
+  // True if the last processed line might contain ruby overhang.
+  bool may_have_ruby_overhang_ = false;
   bool allow_hang_for_alignment_ = false;
 
   // When adding fields, pelase ensure `Reset()` is in sync.

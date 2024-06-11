@@ -21,14 +21,14 @@ import android.view.View;
 import org.hamcrest.Matcher;
 
 import org.chromium.base.test.transit.Elements;
-import org.chromium.base.test.transit.StationFacility;
+import org.chromium.base.test.transit.Facility;
 import org.chromium.base.test.transit.Trip;
 import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.util.ViewActionOnDescendant;
 import org.chromium.chrome.browser.hub.HubToolbarView;
 import org.chromium.chrome.browser.hub.PaneId;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_management.ClosableTabGridView;
+import org.chromium.chrome.browser.tasks.tab_management.TabGridView;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 
@@ -52,7 +52,7 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
                     isDescendantOfA(
                             allOf(
                                     withId(R.id.content_view),
-                                    withParent(instanceOf(ClosableTabGridView.class)))),
+                                    withParent(instanceOf(TabGridView.class)))),
                     isDisplayed());
     public static final Matcher<View> TAB_THUMBNAIL =
             allOf(
@@ -60,7 +60,7 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
                     isDescendantOfA(
                             allOf(
                                     withId(R.id.content_view),
-                                    withParent(instanceOf(ClosableTabGridView.class)))),
+                                    withParent(instanceOf(TabGridView.class)))),
                     isDisplayed());
 
     private final boolean mIsIncognito;
@@ -90,13 +90,9 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
     public HubTabSwitcherAppMenuFacility openAppMenu() {
         recheckActiveConditions();
 
-        HubTabSwitcherAppMenuFacility menu =
-                new HubTabSwitcherAppMenuFacility(this, mChromeTabbedActivityTestRule);
+        HubTabSwitcherAppMenuFacility menu = new HubTabSwitcherAppMenuFacility(this, mIsIncognito);
 
-        // TODO(crbug/1506104): Click the menu button instead of using test shortcuts. Presently
-        // using the menu directly is flaky.
-        // onView(HUB_MENU_BUTTON).perform(click())
-        return StationFacility.enterSync(menu, () -> {});
+        return Facility.enterSync(menu, () -> HUB_MENU_BUTTON.perform(click()));
     }
 
     /**
@@ -110,8 +106,8 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
                 PageStation.newPageStationBuilder()
                         .withActivityTestRule(mChromeTabbedActivityTestRule)
                         .withIncognito(mIsIncognito)
-                        .withIsOpeningTab(false)
-                        .withIsSelectingTab(true)
+                        .withIsOpeningTabs(0)
+                        .withIsSelectingTabs(1)
                         .build();
 
         return Trip.travelSync(
@@ -172,8 +168,8 @@ public abstract class HubTabSwitcherBaseStation extends HubBaseStation {
                 PageStation.newPageStationBuilder()
                         .withActivityTestRule(mChromeTabbedActivityTestRule)
                         .withIncognito(mIsIncognito)
-                        .withIsOpeningTab(true)
-                        .withIsSelectingTab(true)
+                        .withIsOpeningTabs(1)
+                        .withIsSelectingTabs(1)
                         .build();
         return Trip.travelSync(this, page, () -> TOOLBAR_NEW_TAB_BUTTON.perform(click()));
     }

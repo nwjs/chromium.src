@@ -131,8 +131,7 @@ ui::PlatformWindowShadowType GetPlatformWindowShadowType(
 }
 
 ui::PlatformWindowInitProperties ConvertWidgetInitParamsToInitProperties(
-    const Widget::InitParams& params,
-    float device_scale_factor) {
+    const Widget::InitParams& params) {
   ui::PlatformWindowInitProperties properties;
   properties.type = GetPlatformWindowType(params.type);
   properties.accept_events = params.accept_events;
@@ -171,9 +170,6 @@ ui::PlatformWindowInitProperties ConvertWidgetInitParamsToInitProperties(
     }
   }
   properties.inhibit_keyboard_shortcuts = params.inhibit_keyboard_shortcuts;
-
-  properties.frame_insets_px =
-      gfx::ScaleToCeiledInsets(params.frame_insets, device_scale_factor);
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -271,7 +267,7 @@ void DesktopWindowTreeHostPlatform::Init(const Widget::InitParams& params) {
     GetContentWindow()->SetProperty(aura::client::kAnimationsDisabledKey, true);
 
   ui::PlatformWindowInitProperties properties =
-      ConvertWidgetInitParamsToInitProperties(params, device_scale_factor());
+      ConvertWidgetInitParamsToInitProperties(params);
   AddAdditionalInitProperties(params, &properties);
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -511,7 +507,7 @@ void DesktopWindowTreeHostPlatform::StackAtTop() {
 }
 
 bool DesktopWindowTreeHostPlatform::IsStackedAbove(aura::Window* window) {
-  // TODO(https://crbug.com/1363218) Implement Window layer check
+  // TODO(crbug.com/40238598) Implement Window layer check
   NOTREACHED_NORETURN();
 }
 
@@ -591,13 +587,13 @@ gfx::Rect DesktopWindowTreeHostPlatform::GetWorkAreaBoundsInScreen() const {
 
 void DesktopWindowTreeHostPlatform::SetShape(
     std::unique_ptr<Widget::ShapeRects> native_shape) {
-  // TODO(crbug.com/1158733) : When supporting PlatformWindow::SetShape,
+  // TODO(crbug.com/40737127) : When supporting PlatformWindow::SetShape,
   // Calls ui::Layer::SetAlphaShape and sets |is_shape_explicitly_set_| to true.
   platform_window()->SetShape(std::move(native_shape), GetRootTransform());
 }
 
 void DesktopWindowTreeHostPlatform::SetParent(gfx::AcceleratedWidget parent) {
-  // TODO(crbug.com/1490267): hook parent to the accelerated widget.
+  // TODO(crbug.com/40284685): hook parent to the accelerated widget.
   if (window_parent_) {
     window_parent_->window_children_.erase(this);
   }
@@ -790,7 +786,7 @@ void DesktopWindowTreeHostPlatform::SetOpacity(float opacity) {
 void DesktopWindowTreeHostPlatform::SetAspectRatio(
     const gfx::SizeF& aspect_ratio,
     const gfx::Size& excluded_margin) {
-  // TODO(crbug.com/1407629): send `excluded_margin`.
+  // TODO(crbug.com/40887946): send `excluded_margin`.
   if (excluded_margin.width() > 0 || excluded_margin.height() > 0) {
     NOTIMPLEMENTED_LOG_ONCE();
   }
@@ -850,7 +846,7 @@ void DesktopWindowTreeHostPlatform::SetBoundsInDIP(const gfx::Rect& bounds) {
 }
 
 gfx::Transform DesktopWindowTreeHostPlatform::GetRootTransform() const {
-  // TODO(crbug.com/1306688): This can use wrong scale during initialization.
+  // TODO(crbug.com/40218466): This can use wrong scale during initialization.
   // Revisit this as a part of 'use dip' work.
 
   display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
@@ -910,6 +906,11 @@ void DesktopWindowTreeHostPlatform::OnCompositorVisibilityChanged(
   if (!visible) {
     GetContentWindow()->Hide();
   }
+}
+
+gfx::Insets DesktopWindowTreeHostPlatform::CalculateInsetsInDIP(
+    ui::PlatformWindowState window_state) const {
+  return GetWidget()->GetCustomInsetsInDIP();
 }
 
 void DesktopWindowTreeHostPlatform::OnClosed() {
@@ -1034,7 +1035,7 @@ gfx::PointF DesktopWindowTreeHostPlatform::ConvertScreenPointToLocalDIP(
   // lacros should not use this.
   NOTREACHED_NORETURN();
 #else
-  // TODO(crbug.com/1318279): DIP should use gfx::PointF. Fix this as
+  // TODO(crbug.com/40222832): DIP should use gfx::PointF. Fix this as
   // a part of cleanup work(crbug.com/1318279).
   gfx::Point local_dip(screen_in_pixels);
   ConvertScreenInPixelsToDIP(&local_dip);

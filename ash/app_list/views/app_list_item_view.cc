@@ -591,14 +591,14 @@ BEGIN_METADATA(AppListItemView, FolderIconView)
 END_METADATA
 
 AppListItemView::AppListItemView(const AppListConfig* app_list_config,
-                                 GridDelegate* grid_delegate,
+                                 AppListItemViewGridDelegate* grid_delegate,
                                  AppListItem* item,
                                  AppListViewDelegate* view_delegate,
                                  Context context)
-    : views::Button(
-          base::BindRepeating(&GridDelegate::OnAppListItemViewActivated,
-                              base::Unretained(grid_delegate),
-                              base::Unretained(this))),
+    : views::Button(base::BindRepeating(
+          &AppListItemViewGridDelegate::OnAppListItemViewActivated,
+          base::Unretained(grid_delegate),
+          base::Unretained(this))),
       app_list_config_(app_list_config),
       is_folder_(item->GetItemType() == AppListFolderItem::kItemType),
       item_weak_(item),
@@ -1196,6 +1196,13 @@ void AppListItemView::OnDragDone() {
   OnDragEnded();
 }
 
+void AppListItemView::ScrollRectToVisible(const gfx::Rect& rect) {
+  gfx::Rect enlarged_rect = rect;
+  enlarged_rect.Outset(8);
+
+  views::Button::ScrollRectToVisible(enlarged_rect);
+}
+
 void AppListItemView::CancelContextMenu() {
   if (item_menu_model_adapter_) {
     menu_close_initiated_from_drag_ = true;
@@ -1537,7 +1544,8 @@ void AppListItemView::Layout(PassKey) {
   }
 }
 
-gfx::Size AppListItemView::CalculatePreferredSize() const {
+gfx::Size AppListItemView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   return gfx::Size(app_list_config_->grid_tile_width(),
                    app_list_config_->grid_tile_height());
 }

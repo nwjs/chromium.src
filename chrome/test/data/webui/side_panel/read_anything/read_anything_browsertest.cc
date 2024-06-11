@@ -48,6 +48,11 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, VoiceSelectionMenu) {
                    "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, VoiceLanguageUtil) {
+  RunSidePanelTest("side_panel/read_anything/voice_language_util_test.js",
+                   "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ReadAloudFlag) {
   RunSidePanelTest("side_panel/read_anything/read_aloud_flag_test.js",
                    "mocha.run()");
@@ -81,10 +86,20 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LineSpacing) {
                    "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, UpdateContent) {
+  RunSidePanelTest("side_panel/read_anything/update_content_test.js",
+                   "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, AppReceivesToolbarChanges) {
   RunSidePanelTest(
       "side_panel/read_anything/app_receives_toolbar_changes_test.js",
       "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LanguageMenu) {
+  RunSidePanelTest("side_panel/read_anything/language_menu_test.js",
+                   "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LinksToggle) {
@@ -127,6 +142,29 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest,
   RunSidePanelTest(
       "side_panel/read_anything/update_content_selection_with_highlights.js",
       "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, LanguageChanged) {
+  RunSidePanelTest("side_panel/read_anything/language_change_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, Prefs) {
+  RunSidePanelTest("side_panel/read_anything/prefs_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, Speech) {
+  RunSidePanelTest("side_panel/read_anything/speech_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, UpdateVoicePack) {
+  RunSidePanelTest("side_panel/read_anything/update_voice_pack_test.js",
+                   "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingMochaTest, ToolbarOverflow) {
+  RunSidePanelTest("side_panel/read_anything/toolbar_overflow_test.js",
+                   "mocha.run()");
 }
 
 // Integration tests that need the actual Read Aloud flag enabled because they
@@ -177,4 +215,26 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingReadAloudMochaTest,
   RunSidePanelTest(
       "side_panel/read_anything/word_boundaries_used_for_speech.js",
       "mocha.run()");
+}
+
+// Integration tests that need the actual Read Aloud flag enabled and the word
+// highlighting flag because they use the full C++ pipeline
+class ReadAnythingReadAloudWordHighlightingMochaTest
+    : public ReadAnythingMochaBrowserTest {
+ protected:
+  ReadAnythingReadAloudWordHighlightingMochaTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {features::kReadAnythingReadAloud,
+         features::kReadAnythingReadAloudAutomaticWordHighlighting},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingReadAloudWordHighlightingMochaTest,
+                       WordHighlighting) {
+  RunSidePanelTest("side_panel/read_anything/word_highlighting.js",
+                   "mocha.run()");
 }

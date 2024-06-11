@@ -57,17 +57,19 @@ source_set("model") {
     "//components/trusted_vault",
     "//components/variations/service",
     "//components/version_info",
-    "//components/webauthn/core/browser",
+    "//components/webauthn/core/browser:passkey_model",
     "//google_apis",
     "//ios/chrome/browser/bookmarks/model",
     "//ios/chrome/browser/complex_tasks/model",
     "//ios/chrome/browser/consent_auditor/model",
+    "//ios/chrome/browser/data_sharing/model",
     "//ios/chrome/browser/dom_distiller/model",
     "//ios/chrome/browser/favicon/model",
     "//ios/chrome/browser/gcm/model",
     "//ios/chrome/browser/gcm/model/instance_id",
     "//ios/chrome/browser/history/model",
     "//ios/chrome/browser/invalidation/model",
+    "//ios/chrome/browser/metrics/model:accessor",
     "//ios/chrome/browser/metrics/model:google_groups_updater",
     "//ios/chrome/browser/passwords/model:sharing_factory",
     "//ios/chrome/browser/passwords/model:store_factory",
@@ -123,15 +125,18 @@ source_set("sync_error_browser_agent") {
     "sync_error_browser_agent.mm",
   ]
   deps = [
+    "//ios/chrome/browser/infobars/model",
     "//ios/chrome/browser/settings/model/sync/utils",
     "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/ui/authentication",
     "//ios/chrome/browser/ui/authentication:signin_presenter",
     "//ui/base",
   ]
+  public_deps = [ "//ios/web/public" ]
   frameworks = [ "UIKit.framework" ]
 }
 
@@ -152,10 +157,12 @@ source_set("test_support") {
     "//ios/chrome/browser/shared/model/browser_state",
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/common",
-    "//ios/web",
     "//ui/base",
   ]
-  public_deps = [ "//testing/gmock" ]
+  public_deps = [
+    "//ios/web/public",
+    "//testing/gmock",
+  ]
 }
 
 source_set("unit_tests") {

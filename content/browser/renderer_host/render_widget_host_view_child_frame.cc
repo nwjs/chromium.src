@@ -412,7 +412,7 @@ void RenderWidgetHostViewChildFrame::Destroy() {
   // have already been cleared when RenderWidgetHostViewBase notified its
   // observers of our impending destruction.
   if (frame_connector_) {
-    frame_connector_->SetView(nullptr);
+    frame_connector_->SetView(nullptr, /*allow_paint_holding=*/false);
     SetFrameConnector(nullptr);
   }
 
@@ -473,7 +473,7 @@ void RenderWidgetHostViewChildFrame::ClearKeyboardTriggeredTooltip() {
   root_view->ClearKeyboardTriggeredTooltip();
 }
 
-RenderWidgetHostViewBase* RenderWidgetHostViewChildFrame::GetParentView() {
+RenderWidgetHostViewBase* RenderWidgetHostViewChildFrame::GetParentViewInput() {
   if (!frame_connector_)
     return nullptr;
   return frame_connector_->GetParentRenderWidgetHostView();
@@ -499,7 +499,7 @@ void RenderWidgetHostViewChildFrame::UpdateViewportIntersection(
     // Do not send |visual_properties| to main frames.
     DCHECK(!visual_properties.has_value() || !host()->owner_delegate());
 
-    // TODO(crbug.com/1148960): Also propagate this for portals.
+    // TODO(crbug.com/40731581): Also propagate this for portals.
     bool is_fenced_frame = host()->frame_tree()->is_fenced_frame();
     if (!host()->owner_delegate() || is_fenced_frame) {
       host()->GetAssociatedFrameWidget()->SetViewportIntersection(
@@ -758,8 +758,9 @@ bool RenderWidgetHostViewChildFrame::ScreenRectIsUnstableFor(
       screen_rect_stable_since_) {
     return true;
   }
-  if (RenderWidgetHostViewBase* parent = GetParentView())
+  if (RenderWidgetHostViewBase* parent = GetParentViewInput()) {
     return parent->ScreenRectIsUnstableFor(event);
+  }
   return false;
 }
 
@@ -775,7 +776,7 @@ bool RenderWidgetHostViewChildFrame::ScreenRectIsUnstableForIOv2For(
       screen_rect_stable_since_for_iov2_) {
     return true;
   }
-  if (RenderWidgetHostViewBase* parent = GetParentView()) {
+  if (RenderWidgetHostViewBase* parent = GetParentViewInput()) {
     return parent->ScreenRectIsUnstableForIOv2For(event);
   }
   return false;
@@ -827,7 +828,7 @@ gfx::PointF RenderWidgetHostViewChildFrame::TransformPointToRootCoordSpaceF(
 
 bool RenderWidgetHostViewChildFrame::TransformPointToCoordSpaceForView(
     const gfx::PointF& point,
-    RenderWidgetHostViewBase* target_view,
+    RenderWidgetHostViewInput* target_view,
     gfx::PointF* transformed_point) {
   viz::SurfaceId surface_id = GetCurrentSurfaceId();
   if (!frame_connector_)
@@ -1106,7 +1107,7 @@ bool RenderWidgetHostViewChildFrame::CanBecomeVisible() {
   if (frame_connector_->IsHidden())
     return false;
 
-  RenderWidgetHostViewBase* parent_view = GetParentView();
+  RenderWidgetHostViewBase* parent_view = GetParentViewInput();
   if (!parent_view || !parent_view->IsRenderWidgetHostViewChildFrame()) {
     // Root frame does not have a CSS visibility property.
     return true;

@@ -22,11 +22,17 @@
 namespace autofill {
 
 class AutofillErrorDialogControllerImpl;
-class ContentAutofillClient;
-class CardUnmaskOtpInputDialogControllerImpl;
-class OtpUnmaskDelegate;
+class AutofillSaveCardBottomSheetBridge;
+class CardUnmaskAuthenticationSelectionDialogControllerImpl;
 struct CardUnmaskChallengeOption;
+class CardUnmaskOtpInputDialogControllerImpl;
+class CreditCardCvcAuthenticator;
+class CreditCardOtpAuthenticator;
+class ContentAutofillClient;
+class CreditCardRiskBasedAuthenticator;
+class OtpUnmaskDelegate;
 enum class OtpUnmaskResult;
+class VirtualCardEnrollmentManager;
 
 namespace payments {
 
@@ -50,7 +56,10 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       base::OnceCallback<void(const std::string&)> callback) override;
 
   // PaymentsAutofillClient:
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+  AutofillSaveCardBottomSheetBridge*
+  GetOrCreateAutofillSaveCardBottomSheetBridge() override;
+#else   // !BUILDFLAG(IS_ANDROID)
   void ShowLocalCardMigrationDialog(
       base::OnceClosure show_migration_dialog_closure) override;
   void ConfirmMigrateLocalCardToCloud(
@@ -64,10 +73,17 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       const std::vector<MigratableCreditCard>& migratable_credit_cards,
       MigrationDeleteCardCallback delete_local_card_callback) override;
   void VirtualCardEnrollCompleted(bool is_vcn_enrolled) override;
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_ANDROID)
   void CreditCardUploadCompleted(bool card_saved) override;
   bool IsSaveCardPromptVisible() const override;
   void HideSaveCardPromptPrompt() override;
+  void ConfirmSaveIbanLocally(const Iban& iban,
+                              bool should_show_prompt,
+                              SaveIbanPromptCallback callback) override;
+  void ConfirmUploadIbanToCloud(const Iban& iban,
+                                LegalMessageLines legal_message_lines,
+                                bool should_show_prompt,
+                                SaveIbanPromptCallback callback) override;
   void ShowAutofillProgressDialog(
       AutofillProgressDialogType autofill_progress_dialog_type,
       base::OnceClosure cancel_callback) override;
@@ -85,8 +101,18 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
       const CreditCard& card,
       const CardUnmaskPromptOptions& card_unmask_prompt_options,
       base::WeakPtr<CardUnmaskDelegate> delegate) override;
+  void ShowUnmaskAuthenticatorSelectionDialog(
+      const std::vector<CardUnmaskChallengeOption>& challenge_options,
+      base::OnceCallback<void(const std::string&)>
+          confirm_unmask_challenge_option_callback,
+      base::OnceClosure cancel_unmasking_closure) override;
+  void DismissUnmaskAuthenticatorSelectionDialog(bool server_success) override;
   void OnUnmaskVerificationResult(
       AutofillClient::PaymentsRpcResult result) override;
+  VirtualCardEnrollmentManager* GetVirtualCardEnrollmentManager() override;
+  CreditCardCvcAuthenticator& GetCvcAuthenticator() override;
+  CreditCardOtpAuthenticator* GetOtpAuthenticator() override;
+  CreditCardRiskBasedAuthenticator* GetRiskBasedAuthenticator() override;
 
   AutofillProgressDialogControllerImpl*
   AutofillProgressDialogControllerForTesting() {
@@ -102,7 +128,17 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
     unmask_controller_ = std::move(test_controller);
   }
 
+#if BUILDFLAG(IS_ANDROID)
+  void SetAutofillSaveCardBottomSheetBridgeForTesting(
+      std::unique_ptr<AutofillSaveCardBottomSheetBridge>
+          autofill_save_card_bottom_sheet_bridge);
+#endif
+
  private:
+#if BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<AutofillSaveCardBottomSheetBridge>
+      autofill_save_card_bottom_sheet_bridge_;
+#endif
   const raw_ref<ContentAutofillClient> client_;
 
   std::unique_ptr<PaymentsNetworkInterface> payments_network_interface_;
@@ -119,6 +155,23 @@ class ChromePaymentsAutofillClient : public PaymentsAutofillClient,
   std::unique_ptr<PaymentsWindowManager> payments_window_manager_;
 
   std::unique_ptr<CardUnmaskPromptControllerImpl> unmask_controller_;
+
+  // `virtual_card_enrollment_manager_` must be destroyed before
+  // `payments_network_interface_` because the former keeps a reference to the
+  // latter.
+  // TODO(crbug.com/41489024): Remove the reference to
+  // `payments_network_interface_` in `virtual_card_enrollment_manager_`.
+  std::unique_ptr<VirtualCardEnrollmentManager>
+      virtual_card_enrollment_manager_;
+
+  std::unique_ptr<CreditCardCvcAuthenticator> cvc_authenticator_;
+
+  std::unique_ptr<CreditCardOtpAuthenticator> otp_authenticator_;
+
+  std::unique_ptr<CreditCardRiskBasedAuthenticator> risk_based_authenticator_;
+
+  std::unique_ptr<CardUnmaskAuthenticationSelectionDialogControllerImpl>
+      card_unmask_authentication_selection_controller_;
 };
 
 }  // namespace payments

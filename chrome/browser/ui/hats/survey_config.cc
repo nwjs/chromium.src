@@ -13,6 +13,7 @@
 #include "components/permissions/permission_hats_trigger_helper.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/download/download_warning_desktop_hats_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "components/password_manager/core/browser/features/password_features.h"  // nogncheck
 #include "components/performance_manager/public/features.h"         // nogncheck
@@ -27,8 +28,22 @@
 constexpr char kHatsSurveyTriggerAutofillAddress[] = "autofill-address";
 constexpr char kHatsSurveyTriggerAutofillAddressUserPerception[] =
     "autofill-address-users-perception";
+constexpr char kHatsSurveyTriggerAutofillCreditCardUserPerception[] =
+    "autofill-credit-card-users-perception";
 constexpr char kHatsSurveyTriggerAutofillCard[] = "autofill-card";
 constexpr char kHatsSurveyTriggerAutofillPassword[] = "autofill-password";
+constexpr char kHatsSurveyTriggerDownloadWarningBubbleBypass[] =
+    "download-warning-bubble-bypass";
+constexpr char kHatsSurveyTriggerDownloadWarningBubbleHeed[] =
+    "download-warning-bubble-heed";
+constexpr char kHatsSurveyTriggerDownloadWarningBubbleIgnore[] =
+    "download-warning-bubble-ignore";
+constexpr char kHatsSurveyTriggerDownloadWarningPageBypass[] =
+    "download-warning-page-bypass";
+constexpr char kHatsSurveyTriggerDownloadWarningPageHeed[] =
+    "download-warning-page-heed";
+constexpr char kHatsSurveyTriggerDownloadWarningPageIgnore[] =
+    "download-warning-page-ignore";
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 constexpr char kHatsSurveyTriggerGetMostChrome[] = "get-most-chrome";
 #endif
@@ -375,6 +390,19 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
           "Total filled", "Total unfilled", "Total manually filled",
           "Total number of fields"});
 
+  survey_configs.emplace_back(
+      &::autofill::features::kAutofillCreditCardUserPerceptionSurvey,
+      kHatsSurveyTriggerAutofillCreditCardUserPerception, std::nullopt,
+      std::vector<std::string>{},
+      std::vector<std::string>{
+          "Accepted fields", "Corrected to same type",
+          "Corrected to a different type", "Corrected to an unknown type",
+          "Corrected to empty", "Manually filled to same type",
+          "Manually filled to a different type",
+          "Manually filled to an unknown type", "Total corrected",
+          "Total filled", "Total unfilled", "Total manually filled",
+          "Total number of fields"});
+
   survey_configs.emplace_back(&features::kAutofillAddressSurvey,
                               kHatsSurveyTriggerAutofillAddress);
   survey_configs.emplace_back(&features::kAutofillCardSurvey,
@@ -431,6 +459,56 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       password_manager::features::kPasswordGenerationExperimentSurveyTriggerId
           .Get(),
       std::vector<std::string>{"Suggested password accepted"});
+
+  // Desktop download warning surveys.
+  survey_configs.emplace_back(
+      &safe_browsing::kDownloadWarningSurvey,
+      kHatsSurveyTriggerDownloadWarningBubbleBypass,
+      /*presupplied_trigger_id=*/std::nullopt,
+      DownloadWarningHatsProductSpecificData::GetBitsDataFields(
+          DownloadWarningHatsType::kDownloadBubbleBypass),
+      DownloadWarningHatsProductSpecificData::GetStringDataFields(
+          DownloadWarningHatsType::kDownloadBubbleBypass));
+  survey_configs.emplace_back(
+      &safe_browsing::kDownloadWarningSurvey,
+      kHatsSurveyTriggerDownloadWarningBubbleHeed,
+      /*presupplied_trigger_id=*/std::nullopt,
+      DownloadWarningHatsProductSpecificData::GetBitsDataFields(
+          DownloadWarningHatsType::kDownloadBubbleHeed),
+      DownloadWarningHatsProductSpecificData::GetStringDataFields(
+          DownloadWarningHatsType::kDownloadBubbleHeed));
+  survey_configs.emplace_back(
+      &safe_browsing::kDownloadWarningSurvey,
+      kHatsSurveyTriggerDownloadWarningBubbleIgnore,
+      /*presupplied_trigger_id=*/std::nullopt,
+      DownloadWarningHatsProductSpecificData::GetBitsDataFields(
+          DownloadWarningHatsType::kDownloadBubbleIgnore),
+      DownloadWarningHatsProductSpecificData::GetStringDataFields(
+          DownloadWarningHatsType::kDownloadBubbleIgnore));
+  survey_configs.emplace_back(
+      &safe_browsing::kDownloadWarningSurvey,
+      kHatsSurveyTriggerDownloadWarningPageBypass,
+      /*presupplied_trigger_id=*/std::nullopt,
+      DownloadWarningHatsProductSpecificData::GetBitsDataFields(
+          DownloadWarningHatsType::kDownloadsPageBypass),
+      DownloadWarningHatsProductSpecificData::GetStringDataFields(
+          DownloadWarningHatsType::kDownloadsPageBypass));
+  survey_configs.emplace_back(
+      &safe_browsing::kDownloadWarningSurvey,
+      kHatsSurveyTriggerDownloadWarningPageHeed,
+      /*presupplied_trigger_id=*/std::nullopt,
+      DownloadWarningHatsProductSpecificData::GetBitsDataFields(
+          DownloadWarningHatsType::kDownloadsPageHeed),
+      DownloadWarningHatsProductSpecificData::GetStringDataFields(
+          DownloadWarningHatsType::kDownloadsPageHeed));
+  survey_configs.emplace_back(
+      &safe_browsing::kDownloadWarningSurvey,
+      kHatsSurveyTriggerDownloadWarningPageIgnore,
+      /*presupplied_trigger_id=*/std::nullopt,
+      DownloadWarningHatsProductSpecificData::GetBitsDataFields(
+          DownloadWarningHatsType::kDownloadsPageIgnore),
+      DownloadWarningHatsProductSpecificData::GetStringDataFields(
+          DownloadWarningHatsType::kDownloadsPageIgnore));
 
 #else
   survey_configs.emplace_back(&chrome::android::kChromeSurveyNextAndroid,

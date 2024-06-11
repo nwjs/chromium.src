@@ -12,6 +12,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -24,7 +25,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/safety_checks.h"
 #include "base/observer_list.h"
-#include "base/strings/string_piece.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -298,8 +298,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   using PassKey = base::NonCopyablePassKey<View>;
   using Views = std::vector<raw_ptr<View, VectorExperimental>>;
 
-  // TODO(crbug.com/1289902): The |event| parameter is being removed. Do not add
-  // new callers.
+  // TODO(crbug.com/40212171): The |event| parameter is being removed. Do not
+  // add new callers.
   using DropCallback = base::OnceCallback<void(
       const ui::DropTargetEvent& event,
       ui::mojom::DragOperation& output_drag_op,
@@ -818,6 +818,14 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // do not change.
   void InvalidateLayout();
 
+  // Sets whether or not the layout manager need to respect the available space.
+  //
+  // TODO(crbug.com/40232718): All layout management needs to respect the
+  // available space. But there are some problems with `FlexLayout`. After we
+  // fix the problem with FlexLayout. Remove this.
+  void SetLayoutManagerUseConstrainedSpace(
+      bool layout_manager_use_constrained_space);
+
   // TODO(kylixrd): Update comment once UseDefaultFillLayout is true by default.
   // UseDefaultFillLayout will be set to true by default once the codebase is
   // audited and refactored.
@@ -1250,7 +1258,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   void OnScrollEvent(ui::ScrollEvent* event) override;
   void OnTouchEvent(ui::TouchEvent* event) final;
   void OnGestureEvent(ui::GestureEvent* event) override;
-  base::StringPiece GetLogContext() const override;
+  std::string_view GetLogContext() const override;
 
   // Accelerators --------------------------------------------------------------
 
@@ -1393,9 +1401,7 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   ContextMenuController* context_menu_controller() {
     return context_menu_controller_;
   }
-  void set_context_menu_controller(ContextMenuController* menu_controller) {
-    context_menu_controller_ = menu_controller;
-  }
+  void set_context_menu_controller(ContextMenuController* menu_controller);
 
   // Provides default implementation for context menu handling. The default
   // implementation calls the ShowContextMenu of the current
@@ -1547,16 +1553,24 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   void SetAccessibleRole(const ax::mojom::Role role,
                          const std::u16string& role_description);
 
+  // DEPRECATED: Use ViewAccessibility::SetDescription instead.
+  //
   // Sets/gets the accessible description string.
   void SetAccessibleDescription(const std::u16string& description);
-  const std::u16string& GetAccessibleDescription() const;
 
+  // DEPRECATED: Use ViewAccessibility::GetCachedDescription instead.
+  std::u16string GetAccessibleDescription() const;
+
+  // DEPRECATED: Use ViewAccessibility::SetDescription instead.
+  //
   // Sets the accessible description to the specified string and source type.
   // To remove the description and prevent alternatives (such as tooltip text)
   // from being used, set the type to `kAttributeExplicitlyEmpty`
   void SetAccessibleDescription(const std::u16string& description,
                                 ax::mojom::DescriptionFrom description_from);
 
+  // DEPRECATED: Use ViewAccessibility::SetDescription instead.
+  //
   // Sets the accessible description of this view to the accessible name of
   // `describing_view`. Often `describing_view` is a `views::Label`, but any
   // view with an accessible name will work.
@@ -1572,6 +1586,8 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Returns an instance of the native accessibility interface for this view.
   virtual gfx::NativeViewAccessible GetNativeViewAccessible();
 
+  // DEPRECATED: Use `ViewAccessibility::NotifyEvent` instead.
+  //
   // Notifies assistive technology that an accessibility event has
   // occurred on this view, such as when the view is focused or when its
   // value changes. Pass true for |send_native_event| except for rare
@@ -1675,12 +1691,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
                                     ax::mojom::NameFrom& name_from) {}
 
   // Size and disposition ------------------------------------------------------
-
-  // Calculates the natural size for the View, to be taken into consideration
-  // when the parent is performing layout.
-  // `preferred_size_` will take precedence over CalculatePreferredSize() if
-  // it exists.
-  virtual gfx::Size CalculatePreferredSize() const;
 
   // Calculates the preferred size for the View given `available_size`.
   // `preferred_size_` will take precedence over CalculatePreferredSize() if
@@ -2317,6 +2327,20 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // Whether the view needs to be laid out.
   bool needs_layout_ = true;
 
+  // Whether Layout() access is currently legal. This is used to prevent calls
+  // to LayoutSuperclass() outside the implementation of Layout().
+  bool layout_allowed_ = false;
+
+  // Whether this view is in the middle of InvalidateLayout().
+  bool invalidating_ = false;
+
+  // Whether the layout manager requires constrained space.
+  //
+  // TODO(crbug.com/40232718): All layout management needs to respect the
+  // available space. But there are some problems with `FlexLayout`. After we
+  // fix the problem with FlexLayout. Remove this.
+  bool layout_manager_use_constrained_space_ = false;
+
   // Used to generate an UMA metric for the maximum reentrant call depth seen
   // during layout. Normally the metric value will be one (Layout() was not
   // reentered). But, we know Layout() is reentered at least sometimes and
@@ -2328,10 +2352,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // max_layout_call_depth_, above).
   int current_layout_call_depth_ = 0;
 
-  // Whether Layout() access is currently legal. This is used to prevent calls
-  // to LayoutSuperclass() outside the implementation of Layout().
-  bool layout_allowed_ = false;
-
   // How many times this view has done layout since the last time it was
   // painted. This is used to compute metrics around unnecessary layout calls.
   int layouts_since_last_paint_ = 0;
@@ -2340,9 +2360,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // This should never be necessary, but we don't yet know how often
   // it is happening.
   int invalidates_during_layout_ = 0;
-
-  // Whether this view is in the middle of InvalidateLayout().
-  bool invalidating_ = false;
 
   // The View's LayoutManager defines the sizing heuristics applied to child
   // Views. The default is absolute positioning according to bounds_.
@@ -2474,6 +2491,9 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // `GetAccessibleNodeData`.
   std::unique_ptr<ui::AXNodeData> ax_node_data_;
 
+  // TODO(accessibility): Remove this attribute once we migrate the
+  // SetAccessibilityProperties function to ViewAccessibility.
+  //
   // Used by `SetAccessibilityProperties` and to prevent accessibility
   // property-change events from being fired during initialization of this view.
   bool pause_accessibility_events_ = false;
@@ -2487,7 +2507,6 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // property setters, and used to populate the `AXNodeData` associated with
   // this view and provided by `View::GetAccessibleNodeData`.
   std::u16string accessible_name_;
-  std::u16string accessible_description_;
   ax::mojom::Role accessible_role_ = ax::mojom::Role::kUnknown;
 
   // Observers -----------------------------------------------------------------

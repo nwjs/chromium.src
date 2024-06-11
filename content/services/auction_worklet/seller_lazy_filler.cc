@@ -10,6 +10,7 @@
 
 #include "base/strings/strcat.h"
 #include "content/services/auction_worklet/auction_v8_helper.h"
+#include "content/services/auction_worklet/auction_worklet_util.h"
 #include "gin/converter.h"
 #include "gin/dictionary.h"
 #include "third_party/blink/public/common/interest_group/ad_display_size_utils.h"
@@ -134,12 +135,6 @@ bool SetDictMember(v8::Isolate* isolate,
   return !result.IsNothing() && result.FromJust();
 }
 
-bool CanSetRequestedAdSize(
-    const std::optional<blink::AdSize>& requested_ad_size) {
-  return requested_ad_size.has_value() &&
-         blink::IsValidAdSize(requested_ad_size.value());
-}
-
 // Creates an AdSize object with a "width" and a "height" from a blink::AdSize.
 // Returns false on failure.
 bool CreateAdSizeObject(v8::Isolate* isolate,
@@ -186,7 +181,7 @@ bool SellerBrowserSignalsLazyFiller::FillInObject(
     const GURL& browser_signal_render_url,
     v8::Local<v8::Object> object) {
   browser_signal_render_url_ = &browser_signal_render_url;
-  // TODO(crbug.com/1441988): Remove deprecated `renderUrl` alias.
+  // TODO(crbug.com/40266734): Remove deprecated `renderUrl` alias.
   if (!DefineLazyAttribute(object, "renderUrl", &HandleDeprecatedRenderUrl)) {
     return false;
   }
@@ -279,8 +274,7 @@ bool AuctionConfigLazyFiller::FillInObject(
     return false;
   }
 
-  if (CanSetRequestedAdSize(
-          auction_ad_config_non_shared_params_->requested_size) &&
+  if (auction_ad_config_non_shared_params_->requested_size &&
       !DefineLazyAttribute(object, "requestedSize", &HandleRequestedSize)) {
     return false;
   }
@@ -537,7 +531,7 @@ void AuctionConfigLazyFiller::HandleRequestedSize(
   // The second is possible if an old object is kept around and has a field,
   // while the new config doesn't.
   if (!self->auction_ad_config_non_shared_params_ ||
-      !CanSetRequestedAdSize(
+      !CanSetAdSize(
           self->auction_ad_config_non_shared_params_->requested_size)) {
     return;
   }

@@ -25,7 +25,7 @@ class AppSessionRestoreTest : public InProcessBrowserTest {
 #if !BUILDFLAG(GOOGLE_CHROME_BRANDING)
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/{},
-        /*disabled_features=*/{// TODO(crbug.com/1394910): Use HTTPS URLs in
+        /*disabled_features=*/{// TODO(crbug.com/40248833): Use HTTPS URLs in
                                // tests to avoid having to
                                // disable this feature.
                                features::kHttpsUpgrades});
@@ -42,8 +42,8 @@ class AppSessionRestoreTest : public InProcessBrowserTest {
   }
 
   webapps::AppId InstallPWA(Profile* profile, const GURL& start_url) {
-    auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    web_app_info->start_url = start_url;
+    auto web_app_info =
+        web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
     web_app_info->scope = start_url.GetWithoutFilename();
     web_app_info->user_display_mode =
         web_app::mojom::UserDisplayMode::kStandalone;

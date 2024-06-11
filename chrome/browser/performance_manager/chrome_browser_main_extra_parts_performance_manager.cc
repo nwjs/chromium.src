@@ -279,7 +279,7 @@ void ChromeBrowserMainExtraPartsPerformanceManager::PostCreateThreads() {
           g_browser_process->local_state()));
 
   if (base::FeatureList::IsEnabled(
-          performance_manager::features::kPerformanceCPUIntervention)) {
+          performance_manager::features::kPerformanceIntervention)) {
     performance_detection_manager_ = base::WrapUnique(
         new performance_manager::user_tuning::PerformanceDetectionManager());
   }
@@ -302,7 +302,7 @@ void ChromeBrowserMainExtraPartsPerformanceManager::PostCreateThreads() {
     // The ChromeOS `BatteryLevelProvider` and `SamplingEventSource`
     // implementations are in `components` for dependency reasons, so they need
     // to be created here and passed in explicitly to `BatteryStateSampler`.
-    // TODO(crbug.com/1373560): All of the battery level machinery should be in
+    // TODO(crbug.com/40871810): All of the battery level machinery should be in
     // the same location, and the ifdefs should be contained to the
     // `BatteryLevelProvider` and SamplingEventSource` instantiation functions.
 #if BUILDFLAG(IS_CHROMEOS_ASH)

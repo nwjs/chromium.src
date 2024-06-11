@@ -211,7 +211,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
     return;
   }
 
-  BOOL isBottomOmnibox = IsBottomOmniboxSteadyStateEnabled() &&
+  BOOL isBottomOmnibox = IsBottomOmniboxAvailable() &&
                          _prefService->GetBoolean(prefs::kBottomOmnibox);
   BubbleArrowDirection arrowDirection =
       isBottomOmnibox ? BubbleArrowDirectionDown : BubbleArrowDirectionUp;
@@ -488,7 +488,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
   __weak id<TabStripCommands> weakTabStripCommandsHandler =
       _tabStripCommandsHandler;
 
-  // TODO(crbug.com/1439920): refactor to use CustomHighlightableButton API.
+  // TODO(crbug.com/40265763): refactor to use CustomHighlightableButton API.
   ProceduralBlock presentAction = ^{
     [weakTabStripCommandsHandler setNewTabButtonOnTabStripIPHHighlighted:YES];
     [weakToolbarCommandsHandler setNewTabButtonIPHHighlighted:YES];
@@ -558,7 +558,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
 
   __weak id<ToolbarCommands> weakToolbarCommandsHandler =
       _toolbarCommandsHandler;
-  // TODO(crbug.com/1439920): refactor to use CustomHighlightableButton API.
+  // TODO(crbug.com/40265763): refactor to use CustomHighlightableButton API.
   auto presentAction = ^() {
     [weakToolbarCommandsHandler setTabGridButtonIPHHighlighted:YES];
   };
@@ -588,7 +588,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
 
 - (void)presentPullToRefreshGestureInProductHelp {
   if (UIAccessibilityIsVoiceOverRunning() || (![self canPresentBubble])) {
-    // TODO(crbug.com/1521489): Add voice over announcement once fixed.
+    // TODO(crbug.com/41494458): Add voice over announcement once fixed.
     return;
   }
   const base::Feature& pullToRefreshFeature =
@@ -633,6 +633,9 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
       currentWebState->GetNavigationManager();
   BOOL back = navigationManager->CanGoBack();
   BOOL forward = navigationManager->CanGoForward();
+  if (!back && !forward) {
+    return;
+  }
   int textId = IDS_IOS_BACK_FORWARD_SWIPE_IPH_BACK_ONLY;
   if (forward) {
     textId = back ? IDS_IOS_BACK_FORWARD_SWIPE_IPH
@@ -714,6 +717,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
       topConstraintForBottomEdgeSwipe;
   toolbarSwipeGestureIPH.topConstraintForTopEdgeSwipe =
       topConstraintForTopEdgeSwipe;
+  toolbarSwipeGestureIPH.delegate = self;
   [self.rootViewController.view addSubview:toolbarSwipeGestureIPH];
   AddSameConstraints(toolbarSwipeGestureIPH, guide);
 
@@ -849,7 +853,7 @@ BOOL CanGestureInProductHelpViewFitInGuide(GestureInProductHelpView* view,
 }
 
 // Returns whether the tab can present a bubble tip.
-// TODO(crbug.com/1448656): make most callsites pass NO for
+// TODO(crbug.com/40914423): make most callsites pass NO for
 // `CheckTabScrolledToTop` as it's error-prone.
 - (BOOL)canPresentBubble {
   return [self canPresentBubbleWithCheckTabScrolledToTop:YES];

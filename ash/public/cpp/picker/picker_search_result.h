@@ -18,6 +18,10 @@
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
+namespace chromeos::editor_menu {
+enum class PresetQueryCategory;
+}
+
 namespace ash {
 
 // Represents a search result, which might be text or other types of media.
@@ -25,9 +29,27 @@ namespace ash {
 class ASH_PUBLIC_EXPORT PickerSearchResult {
  public:
   struct TextData {
+    enum class Source {
+      kUnknown,  // This should only be used for tests.
+      kDate,
+      kMath,
+      kCaseTransform,
+      kOmnibox,
+    };
+
     std::u16string primary_text;
     std::u16string secondary_text;
     ui::ImageModel icon;
+    Source source;
+
+    TextData(std::u16string primary_text,
+             std::u16string secondary_text,
+             ui::ImageModel icon,
+             Source source);
+
+    TextData(const TextData&);
+    TextData& operator=(const TextData&);
+    ~TextData();
 
     bool operator==(const TextData&) const;
   };
@@ -131,8 +153,9 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   };
 
   struct DriveFileData {
-    GURL url;
     std::u16string title;
+    GURL url;
+    ui::ImageModel icon;
 
     bool operator==(const DriveFileData&) const;
   };
@@ -141,6 +164,28 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
     PickerCategory category;
 
     bool operator==(const CategoryData&) const;
+  };
+
+  struct EditorData {
+    enum class Mode { kWrite, kRewrite };
+
+    Mode mode;
+    std::u16string display_name;
+    std::optional<chromeos::editor_menu::PresetQueryCategory> category;
+    std::optional<std::string> preset_query_id;
+    std::optional<std::string> freeform_text;
+
+    EditorData(
+        Mode mode,
+        std::u16string display_name,
+        std::optional<chromeos::editor_menu::PresetQueryCategory> category,
+        std::optional<std::string> preset_query_id,
+        std::optional<std::string> freeform_text);
+    EditorData(const EditorData&);
+    EditorData& operator=(const EditorData&);
+    ~EditorData();
+
+    bool operator==(const EditorData&) const;
   };
 
   using Data = std::variant<TextData,
@@ -153,7 +198,8 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
                             BrowsingHistoryData,
                             LocalFileData,
                             DriveFileData,
-                            CategoryData>;
+                            CategoryData,
+                            EditorData>;
 
   PickerSearchResult(const PickerSearchResult&);
   PickerSearchResult& operator=(const PickerSearchResult&);
@@ -164,10 +210,14 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
   static PickerSearchResult BrowsingHistory(const GURL& url,
                                             std::u16string title,
                                             ui::ImageModel icon);
-  static PickerSearchResult Text(std::u16string_view text);
-  static PickerSearchResult Text(std::u16string_view primary_text,
-                                 std::u16string_view secondary_text,
-                                 ui::ImageModel icon);
+  static PickerSearchResult Text(
+      std::u16string_view text,
+      TextData::Source source = TextData::Source::kUnknown);
+  static PickerSearchResult Text(
+      std::u16string_view primary_text,
+      std::u16string_view secondary_text,
+      ui::ImageModel icon,
+      TextData::Source source = TextData::Source::kUnknown);
   static PickerSearchResult SearchRequest(std::u16string_view text,
                                           ui::ImageModel icon);
   static PickerSearchResult Emoji(std::u16string_view emoji);
@@ -186,8 +236,16 @@ class ASH_PUBLIC_EXPORT PickerSearchResult {
                                 std::u16string content_description);
   static PickerSearchResult LocalFile(std::u16string title,
                                       base::FilePath file_path);
-  static PickerSearchResult DriveFile(std::u16string title, const GURL& url);
+  static PickerSearchResult DriveFile(std::u16string title,
+                                      const GURL& url,
+                                      ui::ImageModel icon);
   static PickerSearchResult Category(PickerCategory category);
+  static PickerSearchResult Editor(
+      EditorData::Mode mode,
+      std::u16string display_name,
+      std::optional<chromeos::editor_menu::PresetQueryCategory> category,
+      std::optional<std::string> preset_query_id,
+      std::optional<std::string> freeform_text);
 
   const Data& data() const;
 

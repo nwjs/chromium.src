@@ -624,9 +624,9 @@ public class PersonalDataManager implements Destroyable {
     }
 
     /**
-     * TODO(crbug.com/616102): Reduce the number of Java to Native calls when getting profiles.
+     * TODO(crbug.com/41256488): Reduce the number of Java to Native calls when getting profiles.
      *
-     * Gets the profiles to show in the settings page. Returns all the profiles without any
+     * <p>Gets the profiles to show in the settings page. Returns all the profiles without any
      * processing.
      *
      * @return The list of profiles to show in the settings.
@@ -641,7 +641,7 @@ public class PersonalDataManager implements Destroyable {
     }
 
     /**
-     * TODO(crbug.com/616102): Reduce the number of Java to Native calls when getting profiles
+     * TODO(crbug.com/41256488): Reduce the number of Java to Native calls when getting profiles
      *
      * <p>Gets the profiles to suggest when filling a form or completing a transaction. The profiles
      * will have been processed to be more relevant to the user.
@@ -662,7 +662,7 @@ public class PersonalDataManager implements Destroyable {
     }
 
     /**
-     * TODO(crbug.com/616102): Reduce the number of Java to Native calls when getting profiles.
+     * TODO(crbug.com/41256488): Reduce the number of Java to Native calls when getting profiles.
      *
      * <p>Gets the profiles to suggest when associating a billing address to a credit card. The
      * profiles will have been processed to be more relevant to the user.
@@ -1159,6 +1159,16 @@ public class PersonalDataManager implements Destroyable {
         var oldValue = this.mImageFetcher;
         this.mImageFetcher = new AutofillImageFetcher(imageFetcher);
         ResettersForTesting.register(() -> this.mImageFetcher = oldValue);
+    }
+
+    /** Sets the preference value for supporting payments using Pix. */
+    public void setFacilitatedPaymentsPixPref(boolean value) {
+        mPrefService.setBoolean(Pref.FACILITATED_PAYMENTS_PIX, value);
+    }
+
+    /** Returns the preference value for supporting payments using Pix. */
+    public boolean getFacilitatedPaymentsPixPref() {
+        return mPrefService.getBoolean(Pref.FACILITATED_PAYMENTS_PIX);
     }
 
     @NativeMethods

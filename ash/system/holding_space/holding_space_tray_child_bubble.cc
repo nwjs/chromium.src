@@ -41,7 +41,7 @@ constexpr base::TimeDelta kAnimationDuration = base::Milliseconds(167);
 // because callbacks that bind to a WeakPtr receiver cannot return a non-void
 // type.
 //
-// TODO(crbug.com/1506856): It would be nice if CallbackLayerAnimationObserver
+// TODO(crbug.com/40947532): It would be nice if CallbackLayerAnimationObserver
 // took a OnceCallback and used that as an implicit signal to self-delete the
 // observer on completion. Until then, this needs to use a RepeatingCallback,
 // even though the callback only runs once.
@@ -198,12 +198,12 @@ void HoldingSpaceTrayChildBubble::Init() {
   // Child bubbles should mask child layers to bounds so as not to paint over
   // other child bubbles in the event of overflow.
   layer()->SetMasksToBounds(true);
-
+  const float corner_radius = GetBubbleCornerRadius();
   if (!features::IsHoldingSpaceRefreshEnabled()) {
     layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
     layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
     layer()->SetIsFastRoundedCorner(true);
-    layer()->SetRoundedCornerRadius(gfx::RoundedCornersF{kBubbleCornerRadius});
+    layer()->SetRoundedCornerRadius(gfx::RoundedCornersF{corner_radius});
   }
 
   // Placeholder.
@@ -229,7 +229,7 @@ void HoldingSpaceTrayChildBubble::Init() {
           ? static_cast<ui::ColorId>(cros_tokens::kCrosSysSystemBaseElevated)
           : kColorAshShieldAndBase80));
   SetBorder(std::make_unique<views::HighlightBorder>(
-      kBubbleCornerRadius,
+      corner_radius,
       chromeos::features::IsJellyrollEnabled()
           ? views::HighlightBorder::Type::kHighlightBorderOnShadow
           : views::HighlightBorder::Type::kHighlightBorder1));

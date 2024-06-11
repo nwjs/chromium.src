@@ -357,9 +357,45 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
                 AsView<views::View>(el)->GetBoundsInScreen().CenterPoint());
             event_generator.ClickRightButton();
           }),
-      WaitForShow(SavedTabGroupUtils::kDeleteGroupMenuItem),
+      WaitForShow(SavedTabGroupUtils::kMoveGroupToNewWindowMenuItem),
       WaitForShow(SavedTabGroupUtils::kToggleGroupPinStateMenuItem),
-      WaitForShow(SavedTabGroupUtils::kMoveGroupToNewWindowMenuItem));
+      WaitForShow(SavedTabGroupUtils::kDeleteGroupMenuItem),
+      WaitForShow(SavedTabGroupUtils::kTabsTitleItem));
+}
+
+// TODO(crbug.com/333956456): Resolve before enabling.
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+#define MAYBE_ContextMenuShowForAppMenuSubmenu \
+  DISABLED_ContextMenuShowForAppMenuSubmenu
+#else
+#define MAYBE_ContextMenuShowForAppMenuSubmenu ContextMenuShowForAppMenuSubmenu
+#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
+                       MAYBE_ContextMenuShowForAppMenuSubmenu) {
+  if (!IsV2UIEnabled()) {
+    GTEST_SKIP() << "N/A for V1";
+  }
+
+  ASSERT_TRUE(
+      AddTabAtIndex(0, GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_TYPED));
+  ASSERT_EQ(2, browser()->tab_strip_model()->count());
+
+  const tab_groups::TabGroupId local_group_id =
+      browser()->tab_strip_model()->AddToNewGroup({0});
+
+  RunTestSequence(
+      FinishTabstripAnimations(), ShowBookmarksBar(),
+      SaveGroupAndCloseEditorBubble(local_group_id),
+      WaitForHide(kTabGroupEditorBubbleId),
+      PressButton(kToolbarAppMenuButtonElementId),
+      WaitForShow(AppMenuModel::kTabGroupsMenuItem),
+      SelectMenuItem(AppMenuModel::kTabGroupsMenuItem),
+      WaitForShow(STGEverythingMenu::kTabGroup),
+      MoveMouseTo(STGEverythingMenu::kTabGroup), ClickMouse(ui_controls::RIGHT),
+      WaitForShow(SavedTabGroupUtils::kMoveGroupToNewWindowMenuItem),
+      EnsureNotPresent(SavedTabGroupUtils::kToggleGroupPinStateMenuItem),
+      WaitForShow(SavedTabGroupUtils::kDeleteGroupMenuItem),
+      WaitForShow(SavedTabGroupUtils::kTabsTitleItem));
 }
 
 // TODO(crbug.com/40934084): Deflake this test before enabling
@@ -638,6 +674,90 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
 }
 
 IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
+                       CreateNewTabGroupFromAppMenuSubmenu) {
+  if (!IsV2UIEnabled()) {
+    GTEST_SKIP() << "N/A for V1";
+  }
+  const bool is_v2_ui_enabled = IsV2UIEnabled();
+
+  RunTestSequence(
+      FinishTabstripAnimations(), ShowBookmarksBar(),
+      CheckEverythingButtonVisibility(is_v2_ui_enabled),
+      CheckResult([&]() { return browser()->tab_strip_model()->count(); }, 1),
+      EnsureNotPresent(kTabGroupEditorBubbleId),
+      PressButton(kToolbarAppMenuButtonElementId),
+      WaitForShow(AppMenuModel::kTabGroupsMenuItem),
+      SelectMenuItem(AppMenuModel::kTabGroupsMenuItem),
+      WaitForShow(STGEverythingMenu::kCreateNewTabGroup),
+      SelectMenuItem(STGEverythingMenu::kCreateNewTabGroup),
+      FinishTabstripAnimations(), FlushEvents(),
+      WaitForShow(kTabGroupEditorBubbleId),
+      CheckResult([&]() { return browser()->tab_strip_model()->count(); }, 2),
+      // This menu item opens a new tab and the editor bubble.
+      CheckResult(
+          [&]() { return browser()->tab_strip_model()->active_index(); }, 1),
+      CheckResult(
+          [&]() {
+            return browser()
+                ->tab_strip_model()
+                ->GetActiveWebContents()
+                ->GetVisibleURL()
+                .host_piece();
+          },
+          chrome::kChromeUINewTabHost));
+}
+
+IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
+                       OpenSavedGroupFromAppMenuSubmenu) {
+  if (!IsV2UIEnabled()) {
+    GTEST_SKIP() << "N/A for V1";
+  }
+
+  ASSERT_TRUE(
+      AddTabAtIndex(0, GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_TYPED));
+  ASSERT_TRUE(
+      AddTabAtIndex(0, GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_TYPED));
+  ASSERT_EQ(3, browser()->tab_strip_model()->count());
+
+  // Add 2 tabs to the group.
+  const tab_groups::TabGroupId local_group_id =
+      browser()->tab_strip_model()->AddToNewGroup({0, 1});
+  const SavedTabGroupKeyedService* const service =
+      SavedTabGroupServiceFactory::GetForProfile(browser()->profile());
+
+  base::Uuid saved_guid;
+
+  RunTestSequence(
+      FinishTabstripAnimations(), ShowBookmarksBar(),
+      // Save the group and ensure it is linked in the model.
+      SaveGroupLeaveEditorBubbleOpen(local_group_id),
+      // The group we just saved should be the only group in the model.
+      CheckResult([&]() { return service->model()->Count(); }, 1),
+      // Find the saved guid that is linked to the group we just saved.
+      Do([&]() {
+        const SavedTabGroup& saved_group =
+            service->model()->saved_tab_groups()[0];
+        ASSERT_TRUE(saved_group.local_group_id().has_value());
+        saved_guid = saved_group.saved_guid();
+      }),
+      // Make sure the editor bubble is still open and flush events before we
+      // close it.
+      EnsurePresent(kTabGroupEditorBubbleId), FlushEvents(),
+      // Close the tab group and expect the saved group is no longer linked.
+      PressButton(kTabGroupEditorBubbleCloseGroupButtonId),
+      FinishTabstripAnimations(), CheckIfSavedGroupIsClosed(&saved_guid),
+      WaitForHide(kTabGroupHeaderElementId),
+      // Open the saved tab group from the submenu of "Tab groups" item in app
+      // menu.
+      PressButton(kToolbarAppMenuButtonElementId),
+      WaitForShow(AppMenuModel::kTabGroupsMenuItem),
+      SelectMenuItem(AppMenuModel::kTabGroupsMenuItem),
+      WaitForShow(STGEverythingMenu::kTabGroup),
+      SelectMenuItem(STGEverythingMenu::kTabGroup), FinishTabstripAnimations(),
+      WaitForShow(kTabGroupHeaderElementId));
+}
+
+IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
                        EverythingButtonAlwaysShowsForV2) {
   const tab_groups::TabGroupId group_id =
       browser()->tab_strip_model()->AddToNewGroup({0});
@@ -775,18 +895,18 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
   EXPECT_EQ(1, model->GetIndexOf(group_id_1).value());
 }
 
+// TODO(crbug.com/41494455): Deflake this test before enabling
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_OverflowMenuUpdatesWhileOpen DISABLED_OverflowMenuUpdatesWhileOpen
+#else
+#define MAYBE_OverflowMenuUpdatesWhileOpen OverflowMenuUpdatesWhileOpen
+#endif  // BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
-                       OverflowMenuUpdatesWhileOpen) {
+                       MAYBE_OverflowMenuUpdatesWhileOpen) {
   if (IsV2UIEnabled()) {
     GTEST_SKIP() << "N/A for V2";
   }
-#if BUILDFLAG(IS_MAC)
-  // TODO (crbug/1521486): Test fails on MacOS when ChromeRefresh2023 flags are
-  //                       enabled.
-  if (features::IsChromeRefresh2023()) {
-    GTEST_SKIP();
-  }
-#endif
+
   // Add 5 additional tabs to the browser.
   ASSERT_TRUE(
       AddTabAtIndex(0, GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_TYPED));
@@ -840,7 +960,7 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
       FlushEvents(),
       CheckView(kSavedTabGroupOverflowMenuId,
                 [&menu_widget_height](views::View* el) {
-                  menu_widget_height = el->GetWidget()->GetSize().height();
+                  menu_widget_height = el->bounds().height();
                   return true;
                 }),
 
@@ -854,7 +974,7 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
       CheckView(kSavedTabGroupOverflowMenuId,
                 [&menu_widget_height](views::View* el) {
                   const int old_height = menu_widget_height;
-                  menu_widget_height = el->GetWidget()->GetSize().height();
+                  menu_widget_height = el->bounds().height();
                   return menu_widget_height > old_height;
                 }),
 
@@ -868,10 +988,9 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
       CheckView(kSavedTabGroupOverflowMenuId,
                 [&menu_widget_height](views::View* el) {
                   const int old_height = menu_widget_height;
-                  menu_widget_height = el->GetWidget()->GetSize().height();
+                  menu_widget_height = el->bounds().height();
                   return menu_widget_height < old_height;
                 }),
-
       // Hide the overflow menu.
       FlushEvents(),
       SendAccelerator(

@@ -287,6 +287,11 @@ message OmniboxEventProto {
     // by the SiteSearchSettings Enterprise policy and marked as "featured" by
     // an administrator.
     FEATURED_SEARCH = 25;
+    // Compares the embeddings of the page contents of past visits with
+    // the embeddings of the input.
+    HISTORY_EMBEDDINGS = 26;
+    // Caches and suggests recent calculator answers from the search provider.
+    CALCULATOR = 27;
   }
 
   // The result set displayed on the completion popup
@@ -376,6 +381,14 @@ message OmniboxEventProto {
                           // the starter pack keyword mode chip to attach to.
       TAB_SWITCH = 34;    // A tab-switch action (distinct from OPEN_TAB).
       PEDAL = 35;         // A pedal action.
+      HISTORY_EMBEDDINGS = 36;  // A past page whose contents have similar
+                                // embeddings to the query.
+      FEATURED_ENTERPRISE_SEARCH = 37;  // Search engine set by the organization
+                                        // via the SiteSearchSettings policy and
+                                        // marked as featured.
+      NULL_RESULT_MESSAGE = 38;         // Informational messages that cannot be
+                                        // navigated to. IPH suggestions which
+                                        // use this type are deletable.
     }
     optional ResultType result_type = 2;
 
@@ -423,7 +436,7 @@ message OmniboxEventProto {
     // (excluding Navsuggest and Document URLs) and only when there is a click
     // on a URL suggestion.
     // Only recorded on desktop platforms (Windows, Mac, Linux, ChromeOS).
-    // Next tag: 25
+    // Next tag: 26
     message ScoringSignals {
       // Number of times the URL was navigated to using the Omnibox for this
       // profile on this device, and all other devices syncing with this
@@ -530,6 +543,15 @@ message OmniboxEventProto {
       // "host[w].com". ref:
       // https://source.chromium.org/chromium/chromium/src/+/main:components/omnibox/browser/scored_history_match.cc;l=187?q=inline%20autocomplete
       optional bool allowed_to_be_default_match = 24;
+      // Server-generated relevance score provided by the remote Suggest service
+      // for this suggestion.
+      // This signal contains the raw score received from the Suggest service
+      // ("google:suggestrelevance") and does not reflect any client-side
+      // adjustments (unlike the value of the `relevance` field above).
+      // As such, this signal will only be set for server-provided Search
+      // suggestions and will remain unset for all other types of suggestions
+      // (including server-provided URL suggestions).
+      optional int32 search_suggest_relevance = 25;
     }
     optional ScoringSignals scoring_signals = 10;
   }

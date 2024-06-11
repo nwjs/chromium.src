@@ -97,7 +97,7 @@ void AuthSessionAuthenticator::CompleteLoginImpl(
     bool has_knowledge_factor = !context->GetKey()->GetSecret().empty();
     bool challenge_response_auth = !context->GetChallengeResponseKeys().empty();
     if (!has_knowledge_factor && !challenge_response_auth) {
-      // TODO(crbug.com/1325411): Restore non-empty password check.
+      // TODO(crbug.com/40225479): Restore non-empty password check.
       LOGIN_LOG(ERROR) << "Empty password used in AuthenticateToLogin";
     }
   }
@@ -330,6 +330,15 @@ void AuthSessionAuthenticator::DoCompleteLogin(
         steps.push_back(base::BindOnce(
             &AuthSessionAuthenticator::RecordFirstAuthFactorAdded,
             weak_factory_.GetWeakPtr()));
+      } else if (ephemeral) {
+        // Short-terms fix for b/344603210:
+        // Ephemeral users don't have active authsession in onboarding
+        // flow, so we need to set up their password here, if they have one.
+        if (has_password) {
+          steps.push_back(
+              base::BindOnce(&AuthFactorEditor::AddContextKnowledgeKey,
+                             auth_factor_editor_->AsWeakPtr()));
+        }
       } else {
         // If Local passwords are enabled, password setup would
         // happen later in OOBE flow.
@@ -406,7 +415,7 @@ void AuthSessionAuthenticator::AuthenticateToLogin(
   // For now we don't support empty passwords:
   if (context->GetKey()->GetKeyType() == Key::KEY_TYPE_PASSWORD_PLAIN) {
     if (context->GetKey()->GetSecret().empty() && !challenge_response_auth) {
-      // TODO(crbug.com/1325411): Restore non-empty password check.
+      // TODO(crbug.com/40225479): Restore non-empty password check.
       LOGIN_LOG(ERROR) << "Empty password used in AuthenticateToLogin";
     }
   }
@@ -432,7 +441,7 @@ void AuthSessionAuthenticator::AuthenticateToUnlock(
   if (user_context->GetKey()->GetKeyType() == Key::KEY_TYPE_PASSWORD_PLAIN) {
     if (user_context->GetKey()->GetSecret().empty() &&
         !challenge_response_auth) {
-      // TODO(crbug.com/1325411): Restore non-empty password check.
+      // TODO(crbug.com/40225479): Restore non-empty password check.
       LOGIN_LOG(ERROR) << "Empty password used in AuthenticateToLogin";
     }
   }

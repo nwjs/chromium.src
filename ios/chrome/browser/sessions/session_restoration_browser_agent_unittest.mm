@@ -312,7 +312,7 @@ TEST_F(SessionRestorationBrowserAgentTest, RestoreSessionOnEmptyWebStateList) {
       "Tabs.DroppedDuplicatesCountOnSessionRestore", 0, 1);
 }
 
-// TODO(crbug.com/888674): This test requires commiting item to
+// TODO(crbug.com/41416872): This test requires commiting item to
 // NavigationManagerImpl which is not possible, migrate this to EG test so
 // it can be tested.
 TEST_F(SessionRestorationBrowserAgentTest, DISABLED_RestoreSessionOnNTPTest) {
@@ -384,7 +384,7 @@ TEST_F(SessionRestorationBrowserAgentTest, SaveAndRestoreEmptySession) {
 
 // Tests that saving a session with web states, then clearing the WebStatelist
 // and then restoring the session will restore the web states correctly.
-// TODO(crbug.com/1433670): The tests are flaky.
+// TODO(crbug.com/40264505): The tests are flaky.
 TEST_F(SessionRestorationBrowserAgentTest, DISABLED_SaveAndRestoreSession) {
   CreateSessionRestorationBrowserAgent();
 

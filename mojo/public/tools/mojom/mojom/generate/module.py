@@ -136,7 +136,7 @@ class Kind:
             == (rhs.spec, rhs.parent_kind, rhs.is_nullable))
 
   def __hash__(self):
-    # TODO(crbug.com/1060471): Remove this and other __hash__ methods on Kind
+    # TODO(crbug.com/40122051): Remove this and other __hash__ methods on Kind
     # and its subclasses. This is to support existing generator code which uses
     # some primitive Kinds as dict keys. The default hash (object identity)
     # breaks these dicts when a pickled Module instance is unpickled and used
@@ -389,6 +389,7 @@ PRIMITIVES = (
 
 ATTRIBUTE_MIN_VERSION = 'MinVersion'
 ATTRIBUTE_DEFAULT = 'Default'
+ATTRIBUTE_DISPATCH_DEBUG_ALIAS = 'DispatchDebugAlias'
 ATTRIBUTE_ESTIMATE_SIZE = 'EstimateSize'
 ATTRIBUTE_EXTENSIBLE = 'Extensible'
 ATTRIBUTE_NO_INTERRUPT = 'NoInterrupt'
@@ -1186,6 +1187,11 @@ class Interface(ReferenceKind):
                        'Expected standard RFC 4122 string representation of '
                        'a UUID.'.format(self.mojom_name))
     return (int(u.hex[:16], 16), int(u.hex[16:], 16))
+
+  @property
+  def dispatch_debug_alias(self):
+    return self.attributes.get(ATTRIBUTE_DISPATCH_DEBUG_ALIAS) \
+           if self.attributes else None
 
   def __hash__(self):
     return id(self)

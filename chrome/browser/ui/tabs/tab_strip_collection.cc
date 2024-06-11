@@ -72,7 +72,7 @@ bool TabStripCollection::ContainsCollection(TabCollection* collection) const {
 }
 
 std::optional<size_t> TabStripCollection::GetIndexOfTabRecursive(
-    TabModel* tab_model) const {
+    const TabModel* tab_model) const {
   // Check if the tab is present in the pinned collection first and return the
   // index if it is present.
   std::optional<size_t> pinned_index =
@@ -129,6 +129,22 @@ size_t TabStripCollection::ChildCount() const {
 size_t TabStripCollection::TabCountRecursive() const {
   return pinned_collection_->TabCountRecursive() +
          unpinned_collection_->TabCountRecursive();
+}
+
+TabGroupTabCollection* TabStripCollection::CreateNewGroupCollectionForTab(
+    const TabModel* tab_model,
+    const tab_groups::TabGroupId& new_group) {
+  if (tab_model->GetParentCollection(GetPassKey()) == pinned_collection_) {
+    return unpinned_collection_->AddTabGroup(
+        std::make_unique<TabGroupTabCollection>(new_group), 0);
+  } else {
+    return unpinned_collection_->AddTabGroup(
+        std::make_unique<TabGroupTabCollection>(new_group),
+        unpinned_collection_
+                ->GetDirectChildIndexOfCollectionContainingTab(tab_model)
+                .value() +
+            1);
+  }
 }
 
 }  // namespace tabs

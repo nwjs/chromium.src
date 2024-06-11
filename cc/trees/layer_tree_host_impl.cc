@@ -309,12 +309,20 @@ void LayerTreeHostImpl::DidUpdatePinchZoom() {
 
 void LayerTreeHostImpl::DidStartScroll() {
   scroll_affects_scroll_handler_ = active_tree()->have_scroll_event_handlers();
+  if (!settings().single_thread_proxy_scheduler) {
+    client_->SetHasActiveThreadedScroll(true);
+  }
   client_->RenewTreePriority();
 }
 
 void LayerTreeHostImpl::DidEndScroll() {
   scroll_affects_scroll_handler_ = false;
   current_scroll_did_checkerboard_large_area_ = false;
+
+  if (!settings().single_thread_proxy_scheduler) {
+    client_->SetHasActiveThreadedScroll(false);
+    client_->SetWaitingForScrollEvent(false);
+  }
 
 #if BUILDFLAG(IS_ANDROID)
   if (render_frame_metadata_observer_) {
@@ -1510,7 +1518,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // trigger this DCHECK.
   DCHECK(!have_copy_request || draw_result == DrawResult::kSuccess);
 
-  // TODO(crbug.com/564832): This workaround to prevent creating unnecessarily
+  // TODO(crbug.com/40447355): This workaround to prevent creating unnecessarily
   // persistent render passes. When a copy request is made, it may force a
   // separate render pass for the layer, which will persist until a new commit
   // removes it. Force a commit after copy requests, to remove extra render
@@ -2394,6 +2402,16 @@ viz::CompositorFrameMetadata LayerTreeHostImpl::MakeCompositorFrameMetadata() {
   }
 
   metadata.capture_bounds = CollectRegionCaptureBounds();
+
+  if (!screenshot_destination_.is_empty()) {
+    metadata.screenshot_destination =
+        blink::SameDocNavigationScreenshotDestinationToken(
+            screenshot_destination_);
+    screenshot_destination_ = base::UnguessableToken();
+  }
+
+  metadata.is_software = !layer_tree_frame_sink_->context_provider();
+
   return metadata;
 }
 
@@ -2700,30 +2718,30 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
 
   viz::CompositorFrameMetadata metadata = MakeCompositorFrameMetadata();
 
-  ViewTransitionRequest::SharedElementMap shared_element_render_pass_id_map;
+  ViewTransitionRequest::ViewTransitionElementMap view_transition_element_map;
   for (RenderSurfaceImpl* render_surface : *frame->render_surface_list) {
-    const auto& shared_element_id =
-        render_surface->GetViewTransitionElementId();
-    if (!shared_element_id.valid())
+    const auto& view_transition_element_resource_id =
+        render_surface->OwningEffectNode()->view_transition_element_resource_id;
+    if (!view_transition_element_resource_id.IsValid()) {
       continue;
+    }
 
-    DCHECK(
-        !base::Contains(shared_element_render_pass_id_map, shared_element_id))
-        << "Cannot map " << shared_element_id.ToString() << " to render pass "
+    DCHECK(!base::Contains(view_transition_element_map,
+                           view_transition_element_resource_id))
+        << "Cannot map " << view_transition_element_resource_id.ToString()
+        << " to render pass "
         << render_surface->render_pass_id().GetUnsafeValue()
         << "; It already maps to render pass "
-        << shared_element_render_pass_id_map[shared_element_id]
-               .render_pass_id.GetUnsafeValue();
+        << view_transition_element_map[view_transition_element_resource_id]
+               .GetUnsafeValue();
 
-    shared_element_render_pass_id_map[shared_element_id].render_pass_id =
+    view_transition_element_map[view_transition_element_resource_id] =
         render_surface->render_pass_id();
-    shared_element_render_pass_id_map[shared_element_id].resource_id =
-        render_surface->OwningEffectNode()->view_transition_element_resource_id;
   }
 
   for (auto& request : active_tree_->TakeViewTransitionRequests()) {
     metadata.transition_directives.push_back(
-        request->ConstructDirective(shared_element_render_pass_id_map));
+        request->ConstructDirective(view_transition_element_map));
   }
 
   PopulateMetadataContentColorUsage(frame, &metadata);
@@ -2997,6 +3015,11 @@ void LayerTreeHostImpl::
 }
 
 bool LayerTreeHostImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
+  if (!settings().single_thread_proxy_scheduler) {
+    client_->SetWaitingForScrollEvent(input_delegate_ &&
+                                      input_delegate_->IsCurrentlyScrolling() &&
+                                      !input_delegate_->HasQueuedInput());
+  }
   impl_thread_phase_ = ImplThreadPhase::INSIDE_IMPL_FRAME;
   current_begin_frame_tracker_.Start(args);
   frame_trackers_.NotifyBeginImplFrame(args);
@@ -3067,6 +3090,9 @@ void LayerTreeHostImpl::DidFinishImplFrame(const viz::BeginFrameArgs& args) {
   frame_trackers_.NotifyFrameEnd(current_begin_frame_tracker_.Current(), args);
   impl_thread_phase_ = ImplThreadPhase::IDLE;
   current_begin_frame_tracker_.Finish();
+  if (input_delegate_) {
+    input_delegate_->DidFinishImplFrame();
+  }
 }
 
 void LayerTreeHostImpl::DidNotProduceFrame(const viz::BeginFrameAck& ack,
@@ -3434,6 +3460,17 @@ void LayerTreeHostImpl::ActivateSyncTree() {
   if (!active_tree_->picture_layers().empty())
     DidModifyTilePriorities();
 
+  auto screenshot_token = active_tree()->TakeScreenshotDestinationToken();
+  if (child_local_surface_id_allocator_.GetCurrentLocalSurfaceId().is_valid()) {
+    // Since the screenshot will be issued against the previous `viz::Surface`
+    // we need to make sure the renderer has at least embedded a valid surface
+    // previously.
+    screenshot_destination_ = std::move(screenshot_token);
+  } else if (!screenshot_token.is_empty()) {
+    LOG(ERROR)
+        << "Cannot issue a copy because the previous surface is invalid.";
+  }
+
   // Update the child's LocalSurfaceId.
   if (active_tree()->local_surface_id_from_parent().is_valid()) {
     child_local_surface_id_allocator_.UpdateFromParent(
@@ -3491,7 +3528,7 @@ void LayerTreeHostImpl::OnMemoryPressure(
   if (!ImageDecodeCacheUtils::ShouldEvictCaches(level))
     return;
 
-    // TODO(crbug.com/1189208): Unlocking decoded-image-tracker images causes
+    // TODO(crbug.com/42050253): Unlocking decoded-image-tracker images causes
     // flickering in visible trees if Out-Of-Process rasterization is enabled.
 #if BUILDFLAG(IS_FUCHSIA)
   if (use_gpu_rasterization() && visible())
@@ -3547,7 +3584,7 @@ void LayerTreeHostImpl::SetVisible(bool visible) {
   // If we just became visible, we have to ensure that we draw high res tiles,
   // to prevent checkerboard/low res flashes.
   if (visible_) {
-    // TODO(crbug.com/469175): Replace with RequiresHighResToDraw.
+    // TODO(crbug.com/40410467): Replace with RequiresHighResToDraw.
     SetRequiresHighResToDraw();
     // Prior CompositorFrame may have been discarded and thus we need to ensure
     // that we submit a new one, even if there are no tiles. Therefore, force a
@@ -3772,7 +3809,7 @@ void LayerTreeHostImpl::ClearCaches() {
   // comes with an invalidation and the image ids are never re-used.
   bool can_clear_decode_policy_tracking = true;
   tile_manager_.ClearCheckerImageTracking(can_clear_decode_policy_tracking);
-  // TODO(crbug.com/1378247): add tracking for which clients have used an image
+  // TODO(crbug.com/40243840): add tracking for which clients have used an image
   // and remove entries used by only one client when the URL on that client
   // changes. This should be fixed to correctly clear caches for web contents.
   // This is only a problem when
@@ -3940,7 +3977,7 @@ bool LayerTreeHostImpl::InitializeFrameSink(
   // There will not be anything to draw here, so set high res
   // to avoid checkerboards, typically when we are recovering
   // from lost context.
-  // TODO(crbug.com/469175): Replace with RequiresHighResToDraw.
+  // TODO(crbug.com/40410467): Replace with RequiresHighResToDraw.
   SetRequiresHighResToDraw();
 
   // Always allocate a new viz::LocalSurfaceId when we get a new
@@ -4112,8 +4149,12 @@ void LayerTreeHostImpl::DidScrollContent(ElementId element_id, bool animated) {
   // We may wish to prioritize smoothness over raster when the user is
   // interacting with content, but this needs to be evaluated only for direct
   // user scrolls, not for programmatic scrolls.
-  if (input_delegate_->IsCurrentlyScrolling())
+  if (input_delegate_->IsCurrentlyScrolling()) {
+    if (!settings().single_thread_proxy_scheduler) {
+      client_->SetWaitingForScrollEvent(false);
+    }
     client_->RenewTreePriority();
+  }
 
   if (!animated) {
     // SetNeedsRedraw is only called in non-animated cases since an animation
@@ -4324,14 +4365,14 @@ bool LayerTreeHostImpl::AnimateLayers(base::TimeTicks monotonic_time,
   const bool animated = mutator_host_->TickAnimations(
       monotonic_time, scroll_tree, is_active_tree);
 
-  // TODO(crbug.com/551134): Only do this if the animations are on the active
+  // TODO(crbug.com/40443202): Only do this if the animations are on the active
   // tree, or if they are on the pending tree waiting for some future time to
   // start.
-  // TODO(crbug.com/551138): We currently have a single signal from the
+  // TODO(crbug.com/40443205): We currently have a single signal from the
   // animation_host, so on the last frame of an animation we will
   // still request an extra SetNeedsAnimate here.
   if (animated) {
-    // TODO(crbug.com/1039750): If only scroll animations present, schedule a
+    // TODO(crbug.com/40667010): If only scroll animations present, schedule a
     // frame only if scroll changes.
     SetNeedsOneBeginImplFrame();
     frame_trackers_.StartSequence(
@@ -4349,8 +4390,8 @@ bool LayerTreeHostImpl::AnimateLayers(base::TimeTicks monotonic_time,
         FrameSequenceTrackerType::kSETCompositorAnimation);
   }
 
-  // TODO(crbug.com/551138): We could return true only if the animations are on
-  // the active tree. There's no need to cause a draw to take place from
+  // TODO(crbug.com/40443205): We could return true only if the animations are
+  // on the active tree. There's no need to cause a draw to take place from
   // animations starting/ticking on the pending tree.
   return animated;
 }
@@ -4779,13 +4820,13 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
   } else if (use_shared_image_software) {
     auto sii = layer_tree_frame_sink_->shared_image_interface();
     gpu::SyncToken sync_token = sii->GenVerifiedSyncToken();
-    transferable = viz::TransferableResource::MakeSoftware(
-        client_shared_image->mailbox(), sync_token, upload_size, format,
+    transferable = viz::TransferableResource::MakeSoftwareSharedImage(
+        client_shared_image, sync_token, upload_size, format,
         viz::TransferableResource::ResourceSource::kUI);
   } else {
     layer_tree_frame_sink_->DidAllocateSharedBitmap(std::move(shm.region),
                                                     shared_bitmap_id);
-    transferable = viz::TransferableResource::MakeSoftware(
+    transferable = viz::TransferableResource::MakeSoftwareSharedBitmap(
         shared_bitmap_id, gpu::SyncToken(), upload_size, format,
         viz::TransferableResource::ResourceSource::kUI);
   }
@@ -5008,7 +5049,7 @@ void LayerTreeHostImpl::SetTreeLayerScrollOffsetMutated(
                     element_id));
   const ScrollNode* scroll_node =
       property_trees->scroll_tree().FindNodeFromElementId(element_id);
-  // TODO(crbug.com/1307498): We should aim to prevent this condition from
+  // TODO(crbug.com/40828469): We should aim to prevent this condition from
   // happening and either remove this check or make it fatal.
   DCHECK(scroll_node);
   if (!scroll_node)

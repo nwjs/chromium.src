@@ -45,6 +45,7 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.hub.HubFieldTrial;
 import org.chromium.chrome.browser.layouts.LayoutTestUtils;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.layouts.animation.CompositorAnimationHandler;
@@ -236,7 +237,9 @@ public class TabsTest {
         LayoutTestUtils.waitForLayout(
                 sActivityTestRule.getActivity().getLayoutManager(), LayoutType.TAB_SWITCHER);
 
-        onViewWaiting(withId(R.id.new_tab_view)).check(matches(isDisplayed())).perform(click());
+        int newTabButtonId =
+                HubFieldTrial.isHubEnabled() ? R.id.toolbar_action_button : R.id.new_tab_view;
+        onViewWaiting(withId(newTabButtonId)).check(matches(isDisplayed())).perform(click());
         LayoutTestUtils.waitForLayout(
                 sActivityTestRule.getActivity().getLayoutManager(), LayoutType.BROWSING);
 
@@ -562,8 +565,7 @@ public class TabsTest {
 
         Assert.assertEquals("Too many tabs at startup", 1, model.getCount());
 
-        TestThreadUtils.runOnUiThreadBlocking(
-                (Runnable) () -> model.closeTab(tab, false, false, true));
+        TestThreadUtils.runOnUiThreadBlocking((Runnable) () -> model.closeTab(tab, false, true));
 
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -648,7 +650,7 @@ public class TabsTest {
 
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    model.closeTab(newTab, false, false, true);
+                    model.closeTab(newTab, false, true);
                 });
 
         Assert.assertEquals("oldTab should have been focused.", 1, focusListener.getTimesFocused());
@@ -799,8 +801,7 @@ public class TabsTest {
 
         Assert.assertEquals("Too many tabs at startup", 1, model.getCount());
 
-        TestThreadUtils.runOnUiThreadBlocking(
-                (Runnable) () -> model.closeTab(tab, false, false, true));
+        TestThreadUtils.runOnUiThreadBlocking((Runnable) () -> model.closeTab(tab, false, true));
 
         Assert.assertTrue("notifyChanged() was not called", mNotifyChangedCalled);
     }

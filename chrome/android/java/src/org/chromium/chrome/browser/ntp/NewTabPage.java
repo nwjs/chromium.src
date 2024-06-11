@@ -186,8 +186,6 @@ public class NewTabPage
     private final boolean mIsNtpAsHomeSurfaceEnabled;
     private boolean mSnapshotSingleTabCardChanged;
     private final boolean mIsSurfacePolishEnabled;
-    private final boolean mIsSurfacePolishOmniboxColorEnabled;
-    private final boolean mIsSurfacePolishLessBrandSpaceEnabled;
     private final boolean mIsInNightMode;
     @Nullable private final OneshotSupplier<ModuleRegistry> mModuleRegistrySupplier;
 
@@ -428,12 +426,6 @@ public class NewTabPage
         mTitle = activity.getResources().getString(R.string.new_tab_title);
 
         mIsSurfacePolishEnabled = ChromeFeatureList.sSurfacePolish.isEnabled();
-        mIsSurfacePolishOmniboxColorEnabled =
-                mIsSurfacePolishEnabled
-                        && StartSurfaceConfiguration.SURFACE_POLISH_OMNIBOX_COLOR.getValue();
-        mIsSurfacePolishLessBrandSpaceEnabled =
-                mIsSurfacePolishEnabled
-                        && StartSurfaceConfiguration.SURFACE_POLISH_LESS_BRAND_SPACE.getValue();
         if (mIsSurfacePolishEnabled) {
             mBackgroundColor =
                     ChromeColors.getSurfaceColor(
@@ -564,8 +556,6 @@ public class NewTabPage
                 mTab.getProfile(),
                 windowAndroid,
                 mIsSurfacePolishEnabled,
-                mIsSurfacePolishOmniboxColorEnabled,
-                mIsSurfacePolishLessBrandSpaceEnabled,
                 mIsTablet,
                 mTabStripHeightSupplier);
 
@@ -757,7 +747,7 @@ public class NewTabPage
         updateSearchProviderHasLogo();
         setSearchProviderInfoOnView(
                 mSearchProviderHasLogo, mTemplateUrlService.isDefaultSearchEngineGoogle());
-        // TODO(https://crbug.com/1329288): Remove this call when the Feed position experiment is
+        // TODO(crbug.com/40226731): Remove this call when the Feed position experiment is
         // cleaned up.
         updateMargins();
     }
@@ -918,13 +908,13 @@ public class NewTabPage
     /**
      * Returns an arbitrary int value stored in the last committed navigation entry. If some step
      * fails then the default is returned instead.
+     *
      * @param key The string previously used to tag this piece of data.
      * @param tab A tab that is used to access the NavigationController and the NavigationEntry
-     *            extras.
+     *     extras.
      * @param defaultValue The value to return if lookup or parsing is unsuccessful.
      * @return The value for the given key.
-     *
-     * TODO(https://crbug.com/941581): Refactor this to be reusable across NativePage components.
+     *     <p>TODO(crbug.com/40618119): Refactor this to be reusable across NativePage components.
      */
     private static int getIntFromNavigationEntry(String key, Tab tab, int defaultValue) {
         if (tab.getWebContents() == null) return defaultValue;
@@ -945,12 +935,12 @@ public class NewTabPage
     /**
      * Returns an arbitrary string value stored in the last committed navigation entry. If the look
      * up fails, an empty string is returned.
+     *
      * @param tab A tab that is used to access the NavigationController and the NavigationEntry
-     *            extras.
+     *     extras.
      * @param key The string previously used to tag this piece of data.
      * @return The value previously stored with the given key.
-     *
-     * TODO(https://crbug.com/941581): Refactor this to be reusable across NativePage components.
+     *     <p>TODO(crbug.com/40618119): Refactor this to be reusable across NativePage components.
      */
     public static String getStringFromNavigationEntry(Tab tab, String key) {
         if (tab.getWebContents() == null) return "";
@@ -1040,18 +1030,11 @@ public class NewTabPage
                         mContext, R.dimen.home_surface_background_color_elevation);
             }
 
-            if (mIsSurfacePolishOmniboxColorEnabled) {
-                if (mIsInNightMode) {
-                    return mContext.getColor(R.color.color_primary_with_alpha_20);
-                } else {
-                    return SemanticColorUtils.getColorPrimaryContainer(mContext);
-                }
+            if (mIsInNightMode) {
+                return mContext.getColor(R.color.color_primary_with_alpha_20);
+            } else {
+                return SemanticColorUtils.getColorPrimaryContainer(mContext);
             }
-
-            // When only enable the Surface Polish flag and the location bar has been scrolled
-            // to top.
-            return ChromeColors.getSurfaceColor(
-                    mContext, R.dimen.home_surface_search_box_background_neutral_color_elevation);
         }
         return defaultColor;
     }
@@ -1151,8 +1134,9 @@ public class NewTabPage
 
     /**
      * Shows the home surface UI on this NTP.
-     * TODO(crbug.com/1430906): Investigate better solution to show Home surface UI on NTP upon
+     * TODO(crbug.com/40263286): Investigate better solution to show Home surface UI on NTP upon
      * creation.
+     * to show Home surface UI on NTP upon creation.
      */
     public void showHomeSurfaceUi(Tab mostRecentTab) {
         if (mSingleTabSwitcherCoordinator == null) {

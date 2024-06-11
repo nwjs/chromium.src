@@ -14,6 +14,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "cc/mojo_embedder/async_layer_tree_frame_sink.h"
 #include "cc/trees/layer_tree_frame_sink.h"
+#include "chromeos/ui/base/window_properties.h"
 #include "components/exo/layer_tree_frame_sink_holder.h"
 #include "components/exo/shell_surface_base.h"
 #include "components/exo/shell_surface_util.h"
@@ -30,7 +31,6 @@
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
@@ -48,6 +48,7 @@
 #include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/gfx/geometry/point_f.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/rrect_f.h"
 #include "ui/gfx/geometry/size.h"
@@ -335,7 +336,7 @@ void SurfaceTreeHost::SubmitCompositorFrame() {
   // are fixed or identified.
   if (frame.size_in_pixels().IsEmpty()) {
     aura::Window* toplevel = root_surface_->window()->GetToplevelWindow();
-    auto app_type = toplevel->GetProperty(aura::client::kAppType);
+    auto app_type = toplevel->GetProperty(chromeos::kAppTypeKey);
     const std::string* app_id = GetShellApplicationId(toplevel);
     const std::string* startup_id = GetShellStartupId(toplevel);
     auto* shell_surface = GetShellSurfaceBaseForWindow(toplevel);
@@ -395,13 +396,13 @@ void SurfaceTreeHost::SubmitCompositorFrame() {
     // |prev_frame_verified_tokens| has, have that flag set. If that is not done
     // locally here, the comparison of the tokens fails as all fields of each
     // tokens are compared during ::find().
-    auto tmp_sync_token = resource.mailbox_holder.sync_token;
+    auto tmp_sync_token = resource.sync_token();
     tmp_sync_token.SetVerifyFlush();
     if (prev_frame_verified_tokens_.find(tmp_sync_token) !=
         prev_frame_verified_tokens_.end()) {
-      resource.mailbox_holder.sync_token.SetVerifyFlush();
+      resource.mutable_sync_token().SetVerifyFlush();
     }
-    sync_tokens.push_back(resource.mailbox_holder.sync_token.GetData());
+    sync_tokens.push_back(resource.mutable_sync_token().GetData());
   }
   gpu::InterfaceBase* rii = context_provider_->RasterInterface();
   rii->VerifySyncTokensCHROMIUM(sync_tokens.data(), sync_tokens.size());
@@ -409,8 +410,8 @@ void SurfaceTreeHost::SubmitCompositorFrame() {
   prev_frame_verified_tokens_.clear();
   frame.metadata.content_color_usage = gfx::ContentColorUsage::kSRGB;
   for (auto& resource : frame.resource_list) {
-    if (resource.mailbox_holder.sync_token.verified_flush()) {
-      prev_frame_verified_tokens_.insert(resource.mailbox_holder.sync_token);
+    if (resource.sync_token().verified_flush()) {
+      prev_frame_verified_tokens_.insert(resource.sync_token());
     }
     frame.metadata.content_color_usage =
         std::max(frame.metadata.content_color_usage,
@@ -495,31 +496,45 @@ void SurfaceTreeHost::UpdateSurfaceLayerSizeAndRootSurfaceOrigin() {
     gfx::Rect updated_bounds(root_surface_origin_dp, window_bounds.size());
     root_surface_->window()->SetBounds(updated_bounds);
   }
+
+  UpdateHostWindowOpaqueRegion();
 }
 
 void SurfaceTreeHost::UpdateHostLayerOpacity() {
   ui::Layer* commit_target_layer = GetCommitTargetLayer();
 
-  const gfx::Rect& bounds = root_surface_->surface_hierarchy_content_bounds();
-
-  const bool fills_bounds_opaquely =
-      gfx::SizeF(bounds.size()) == root_surface_->content_size() &&
-      root_surface_->FillsBoundsOpaquely();
-
   if (commit_target_layer == host_window_->layer()) {
-    host_window_->SetTransparent(!fills_bounds_opaquely);
+    UpdateHostWindowOpaqueRegion();
   } else if (commit_target_layer) {
-    commit_target_layer->SetFillsBoundsOpaquely(fills_bounds_opaquely);
+    commit_target_layer->SetFillsBoundsOpaquely(
+        ContentsFillsHostWindowOpaquely());
+  }
+}
+
+void SurfaceTreeHost::UpdateHostWindowOpaqueRegion() {
+  if (ContentsFillsHostWindowOpaquely()) {
+    host_window_->SetOpaqueRegionsForOcclusion(
+        {gfx::Rect(host_window_->bounds().size())});
+  } else {
+    host_window_->SetOpaqueRegionsForOcclusion({});
   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // SurfaceTreeHost, private:
 
+bool SurfaceTreeHost::ContentsFillsHostWindowOpaquely() const {
+  const gfx::Rect& bounds = root_surface_->surface_hierarchy_content_bounds();
+  return gfx::SizeF(bounds.size()) == root_surface_->content_size() &&
+         root_surface_->FillsBoundsOpaquely();
+}
+
 void SurfaceTreeHost::InitHostWindow(const std::string& window_name) {
   host_window_->SetName(window_name);
   host_window_->Init(ui::LAYER_SOLID_COLOR);
   host_window_->set_owned_by_parent(false);
+  host_window_->SetTransparent(true);
+
   // The host window is a container of surface tree. It doesn't handle pointer
   // events.
   host_window_->SetEventTargetingPolicy(

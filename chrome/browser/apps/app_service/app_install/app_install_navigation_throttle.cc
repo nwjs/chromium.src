@@ -26,8 +26,8 @@
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
 #include "base/metrics/histogram_functions.h"
-#include "chrome/browser/apps/app_service/browser_app_instance_tracker.h"
-// TODO(crbug.com/1402145): Remove circular includes.
+#include "chrome/browser/apps/browser_instance/browser_app_instance_tracker.h"
+// TODO(crbug.com/40251079): Remove circular includes.
 #include "chrome/browser/ui/browser_finder.h"  // nogncheck
 #endif
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -66,6 +66,9 @@ AppInstallSurface SourceParamToAppInstallSurface(std::string_view source) {
   }
   if (base::EqualsCaseInsensitiveASCII(source, "launcher")) {
     return AppInstallSurface::kAppInstallUriLauncher;
+  }
+  if (base::EqualsCaseInsensitiveASCII(source, "peripherals")) {
+    return AppInstallSurface::kAppInstallUriPeripherals;
   }
   return AppInstallSurface::kAppInstallUriUnknown;
 }
@@ -155,9 +158,9 @@ AppInstallNavigationThrottle::MaybeCreate(content::NavigationHandle* handle) {
 AppInstallNavigationThrottle::QueryParams::QueryParams() = default;
 
 AppInstallNavigationThrottle::QueryParams::QueryParams(
-    std::optional<PackageId> package_id,
+    std::optional<std::string> serialized_package_id,
     AppInstallSurface source)
-    : package_id(std::move(package_id)), source(source) {}
+    : serialized_package_id(std::move(serialized_package_id)), source(source) {}
 
 AppInstallNavigationThrottle::QueryParams::QueryParams(QueryParams&&) = default;
 
@@ -165,7 +168,8 @@ AppInstallNavigationThrottle::QueryParams::~QueryParams() = default;
 
 bool AppInstallNavigationThrottle::QueryParams::operator==(
     const QueryParams& other) const {
-  return package_id == other.package_id && source == other.source;
+  return serialized_package_id == other.serialized_package_id &&
+         source == other.source;
 }
 
 // static
@@ -192,7 +196,10 @@ AppInstallNavigationThrottle::ExtractQueryParams(std::string_view query) {
     };
 
     if (key == kAppInstallPackageIdParam) {
-      result.package_id = PackageId::FromString(decode_value());
+      std::string serialized_package_id = decode_value();
+      if (!serialized_package_id.empty()) {
+        result.serialized_package_id = std::move(serialized_package_id);
+      }
     } else if (key == kAppInstallSourceParam) {
       result.source = SourceParamToAppInstallSurface(decode_value());
     }
@@ -233,7 +240,7 @@ ThrottleCheckResult AppInstallNavigationThrottle::HandleRequest() {
   }
 
   QueryParams query_params = ExtractQueryParams(url.query_piece());
-  if (!query_params.package_id.has_value()) {
+  if (!query_params.serialized_package_id.has_value()) {
     return content::NavigationThrottle::CANCEL_AND_IGNORE;
   }
 
@@ -245,9 +252,10 @@ ThrottleCheckResult AppInstallNavigationThrottle::HandleRequest() {
   std::optional<AppInstallService::WindowIdentifier> anchor_window =
       GetAnchorWindow(web_contents, proxy);
 
-  proxy->AppInstallService().InstallApp(
-      query_params.source, std::move(query_params.package_id.value()),
-      anchor_window, base::DoNothing());
+  proxy->AppInstallService().InstallAppWithFallback(
+      query_params.source,
+      std::move(query_params.serialized_package_id).value(), anchor_window,
+      base::DoNothing());
 
   if (!chromeos::features::IsCrosWebAppInstallDialogEnabled() &&
       LinkCapturingNavigationThrottle::

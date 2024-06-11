@@ -41,6 +41,8 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/install_verifier.h"
+#include "chrome/browser/extensions/manifest_v2_experiment_manager.h"
+#include "chrome/browser/extensions/mv2_experiment_stage.h"
 #include "chrome/browser/extensions/permissions/permissions_updater.h"
 #include "chrome/browser/extensions/permissions/scripting_permissions_modifier.h"
 #include "chrome/browser/extensions/permissions/site_permissions_helper.h"
@@ -466,6 +468,9 @@ std::unique_ptr<developer::ProfileInfo> DeveloperPrivateAPI::CreateProfileInfo(
   info->can_load_unpacked =
       ExtensionManagementFactory::GetForBrowserContext(profile)
           ->HasAllowlistedExtension();
+  info->is_mv2_deprecation_warning_dismissed =
+      ManifestV2ExperimentManager::Get(profile)
+          ->DidUserAcknowledgeWarningGlobally();
   return info;
 }
 
@@ -517,6 +522,10 @@ DeveloperPrivateEventRouter::DeveloperPrivateEventRouter(Profile* profile)
   // callback on destruction.
   pref_change_registrar_.Add(
       prefs::kExtensionsUIDeveloperMode,
+      base::BindRepeating(&DeveloperPrivateEventRouter::OnProfilePrefChanged,
+                          base::Unretained(this)));
+  pref_change_registrar_.Add(
+      kMV2DeprecationWarningAcknowledgedGloballyPref.name,
       base::BindRepeating(&DeveloperPrivateEventRouter::OnProfilePrefChanged,
                           base::Unretained(this)));
 }
@@ -702,7 +711,7 @@ void DeveloperPrivateEventRouter::OnExtensionPermissionsUpdated(
 void DeveloperPrivateEventRouter::OnToolbarPinnedActionsChanged() {
   // Currently, only enabled extensions are considered since they are the only
   // ones that have extension actions.
-  // TODO(crbug.com/1477884): Since pinned info is stored as a pref, include
+  // TODO(crbug.com/40280426): Since pinned info is stored as a pref, include
   // disabled extensions in this event as well.
   const ExtensionSet& extensions =
       ExtensionRegistry::Get(profile_)->enabled_extensions();
@@ -1048,6 +1057,11 @@ DeveloperPrivateUpdateProfileConfigurationFunction::Run() {
     util::SetDeveloperModeForProfile(profile, *update.in_developer_mode);
   }
 
+  if (update.is_mv2_deprecation_warning_dismissed.value_or(false)) {
+    ManifestV2ExperimentManager::Get(browser_context())
+        ->MarkWarningAsAcknowledgedGlobally();
+  }
+
   return RespondNow(NoArguments());
 }
 
@@ -1119,6 +1133,26 @@ DeveloperPrivateUpdateExtensionConfigurationFunction::Run() {
     ExtensionPrefs::Get(browser_context())
         ->SetBooleanPref(extension->id(), kPrefAcknowledgeSafetyCheckWarning,
                          *update.acknowledge_safety_check_warning);
+    ExtensionPrefs::Get(browser_context())
+        ->SetIntegerPref(
+            extension->id(), kPrefAcknowledgeSafetyCheckWarningReason,
+            static_cast<int>(update.acknowledge_safety_check_warning_reason));
+    DeveloperPrivateEventRouter* event_router =
+        DeveloperPrivateAPI::Get(browser_context())
+            ->developer_private_event_router();
+    if (event_router) {
+      event_router->OnExtensionConfigurationChanged(extension->id());
+    }
+  }
+  if (update.acknowledge_mv2_deprecation_warning.value_or(false)) {
+    ManifestV2ExperimentManager* experiment_manager =
+        ManifestV2ExperimentManager::Get(browser_context());
+    if (experiment_manager->GetCurrentExperimentStage() !=
+        MV2ExperimentStage::kNone) {
+      experiment_manager->MarkWarningAsAcknowledged(extension->id());
+    }
+    // There isn't a separate observer for the MV2 acknowledged state changing,
+    // but this is the only place it's changed. Just fire the event directly.
     DeveloperPrivateEventRouter* event_router =
         DeveloperPrivateAPI::Get(browser_context())
             ->developer_private_event_router();

@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/css/active_style_sheets.h"
+#include "third_party/blink/renderer/core/css/css_appearance_auto_base_select_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_flip_revert_value.h"
 #include "third_party/blink/renderer/core/css/css_identifier_value.h"
 #include "third_party/blink/renderer/core/css/css_initial_color_value.h"
@@ -98,8 +99,12 @@ class TestCascade {
   STACK_ALLOCATED();
 
  public:
-  explicit TestCascade(Document& document, Element* target = nullptr)
-      : state_(document, target ? *target : *document.body()),
+  explicit TestCascade(Document& document,
+                       Element* target = nullptr,
+                       const StyleRecalcContext* style_recalc_context = nullptr)
+      : state_(document,
+               target ? *target : *document.body(),
+               style_recalc_context),
         cascade_(InitState(state_, nullptr)) {}
 
   TestCascade(Document& document,
@@ -2810,10 +2815,10 @@ TEST_F(StyleCascadeTest, RubyPositionReverseCascadeOrder) {
 }
 
 TEST_F(StyleCascadeTest, RubyPositionSurrogateCanCascadeAsOriginal) {
-  // Note: ruby-position is defined as the surrogate, and -webkit-ruby-position
+  // Note: -webkit-ruby-position is defined as the surrogate, and ruby-position
   // is the original.
-  ASSERT_TRUE(GetCSSPropertyRubyPosition().IsSurrogate());
-  ASSERT_FALSE(GetCSSPropertyWebkitRubyPosition().IsSurrogate());
+  ASSERT_FALSE(GetCSSPropertyRubyPosition().IsSurrogate());
+  ASSERT_TRUE(GetCSSPropertyWebkitRubyPosition().IsSurrogate());
 
   const struct {
     CSSValueID specified;
@@ -4105,6 +4110,95 @@ TEST_F(StyleCascadeTest, RevertToVarAnchorInvalid) {
   cascade.Add("top:revert");
   cascade.Apply();
   EXPECT_EQ("auto", cascade.ComputedValue("top"));
+}
+
+namespace {
+
+// An AnchorEvaluator that responds to Mode::kTop only. This can be used to
+// test what happens when a flip converts a top (valid) into a bottom
+// (invalid).
+class TopAnchorEvaluator : public AnchorEvaluator {
+  STACK_ALLOCATED();
+
+ public:
+  std::optional<LayoutUnit> Evaluate(
+      const AnchorQuery&,
+      const ScopedCSSName* position_anchor,
+      const std::optional<InsetAreaOffsets>&) override {
+    if (GetMode() == Mode::kTop) {
+      return LayoutUnit(1);
+    }
+    return std::nullopt;
+  }
+  std::optional<InsetAreaOffsets> ComputeInsetAreaOffsetsForLayout(
+      const ScopedCSSName*,
+      InsetArea) override {
+    return InsetAreaOffsets();
+  }
+  std::optional<PhysicalOffset> ComputeAnchorCenterOffsets(
+      const ComputedStyleBuilder&) override {
+    return std::nullopt;
+  }
+};
+
+}  // namespace
+
+TEST_F(StyleCascadeTest, FlipToAnchorInvalid) {
+  TopAnchorEvaluator evaluator;
+  StyleRecalcContext style_recalc_context;
+  style_recalc_context.anchor_evaluator = &evaluator;
+
+  TestCascade cascade(GetDocument(), /* element */ GetDocument().body(),
+                      &style_recalc_context);
+  cascade.Add("position:absolute");
+  cascade.Add("top:anchor(top)");
+  cascade.Add(FlipRevertSet("bottom", "top"), {.is_try_tactics_style = true});
+  cascade.Add(FlipRevertSet("top", "bottom"), {.is_try_tactics_style = true});
+  cascade.Apply();
+  // Do not crash:
+  EXPECT_EQ("auto", cascade.ComputedValue("top"));
+  EXPECT_EQ("auto", cascade.ComputedValue("bottom"));
+}
+
+TEST_F(StyleCascadeTest, RevertInAppearanceAutoBaseSelectValue) {
+  SetBodyInnerHTML("<select id=select></select>");
+  Element* select = GetDocument().getElementById(AtomicString("select"));
+  ASSERT_TRUE(select);
+
+  // left:-internal-appearance-auto-base-select(revert, 2px)
+  // (Not possible to create with the parser currently).
+  const CSSValue* first = cssvalue::CSSRevertValue::Create();
+  const CSSValue* second =
+      css_test_helpers::ParseValue(GetDocument(), "<length>", "2px");
+  auto* set = MakeGarbageCollected<MutableCSSPropertyValueSet>(kUASheetMode);
+  set->SetProperty(CSSPropertyID::kLeft,
+                   *MakeGarbageCollected<CSSAppearanceAutoBaseSelectValuePair>(
+                       first, second));
+
+  TestCascade cascade(GetDocument(), select);
+  cascade.Add("left:300px", {.origin = CascadeOrigin::kUser});
+  cascade.Add(set);
+  cascade.Apply();
+  EXPECT_EQ("300px", cascade.ComputedValue("left"));
+}
+
+TEST_F(StyleCascadeTest, EnvInAppearanceAutoBaseSelectValue) {
+  SetBodyInnerHTML("<select id=select></select>");
+  Element* select = GetDocument().getElementById(AtomicString("select"));
+  ASSERT_TRUE(select);
+
+  // UA styles don't use var(), but they could conceivably use env().
+  const CSSPropertyValueSet* set = css_test_helpers::ParseDeclarationBlock(
+      R"CSS(
+      border-left-style: solid;
+      border-left-width: -internal-appearance-auto-base-select(env(unknown, 7px), 42px);
+    )CSS",
+      kUASheetMode);
+
+  TestCascade cascade(GetDocument(), select);
+  cascade.Add(set);
+  cascade.Apply();
+  EXPECT_EQ("7px", cascade.ComputedValue("border-left-width"));
 }
 
 TEST_F(StyleCascadeTest, LhUnitCycle) {

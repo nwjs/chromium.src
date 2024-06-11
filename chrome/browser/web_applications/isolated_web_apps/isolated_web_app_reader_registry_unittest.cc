@@ -810,7 +810,8 @@ TEST_F(IsolatedWebAppReaderRegistryTest, TestInvalidMetadataInvalidExchange) {
             "Failed to validate metadata: The URL of an exchange is invalid: "
             "The host of isolated-app:// URLs must be a valid Signed Web "
             "Bundle ID (got foo): The signed web bundle ID must be exactly 56 "
-            "characters long, but was 3 characters long.");
+            "characters long (for Ed25519) or 58 characters long (for ECDSA "
+            "P-256), but was 3 characters long.");
 }
 
 class IsolatedWebAppReaderRegistryResponseHeadParserErrorTest
@@ -1058,7 +1059,7 @@ TEST_F(IsolatedWebAppReaderRegistryTest, OpenCloseOpen) {
   }
 }
 
-// TODO(crbug.com/1365853): Add a test that checks the behavior when
+// TODO(crbug.com/40239531): Add a test that checks the behavior when
 // `SignedWebBundleReader`s for two different Web Bundle IDs are requested
 // concurrently. Testing this is currently not possible, since running two
 // `MockWebBundleParser`s at the same time is not yet possible.

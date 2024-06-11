@@ -4,32 +4,120 @@
 
 package org.chromium.chrome.browser.tab;
 
+import static org.chromium.chrome.browser.tab.Tab.INVALID_TIMESTAMP;
 import static org.chromium.chrome.browser.tabmodel.TabList.INVALID_TAB_INDEX;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.supplier.ObservableSupplierImpl;
+import org.chromium.chrome.browser.tab.state.ArchivePersistedTabData;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParamsManager;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabReparentingParams;
+import org.chromium.chrome.browser.tabmodel.TabWindowManager;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /** Responsible for moving tabs to/from the archived {@link TabModel}. */
-public class TabArchiver {
-    private final TabCreator mArchivedTabCreator;
+public class TabArchiver implements TabWindowManager.Observer {
+    @FunctionalInterface
+    /** Provides the current timestamp. */
+    public interface Clock {
+        long currentTimeMillis();
+    }
+
     private final TabModel mArchivedTabModel;
+    private final TabCreator mArchivedTabCreator;
     private final AsyncTabParamsManager mAsyncTabParamsManager;
+    private final TabWindowManager mTabWindowManager;
+    private final TabArchiveSettings mTabArchiveSettings;
+    private final Clock mClock;
+
+    private boolean mDeclutterInitCalled;
 
     /**
+     * @param archivedTabModel The archived {@link TabModel}.
      * @param archivedTabCreator The {@link TabCreator} for the archived TabModel.
-     * @param archivedTabModel The {@link TabModel} for archived tabs.
      * @param asyncTabParamsManager The {@link AsyncTabParamsManager} used when unarchiving tabs.
+     * @param tabWindowManager The {@link TabWindowManager} used for accessing TabModelSelectors.
+     * @param tabArchiveSettings The settings for tab archiving/deletion.
+     * @param clock A clock object to get the current time..
      */
     public TabArchiver(
-            TabCreator archivedTabCreator,
             TabModel archivedTabModel,
-            AsyncTabParamsManager asyncTabParamsManager) {
-        mArchivedTabCreator = archivedTabCreator;
+            TabCreator archivedTabCreator,
+            AsyncTabParamsManager asyncTabParamsManager,
+            TabWindowManager tabWindowManager,
+            TabArchiveSettings tabArchiveSettings,
+            Clock clock) {
         mArchivedTabModel = archivedTabModel;
+        mArchivedTabCreator = archivedTabCreator;
         mAsyncTabParamsManager = asyncTabParamsManager;
+        mTabWindowManager = tabWindowManager;
+        mTabArchiveSettings = tabArchiveSettings;
+        mClock = clock;
+    }
+
+    /** Initialize the archiving process by observing TabWindowManager for new TabModelSelectors. */
+    public void initDeclutter() {
+        // Observe new TabModelSelectors being added so inactive tabs are archived automatically
+        // as new selectors are activated.
+        mTabWindowManager.addObserver(this);
+
+        mDeclutterInitCalled = true;
+    }
+
+    /**
+     * 1. Iterates through all known tab model selects, and archives inactive tabs. 2. Iterates
+     * through all archived tabs, and automatically deletes those old enough.
+     */
+    public void triggerScheduledDeclutter() {
+        assert mDeclutterInitCalled;
+
+        // Trigger archival of inactive tabs for the current selectors.
+        for (int i = 0; i < mTabWindowManager.getMaxSimultaneousSelectors(); i++) {
+            TabModelSelector selector = mTabWindowManager.getTabModelSelectorById(i);
+            if (selector == null) continue;
+            onTabModelSelectorAdded(selector);
+        }
+
+        // Trigger auto-deletion after archiving tabs.
+        deleteEligibleArchivedTabs();
+    }
+
+    /** Delete eligible archived tabs. */
+    public void deleteEligibleArchivedTabs() {
+        if (!mTabArchiveSettings.isAutoDeleteEnabled()) return;
+
+        List<Tab> tabs = new ArrayList<>();
+        for (int i = 0; i < mArchivedTabModel.getCount(); i++) {
+            tabs.add(mArchivedTabModel.getTabAt(i));
+        }
+
+        for (Tab tab : tabs) {
+            ArchivePersistedTabData.from(
+                    tab,
+                    (archivePersistedTabData) -> {
+                        if (isArchivedTabEligibleForDeletion(archivePersistedTabData)) {
+                            mArchivedTabModel.closeTab(tab);
+                        }
+                    });
+        }
+    }
+
+    /**
+     * Rescue archived tabs, moving them back to the regular TabModel. This is done when the feature
+     * is disabled, but there are still archived tabs.
+     */
+    public void rescueArchivedTabs(TabCreator regularTabCreator) {
+        while (mArchivedTabModel.getCount() > 0) {
+            Tab tab = mArchivedTabModel.getTabAt(0);
+            unarchiveAndRestoreTab(regularTabCreator, tab);
+        }
     }
 
     /**
@@ -38,12 +126,24 @@ public class TabArchiver {
      *
      * @param tabModel The {@link TabModel} the tab currently belongs to.
      * @param tab The {@link Tab} to unarchive.
+     * @return The archived {@link Tab}.
      */
-    public void archiveAndRemoveTab(TabModel tabModel, Tab tab) {
+    public Tab archiveAndRemoveTab(TabModel tabModel, Tab tab) {
         ThreadUtils.assertOnUiThread();
         TabState tabState = TabStateExtractor.from(tab);
-        mArchivedTabCreator.createFrozenTab(tabState, tab.getId(), INVALID_TAB_INDEX);
+        Tab newTab = mArchivedTabCreator.createFrozenTab(tabState, tab.getId(), INVALID_TAB_INDEX);
         tabModel.closeTab(tab);
+
+        ArchivePersistedTabData.from(
+                newTab,
+                (archivePersistedTabData) -> {
+                    // Persisted tab data requires a true supplier before saving to disk.
+                    archivePersistedTabData.registerIsTabSaveEnabledSupplier(
+                            new ObservableSupplierImpl<>(true));
+                    archivePersistedTabData.setArchivedTimeMs(mClock.currentTimeMillis());
+                });
+
+        return newTab;
     }
 
     /**
@@ -59,5 +159,50 @@ public class TabArchiver {
         mArchivedTabModel.removeTab(tab);
         mAsyncTabParamsManager.add(tab.getId(), new TabReparentingParams(tab, null));
         tabCreator.createFrozenTab(tabState, tab.getId(), INVALID_TAB_INDEX);
+    }
+
+    // TabWindowManager.Observer implementation.
+
+    @Override
+    public void onTabModelSelectorAdded(TabModelSelector selector) {
+        if (!mTabArchiveSettings.getArchiveEnabled()) return;
+
+        TabModelUtils.runOnTabStateInitialized(
+                selector, this::archiveEligibleTabsFromTabModelSelector);
+    }
+
+    // Private functions.
+
+    private void archiveEligibleTabsFromTabModelSelector(TabModelSelector selector) {
+        TabModel model = selector.getModel(/* isIncognito= */ false);
+        for (int i = 0; i < model.getCount(); ) {
+            Tab tab = model.getTabAt(i);
+            if (isTabEligibleForArchive(tab)) {
+                archiveAndRemoveTab(model, tab);
+            } else {
+                i++;
+            }
+        }
+    }
+
+    private boolean isTabEligibleForArchive(Tab tab) {
+        return isTimestampWithinTargetHours(
+                tab.getTimestampMillis(), mTabArchiveSettings.getArchiveTimeDeltaHours());
+    }
+
+    private boolean isArchivedTabEligibleForDeletion(
+            ArchivePersistedTabData archivePersistedTabData) {
+        if (archivePersistedTabData == null) return false;
+
+        return isTimestampWithinTargetHours(
+                archivePersistedTabData.getArchivedTimeMs(),
+                mTabArchiveSettings.getAutoDeleteTimeDeltaHours());
+    }
+
+    private boolean isTimestampWithinTargetHours(long timestampMillis, int targetHours) {
+        if (timestampMillis == INVALID_TIMESTAMP) return false;
+
+        long ageHours = TimeUnit.MILLISECONDS.toHours(mClock.currentTimeMillis() - timestampMillis);
+        return ageHours >= targetHours;
     }
 }

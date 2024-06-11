@@ -18,6 +18,7 @@
 #include "base/debug/crash_logging.h"
 #import "base/mac/mac_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/remote_cocoa/app_shim/ns_view_ids.h"
 #import "content/browser/accessibility/browser_accessibility_cocoa.h"
@@ -760,15 +761,27 @@ void ExtractUnderlines(NSAttributedString* string,
   _canBeKeyView = can;
 }
 
-- (BOOL)acceptsMouseEventsWhenInactive {
-  // Some types of windows (balloons, always-on-top panels) want to accept mouse
-  // clicks w/o the first click being treated as 'activation'. Same applies to
-  // mouse move events.
-  return [[self window] level] > NSNormalWindowLevel;
+- (AcceptMouseEventsOption)acceptsMouseEventsOption {
+  // Always-on-top windows, e.g picture-in-picture window, accepts all mouse
+  // events even if the window or the application is inactive.
+  if ([[self window] level] > NSNormalWindowLevel) {
+    return kAcceptMouseEventsAlways;
+  }
+
+  // By default, only active window accepts mouse events. The embedder may
+  // override this to mimic the hover and click behavior of native UIs.
+  if (_responderDelegate && [_responderDelegate respondsToSelector:@selector
+                                                (acceptsMouseEventsOption)]) {
+    return [_responderDelegate acceptsMouseEventsOption];
+  }
+
+  // By default, only active window accepts mouse events.
+  return kAcceptMouseEventsInActiveWindow;
 }
 
 - (BOOL)acceptsFirstMouse:(NSEvent*)theEvent {
-  return [self acceptsMouseEventsWhenInactive];
+  // Enable "click-through" if mouse clicks are accepted in inactive windows
+  return [self acceptsMouseEventsOption] > kAcceptMouseEventsInActiveWindow;
 }
 
 - (void)setCloseOnDeactivate:(BOOL)b {
@@ -824,7 +837,7 @@ void ExtractUnderlines(NSAttributedString* string,
   WebMouseEvent webEvent = WebMouseEventBuilder::Build(event, self);
   webEvent.SetModifiers(webEvent.GetModifiers() |
                         WebInputEvent::kRelativeMotionEvent);
-  // TODO(crbug.com/1465562): We shouldn't be posting events with null
+  // TODO(crbug.com/40276040): We shouldn't be posting events with null
   // timestamps. However `MessagePumpNSApplication::DoQuit` usage of
   // `otherEventWithType` seems to truncate `NSTimeInterval` to seconds. Which
   // could lead to those generated events be in the past, compared to ones
@@ -837,12 +850,21 @@ void ExtractUnderlines(NSAttributedString* string,
 
 - (BOOL)shouldIgnoreMouseEvent:(NSEvent*)theEvent {
   NSWindow* window = [self window];
-  // If this is a background window, don't handle mouse movement events. This
-  // is the expected behavior on the Mac as evidenced by other applications.
-  if ([theEvent type] == NSEventTypeMouseMoved &&
-      ![self acceptsMouseEventsWhenInactive] && ![window isMainWindow] &&
-      ![window isKeyWindow]) {
-    return YES;
+  if ([theEvent type] == NSEventTypeMouseMoved) {
+    bool inActiveWindow = [window isMainWindow] || [window isKeyWindow];
+    bool inActiveApp = [[NSApplication sharedApplication] isActive];
+    AcceptMouseEventsOption option = [self acceptsMouseEventsOption];
+    // If events are accepted only in active window but this window is inactive,
+    // ignore this event. This is the default behavior.
+    if (option == kAcceptMouseEventsInActiveWindow && !inActiveWindow) {
+      return YES;
+    }
+    // If events are accepted in active app but the app in active, ignore this
+    // event. This only happens if the content embedder overrides the default
+    // behavior.
+    if (option == kAcceptMouseEventsInActiveApp && !inActiveApp) {
+      return YES;
+    }
   }
 
   NSView* contentView = [window contentView];
@@ -969,8 +991,7 @@ void ExtractUnderlines(NSAttributedString* string,
   WebMouseEvent event = WebMouseEventBuilder::Build(
       theEvent, self, _pointerType, unacceleratedMovement);
 
-  if (_mouseLocked &&
-      base::FeatureList::IsEnabled(features::kConsolidatedMovementXY)) {
+  if (_mouseLocked) {
     // When mouse is locked, we keep increasing |_lastMouseScreenPosition|
     // by movement_x/y so that we can still use PositionInScreen to calculate
     // movements in blink. We need to keep |_lastMouseScreenPosition| from
@@ -2275,20 +2296,16 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
       _markedRange.length = length;
     }
 
-    if (fixLiveConversion) {
-      CHECK_LE(_markedRange.location + newSelRange.location,
-               std::numeric_limits<uint32_t>::max())
-          << "`start` is too large; _markedRange.location="
-          << _markedRange.location
-          << "; newSelRange.location=" << newSelRange.location;
-      CHECK_LE(_markedRange.location + NSMaxRange(newSelRange),
-               std::numeric_limits<uint32_t>::max())
-          << "`end` is too large; _markedRange.location="
-          << _markedRange.location
-          << "; NSMaxRange(newSelRange)=" << NSMaxRange(newSelRange);
+    if (fixLiveConversion && newSelRange.location != NSNotFound) {
+      CHECK_NE(_markedRange.location, static_cast<NSUInteger>(NSNotFound));
+      CHECK_LE(_markedRange.location, std::numeric_limits<uint32_t>::max());
+      CHECK_LE(newSelRange.location, std::numeric_limits<uint32_t>::max());
+      // `_markedRange.location + NSMaxRange(newSelRange)` can be larger than
+      // the maximum uint32_t. See crbug.com/40060200.
+      uint32_t new_end = base::saturated_cast<uint32_t>(
+          _markedRange.location + NSMaxRange(newSelRange));
       _textSelectionRange =
-          gfx::Range(_markedRange.location + newSelRange.location,
-                     _markedRange.location + NSMaxRange(newSelRange));
+          gfx::Range(_markedRange.location + newSelRange.location, new_end);
     }
   } else {
     // An empty text means the composition is about to be cancelled,
@@ -2432,7 +2449,7 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
     // into
     // |_availableText|. This variable will ultimately be asynchronously updated
     // by Blink.
-    // TODO(crbug.com/1169288): Mac's IME API is synchronous and it plays badly
+    // TODO(crbug.com/40165347): Mac's IME API is synchronous and it plays badly
     // with async APIs between the browser and the renderer. Probably replace
     // the sync |interpretKeyEvents:| with the async
     // |handleEventByInputMethod:|, which is an undocumented API used in

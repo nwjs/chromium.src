@@ -1,31 +1,31 @@
 rootWebArea htmlTag='#document'
 ++genericContainer ignored htmlTag='html'
 ++++genericContainer ignored htmlTag='body'
-++++++directory htmlTag='div'
+++++++list htmlTag='div'
 ++++++++listItem htmlTag='div'
 ++++++++++staticText name='an item in the directory'
-++++++++++++inlineTextBox
+++++++++++++inlineTextBox name='an item in the directory'
 ++++++++listItem htmlTag='div'
 ++++++++++staticText name='an item in the directory'
-++++++++++++inlineTextBox
-++++++directory htmlTag='ul'
+++++++++++++inlineTextBox name='an item in the directory'
+++++++list htmlTag='ul'
 ++++++++listItem htmlTag='li'
 ++++++++++staticText name='an item in the directory, no explicit role'
-++++++++++++inlineTextBox
+++++++++++++inlineTextBox name='an item in the directory, no explicit role'
 ++++++++listItem htmlTag='li'
 ++++++++++staticText name='an item in the directory with role=listitem'
-++++++++++++inlineTextBox
-++++++directory htmlTag='ol'
+++++++++++++inlineTextBox name='an item in the directory with role=listitem'
+++++++list htmlTag='ol'
 ++++++++listItem htmlTag='li'
 ++++++++++staticText name='an item in the directory, no explicit role'
-++++++++++++inlineTextBox
+++++++++++++inlineTextBox name='an item in the directory, no explicit role'
 ++++++++listItem htmlTag='li'
 ++++++++++staticText name='an item in the directory with role=listitem'
-++++++++++++inlineTextBox
-++++++directory htmlTag='menu'
+++++++++++++inlineTextBox name='an item in the directory with role=listitem'
+++++++list htmlTag='menu'
 ++++++++listItem htmlTag='li'
 ++++++++++staticText name='an item in the directory, no explicit role'
-++++++++++++inlineTextBox
+++++++++++++inlineTextBox name='an item in the directory, no explicit role'
 ++++++++listItem htmlTag='li'
 ++++++++++staticText name='an item in the directory with role=listitem'
-++++++++++++inlineTextBox
+++++++++++++inlineTextBox name='an item in the directory with role=listitem'

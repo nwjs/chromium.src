@@ -146,6 +146,12 @@ bool ShouldDelayMigrationUntillMigrationWarningIsAcknowledged(
           password_manager::prefs::kEmptyProfileStoreLoginDatabase)) {
     return false;
   }
+
+  // There is no warning shown on automotive.
+  if (base::android::BuildInfo::GetInstance()->is_automotive()) {
+    return false;
+  }
+
   return !pref_service->GetBoolean(
       password_manager::prefs::kUserAcknowledgedLocalPasswordsMigrationWarning);
 }
@@ -426,7 +432,7 @@ bool AreMinUpmRequirementsMet() {
 }
 
 bool ShouldUseUpmWiring(bool is_pwd_sync_enabled, PrefService* pref_service) {
-  // TODO(crbug.com/1327294): Re-evaluate if the SyncService can be passed here
+  // TODO(crbug.com/40226137): Re-evaluate if the SyncService can be passed here
   // instead of the `is_pwd_sync_enabled` boolean.
   if (is_pwd_sync_enabled &&
       password_manager_upm_eviction::IsCurrentUserEvicted(pref_service)) {
@@ -452,6 +458,9 @@ void SetUsesSplitStoresAndUPMForLocal(
   base::UmaHistogramBoolean(
       "PasswordManager.LocalUpmActivated",
       password_manager::UsesSplitStoresAndUPMForLocal(pref_service));
+  base::UmaHistogramEnumeration(
+      "PasswordManager.LocalUpmActivationStatus",
+      GetSplitStoresAndLocalUpmPrefValue(pref_service));
 }
 
 }  // namespace password_manager_android_util

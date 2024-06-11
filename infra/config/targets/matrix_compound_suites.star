@@ -118,6 +118,28 @@ targets.legacy_matrix_compound_suite(
 )
 
 targets.legacy_matrix_compound_suite(
+    name = "android_15_emulator_gtests",
+    basic_suites = {
+        "android_emulator_specific_chrome_public_tests": None,
+        "android_trichrome_smoke_tests": None,
+        "android_smoke_tests": None,
+        "android_specific_chromium_gtests": None,  # Already includes gl_gtests.
+        "chromium_gtests": None,
+        "chromium_gtests_for_devices_with_graphical_output": None,
+        "linux_flavor_specific_chromium_gtests": None,
+        "system_webview_shell_instrumentation_tests": None,  # Not an experimental test
+        "webview_trichrome_64_cts_tests_suite": targets.legacy_matrix_config(
+            variants = [
+                "WEBVIEW_TRICHROME_FULL_CTS_TESTS",
+                "WEBVIEW_TRICHROME_INSTANT_CTS_TESTS",
+            ],
+        ),
+        "webview_trichrome_64_cts_tests_no_field_trial_suite": None,
+        "webview_ui_instrumentation_tests": None,
+    },
+)
+
+targets.legacy_matrix_compound_suite(
     name = "android_fieldtrial_rel_webview_tests",
     basic_suites = {
         "fieldtrial_android_tests": None,
@@ -202,7 +224,7 @@ targets.legacy_matrix_compound_suite(
             mixins = [
                 "chromeos-tast-public-builder",
                 # jacuzzi is slow. So that we use more number of shards.
-                "shards-20",
+                "shards-30",
             ],
             variants = [
                 "CROS_PUBLIC_LKGM",
@@ -233,7 +255,7 @@ targets.legacy_matrix_compound_suite(
         "chromeos_chrome_all_tast_tests": targets.legacy_matrix_config(
             mixins = [
                 # jacuzzi is slow. So that we use more number of shards.
-                "shards-20",
+                "shards-30",
             ],
             variants = [
                 "CROS_RELEASE_LKGM",
@@ -447,8 +469,8 @@ targets.legacy_matrix_compound_suite(
                 "disable_field_trial_config_for_earl_grey",
             ],
             variants = [
-                "SIM_IPAD_AIR_2_15_5",
-                "SIM_IPHONE_13_15_5",
+                "SIM_IPAD_AIR_5TH_GEN_16_4",
+                "SIM_IPHONE_13_16_4",
             ],
         ),
         "ios_eg2_tests": targets.legacy_matrix_config(
@@ -457,8 +479,8 @@ targets.legacy_matrix_compound_suite(
                 "disable_field_trial_config_for_earl_grey",
             ],
             variants = [
-                "SIM_IPAD_AIR_2_15_5",
-                "SIM_IPHONE_13_15_5",
+                "SIM_IPAD_AIR_5TH_GEN_16_4",
+                "SIM_IPHONE_13_16_4",
             ],
         ),
     },
@@ -585,8 +607,8 @@ targets.legacy_matrix_compound_suite(
     basic_suites = {
         "ios_common_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
         "ios_eg2_tests": targets.legacy_matrix_config(
@@ -595,8 +617,8 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
         "ios_eg2_cq_tests": targets.legacy_matrix_config(
@@ -605,15 +627,15 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
         "ios_screen_size_dependent_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPHONE_SE_3RD_GEN_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPHONE_SE_3RD_GEN_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
         "ios_crash_xcuitests": targets.legacy_matrix_config(
@@ -621,8 +643,8 @@ targets.legacy_matrix_compound_suite(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
     },
@@ -633,8 +655,8 @@ targets.legacy_matrix_compound_suite(
     basic_suites = {
         "ios_common_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
         "ios_eg2_tests": targets.legacy_matrix_config(
@@ -642,8 +664,8 @@ targets.legacy_matrix_compound_suite(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
         "ios_eg2_cq_tests": targets.legacy_matrix_config(
@@ -651,15 +673,15 @@ targets.legacy_matrix_compound_suite(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
-                "SIM_IPHONE_14_17_4",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
+                "SIM_IPHONE_14_17_5",
             ],
         ),
         "ios_screen_size_dependent_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_17_4",
-                "SIM_IPHONE_SE_3RD_GEN_17_4",
-                "SIM_IPAD_AIR_5TH_GEN_17_4",
+                "SIM_IPHONE_14_17_5",
+                "SIM_IPHONE_SE_3RD_GEN_17_5",
+                "SIM_IPAD_AIR_5TH_GEN_17_5",
             ],
         ),
     },
@@ -769,14 +791,14 @@ targets.legacy_matrix_compound_suite(
     basic_suites = {
         "ios_common_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_X_15_5",
-                "SIM_IPAD_AIR_2_15_5",
+                "SIM_IPHONE_X_16_4",
+                "SIM_IPAD_AIR_5TH_GEN_16_4",
             ],
         ),
         "ios_screen_size_dependent_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_X_15_5",
-                "SIM_IPAD_AIR_2_15_5",
+                "SIM_IPHONE_X_16_4",
+                "SIM_IPAD_AIR_5TH_GEN_16_4",
             ],
         ),
     },
@@ -787,7 +809,7 @@ targets.legacy_matrix_compound_suite(
     basic_suites = {
         "ios_blink_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_14_17_4",
+                "SIM_IPHONE_14_17_5",
             ],
         ),
     },
@@ -797,6 +819,7 @@ targets.legacy_matrix_compound_suite(
     name = "ios_clang_tot_device_tests",
     basic_suites = {
         "clang_tot_gtests": targets.legacy_matrix_config(
+            # TODO(b/337049057): Change to iOS16+ devices once ready.
             variants = [
                 "IPHONE_7_15_4_1",
             ],
@@ -809,7 +832,7 @@ targets.legacy_matrix_compound_suite(
     basic_suites = {
         "clang_tot_gtests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_6S_15_5",
+                "SIM_IPHONE_X_16_4",
             ],
         ),
     },
@@ -1003,7 +1026,6 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_13_15_5",
                 "SIM_IPAD_PRO_6TH_GEN_16_4",
                 "SIM_IPAD_PRO_6TH_GEN_17_4",
             ],
@@ -1014,15 +1036,12 @@ targets.legacy_matrix_compound_suite(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPHONE_13_15_5",
                 "SIM_IPAD_AIR_5TH_GEN_16_4",
                 "SIM_IPAD_AIR_5TH_GEN_17_4",
             ],
         ),
         "ios_screen_size_dependent_tests": targets.legacy_matrix_config(
             variants = [
-                "SIM_IPHONE_SE_3RD_GEN_15_5",
-                "SIM_IPAD_AIR_5TH_GEN_15_5",
                 "SIM_IPHONE_14_PLUS_16_4",
                 "SIM_IPAD_AIR_5TH_GEN_16_4",
                 "SIM_IPHONE_SE_3RD_GEN_16_4",
@@ -1038,7 +1057,6 @@ targets.legacy_matrix_compound_suite(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPHONE_13_15_5",
                 "SIM_IPHONE_SE_3RD_GEN_16_4",
                 "SIM_IPHONE_SE_3RD_GEN_17_4",
             ],
@@ -1477,12 +1495,8 @@ targets.legacy_matrix_compound_suite(
 targets.legacy_matrix_compound_suite(
     name = "optimization_guide_desktop_script_tests",
     basic_suites = {
-        "model_validation_tests_suite": targets.legacy_matrix_config(
-            variants = [
-                "MODEL_VALIDATION_BASE",
-                "MODEL_VALIDATION_TRUNK",
-            ],
-        ),
+        "model_validation_tests_suite": None,
+        "model_validation_tests_light_suite": None,
         "ondevice_quality_tests_suite": None,
         "ondevice_stability_tests_suite": None,
     },
@@ -1499,7 +1513,7 @@ targets.legacy_matrix_compound_suite(
         "optimization_guide_gpu_gtests": targets.legacy_matrix_config(
             # TODO(b:322815244): Add AMD variant once driver issues are fixed.
             variants = [
-                "INTEL_UHD_630",
+                "INTEL_UHD_630_OR_770",
                 "NVIDIA_GEFORCE_GTX_1660",
             ],
         ),
@@ -1513,20 +1527,21 @@ targets.legacy_matrix_compound_suite(
             mixins = [
                 "gce",
             ],
-            variants = [
-                "MODEL_VALIDATION_BASE",
-                "MODEL_VALIDATION_TRUNK",
+        ),
+        "model_validation_tests_light_suite": targets.legacy_matrix_config(
+            mixins = [
+                "gce",
             ],
         ),
         "ondevice_quality_tests_suite": targets.legacy_matrix_config(
             variants = [
-                "INTEL_UHD_630",
+                "INTEL_UHD_630_OR_770",
                 "NVIDIA_GEFORCE_GTX_1660",
             ],
         ),
         "ondevice_stability_tests_suite": targets.legacy_matrix_config(
             variants = [
-                "INTEL_UHD_630",
+                "INTEL_UHD_630_OR_770",
                 "NVIDIA_GEFORCE_GTX_1660",
             ],
         ),
@@ -1544,7 +1559,7 @@ targets.legacy_matrix_compound_suite(
         "optimization_guide_gpu_gtests": targets.legacy_matrix_config(
             variants = [
                 "AMD_RADEON_RX_5500_XT",
-                "INTEL_UHD_630",
+                "INTEL_UHD_630_OR_770",
                 "NVIDIA_GEFORCE_GTX_1660",
             ],
         ),
@@ -1558,22 +1573,23 @@ targets.legacy_matrix_compound_suite(
             mixins = [
                 "gce",
             ],
-            variants = [
-                "MODEL_VALIDATION_BASE",
-                "MODEL_VALIDATION_TRUNK",
+        ),
+        "model_validation_tests_light_suite": targets.legacy_matrix_config(
+            mixins = [
+                "gce",
             ],
         ),
         "ondevice_quality_tests_suite": targets.legacy_matrix_config(
             variants = [
                 "AMD_RADEON_RX_5500_XT",
-                "INTEL_UHD_630",
+                "INTEL_UHD_630_OR_770",
                 "NVIDIA_GEFORCE_GTX_1660",
             ],
         ),
         "ondevice_stability_tests_suite": targets.legacy_matrix_config(
             variants = [
                 "AMD_RADEON_RX_5500_XT",
-                "INTEL_UHD_630",
+                "INTEL_UHD_630_OR_770",
                 "NVIDIA_GEFORCE_GTX_1660",
             ],
         ),

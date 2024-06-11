@@ -4,6 +4,7 @@
 
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
 
+#include "base/feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/browsing_data/browsing_data_file_system_util.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_model_delegate.h"
@@ -17,6 +18,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/renderer_configuration.mojom.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
@@ -35,10 +37,13 @@
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(ENABLE_PDF)
-#include "base/features.h"
 #include "chrome/browser/pdf/pdf_viewer_stream_manager.h"
 #include "pdf/pdf_features.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
+
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/media/webrtc/system_media_capture_permissions_mac.h"
+#endif
 
 using content_settings::PageSpecificContentSettings;
 
@@ -167,7 +172,7 @@ void GetGuestViewDefaultContentSettingRules(
   rules->mixed_content_rules.push_back(ContentSettingPatternSource(
       ContentSettingsPattern::Wildcard(), ContentSettingsPattern::Wildcard(),
       content_settings::ContentSettingToValue(CONTENT_SETTING_BLOCK),
-      std::string(), incognito));
+      content_settings::ProviderType::kNone, incognito));
 }
 #endif
 }  // namespace
@@ -255,11 +260,34 @@ void PageSpecificContentSettingsDelegate::OnContentBlocked(
   }
 }
 
+bool PageSpecificContentSettingsDelegate::IsBlockedOnSystemLevel(
+    ContentSettingsType type) {
+  DCHECK(type == ContentSettingsType::MEDIASTREAM_MIC ||
+         type == ContentSettingsType::MEDIASTREAM_CAMERA);
+
+#if BUILDFLAG(IS_MAC)
+  switch (type) {
+    case ContentSettingsType::MEDIASTREAM_CAMERA: {
+      return system_media_permissions::CheckSystemVideoCapturePermission() ==
+             system_media_permissions::SystemPermission::kDenied;
+    }
+    case ContentSettingsType::MEDIASTREAM_MIC: {
+      return system_media_permissions::CheckSystemAudioCapturePermission() ==
+             system_media_permissions::SystemPermission::kDenied;
+    }
+    default:
+      return false;
+  }
+#else
+  return false;
+#endif
+}
+
 bool PageSpecificContentSettingsDelegate::IsFrameAllowlistedForJavaScript(
     content::RenderFrameHost* render_frame_host) {
 #if BUILDFLAG(ENABLE_PDF)
   // OOPIF PDF viewer only.
-  if (!base::FeatureList::IsEnabled(chrome_pdf::features::kPdfOopif)) {
+  if (!chrome_pdf::features::IsOopifPdfEnabled()) {
     return false;
   }
 

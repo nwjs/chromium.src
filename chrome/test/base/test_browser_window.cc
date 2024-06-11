@@ -242,6 +242,10 @@ bool TestBrowserWindow::IsBorderlessModeEnabled() const {
   return false;
 }
 
+views::WebView* TestBrowserWindow::GetContentsWebView() {
+  return nullptr;
+}
+
 ShowTranslateBubbleResult TestBrowserWindow::ShowTranslateBubble(
     content::WebContents* contents,
     translate::TranslateStep step,

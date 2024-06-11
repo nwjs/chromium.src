@@ -31,15 +31,19 @@
 #include "third_party/blink/renderer/core/fileapi/file.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_data_list_options_collection.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/forms/spin_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_inner_elements.h"
 #include "third_party/blink/renderer/core/html/html_collection.h"
+#include "third_party/blink/renderer/core/html/html_meter_element.h"
+#include "third_party/blink/renderer/core/html/html_progress_element.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_utils.h"
@@ -288,6 +292,17 @@ void LayoutTheme::AdjustStyle(const Element* element,
 }
 
 String LayoutTheme::ExtraDefaultStyleSheet() {
+  if (RuntimeEnabledFeatures::VttCueDisplayRubyEnabled()) {
+    // !important is necessary because this style is loaded earlier than
+    // mediaControls.css.
+    //
+    // Avoid to write "video::cue" for a false-positive by
+    // audit_non_blink_usage.py.
+    return "video::"
+           "cue(rt) { display: ruby-text !important; }\n"
+           "video::"
+           "cue(ruby) { display: ruby; }\n";
+  }
   return g_empty_string;
 }
 
@@ -441,6 +456,9 @@ void LayoutTheme::AdjustCheckboxStyle(ComputedStyleBuilder& builder) const {
   // border - honored by WinIE, but looks terrible (just paints in the control
   // box and turns off the Windows XP theme) for now, we will not honor it.
   ResetBorder(builder);
+
+  builder.SetShouldIgnoreOverflowPropertyForInlineBlockBaseline();
+  builder.SetInlineBlockBaselineEdge(EInlineBlockBaselineEdge::kBorderBox);
 }
 
 void LayoutTheme::AdjustRadioStyle(ComputedStyleBuilder& builder) const {
@@ -450,6 +468,9 @@ void LayoutTheme::AdjustRadioStyle(ComputedStyleBuilder& builder) const {
   // border - honored by WinIE, but looks terrible (just paints in the control
   // box and turns off the Windows XP theme) for now, we will not honor it.
   ResetBorder(builder);
+
+  builder.SetShouldIgnoreOverflowPropertyForInlineBlockBaseline();
+  builder.SetInlineBlockBaselineEdge(EInlineBlockBaselineEdge::kBorderBox);
 }
 
 void LayoutTheme::AdjustButtonStyle(ComputedStyleBuilder&) const {}
@@ -470,8 +491,7 @@ void LayoutTheme::AdjustSliderContainerStyle(
     ComputedStyleBuilder& builder) const {
   DCHECK(IsSliderContainer(element));
 
-  if (RuntimeEnabledFeatures::FormControlsVerticalWritingModeSupportEnabled() &&
-      !IsHorizontalWritingMode(builder.GetWritingMode())) {
+  if (!IsHorizontalWritingMode(builder.GetWritingMode())) {
     builder.SetTouchAction(TouchAction::kPanX);
     // If FormControlsVerticalWritingModeDirectionSupport disabled, then it is
     // always RTL because the slider value increases up even in LTR.
@@ -657,7 +677,7 @@ Color LayoutTheme::SystemColorFromColorProvider(
     CSSValueID css_value_id,
     mojom::blink::ColorScheme color_scheme,
     const ui::ColorProvider* color_provider) const {
-  CHECK(!color_provider->IsColorMapEmpty());
+  CHECK(color_provider->HasMixers());
   SkColor system_theme_color;
   switch (css_value_id) {
     case CSSValueID::kActivetext:

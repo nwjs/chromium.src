@@ -16,7 +16,6 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectableListToolbar;
-import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelegate;
 import org.chromium.components.prefs.PrefService;
 
 import java.util.List;
@@ -26,13 +25,20 @@ public class HistoryManagerToolbar extends SelectableListToolbar<HistoryItem> {
     private HistoryManager mManager;
     private PrefService mPrefService;
 
+    /**
+     * Interface to the Chrome preference storage used to keep the last visibility state of the info
+     * header.
+     */
+    public interface InfoHeaderPref {
+        default boolean isVisible() {
+            return false;
+        }
+
+        default void setVisible(boolean visible) {}
+    }
+
     public HistoryManagerToolbar(Context context, AttributeSet attrs) {
         super(context, attrs);
-        inflateMenu(R.menu.history_manager_menu);
-
-        getMenu()
-                .findItem(R.id.selection_mode_open_in_incognito)
-                .setTitle(R.string.contextmenu_open_in_incognito_tab);
     }
 
     /**
@@ -95,6 +101,10 @@ public class HistoryManagerToolbar extends SelectableListToolbar<HistoryItem> {
         super.setSearchEnabled(searchEnabled);
         updateInfoMenuItem(
                 mManager.shouldShowInfoButton(), mManager.shouldShowInfoHeaderIfAvailable());
+        // shouldShowInfoButton is checked to ensure all the menu items are ready.
+        if (searchEnabled && mManager.shouldShowInfoButton()) {
+            mManager.showIPH();
+        }
     }
 
     /** Should be called when the user's sign in state changes. */
@@ -102,26 +112,6 @@ public class HistoryManagerToolbar extends SelectableListToolbar<HistoryItem> {
         updateMenuItemVisibility();
         updateInfoMenuItem(
                 mManager.shouldShowInfoButton(), mManager.shouldShowInfoHeaderIfAvailable());
-    }
-
-    @Override
-    public void initialize(
-            SelectionDelegate<HistoryItem> delegate,
-            int titleResId,
-            int normalGroupResId,
-            int selectedGroupResId,
-            boolean updateStatusBarColor,
-            boolean showBackInNormalView) {
-        super.initialize(
-                delegate,
-                titleResId,
-                normalGroupResId,
-                selectedGroupResId,
-                updateStatusBarColor,
-                showBackInNormalView);
-        if (showBackInNormalView) {
-            getMenu().removeItem(R.id.close_menu_id);
-        }
     }
 
     @Override

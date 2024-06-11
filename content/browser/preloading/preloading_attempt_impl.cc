@@ -11,6 +11,7 @@
 #include "base/strings/strcat.h"
 #include "content/browser/preloading/preloading.h"
 #include "content/browser/preloading/preloading_config.h"
+#include "content/browser/preloading/prerender/prerender_features.h"
 #include "content/public/browser/preloading.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -90,7 +91,7 @@ void PreloadingAttemptImpl::SetEligibility(PreloadingEligibility eligibility) {
   eligibility_ = eligibility;
 }
 
-// TODO(crbug.com/1464836): most call sites of this should be removed, as
+// TODO(crbug.com/40275772): most call sites of this should be removed, as
 // PreloadingConfig should subsume most feature-specific holdbacks that exist
 // today. Some cases can remain as specific overrides of the PreloadingConfig
 // logic, e.g. if DevTools is open, or for features that are still launching and
@@ -212,14 +213,19 @@ void PreloadingAttemptImpl::RecordPreloadingAttemptMetrics(
   // Ensure that when the `triggering_outcome_` is kSuccess, then the
   // accurate_triggering should be true.
   if (triggering_outcome_ == PreloadingTriggeringOutcome::kSuccess) {
-    // TODO(https://crbug.com/1431055): Fix PreloadingAttempt for Prefetching in
+    // TODO(crbug.com/40263357): Fix PreloadingAttempt for Prefetching in
     // a different WebContents. It is allowed to activate a prefetched result in
     // another WebContents instance, and the WebContents that stores `this`
     // instance does not have the opportunity to set the
     // `is_accurate_triggering_` flag to true in this case.
     if (preloading_type_ != PreloadingType::kPrefetch) {
-      CHECK(is_accurate_triggering_)
-          << "TriggeringOutcome set to kSuccess without correct prediction\n";
+      if (!base::FeatureList::IsEnabled(features::kPrerender2NoVarySearch)) {
+        // TODO(crbug.com/41494389): is_accurate_triggering_ needs to be updated
+        // accordingly in the case when prerender is matched via No-Vary-Search
+        // matching.
+        CHECK(is_accurate_triggering_)
+            << "TriggeringOutcome set to kSuccess without correct prediction\n";
+      }
     }
   }
 

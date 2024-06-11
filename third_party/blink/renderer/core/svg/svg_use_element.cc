@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/id_target_observer.h"
+#include "third_party/blink/renderer/core/dom/increment_load_event_delay_count.h"
 #include "third_party/blink/renderer/core/dom/node_cloning_data.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/xml_document.h"
@@ -38,11 +39,18 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_transformable_container.h"
 #include "third_party/blink/renderer/core/svg/svg_animated_length.h"
+#include "third_party/blink/renderer/core/svg/svg_circle_element.h"
+#include "third_party/blink/renderer/core/svg/svg_ellipse_element.h"
 #include "third_party/blink/renderer/core/svg/svg_g_element.h"
 #include "third_party/blink/renderer/core/svg/svg_length_context.h"
+#include "third_party/blink/renderer/core/svg/svg_path_element.h"
+#include "third_party/blink/renderer/core/svg/svg_polygon_element.h"
+#include "third_party/blink/renderer/core/svg/svg_polyline_element.h"
+#include "third_party/blink/renderer/core/svg/svg_rect_element.h"
 #include "third_party/blink/renderer/core/svg/svg_resource_document_content.h"
 #include "third_party/blink/renderer/core/svg/svg_svg_element.h"
 #include "third_party/blink/renderer/core/svg/svg_symbol_element.h"
+#include "third_party/blink/renderer/core/svg/svg_text_element.h"
 #include "third_party/blink/renderer/core/svg/svg_title_element.h"
 #include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/core/xlink_names.h"
@@ -92,6 +100,7 @@ SVGUseElement::~SVGUseElement() = default;
 
 void SVGUseElement::Trace(Visitor* visitor) const {
   visitor->Trace(document_content_);
+  visitor->Trace(external_resource_target_);
   visitor->Trace(x_);
   visitor->Trace(y_);
   visitor->Trace(width_);
@@ -131,6 +140,9 @@ void SVGUseElement::RemovedFrom(ContainerNode& root_parent) {
 
 void SVGUseElement::DidMoveToNewDocument(Document& old_document) {
   SVGGraphicsElement::DidMoveToNewDocument(old_document);
+  if (load_event_delayer_) {
+    load_event_delayer_->DocumentChanged(GetDocument());
+  }
   UpdateTargetReference();
 }
 
@@ -196,11 +208,14 @@ void SVGUseElement::UpdateDocumentContent(
   if (document_content_ == document_content) {
     return;
   }
+  auto old_load_event_delayer = std::move(load_event_delayer_);
   if (document_content_) {
     document_content_->RemoveObserver(this);
   }
   document_content_ = document_content;
   if (document_content_) {
+    load_event_delayer_ =
+        std::make_unique<IncrementLoadEventDelayCount>(GetDocument());
     document_content_->AddObserver(this);
   }
 }
@@ -314,6 +329,7 @@ void SVGUseElement::CancelShadowTreeRecreation() {
 }
 
 void SVGUseElement::ClearResourceReference() {
+  external_resource_target_.Clear();
   UnobserveTarget(target_id_observer_);
   RemoveAllOutgoingReferences();
 }
@@ -336,9 +352,15 @@ Element* SVGUseElement::ResolveTargetElement() {
                              WrapWeakPersistent(this)));
     }
   }
-  if (!document_content_ || !document_content_->GetDocument())
+  if (!document_content_) {
     return nullptr;
-  return document_content_->GetDocument()->getElementById(element_identifier);
+  }
+  external_resource_target_ =
+      document_content_->GetResourceTarget(element_identifier);
+  if (!external_resource_target_) {
+    return nullptr;
+  }
+  return external_resource_target_->target;
 }
 
 SVGElement* SVGUseElement::InstanceRoot() const {
@@ -634,6 +656,7 @@ void SVGUseElement::QueueOrDispatchPendingEvent(
 void SVGUseElement::ResourceNotifyFinished(
     SVGResourceDocumentContent* document_content) {
   DCHECK_EQ(document_content_, document_content);
+  load_event_delayer_.reset();
   if (!isConnected())
     return;
   InvalidateShadowTree();

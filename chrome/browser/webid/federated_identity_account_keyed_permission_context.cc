@@ -15,6 +15,8 @@
 #include "base/values.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context.h"
+#include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context_factory.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
@@ -23,6 +25,7 @@
 #include "content/public/common/content_features.h"
 #include "net/base/schemeful_site.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "url/origin.h"
 
 namespace {
@@ -137,7 +140,7 @@ bool FederatedIdentityAccountKeyedPermissionContext::HasPermission(
     const url::Origin& relying_party_embedder,
     const url::Origin& identity_provider,
     const std::optional<std::string>& account_id) {
-  // TODO(crbug.com/1334019): This is currently origin-bound, but we would like
+  // TODO(crbug.com/40846157): This is currently origin-bound, but we would like
   // this grant to apply at the 'site' (aka eTLD+1) level. We should override
   // GetGrantedObject to find a grant that matches the RP's site rather
   // than origin, and also ensure that duplicate sites cannot be added.
@@ -283,6 +286,20 @@ void FederatedIdentityAccountKeyedPermissionContext::MarkStorageAccessEligible(
   SyncSharingPermissionGrantsToNetworkService(std::move(callback));
 }
 
+void FederatedIdentityAccountKeyedPermissionContext::OnSetRequiresUserMediation(
+    const url::Origin& relying_party,
+    base::OnceClosure callback) {
+  net::SchemefulSite relying_party_site(relying_party);
+  if (base::ranges::none_of(
+          storage_access_eligible_connections_, [&](const auto& pair) -> bool {
+            return net::SchemefulSite(pair.first) == relying_party_site;
+          })) {
+    std::move(callback).Run();
+    return;
+  }
+  SyncSharingPermissionGrantsToNetworkService(std::move(callback));
+}
+
 std::string FederatedIdentityAccountKeyedPermissionContext::GetKeyForObject(
     const base::Value::Dict& object) {
   DCHECK(IsValidObject(object));
@@ -355,7 +372,8 @@ void FederatedIdentityAccountKeyedPermissionContext::
 
 ContentSettingsForOneType FederatedIdentityAccountKeyedPermissionContext::
     GetSharingPermissionGrantsAsContentSettings() {
-  if (!base::FeatureList::IsEnabled(features::kFedCmWithStorageAccessAPI)) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kFedCmWithStorageAccessAPI)) {
     return ContentSettingsForOneType();
   }
   // ObjectPermissionContext stores its settings in the HostContentSettingsMap
@@ -369,6 +387,9 @@ ContentSettingsForOneType FederatedIdentityAccountKeyedPermissionContext::
   // <origin, origin>.
 
   ContentSettingsForOneType settings;
+  FederatedIdentityAutoReauthnPermissionContext* reauth_context =
+      FederatedIdentityAutoReauthnPermissionContextFactory::GetForProfile(
+          &*browser_context_);
 
   for (const std::unique_ptr<Object>& object : GetAllGrantedObjects()) {
     if (!object) {
@@ -379,10 +400,20 @@ ContentSettingsForOneType FederatedIdentityAccountKeyedPermissionContext::
         object->value.FindString(kRpEmbedderKey);
     const std::string* idp_origin = object->value.FindString(kSharingIdpKey);
 
-    if (!rp_embedder_origin || !idp_origin ||
-        !storage_access_eligible_connections_.contains(
-            std::make_pair(net::SchemefulSite(GURL(*rp_embedder_origin)),
-                           net::SchemefulSite(GURL(*idp_origin))))) {
+    if (!rp_embedder_origin || !idp_origin) {
+      continue;
+    }
+
+    const url::Origin rp_embedder =
+        url::Origin::Create(GURL(*rp_embedder_origin));
+    if (reauth_context->RequiresUserMediation(rp_embedder)) {
+      continue;
+    }
+
+    const net::SchemefulSite rp_embedder_site(rp_embedder);
+    const net::SchemefulSite idp_site((GURL(*idp_origin)));
+    if (!storage_access_eligible_connections_.contains(
+            std::make_pair(rp_embedder_site, idp_site))) {
       continue;
     }
 
@@ -392,7 +423,8 @@ ContentSettingsForOneType FederatedIdentityAccountKeyedPermissionContext::
         ContentSettingsPattern::FromURLToSchemefulSitePattern(
             GURL(*rp_embedder_origin)),
         content_settings::ContentSettingToValue(CONTENT_SETTING_ALLOW),
-        /*source=*/"", browser_context_->IsOffTheRecord());
+        content_settings::ProviderType::kNone,
+        browser_context_->IsOffTheRecord());
   }
   return settings;
 }

@@ -1,15 +1,15 @@
 rootWebArea
 ++genericContainer ignored
 ++++genericContainer ignored
-++++++section
+++++++sectionWithoutName
 ++++++++heading name='Heading with link'
 ++++++++++staticText name='Heading '
-++++++++++++inlineTextBox
+++++++++++++inlineTextBox name='Heading '
 ++++++++++link name='with link'
 ++++++++++++staticText name='with link'
-++++++++++++++inlineTextBox
+++++++++++++++inlineTextBox name='with link'
 ++++++++staticText name='Presentational heading '
-++++++++++inlineTextBox
+++++++++++inlineTextBox name='Presentational heading '
 ++++++++link name='with link'
 ++++++++++staticText name='with link'
-++++++++++++inlineTextBox
+++++++++++++inlineTextBox name='with link'

@@ -27,8 +27,7 @@ namespace {
 // it.
 void WaitForThenTapText(NSString* text) {
   id item = chrome_test_util::ContainsPartialText(text);
-  [ChromeEarlGrey waitForSufficientlyVisibleElementWithMatcher:item];
-  [[EarlGrey selectElementWithMatcher:item] performAction:grey_tap()];
+  [ChromeEarlGrey waitForAndTapButton:item];
 }
 
 // Taps a view containing a partial match to the given `text`.
@@ -43,9 +42,12 @@ void MaybeTapAllowNotifications() {
   XCUIApplication* springboardApplication = [[XCUIApplication alloc]
       initWithBundleIdentifier:@"com.apple.springboard"];
   auto button = springboardApplication.buttons[@"Allow"];
-  if ([button waitForExistenceWithTimeout:2]) {
-    [button tap];
+  if ([button waitForExistenceWithTimeout:1]) {
+    // Wait for the magic stack to settle behind the alert.
+    // Otherwise the test flakes when a snackbar is presented right after the
+    // permissions alert is dismissed.
     [ChromeEarlGreyUI waitForAppToIdle];
+    [button tap];
   }
 }
 
@@ -82,12 +84,10 @@ void MaybeDismissNotification() {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  //  config.features_enabled.push_back(kIOSTipsNotifications);
 
   std::string triggerTime = "2.5s";
 
-  if ([self isRunningTest:@selector
-            (DISABLED_testToggleTipsNotificationsMenuItem)]) {
+  if ([self isRunningTest:@selector(testToggleTipsNotificationsMenuItem)]) {
     triggerTime = "72h";
   }
 
@@ -106,6 +106,8 @@ void MaybeDismissNotification() {
   [ChromeEarlGrey clearDefaultBrowserPromoData];
   [ChromeEarlGrey resetDataForLocalStatePref:
                       prefs::kIosCredentialProviderPromoLastActionTaken];
+  [ChromeEarlGrey
+      resetDataForLocalStatePref:prefs::kIosDefaultBrowserPromoLastAction];
   [NewTabPageAppInterface resetSetUpListPrefs];
   [ChromeEarlGrey
       resetDataForLocalStatePref:prefs::kAppLevelPushNotificationPermissions];
@@ -156,11 +158,9 @@ void MaybeDismissNotification() {
 #pragma mark - Tests
 
 // Tests the SetUpList long press menu item to toggle Tips Notifications.
-// TODO:(crbug.com/334134064) Fix and reenable test.
-- (void)DISABLED_testToggleTipsNotificationsMenuItem {
-  [SigninEarlGrey addFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-  [ChromeEarlGreyUI waitForAppToIdle];
-  MaybeDismissNotification();
+- (void)testToggleTipsNotificationsMenuItem {
+  [ChromeEarlGrey
+      resetDataForLocalStatePref:prefs::kAppLevelPushNotificationPermissions];
   [self optInToTipsNotifications];
   [self turnOffTipsNotifications];
 }

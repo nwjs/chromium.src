@@ -16,13 +16,23 @@
     user-select: none;
   }
 
-  .word.highlighted {
-    background-color: rgb(181, 215, 253);
+  :host([debug-mode]) .word {
+    border: 1px solid blue;
     opacity: 50%;
+  }
+
+  .highlighted-line {
+    position: absolute;
+    background-color: var(--color-shader-layer-3);
+    opacity: 60%;
   }
 </style>
 <template id="wordsContainer" is="dom-repeat" items="[[renderedWords]]">
-  <div style$="[[getWordStyle_(item)]]" class$="word
-    [[getHighlightedCssClass_(index, selectionStartIndex, selectionEndIndex)]]">
+  <div style$="[[getWordStyle(item)]]" class="word"
+    on-pointerenter="handlePointerEnter" on-pointerleave="handlePointerLeave">
+  </div>
+</template>
+<template is="dom-repeat" items="[[highlightedLines]]">
+  <div style$="[[getHighlightedLineStyle(item)]]" class="highlighted-line">
   </div>
 </template>

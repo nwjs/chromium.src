@@ -842,9 +842,9 @@ static_library("test_support") {
 # Fuchsia performance tests on smart displays use web_engine and a browser
 # like shell instead of an actual browser, so Fuchsia needs a separate target.
 if (is_fuchsia) {
-  # TODO(crbug.com/1310086): Split this test suite into chrome/WebEngine
+  # TODO(crbug.com/40830160): Split this test suite into chrome/WebEngine
   # versions.
-  # TODO(crbug.com/1309686): Move WebEngine-specific suites to //fuchsia_web/webengine/
+  # TODO(crbug.com/40829930): Move WebEngine-specific suites to //fuchsia_web/webengine/
   group("performance_web_engine_test_suite") {
     testonly = true
     data = [ "//content/test/gpu/run_telemetry_benchmark_fuchsia.py" ]
@@ -900,7 +900,6 @@ group("telemetry_gpu_integration_test_support") {
     # ability to dedupe tasks.
     "//tools/perf/page_sets/maps_perf_test/config.js",
     "//tools/perf/page_sets/maps_perf_test/load_dataset",
-    "//tools/perf/page_sets/maps_perf_test/load_dataset.sha1",
     "//tools/perf/page_sets/maps_perf_test/performance.html",
     "//tools/perf/page_sets/maps_perf_test/tracked.js",
     "//tools/perf/page_sets/maps_perf_test/worker.js",
@@ -1039,6 +1038,8 @@ static_library("browsertest_support") {
     "../public/test/content_cert_verifier_browser_test.h",
     "../public/test/resource_load_observer.cc",
     "../public/test/resource_load_observer.h",
+    "content_browser_test_base.cc",
+    "content_browser_test_base.h",
     "content_browser_test_utils_internal.cc",
     "content_browser_test_utils_internal.h",
   ]
@@ -1065,6 +1066,7 @@ static_library("browsertest_support") {
     "//content/shell:content_shell_lib",
     "//gin",
     "//media",
+    "//mojo/public/cpp/test_support:test_utils",
     "//net",
     "//net:test_support",
     "//ui/accessibility:ax_enums_mojo",
@@ -1393,7 +1395,6 @@ test("content_browsertests") {
     "../browser/content_index/content_index_browsertest.cc",
     "../browser/content_security_policy_browsertest.cc",
     "../browser/cookie_deprecation_label/cookie_deprecation_label_browsertest.cc",
-    "../browser/cross_origin_opener_policy_browsertest.cc",
     "../browser/cross_site_transfer_browsertest.cc",
     "../browser/data_decoder_browsertest.cc",
     "../browser/database_browsertest.cc",
@@ -1510,6 +1511,7 @@ test("content_browsertests") {
     "../browser/power_monitor_browsertest.cc",
     "../browser/preloading/anchor_element_interaction_browsertest.cc",
     "../browser/preloading/prefetch/contamination_delay_browsertest.cc",
+    "../browser/preloading/prefetch/nav_prefetch_browsertest.cc",
     "../browser/preloading/preloading_decider_browsertest.cc",
     "../browser/preloading/prerender/prerender_browsertest.cc",
     "../browser/private_aggregation/private_aggregation_internals_browsertest.cc",
@@ -1577,6 +1579,7 @@ test("content_browsertests") {
     "../browser/resource_loading_browsertest.cc",
     "../browser/screen_details/screen_details_browsertest.cc",
     "../browser/screen_orientation/screen_orientation_browsertest.cc",
+    "../browser/security/coop/cross_origin_opener_policy_browsertest.cc",
     "../browser/security_exploit_browsertest.cc",
     "../browser/service_process_host_browsertest.cc",
     "../browser/service_worker/service_worker_auth_browsertest.cc",
@@ -1592,6 +1595,7 @@ test("content_browsertests") {
     "../browser/session_history_browsertest.cc",
     "../browser/shape_detection/shape_detection_browsertest.cc",
     "../browser/shared_storage/shared_storage_browsertest.cc",
+    "../browser/site_instance_group_browsertest.cc",
     "../browser/site_per_process_browsertest.cc",
     "../browser/site_per_process_browsertest.h",
     "../browser/site_per_process_hit_test_browsertest.cc",
@@ -1692,7 +1696,7 @@ test("content_browsertests") {
       "../browser/navigation_transitions/back_forward_transition_animation_manager_android_browsertest.cc",
       "../browser/network/quic_connection_migration_android_browsertest.cc",
 
-      # TODO(https://crbug.com/1442929): move out of Android once we can capture
+      # TODO(crbug.com/40267166): move out of Android once we can capture
       # for other platforms.
       "../browser/renderer_host/navigation_transitions/navigation_entry_screenshot_browsertest.cc",
     ]
@@ -1703,9 +1707,7 @@ test("content_browsertests") {
   }
 
   if (enable_reporting) {
-    sources += [
-      "../browser/network/cross_origin_opener_policy_reporting_browsertest.cc",
-    ]
+    sources += [ "../browser/security/coop/cross_origin_opener_policy_reporting_browsertest.cc" ]
   }
 
   if (use_viz_debugger) {
@@ -1742,6 +1744,7 @@ test("content_browsertests") {
     "//components/discardable_memory/service",
     "//components/favicon/content",
     "//components/network_session_configurator/common",
+    "//components/os_crypt/async/browser:key_provider_interface",
     "//components/os_crypt/async/browser:test_support",
     "//components/payments/mojom",
     "//components/performance_manager",
@@ -2015,7 +2018,10 @@ test("content_browsertests") {
 
     data_deps += [ "//services/test/echo:echo_preload_library" ]
 
-    libs = [ "uiautomationcore.lib" ]
+    libs = [
+      "dbghelp.lib",
+      "uiautomationcore.lib",
+    ]
   }
 
   if (is_linux || is_chromeos) {
@@ -2268,7 +2274,7 @@ test("content_browsertests") {
   }
 
   # KeyboardLock is currently not supported in Android, Fuchsia and
-  # Chromecast builds. TODO(crbug.com/1414160): Re-enable on Fuchsia
+  # Chromecast builds. TODO(crbug.com/40891949): Re-enable on Fuchsia
   # once its platform support is available.
   if (is_android || is_fuchsia || is_castos) {
     sources -= [ "../browser/keyboard_lock_browsertest.cc" ]
@@ -2494,6 +2500,7 @@ test("content_unittests") {
     "../browser/interest_group/interest_group_permissions_cache_unittest.cc",
     "../browser/interest_group/interest_group_permissions_checker_unittest.cc",
     "../browser/interest_group/interest_group_priority_util_unittest.cc",
+    "../browser/interest_group/interest_group_real_time_report_util_unittest.cc",
     "../browser/interest_group/interest_group_storage_unittest.cc",
     "../browser/interest_group/mock_auction_process_manager.cc",
     "../browser/interest_group/mock_auction_process_manager.h",
@@ -2540,7 +2547,6 @@ test("content_unittests") {
     "../browser/mojo_binder_policy_applier_unittest.cc",
     "../browser/mojo_binder_policy_map_impl_unittest.cc",
     "../browser/network/cross_origin_embedder_policy_reporter_unittest.cc",
-    "../browser/network/cross_origin_opener_policy_reporter_unittest.cc",
     "../browser/network/network_quality_observer_impl_unittest.cc",
     "../browser/network/socket_broker_impl_unittest.cc",
     "../browser/network_context_client_base_impl_unittest.cc",
@@ -2608,7 +2614,6 @@ test("content_unittests") {
     "../browser/renderer_host/browsing_context_group_swap_unittest.cc",
     "../browser/renderer_host/clipboard_host_impl_unittest.cc",
     "../browser/renderer_host/commit_deferring_condition_runner_unittest.cc",
-    "../browser/renderer_host/cross_origin_opener_policy_status_unittest.cc",
     "../browser/renderer_host/cursor_manager_unittest.cc",
     "../browser/renderer_host/display_feature_unittest.cc",
     "../browser/renderer_host/document_service_unittest.cc",
@@ -2685,6 +2690,8 @@ test("content_unittests") {
     "../browser/scheduler/responsiveness/watcher_unittest.cc",
     "../browser/screen_orientation/screen_orientation_provider_unittest.cc",
     "../browser/screenlock_monitor/screenlock_monitor_unittest.cc",
+    "../browser/security/coop/cross_origin_opener_policy_reporter_unittest.cc",
+    "../browser/security/coop/cross_origin_opener_policy_status_unittest.cc",
     "../browser/service_worker/embedded_worker_instance_unittest.cc",
     "../browser/service_worker/service_worker_cache_writer_unittest.cc",
     "../browser/service_worker/service_worker_container_host_unittest.cc",
@@ -2749,6 +2756,7 @@ test("content_unittests") {
     "../browser/web_package/signed_exchange_signature_header_field_unittest.cc",
     "../browser/web_package/signed_exchange_signature_verifier_unittest.cc",
     "../browser/web_package/signed_exchange_utils_unittest.cc",
+    "../browser/webid/digital_credentials/digital_identity_request_impl_unittest.cc",
     "../browser/webid/federated_auth_disconnect_request_unittest.cc",
     "../browser/webid/federated_auth_request_impl_multiple_frames_unittest.cc",
     "../browser/webid/federated_auth_request_impl_registry_unittest.cc",
@@ -2898,7 +2906,7 @@ test("content_unittests") {
     additional_manifest_fragments = [
       "//build/config/fuchsia/test/fonts.shard.test-cml",
 
-      # TODO(https://crbug.com/1185811): Investigate removing the requirement
+      # TODO(crbug.com/40055105): Investigate removing the requirement
       # for VmexResource.
       "//build/config/fuchsia/test/mark_vmo_executable.shard.test-cml",
       "//build/config/fuchsia/test/network.shard.test-cml",
@@ -3503,7 +3511,7 @@ group("fuzzers") {
 # test_buildbucket_api_gpu_cases.py on bots. This also tells the build system
 # when the tests should be re-run - when one of the dependent files changes.
 #
-# TODO(crbug.com/1080749): Remove once power testing is migrated to perf waterfall.
+# TODO(crbug.com/40130215): Remove once power testing is migrated to perf waterfall.
 group("test_buildbucket_api_gpu_use_cases") {
   data = [
     # The test runner and its dependencies.

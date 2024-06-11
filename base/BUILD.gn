@@ -121,7 +121,7 @@ if (is_fuchsia) {
 # have a Rust toolchain, so we need a fallback to C++ for it until it removes
 # its dependency on //base.
 #
-# TODO(crbug.com/1280708): Drop toolchain_has_rust and move the C++ parser into
+# TODO(crbug.com/40811643): Drop toolchain_has_rust and move the C++ parser into
 # components/nacl to just run in-process there. Don't compile base::JSONReader
 # on NaCL at all.
 build_rust_json_reader = toolchain_has_rust && enable_rust_json
@@ -256,7 +256,6 @@ component("base") {
     "base64url.cc",
     "base64url.h",
     "base_switches.h",
-    "big_endian.cc",
     "big_endian.h",
     "bit_cast.h",
     "bits.h",
@@ -753,6 +752,7 @@ component("base") {
     "task/sequence_manager/task_queue_impl.h",
     "task/sequence_manager/task_queue_selector.cc",
     "task/sequence_manager/task_queue_selector.h",
+    "task/sequence_manager/task_time_observer.cc",
     "task/sequence_manager/task_time_observer.h",
     "task/sequence_manager/tasks.cc",
     "task/sequence_manager/tasks.h",
@@ -941,6 +941,7 @@ component("base") {
     "traits_bag.h",
     "tuple.h",
     "types/always_false.h",
+    "types/cxx23_is_scoped_enum.h",
     "types/cxx23_to_underlying.h",
     "types/expected.h",
     "types/expected_internal.h",
@@ -1258,8 +1259,6 @@ component("base") {
       "android/thread_instruction_count.h",
       "android/timezone_utils.cc",
       "android/timezone_utils.h",
-      "android/unguessable_token_android.cc",
-      "android/unguessable_token_android.h",
       "debug/stack_trace_android.cc",
       "files/file_util_android.cc",
       "files/scoped_file_android.cc",
@@ -1374,6 +1373,8 @@ component("base") {
       "android/token_android.h",
       "android/trace_event_binding.cc",
       "android/trace_event_binding.h",
+      "android/unguessable_token_android.cc",
+      "android/unguessable_token_android.h",
     ]
     deps += [ "//build:robolectric_buildflags" ]
     public_deps += [ "//third_party/jni_zero:jni_zero" ]
@@ -1480,7 +1481,7 @@ component("base") {
 
     # These only need to be public deps because of includes of their headers
     # by public //base headers, which requires they be on the include path.
-    # TODO(https://crbug.com/841171): Move these back to |deps|.
+    # TODO(crbug.com/40575514): Move these back to |deps|.
     public_deps += [
       "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.component.runner:fuchsia.component.runner_hlcpp",
       "//third_party/fuchsia-sdk/sdk/fidl/fuchsia.intl:fuchsia.intl_hlcpp",
@@ -1524,7 +1525,7 @@ component("base") {
   # cannot easily depend on BoringSSL due to the nacl_io library, so NaCl builds
   # still retain a dedicated local implementation of the functionality.
   #
-  # TODO(crbug.com/702997) Use only boringssl when NaCl is removed.
+  # TODO(crbug.com/40511454) Use only boringssl when NaCl is removed.
   sources += [
     "hash/md5.h",
     "hash/md5_constexpr.h",
@@ -2555,7 +2556,7 @@ buildflag_header("debugging_buildflags") {
   enable_lldbinit_warning =
       is_debug && strip_absolute_paths_from_debug_symbols && is_mac
 
-  # TODO(crbug.com/1420774): Try and enable these checks on Android too.
+  # TODO(crbug.com/40258939): Try and enable these checks on Android too.
   enable_commandline_sequence_checks =
       (is_debug || dcheck_always_on) && !is_android
 
@@ -3123,7 +3124,7 @@ if (is_fuchsia) {
     sources = [ "fuchsia/test.test-fidl" ]
   }
 
-  # TODO(crbug.com/1416553): remove this once all users are migrated to natural bindings.
+  # TODO(crbug.com/40256912): remove this once all users are migrated to natural bindings.
   source_set("test_interface_impl") {
     testonly = true
     sources = [
@@ -3226,7 +3227,6 @@ test("base_unittests") {
     "barrier_closure_unittest.cc",
     "base64_unittest.cc",
     "base64url_unittest.cc",
-    "big_endian_unittest.cc",
     "bit_cast_unittest.cc",
     "bits_unittest.cc",
     "build_time_unittest.cc",
@@ -3504,7 +3504,6 @@ test("base_unittests") {
     "task/thread_pool/worker_thread_set_unittest.cc",
     "task/thread_pool/worker_thread_waitable_event_unittest.cc",
     "task/thread_pool_unittest.cc",
-    "template_util_unittest.cc",
     "test/gmock_callback_support_unittest.cc",
     "test/gmock_expected_support_unittest.cc",
     "test/gmock_move_support_unittest.cc",
@@ -3534,7 +3533,6 @@ test("base_unittests") {
     "test/test_pending_task_unittest.cc",
     "test/test_proto_loader_unittest.cc",
     "test/test_waitable_event_unittest.cc",
-    "third_party/dynamic_annotations/dynamic_annotations_compiletest.cc",
     "thread_annotations_unittest.cc",
     "threading/hang_watcher_unittest.cc",
     "threading/platform_thread_unittest.cc",
@@ -3566,6 +3564,7 @@ test("base_unittests") {
     "tools_sanity_unittest.cc",
     "traits_bag_unittest.cc",
     "tuple_unittest.cc",
+    "types/cxx23_is_scoped_enum_unittest.cc",
     "types/cxx23_to_underlying_unittest.cc",
     "types/expected_macros_unittest.cc",
     "types/expected_unittest.cc",
@@ -3628,7 +3627,6 @@ test("base_unittests") {
     "//base/test:run_all_unittests",
     "//base/test:test_proto",
     "//base/test:test_support",
-    "//base/third_party/dynamic_annotations",
     "//build:blink_buildflags",
     "//build:chromecast_buildflags",
     "//build:chromeos_buildflags",
@@ -3859,7 +3857,6 @@ test("base_unittests") {
       "android/sys_utils_unittest.cc",
       "android/token_android_unittest.cc",
       "android/unguessable_token_android_unittest.cc",
-      "os_compat_android_unittest.cc",
     ]
 
     # Android does not use test_launcher to run gtests.
@@ -4000,6 +3997,7 @@ test("base_unittests") {
       "allocator/partition_allocator/src/partition_alloc/partition_lock_unittest.cc",
       "allocator/partition_allocator/src/partition_alloc/reverse_bytes_unittest.cc",
       "allocator/partition_allocator/src/partition_alloc/thread_cache_unittest.cc",
+      "allocator/partition_allocator/src/partition_alloc/use_death_tests.h",
     ]
 
     if (use_starscan) {
@@ -4312,10 +4310,7 @@ if (enable_nocompile_tests) {
       "unsafe_buffers_nocompile.nc",
       "values_nocompile.nc",
     ]
-    deps = [
-      ":base",
-      "//build/config/clang:unsafe_buffers_buildflags",
-    ]
+    deps = [ ":base" ]
   }
 }
 
@@ -4332,7 +4327,9 @@ if (is_android || is_robolectric) {
       "android/java/src/org/chromium/base/JavaExceptionReporter.java",
       "android/java/src/org/chromium/base/JniAndroid.java",
       "android/java/src/org/chromium/base/Token.java",
+      "android/java/src/org/chromium/base/TokenBase.java",
       "android/java/src/org/chromium/base/TraceEvent.java",
+      "android/java/src/org/chromium/base/UnguessableToken.java",
       "android/java/src/org/chromium/base/library_loader/LibraryLoader.java",
       "android/java/src/org/chromium/base/metrics/NativeUmaRecorder.java",
     ]
@@ -4373,6 +4370,7 @@ if (is_android || is_robolectric) {
       "android/java/src/org/chromium/base/ThreadUtils.java",
       "android/java/src/org/chromium/base/TimezoneUtils.java",
       "android/java/src/org/chromium/base/Token.java",
+      "android/java/src/org/chromium/base/TokenBase.java",
       "android/java/src/org/chromium/base/TraceEvent.java",
       "android/java/src/org/chromium/base/UnguessableToken.java",
       "android/java/src/org/chromium/base/jank_tracker/JankMetricUMARecorder.java",
@@ -4493,6 +4491,7 @@ if (is_android) {
     ]
 
     sources = [
+      "android/java/src/org/chromium/base/ActivityLifecycleCallbacksAdapter.java",
       "android/java/src/org/chromium/base/ActivityState.java",
       "android/java/src/org/chromium/base/ApiCompatibilityUtils.java",
       "android/java/src/org/chromium/base/ApkAssets.java",
@@ -4553,6 +4552,7 @@ if (is_android) {
       "android/java/src/org/chromium/base/TimeUtils.java",
       "android/java/src/org/chromium/base/TimezoneUtils.java",
       "android/java/src/org/chromium/base/Token.java",
+      "android/java/src/org/chromium/base/TokenBase.java",
       "android/java/src/org/chromium/base/TraceEvent.java",
       "android/java/src/org/chromium/base/UnguessableToken.java",
       "android/java/src/org/chromium/base/UnownedUserData.java",
@@ -4651,7 +4651,7 @@ if (is_android) {
 
     resources_package = "org.chromium.base"
 
-    proguard_configs = [ "android/proguard/chromium_code.flags" ]
+    proguard_configs = [ "android/proguard/shared_with_cronet.flags" ]
     if (!is_cronet_build) {
       proguard_configs += [
         "android/proguard/chromium_apk.flags",
@@ -4820,6 +4820,7 @@ if (is_android) {
 
     sources = [
       "test/android/java/src/org/chromium/base/multidex/ChromiumMultiDexInstaller.java",
+      "test/android/javatests/src/org/chromium/base/test/ActivityFinisher.java",
       "test/android/javatests/src/org/chromium/base/test/BaseActivityTestRule.java",
       "test/android/javatests/src/org/chromium/base/test/BaseChromiumAndroidJUnitRunner.java",
       "test/android/javatests/src/org/chromium/base/test/BaseJUnit4ClassRunner.java",
@@ -4886,7 +4887,6 @@ if (is_android) {
       "test/android/javatests/src/org/chromium/base/test/util/SkipCheck.java",
       "test/android/javatests/src/org/chromium/base/test/util/TestFileUtil.java",
       "test/android/javatests/src/org/chromium/base/test/util/TestThreadUtils.java",
-      "test/android/javatests/src/org/chromium/base/test/util/TimeoutScale.java",
       "test/android/javatests/src/org/chromium/base/test/util/TimeoutTimer.java",
       "test/android/javatests/src/org/chromium/base/test/util/UserActionTester.java",
       "test/android/javatests/src/org/chromium/base/test/util/ViewActionOnDescendant.java",
@@ -5076,6 +5076,7 @@ if (is_android) {
       "android/task_scheduler/task_traits_android.h",
       "memory/memory_pressure_listener.h",
       "metrics/histogram_base.h",
+      "process/kill.h",
       "task/task_traits.h",
     ]
     if (enable_base_tracing) {
@@ -5264,7 +5265,7 @@ fuzzer_test("pickle_fuzzer") {
   ]
 }
 
-# TODO(1151236): Temporarily move test_support from
+# TODO(crbug.com/40158212): Temporarily move test_support from
 # //base/allocator/partition_allocator/src/partition_alloc/BUILD.gn to //base/BUILD.gn. After
 # fixing partition_allocator tests issue, we will move test_support to
 # //base/allocator/partition_allocator/src/partition_alloc/BUILD.gn again.

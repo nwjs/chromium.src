@@ -105,12 +105,7 @@ bool DisplayResourceProvider::OnMemoryDump(
       pmd->CreateSharedMemoryOwnershipEdge(
           dump->guid(), resource.shared_bitmap_tracing_guid, kImportance);
     } else {
-      // Shared ownership edges for legacy mailboxes aren't supported.
-      if (!resource.transferable.mailbox_holder.mailbox.IsSharedImage())
-        continue;
-
-      auto guid = GetSharedImageGUIDForTracing(
-          resource.transferable.mailbox_holder.mailbox);
+      auto guid = GetSharedImageGUIDForTracing(resource.transferable.mailbox());
       pmd->CreateSharedGlobalAllocatorDump(guid);
       pmd->AddOwnershipEdge(dump->guid(), guid, kImportance);
     }
@@ -239,7 +234,7 @@ void DisplayResourceProvider::ReceiveFromChild(
     }
 
     if (transferable_resource.is_software != IsSoftware() ||
-        transferable_resource.mailbox_holder.mailbox.IsZero()) {
+        transferable_resource.is_empty()) {
       TRACE_EVENT0(
           "viz", "DisplayResourceProvider::ReceiveFromChild dropping invalid");
       std::vector<ReturnedResource> returned;
@@ -249,9 +244,11 @@ void DisplayResourceProvider::ReceiveFromChild(
     }
 
     ResourceId local_id = resource_id_generator_.GenerateNextId();
+
+    // If using legacy shared bitmaps, verify that the format is supported.
     DCHECK(!transferable_resource.is_software ||
-           transferable_resource.mailbox_holder.mailbox.IsSharedImage() ||
-           (!transferable_resource.mailbox_holder.mailbox.IsSharedImage() &&
+           transferable_resource.IsSoftwareSharedImage() ||
+           (!transferable_resource.IsSoftwareSharedImage() &&
             transferable_resource.format.IsBitmapFormatSupported()));
     resources_.emplace(local_id,
                        ChildResource(child_id, transferable_resource));
@@ -284,7 +281,7 @@ gpu::Mailbox DisplayResourceProvider::GetMailbox(ResourceId resource_id) const {
   const ChildResource* resource = TryGetResource(resource_id);
   if (!resource)
     return gpu::Mailbox();
-  return resource->transferable.mailbox_holder.mailbox;
+  return resource->transferable.mailbox();
 }
 
 const std::unordered_map<ResourceId, ResourceId, ResourceIdHasher>&
@@ -482,10 +479,6 @@ DisplayResourceProvider::ScopedReadLockSharedImage::ScopedReadLockSharedImage(
       resource_(resource_provider_->GetResource(resource_id_)) {
   DCHECK(resource_);
   DCHECK(resource_->is_gpu_resource_type());
-  // Remove this #if BUILDFLAG(IS_WIN), when shared image is used on Windows.
-#if !BUILDFLAG(IS_WIN)
-  DCHECK(resource_->transferable.mailbox_holder.mailbox.IsSharedImage());
-#endif
   resource_->lock_for_overlay_count++;
 }
 
@@ -565,7 +558,7 @@ DisplayResourceProvider::ChildResource::ChildResource(
     const TransferableResource& transferable)
     : child_id(child_id), transferable(transferable) {
   if (is_gpu_resource_type())
-    UpdateSyncToken(transferable.mailbox_holder.sync_token);
+    UpdateSyncToken(transferable.sync_token());
 }
 
 DisplayResourceProvider::ChildResource::ChildResource(ChildResource&& other) =

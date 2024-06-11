@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "ash/capture_mode/capture_mode_test_util.h"
-#include "ash/constants/app_types.h"
 #include "ash/frame/non_client_frame_view_ash.h"
 #include "ash/frame_throttler/frame_throttling_controller.h"
 #include "ash/frame_throttler/mock_frame_throttling_observer.h"
@@ -30,6 +29,7 @@
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "chromeos/ui/base/app_types.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "components/app_restore/window_properties.h"
 #include "components/exo/buffer.h"
@@ -67,6 +67,8 @@
 #include "ui/display/types/display_constants.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/widget/any_widget_observer.h"
@@ -1790,7 +1792,7 @@ TEST_F(ShellSurfaceTest, ConfigureCallback) {
   ASSERT_TRUE(config_data.suggested_bounds.IsEmpty());
   EXPECT_TRUE(shell_surface->GetWidget());
   EXPECT_FALSE(shell_surface->GetWidget()->IsVisible());
-  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize());
+  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize({}));
 
   gfx::Rect maximized_bounds =
       display::Screen::GetScreen()->GetPrimaryDisplay().work_area();
@@ -1815,7 +1817,7 @@ TEST_F(ShellSurfaceTest, ConfigureCallback) {
   shell_surface->Restore();
   shell_surface->AcknowledgeConfigure(0);
   // It should be restored to the original geometry size.
-  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize());
+  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize({}));
 
   shell_surface->SetFullscreen(true, display::kInvalidDisplayId);
   shell_surface->AcknowledgeConfigure(0);
@@ -1823,7 +1825,7 @@ TEST_F(ShellSurfaceTest, ConfigureCallback) {
   EXPECT_EQ(chromeos::WindowStateType::kFullscreen, config_data.state_type);
   shell_surface->SetFullscreen(false, display::kInvalidDisplayId);
   shell_surface->AcknowledgeConfigure(0);
-  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize());
+  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize({}));
 
   shell_surface->GetWidget()->Activate();
   shell_surface->AcknowledgeConfigure(0);
@@ -1863,7 +1865,7 @@ TEST_F(ShellSurfaceTest, CreateMinimizedWindow) {
   EXPECT_TRUE(shell_surface->GetWidget());
   EXPECT_TRUE(shell_surface->GetWidget()->IsMinimized());
   EXPECT_TRUE(config_data.suggested_bounds.IsEmpty());
-  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize());
+  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize({}));
 }
 
 TEST_F(ShellSurfaceTest, CreateMinimizedWindow2) {
@@ -1887,7 +1889,7 @@ TEST_F(ShellSurfaceTest, CreateMinimizedWindow2) {
   EXPECT_TRUE(config_data.suggested_bounds.IsEmpty());
   EXPECT_TRUE(shell_surface->GetWidget());
   EXPECT_FALSE(shell_surface->GetWidget()->IsVisible());
-  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize());
+  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize({}));
 
   shell_surface->Minimize();
   shell_surface->AcknowledgeConfigure(0);
@@ -1898,7 +1900,7 @@ TEST_F(ShellSurfaceTest, CreateMinimizedWindow2) {
 
   EXPECT_TRUE(shell_surface->GetWidget());
   EXPECT_TRUE(shell_surface->GetWidget()->IsMinimized());
-  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize());
+  EXPECT_EQ(geometry.size(), shell_surface->CalculatePreferredSize({}));
 
   // Once the initial empty size is sent in configure,
   // new configure should send the size requested.
@@ -1990,7 +1992,7 @@ TEST_F(ShellSurfaceTest, CreateMaximizedWindowWithRestoreBounds) {
 
   EXPECT_TRUE(shell_surface->GetWidget());
   EXPECT_TRUE(shell_surface->GetWidget()->IsMaximized());
-  EXPECT_EQ(geometry_full.size(), shell_surface->CalculatePreferredSize());
+  EXPECT_EQ(geometry_full.size(), shell_surface->CalculatePreferredSize({}));
 
   auto* window_state =
       ash::WindowState::Get(shell_surface->GetWidget()->GetNativeWindow());
@@ -3759,8 +3761,8 @@ TEST_F(ShellSurfaceTest, RasterScaleChangeVsOcclusionChangeOrder) {
 TEST_F(ShellSurfaceTest, ThrottleFrameRateViaController) {
   ash::FrameThrottlingController* frame_throttling_controller =
       ash::Shell::Get()->frame_throttling_controller();
-  for (auto app_type : {ash::AppType::LACROS, ash::AppType::BROWSER,
-                        ash::AppType::CROSTINI_APP}) {
+  for (auto app_type : {chromeos::AppType::LACROS, chromeos::AppType::BROWSER,
+                        chromeos::AppType::CROSTINI_APP}) {
     auto shell_surface = test::ShellSurfaceBuilder({20, 20})
                              .SetAppType(app_type)
                              .BuildShellSurface();
@@ -3770,7 +3772,7 @@ TEST_F(ShellSurfaceTest, ThrottleFrameRateViaController) {
 
     // Crostini should not be throttled currently.
     const auto should_throttle_set =
-        app_type != ash::AppType::CROSTINI_APP
+        app_type != chromeos::AppType::CROSTINI_APP
             ? testing::UnorderedElementsAreArray(
                   {shell_surface->GetSurfaceId().frame_sink_id()})
             : testing::UnorderedElementsAreArray<viz::FrameSinkId>({});
@@ -3778,7 +3780,7 @@ TEST_F(ShellSurfaceTest, ThrottleFrameRateViaController) {
                 should_throttle_set);
 
     // ash::kFrameRateThrottleKey is only set for lacros.
-    const bool should_set_property = app_type == ash::AppType::LACROS;
+    const bool should_set_property = app_type == chromeos::AppType::LACROS;
     EXPECT_EQ(should_set_property,
               window->GetProperty(ash::kFrameRateThrottleKey));
   }
@@ -3791,7 +3793,7 @@ TEST_F(ShellSurfaceTest, ThrottleFrameRateViaControllerArc) {
   frame_throttling_controller->AddArcObserver(&observer);
 
   auto shell_surface = test::ShellSurfaceBuilder({20, 20})
-                           .SetAppType(ash::AppType::ARC_APP)
+                           .SetAppType(chromeos::AppType::ARC_APP)
                            .BuildShellSurface();
 
   aura::Window* window = shell_surface->GetWidget()->GetNativeWindow();
@@ -4560,12 +4562,12 @@ TEST_F(ShellSurfaceTest, WindowPropertyChangedNotificationWithoutRootSurface) {
 
   std::unique_ptr<ShellSurface> shell_surface =
       test::ShellSurfaceBuilder({256, 256})
-          .SetAppType(ash::AppType::LACROS)
+          .SetAppType(chromeos::AppType::LACROS)
           .BuildShellSurface();
 
   std::unique_ptr<ShellSurface> shell_surface1 =
       test::ShellSurfaceBuilder({256, 256})
-          .SetAppType(ash::AppType::LACROS)
+          .SetAppType(chromeos::AppType::LACROS)
           .BuildShellSurface();
 
   overview_controller->StartOverview(ash::OverviewStartAction::kTests);
@@ -4915,6 +4917,57 @@ TEST_F(ShellSurfaceTest, GetWidgetHitTestMask) {
   shell_surface->GetWidgetHitTestMask(&mask);
   // Returned HitMask should be in the widget local coordinates.
   EXPECT_EQ(SkRect::MakeLTRB(0, 0, 256, 256), mask.getBounds());
+}
+
+TEST_F(ShellSurfaceTest, HostWindowOpaqueRegionForOcclusion) {
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+  auto* root_surface = shell_surface->root_surface();
+
+  // Makes root surface fill bounds opaquely.
+  root_surface->SetBlendMode(SkBlendMode::kSrc);
+  root_surface->Commit();
+  ASSERT_TRUE(shell_surface->host_window()->GetTransparent());
+  ASSERT_TRUE(root_surface->FillsBoundsOpaquely());
+
+  auto opaque_occlusion_region =
+      shell_surface->host_window()->opaque_regions_for_occlusion();
+  EXPECT_EQ(opaque_occlusion_region.size(), 1u);
+  EXPECT_EQ(opaque_occlusion_region.back(), gfx::Rect(256, 256));
+
+  // Adding a subsurface will expand the host window to include the sub-surface.
+  constexpr gfx::Size kChildBufferSize(32, 32);
+  auto child_buffer1 = test::ExoTestHelper::CreateBuffer(kChildBufferSize);
+  auto child_surface1 = std::make_unique<Surface>();
+  child_surface1->Attach(child_buffer1.get());
+  auto subsurface1 = std::make_unique<SubSurface>(
+      child_surface1.get(), shell_surface->root_surface());
+  subsurface1->SetPosition(gfx::PointF(256, 256));
+  child_surface1->Commit();
+
+  root_surface->Commit();
+
+  constexpr gfx::Rect kUpdatedHostWindowBounds(0, 0, 288, 288);
+  EXPECT_EQ(shell_surface->host_window()->bounds(), kUpdatedHostWindowBounds);
+
+  // After bounds update, host window does not fill the bounds opaquely, since
+  // the content_size of root surface does not match host_window size. In this
+  // case, host_window does not specify any region for occlusion.
+  opaque_occlusion_region =
+      shell_surface->host_window()->opaque_regions_for_occlusion();
+  EXPECT_EQ(opaque_occlusion_region.size(), 0u);
+
+  // Update the content_size of root surface. This ensure, that host window
+  // fills the bounds opaquely again.
+  root_surface->SetViewport(gfx::SizeF(kUpdatedHostWindowBounds.size()));
+  root_surface->Commit();
+
+  // Confirm that new occlusion region reflects the updated bounds of host
+  // window.
+  opaque_occlusion_region =
+      shell_surface->host_window()->opaque_regions_for_occlusion();
+  EXPECT_EQ(opaque_occlusion_region.size(), 1u);
+  EXPECT_EQ(opaque_occlusion_region.back(), kUpdatedHostWindowBounds);
 }
 
 TEST_F(ShellSurfaceTest, InitiallyMaximizedWindowIsOpaque) {

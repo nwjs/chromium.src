@@ -108,6 +108,10 @@ const PREF_TO_SETTING_MAP: Record<string, SettingAndType> = {
     setting: Setting.kLargeCursor,
     type: PrefType.BOOLEAN,
   },
+  'settings.a11y.overscroll_history_navigation': {
+    setting: Setting.kOverscrollEnabled,
+    type: PrefType.BOOLEAN,
+  },
   // os_a11y_page/display_and_magnification_subpage.ts
   'ash.docked_magnifier.enabled': {
     setting: Setting.kDockedMagnifier,
@@ -141,11 +145,19 @@ const PREF_TO_SETTING_MAP: Record<string, SettingAndType> = {
     setting: Setting.kFullscreenMagnifierFocusFollowing,
     type: PrefType.BOOLEAN,
   },
+  'settings.a11y.screen_magnifier_select_to_speak_focus_following': {
+    setting: Setting.kAccessibilityMagnifierFollowsSts,
+    type: PrefType.BOOLEAN,
+  },
   'settings.a11y.screen_magnifier_mouse_following_mode': {
     setting: Setting.kFullscreenMagnifierMouseFollowingMode,
     type: PrefType.NUMBER,
   },
   // os_a11y_page/keyboard_and_text_input_page.ts
+  'settings.a11y.caret.blink_interval': {
+    setting: Setting.kCaretBlinkInterval,
+    type: PrefType.NUMBER,
+  },
   'settings.a11y.caret_highlight': {
     setting: Setting.kHighlightTextCaret,
     type: PrefType.BOOLEAN,

@@ -10,8 +10,10 @@
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/layout/box_layout.h"
 
-AuthenticatorGPMPinView::AuthenticatorGPMPinView(Delegate* delegate,
-                                                 int pin_digits_count)
+AuthenticatorGPMPinView::AuthenticatorGPMPinView(int pin_digits_count,
+                                                 bool ui_disabled,
+                                                 const std::u16string& pin,
+                                                 Delegate* delegate)
     : delegate_(delegate) {
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>());
   layout->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kStart);
@@ -21,11 +23,16 @@ AuthenticatorGPMPinView::AuthenticatorGPMPinView(Delegate* delegate,
   auto pin_textfield = std::make_unique<PinTextfield>(pin_digits_count);
   pin_textfield->SetController(this);
   pin_textfield->SetAccessibleName(u"Pin field (UNTRANSLATED)");
+  pin_textfield->SetObscured(true);
+  pin_textfield->SetDisabled(ui_disabled);
+  pin_textfield->SetPin(pin);
+  pin_textfield->SetEnabled(!ui_disabled);
   pin_textfield_ = AddChildView(std::move(pin_textfield));
 
   reveal_button_ = AddChildView(CreateRevealButton(
       base::BindRepeating(&AuthenticatorGPMPinView::OnRevealButtonClicked,
                           base::Unretained(this))));
+  reveal_button_->SetEnabled(!ui_disabled);
 }
 
 AuthenticatorGPMPinView::~AuthenticatorGPMPinView() = default;

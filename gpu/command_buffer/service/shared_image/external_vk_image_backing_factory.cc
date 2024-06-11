@@ -101,8 +101,8 @@ bool IsFormatSupported(viz::SharedImageFormat format,
   // on Skia to do YUV/RGB conversion using Vulkan before accessing textures via
   // GL (implemented by setting VideoFrame's MailboxHolder::texture_target to
   // zero on Fuchsia and checking it everywhere necessary).
-  // TODO(crbug.com/1310026): Enable ImageBackingOzone to be used for all planes
-  // in Fuchsia and enable this check for Fuchsia.
+  // TODO(crbug.com/40219694): Enable ImageBackingOzone to be used for all
+  // planes in Fuchsia and enable this check for Fuchsia.
 #if !BUILDFLAG(IS_FUCHSIA)
   if (HasGLES2ReadOrWriteUsage(usage)) {
     if (format.IsLegacyMultiplanar() || format.PrefersExternalSampler()) {
@@ -154,7 +154,6 @@ constexpr uint32_t kSupportedUsage =
 #endif
     SHARED_IMAGE_USAGE_GLES2_READ | SHARED_IMAGE_USAGE_GLES2_WRITE |
     SHARED_IMAGE_USAGE_GLES2_FOR_RASTER_ONLY |
-    SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
     SHARED_IMAGE_USAGE_DISPLAY_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ |
     SHARED_IMAGE_USAGE_RASTER_READ | SHARED_IMAGE_USAGE_RASTER_WRITE |
     SHARED_IMAGE_USAGE_RASTER_OVER_GLES2_ONLY |

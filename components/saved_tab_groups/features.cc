@@ -4,11 +4,21 @@
 
 #include "components/saved_tab_groups/features.h"
 
-namespace tab_groups {
+#include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 
+namespace tab_groups {
 // Core feature flag for tab group sync on Android.
 BASE_FEATURE(kTabGroupSyncAndroid,
              "TabGroupSyncAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabGroupSyncForceOff,
+             "TabGroupSyncForceOff",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAndroidTabGroupStableIds,
+             "AndroidTabGroupStableIds",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Builds off of the original TabGroupsSave feature by making some UI tweaks and
@@ -24,12 +34,23 @@ BASE_FEATURE(kTabGroupsSaveUIUpdate,
              "TabGroupsSaveUIUpdate",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Feature flag specific to UNO. Controls how we handle tab groups on sign-out
+// and sync toggle. Can be defined independently for each platform.
+BASE_FEATURE(kTabGroupSyncUno,
+             "TabGroupSyncUno",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsTabGroupsSaveV2Enabled() {
   return base::FeatureList::IsEnabled(kTabGroupsSaveV2);
 }
 
 bool IsTabGroupsSaveUIUpdateEnabled() {
   return base::FeatureList::IsEnabled(kTabGroupsSaveUIUpdate);
+}
+
+bool ShouldCloseAllTabGroupsOnSignOut() {
+  return GetFieldTrialParamByFeatureAsBool(
+      kTabGroupSyncUno, "close_all_tab_groups_on_sign_out", false);
 }
 
 }  // namespace tab_groups

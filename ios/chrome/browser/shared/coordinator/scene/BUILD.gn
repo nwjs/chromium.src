@@ -121,6 +121,7 @@ source_set("scene") {
     "//ios/chrome/browser/shared/model/url",
     "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/chrome/browser/shared/model/web_state_list:utils",
     "//ios/chrome/browser/shared/public/commands:commands",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/ui/util",
@@ -156,6 +157,7 @@ source_set("scene") {
     "//ios/chrome/browser/ui/promos_manager:utils",
     "//ios/chrome/browser/ui/scoped_ui_blocker",
     "//ios/chrome/browser/ui/settings:settings_root",
+    "//ios/chrome/browser/ui/settings/clear_browsing_data:features",
     "//ios/chrome/browser/ui/settings/password",
     "//ios/chrome/browser/ui/settings/password/password_checkup",
     "//ios/chrome/browser/ui/settings/sync",
@@ -182,7 +184,7 @@ source_set("scene") {
   ]
   public_deps = [ ":scene_state_header" ]
   allow_circular_includes_from = [
-    # TODO(crbug.com/1103553): remove circular dependency.
+    # TODO(crbug.com/40139309): remove circular dependency.
     "//ios/chrome/browser/ui/settings/sync",
   ]
 

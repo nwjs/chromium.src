@@ -197,6 +197,28 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "15-x64-emulator",
+    description = "Run with android_v_google_apis_x64",
+    args = [
+        "--avd-config=../../tools/android/avd/proto/android_v_google_apis_x64.textpb",
+    ],
+    swarming = targets.swarming(
+        # soft affinity so that bots with caches will be picked first
+        optional_dimensions = {
+            60: {
+                "caches": "android_v_google_apis_x64",
+            },
+        },
+        named_caches = [
+            swarming.cache(
+                name = "android_v_google_apis_x64",
+                path = ".android_emulator/android_v_google_apis_x64",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
     name = "amd_radeon_rx_5500_xt",
     swarming = targets.swarming(
         dimensions = {
@@ -211,42 +233,6 @@ targets.mixin(
         dimensions = {
             "os": "Android",
             "cpu": None,
-        },
-    ),
-)
-
-targets.mixin(
-    name = "android_r",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_os": "R",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "android_t",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_os": "TP1A.220624.021",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "android_u",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_os": "UQ1A.240105.002|UQ1A.240205.002|AP1A.240405.002",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "android_user",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_os_type": "user",
         },
     ),
 )
@@ -319,6 +305,11 @@ targets.mixin(
 targets.mixin(
     name = "shards-20",
     shards = 20,
+)
+
+targets.mixin(
+    name = "shards-30",
+    shards = 30,
 )
 
 targets.mixin(
@@ -580,17 +571,6 @@ targets.mixin(
     ),
 )
 
-# Pixel 4
-targets.mixin(
-    name = "flame",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_type": "flame",
-            "os": "Android",
-        },
-    ),
-)
-
 targets.mixin(
     name = "fuchsia-code-coverage",
     args = [
@@ -642,6 +622,139 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "gpu_integration_test_common_args",
+    args = [
+        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
+    ],
+    android_args = [
+        "$$MAGIC_SUBSTITUTION_GPUTelemetryNoRootForUnrootedDevices",
+        # See crbug.com/333414298 for context on why this is necessary.
+        "--initial-find-device-attempts=3",
+    ],
+    chromeos_args = [
+        "$$MAGIC_SUBSTITUTION_ChromeOSTelemetryRemote",
+    ],
+    # TODO(crbug.com/40862371): having --xvfb and --no-xvfb is confusing.
+    lacros_args = [
+        "--extra-browser-args=--enable-features=UseOzonePlatform --ozone-platform=wayland",
+        "--xvfb",
+        "--no-xvfb",
+        "--use-weston",
+        "--weston-use-gl",
+    ],
+)
+
+targets.mixin(
+    name = "gpu_nvidia_shield_tv_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            "os": "Android",
+            "device_type": "mdarcy",
+            "device_os": "PPR1.180610.011",
+            "device_os_type": "userdebug",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_pixel_4_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            "os": "Android",
+            "device_type": "flame",
+            "device_os": "RP1A.201105.002",
+            "device_os_type": "userdebug",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_pixel_6_experimental",
+    swarming = targets.swarming(
+        dimensions = {
+            "os": "Android",
+            "device_type": "oriole",
+            "device_os": "AP1A.240405.002",
+            "device_os_type": "userdebug",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_pixel_6_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            "os": "Android",
+            "device_type": "oriole",
+            "device_os": "TP1A.220624.021",
+            "device_os_type": "userdebug",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_samsung_a13_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            "os": "Android",
+            "device_type": "a13",
+            "device_os": "S",
+            "device_os_type": "user",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_samsung_a23_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            "os": "Android",
+            "device_type": "a23",
+            "device_os": "SP1A.210812.016",
+            "device_os_type": "user",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_samsung_s23_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            # Unfortunately, "s23" is not exposed as a dimension. "dm1q" appears
+            # to refer to the S23 specifically, while "kalama" is for the entire
+            # S23 family.
+            "device_type": "dm1q",
+            "device_os": "UP1A.231005.007",
+            "device_os_type": "user",
+            "os": "Android",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_samsung_s24_stable",
+    swarming = targets.swarming(
+        dimensions = {
+            # Unfortunately, "s24" is not exposed as a dimension. "e2s" appears
+            # to refer to the S24 specifically, while "s5e9945" is for the
+            # entire S24 family.
+            "device_type": "e2s",
+            "device_os": "UP1A.231005.007",
+            "device_os_type": "user",
+            "os": "Android",
+            "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
     name = "gpu-swarming-pool",
     swarming = targets.swarming(
         dimensions = {
@@ -656,7 +769,7 @@ targets.mixin(
     name = "has_native_resultdb_integration",
     resultdb = targets.resultdb(
         enable = True,
-        # TODO(crbug.com/1163797): Remove the 'enable' field in favor of
+        # TODO(crbug.com/40740370): Remove the 'enable' field in favor of
         # 'has_native_resultdb_integration'.
         has_native_resultdb_integration = True,
     ),
@@ -672,10 +785,10 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "intel_uhd_630",
+    name = "intel_uhd_630_or_770",
     swarming = targets.swarming(
         dimensions = {
-            "gpu": "8086:9bc5",
+            "gpu": "8086:9bc5|8086:4680",
         },
     ),
 )
@@ -711,18 +824,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "ios_runtime_cache_15_5",
-    swarming = targets.swarming(
-        named_caches = [
-            swarming.cache(
-                name = "runtime_ios_15_5",
-                path = "Runtime-ios-15.5",
-            ),
-        ],
-    ),
-)
-
-targets.mixin(
     name = "ios_runtime_cache_16_4",
     swarming = targets.swarming(
         named_caches = [
@@ -741,6 +842,18 @@ targets.mixin(
             swarming.cache(
                 name = "runtime_ios_17_4",
                 path = "Runtime-ios-17.4",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
+    name = "ios_runtime_cache_17_5",
+    swarming = targets.swarming(
+        named_caches = [
+            swarming.cache(
+                name = "runtime_ios_17_5",
+                path = "Runtime-ios-17.5",
             ),
         ],
     ),
@@ -807,7 +920,7 @@ targets.mixin(
     ),
 )
 
-# TODO(crbug.com/1260217): Remove the xenial mixin once the MSAN bots have
+# TODO(crbug.com/40201775): Remove the xenial mixin once the MSAN bots have
 # migrated to focal.
 targets.mixin(
     name = "linux-xenial",
@@ -878,7 +991,7 @@ targets.mixin(
 
 targets.mixin(
     name = "linux_nvidia_gtx_1660_stable",
-    # TODO(crbug.com/1408314): The swarming dimensions for
+    # TODO(crbug.com/40888390): The swarming dimensions for
     # webgpu_blink_web_tests and webgpu_cts_tests on linux-code-coverage
     # must be kept manually in sync with the appropriate mixin; currently,
     # this one, which is used by Dawn Linux x64 Release (NVIDIA).
@@ -1057,7 +1170,7 @@ targets.mixin(
             "cpu": "arm64",
             "gpu": "apple:m1",
             "mac_model": "Macmini9,1",
-            "os": "Mac-13.5.2|Mac-14.3.1",
+            "os": "Mac-14.4.1",
             "pool": "chromium.tests",
             "display_attached": "1",
         },
@@ -1119,7 +1232,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "cpu": "arm64",
-            "os": "Mac-13",
+            "os": "Mac-13|Mac-14",
         },
     ),
 )
@@ -1132,7 +1245,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
-            "os": "Mac-13",
+            "os": "Mac-13|Mac-14",
         },
     ),
 )
@@ -1151,7 +1264,7 @@ targets.mixin(
 
 targets.mixin(
     name = "mac_mini_intel_gpu_stable",
-    # TODO(crbug.com/1408314): The swarming dimensions for
+    # TODO(crbug.com/40888390): The swarming dimensions for
     # webgpu_blink_web_tests and webgpu_cts_tests on mac-code-coverage
     # must be kept manually in sync with the appropriate mixin; currently,
     # this one, which is used by Dawn Mac x64 Release (Intel).
@@ -1159,7 +1272,7 @@ targets.mixin(
         dimensions = {
             "cpu": "x86-64",
             "gpu": "8086:3e9b",
-            "os": "Mac-13.5",
+            "os": "Mac-14.4.1",
             "display_attached": "1",
         },
     ),
@@ -1278,17 +1391,6 @@ targets.mixin(
     ),
 )
 
-# NVIDIA Shield TV 2019
-targets.mixin(
-    name = "mdarcy",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_type": "mdarcy",
-            "os": "Android",
-        },
-    ),
-)
-
 targets.mixin(
     name = "motorola_moto_g_power_5g",
     swarming = targets.swarming(
@@ -1383,21 +1485,11 @@ targets.mixin(
 
 targets.mixin(
     name = "oreo_mr1_fleet",
+    generate_pyl_entry = False,
     swarming = targets.swarming(
         dimensions = {
             "device_os": "OPM4.171019.021.P2",
             "device_os_flavor": "google",
-        },
-    ),
-)
-
-# Pixel 6
-targets.mixin(
-    name = "oriole",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_type": "oriole",
-            "os": "Android",
         },
     ),
 )
@@ -1453,10 +1545,10 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "pie_generic",
+    name = "puppet_production",
     swarming = targets.swarming(
         dimensions = {
-            "device_os": "P",
+            "puppet_env": "production",
         },
     ),
 )
@@ -1467,67 +1559,6 @@ targets.mixin(
         "--record-video",
         "failed_only",
     ],
-)
-
-targets.mixin(
-    name = "s_generic",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_os": "S",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "samsung_a13",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_type": "a13",
-            "os": "Android",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "samsung_a23",
-    swarming = targets.swarming(
-        dimensions = {
-            "device_type": "a23",
-            "os": "Android",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "samsung_s23",
-    swarming = targets.swarming(
-        dimensions = {
-            # Unfortunately, "s23" is not exposed as a dimension. "dm1q" appears
-            # to refer to the S23 specifically, while "kalama" is for the entire
-            # S23 family.
-            "device_type": "dm1q",
-            "device_os": "UP1A.231005.007",
-            "device_os_type": "user",
-            "os": "Android",
-            "pool": "chromium.tests.gpu",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "samsung_s24",
-    swarming = targets.swarming(
-        dimensions = {
-            # Unfortunately, "s24" is not exposed as a dimension. "e2s" appears
-            # to refer to the S24 specifically, while "s5e9945" is for the
-            # entire S24 family.
-            "device_type": "e2s",
-            "device_os": "UP1A.231005.007",
-            "device_os_type": "user",
-            "os": "Android",
-            "pool": "chromium.tests.gpu",
-        },
-    ),
 )
 
 targets.mixin(
@@ -1663,7 +1694,6 @@ targets.mixin(
     args = [
         "--extra-browser-args=--force_high_performance_gpu",
         "--use-webgpu-power-preference=default-high-performance",
-        "$$MAGIC_SUBSTITUTION_GPUParallelJobs",
     ],
 )
 
@@ -1739,7 +1769,7 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
-            "gpu": "8086:9bc5-31.0.101.2111",
+            "gpu": "8086:9bc5-31.0.101.2127",
             "os": "Windows-10",
             "pool": "chromium.tests.gpu",
         },
@@ -1772,7 +1802,7 @@ targets.mixin(
 
 targets.mixin(
     name = "win10_nvidia_gtx_1660_stable",
-    # TODO(crbug.com/1408314): The swarming dimensions for
+    # TODO(crbug.com/40888390): The swarming dimensions for
     # webgpu_blink_web_tests and webgpu_cts_tests on win10-code-coverage
     # must be kept manually in sync with the appropriate mixin; currently,
     # this one, which is used by Dawn Win10 x64 Release (NVIDIA).
@@ -1837,12 +1867,12 @@ targets.mixin(
     name = "xcode_15_beta",
     args = [
         "--xcode-build-version",
-        "15e204a",
+        "15f31c",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_15e204a",
+                name = "xcode_ios_15f31c",
                 path = "Xcode.app",
             ),
         ],

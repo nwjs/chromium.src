@@ -214,11 +214,11 @@ class NewTabPageTest : public InProcessBrowserTest,
   base::OnceClosure lazy_load_quit_closure_;
 };
 
-// TODO(crbug.com/1250156): NewTabPageTest.LandingPagePixelTest is flaky on
+// TODO(crbug.com/40197892): NewTabPageTest.LandingPagePixelTest is flaky on
 // ubsan.
-// TODO(crbug.com/1377330): NewTabPageTest.LandingPagePixelTest is failing on
+// TODO(crbug.com/40874245): NewTabPageTest.LandingPagePixelTest is failing on
 // Win11 Tests x64.
-// TODO(crbug.com/1416880): It's also found flaky on Linux Tests, Linux Tests
+// TODO(crbug.com/40893756): It's also found flaky on Linux Tests, Linux Tests
 // (Wayland), linux-lacros-tester-rel, Mac12 Tests.
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, DISABLED_LandingPagePixelTest) {
   WaitForLazyLoad();
@@ -227,8 +227,8 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, DISABLED_LandingPagePixelTest) {
   // started loading yet. Specifically, images set via -webkit-mask-image cause
   // grief. To work around this we specify resources we explicitly wait for even
   // if they haven't yet started loading.
-  // TODO(crbug.com/1250156): This is brittle and will rot easily. Find a better
-  // way to capture those resources.
+  // TODO(crbug.com/40197892): This is brittle and will rot easily. Find a
+  // better way to capture those resources.
   WaitForNetworkLoad({GURL("chrome://new-tab-page/icons/icon_pencil.svg")});
   WaitForAnimationFrame();
 

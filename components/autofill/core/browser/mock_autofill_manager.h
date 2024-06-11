@@ -14,14 +14,10 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
-namespace gfx {
-class RectF;
-}  // namespace gfx
-
 namespace autofill {
 
 struct FormData;
-struct FormFieldData;
+class FormFieldData;
 class FormStructure;
 class AutofillDriver;
 
@@ -36,7 +32,7 @@ class MockAutofillManager : public AutofillManager {
 
   MOCK_METHOD(bool, ShouldClearPreviewedForm, (), (override));
   MOCK_METHOD(void,
-              OnFocusNoLongerOnFormImpl,
+              OnFocusOnNonFormFieldImpl,
               (bool had_interacted_form),
               (override));
   MOCK_METHOD(void,
@@ -53,7 +49,8 @@ class MockAutofillManager : public AutofillManager {
               OnJavaScriptChangedAutofilledValueImpl,
               (const FormData& form,
                const FormFieldData& field,
-               const std::u16string& old_value),
+               const std::u16string& old_value,
+               bool formatting_only),
               (override));
   MOCK_METHOD(void,
               OnFormSubmittedImpl,
@@ -62,36 +59,35 @@ class MockAutofillManager : public AutofillManager {
                mojom::SubmissionSource source),
               (override));
   MOCK_METHOD(void,
+              OnCaretMovedInFormFieldImpl,
+              (const FormData& form,
+               const FormFieldData& field,
+               const gfx::Rect& caret_bounds),
+              (override));
+  MOCK_METHOD(void,
               OnTextFieldDidChangeImpl,
               (const FormData& form,
                const FormFieldData& field,
-               const gfx::RectF& bounding_box,
                const base::TimeTicks timestamp),
               (override));
   MOCK_METHOD(void,
               OnTextFieldDidScrollImpl,
-              (const FormData& form,
-               const FormFieldData& field,
-               const gfx::RectF& bounding_box),
+              (const FormData& form, const FormFieldData& field),
               (override));
   MOCK_METHOD(void,
               OnAskForValuesToFillImpl,
               (const FormData& form,
                const FormFieldData& field,
-               const gfx::RectF& bounding_box,
+               const gfx::Rect& caret_bounds,
                AutofillSuggestionTriggerSource trigger_source),
               (override));
   MOCK_METHOD(void,
               OnFocusOnFormFieldImpl,
-              (const FormData& form,
-               const FormFieldData& field,
-               const gfx::RectF& bounding_box),
+              (const FormData& form, const FormFieldData& field),
               (override));
   MOCK_METHOD(void,
               OnSelectControlDidChangeImpl,
-              (const FormData& form,
-               const FormFieldData& field,
-               const gfx::RectF& bounding_box),
+              (const FormData& form, const FormFieldData& field),
               (override));
   MOCK_METHOD(bool, ShouldParseForms, (), (override));
   MOCK_METHOD(void, OnBeforeProcessParsedForms, (), (override));

@@ -9,12 +9,14 @@
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/containers/flat_set.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/autofill/core/browser/data_model/borrowed_transliterator.h"
-#include "components/autofill/core/browser/ui/popup_item_ids.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
+#include "components/autofill/core/browser/ui/suggestion_type.h"
 #include "components/plus_addresses/features.h"
 #include "components/plus_addresses/plus_address_http_client.h"
 #include "components/plus_addresses/plus_address_http_client_impl.h"
@@ -41,14 +43,38 @@ namespace plus_addresses {
 
 namespace {
 
-using autofill::PopupItemId;
 using autofill::Suggestion;
+using autofill::SuggestionType;
 
 // Get the ETLD+1 of `origin`, which means any subdomain is treated
 // equivalently. See `GetDomainAndRegistry` for concrete examples.
 std::string GetEtldPlusOne(const url::Origin origin) {
   return net::registry_controlled_domains::GetDomainAndRegistry(
       origin, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+}
+
+// Get and parse the excluded sites.
+base::flat_set<std::string> GetAndParseExcludedSites() {
+  return base::MakeFlatSet<std::string>(
+      base::SplitString(features::kPlusAddressExcludedSites.Get(), ",",
+                        base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY));
+}
+
+PlusProfile::facet_t OriginToFacet(const url::Origin& origin) {
+  PlusProfile::facet_t facet;
+  if (IsSyncingPlusAddresses()) {
+    // For a valid `origin`, `origin.GetURL().spec()` is always a valid spec.
+    // However, using `FacetURI::FromCanonicalSpec(spec)` can lead to mismatches
+    // in the underlying representation, since it uses the spec verbatim. E.g.,
+    // a trailing "/" is removed by `FacetURI::FromPotentiallyInvalidSpec()`,
+    // but kept by `FacetURI::FromCanonicalSpec(spec)`.
+    // TODO(b/338342346): Revise `FacetURI::FromCanonicalSpec()`.
+    facet = affiliations::FacetURI::FromPotentiallyInvalidSpec(
+        origin.GetURL().spec());
+  } else {
+    facet = GetEtldPlusOne(origin);
+  }
+  return facet;
 }
 
 }  // namespace
@@ -83,7 +109,11 @@ PlusAddressService::PlusAddressService(
   }
 }
 
-PlusAddressService::~PlusAddressService() = default;
+PlusAddressService::~PlusAddressService() {
+  for (Observer& o : observers_) {
+    o.OnPlusAddressServiceShutdown();
+  }
+}
 
 bool PlusAddressService::SupportsPlusAddresses(const url::Origin& origin,
                                                bool is_off_the_record) const {
@@ -104,13 +134,13 @@ bool PlusAddressService::SupportsPlusAddresses(const url::Origin& origin,
   }
   // Prerequisites are met, but it's an off-the-record session. If there's an
   // existing plus_address, it's supported, otherwise it is not.
-  return GetPlusProfile(origin).has_value();
+  return GetPlusProfile(OriginToFacet(origin)).has_value();
 }
 
 std::optional<std::string> PlusAddressService::GetPlusAddress(
-    const url::Origin& origin) const {
+    const PlusProfile::facet_t& facet) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::optional<PlusProfile> profile = GetPlusProfile(origin);
+  std::optional<PlusProfile> profile = GetPlusProfile(facet);
   return profile ? std::make_optional(profile->plus_address) : std::nullopt;
 }
 
@@ -120,37 +150,38 @@ std::vector<PlusProfile> PlusAddressService::GetPlusProfiles() const {
 }
 
 std::optional<PlusProfile> PlusAddressService::GetPlusProfile(
-    const url::Origin& origin) const {
+    const PlusProfile::facet_t& facet) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  std::string etld_plus_one = GetEtldPlusOne(origin);
+  if (auto* facet_uri = absl::get_if<affiliations::FacetURI>(&facet)) {
+    if (!facet_uri->is_valid()) {
+      return std::nullopt;
+    }
+  }
   // `facet` is used as the comparator, so the other fields don't matter.
-  auto it = plus_profiles_.find({.facet = etld_plus_one});
+  auto it = plus_profiles_.find(PlusProfile("", facet, "", false));
   if (it == plus_profiles_.end()) {
     return std::nullopt;
   }
   return *it;
 }
 
-void PlusAddressService::SavePlusProfile(url::Origin origin,
-                                         const PlusProfile& profile) {
+void PlusAddressService::SavePlusProfile(const PlusProfile& profile) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  const PlusProfile profile_to_save = {.profile_id = profile.profile_id,
-                                       .facet = GetEtldPlusOne(origin),
-                                       .plus_address = profile.plus_address,
-                                       .is_confirmed = true};
+  CHECK(profile.is_confirmed);
   // New plus addresses are requested directly from the PlusAddress backend. If
   // `IsSyncingPlusAddresses()`, these addresses become later available through
   // sync. Until the address shows up in sync, it should still be available
   // through `PlusAddressService`, even after reloading the data. This requires
   // adding the address to the database.
   if (webdata_service_ && IsSyncingPlusAddresses()) {
-    webdata_service_->AddOrUpdatePlusProfile(profile_to_save);
+    webdata_service_->AddOrUpdatePlusProfile(profile);
   }
   // Update the in-memory `plus_profiles_` cache.
-  plus_profiles_.insert(profile_to_save);
-  plus_addresses_.insert(profile_to_save.plus_address);
+  plus_profiles_.insert(profile);
+  plus_addresses_.insert(profile.plus_address);
   for (Observer& o : observers_) {
-    o.OnPlusAddressesChanged();
+    o.OnPlusAddressesChanged(
+        {PlusAddressDataChange(PlusAddressDataChange::Type::kAdd, profile)});
   }
 }
 
@@ -174,7 +205,7 @@ std::vector<Suggestion> PlusAddressService::GetSuggestions(
   const std::u16string normalized_field_value =
       autofill::RemoveDiacriticsAndConvertToLowerCase(focused_field_value);
   std::optional<std::string> maybe_address =
-      GetPlusAddress(last_committed_primary_main_frame_origin);
+      GetPlusAddress(OriginToFacet(last_committed_primary_main_frame_origin));
   if (maybe_address == std::nullopt) {
     if (trigger_source != kManualFallbackPlusAddresses &&
         !normalized_field_value.empty()) {
@@ -182,7 +213,7 @@ std::vector<Suggestion> PlusAddressService::GetSuggestions(
     }
     Suggestion create_plus_address_suggestion(
         l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_CREATE_SUGGESTION_MAIN_TEXT),
-        PopupItemId::kCreateNewPlusAddress);
+        SuggestionType::kCreateNewPlusAddress);
     RecordAutofillSuggestionEvent(AutofillPlusAddressDelegate::SuggestionEvent::
                                       kCreateNewPlusAddressSuggested);
     create_plus_address_suggestion.icon = Suggestion::Icon::kPlusAddress;
@@ -196,7 +227,7 @@ std::vector<Suggestion> PlusAddressService::GetSuggestions(
     return {};
   }
   Suggestion existing_plus_address_suggestion(
-      std::move(address), PopupItemId::kFillExistingPlusAddress);
+      std::move(address), SuggestionType::kFillExistingPlusAddress);
   RecordAutofillSuggestionEvent(AutofillPlusAddressDelegate::SuggestionEvent::
                                     kExistingPlusAddressSuggested);
   existing_plus_address_suggestion.icon = Suggestion::Icon::kPlusAddress;
@@ -215,6 +246,22 @@ void PlusAddressService::ReservePlusAddress(
                      base::Unretained(this), origin, std::move(on_completed)));
 }
 
+void PlusAddressService::RefreshPlusAddress(
+    const url::Origin& origin,
+    PlusAddressRequestCallback on_completed) {
+  if (!is_enabled()) {
+    return;
+  }
+  plus_address_allocator_->AllocatePlusAddress(
+      origin, PlusAddressAllocator::AllocationMode::kNewPlusAddress,
+      base::BindOnce(&PlusAddressService::HandleCreateOrConfirmResponse,
+                     base::Unretained(this), origin, std::move(on_completed)));
+}
+
+bool PlusAddressService::IsRefreshingSupported(const url::Origin& origin) {
+  return plus_address_allocator_->IsRefreshingSupported(origin);
+}
+
 void PlusAddressService::ConfirmPlusAddress(
     const url::Origin& origin,
     const std::string& plus_address,
@@ -223,7 +270,8 @@ void PlusAddressService::ConfirmPlusAddress(
     return;
   }
   // Check the local mapping before attempting to confirm plus_address.
-  if (std::optional<PlusProfile> stored_plus_profile = GetPlusProfile(origin);
+  if (std::optional<PlusProfile> stored_plus_profile =
+          GetPlusProfile(OriginToFacet(origin));
       stored_plus_profile) {
     std::move(on_completed).Run(stored_plus_profile.value());
     return;
@@ -241,7 +289,13 @@ void PlusAddressService::HandleCreateOrConfirmResponse(
   if (maybe_profile.has_value()) {
     account_is_forbidden_ = false;
     if (maybe_profile->is_confirmed) {
-      SavePlusProfile(origin, *maybe_profile);
+      if (IsSyncingPlusAddresses()) {
+        SavePlusProfile(*maybe_profile);
+      } else {
+        PlusProfile profile_to_save = *maybe_profile;
+        profile_to_save.facet = GetEtldPlusOne(origin);
+        SavePlusProfile(profile_to_save);
+      }
     }
   } else {
     HandlePlusAddressRequestError(maybe_profile.error());
@@ -255,7 +309,7 @@ std::optional<std::string> PlusAddressService::GetPrimaryEmail() {
       !identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     return std::nullopt;
   }
-  // TODO(crbug.com/1467623): This is fine for prototyping, but eventually we
+  // TODO(crbug.com/40276862): This is fine for prototyping, but eventually we
   // must also take `AccountInfo::CanHaveEmailAddressDisplayed` into account
   // here and elsewhere in this file.
   return identity_manager_->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
@@ -327,56 +381,69 @@ void PlusAddressService::UpdatePlusAddressMap(const PlusAddressMap& map) {
     // `UpdatePlusAddressMap()` is only called when sync support is disabled.
     // In this case, profile_ids don't matter.
     plus_profiles_.insert(
-        {.facet = facet, .plus_address = address, .is_confirmed = true});
+        PlusProfile(/*profile_id=*/"", facet, address, /*is_confirmed=*/true));
     plus_addresses_.insert(address);
-  }
-  for (Observer& o : observers_) {
-    o.OnPlusAddressesChanged();
   }
 }
 
 void PlusAddressService::OnWebDataChangedBySync(
-    const PlusAddressSyncDataChange& change) {
+    const std::vector<PlusAddressDataChange>& changes) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  switch (change.type()) {
-    case PlusAddressSyncDataChange::Type::kAdd: {
-      plus_profiles_.insert(change.profile());
-      plus_addresses_.insert(change.profile().plus_address);
-      break;
-    }
-    case PlusAddressSyncDataChange::Type::kRemove: {
-      plus_profiles_.erase(change.profile());
-      plus_addresses_.erase(change.profile().plus_address);
-      break;
+  std::vector<PlusAddressDataChange> applied_changes;
+  for (const PlusAddressDataChange& change : changes) {
+    const PlusProfile& profile = change.profile();
+    switch (change.type()) {
+      // Sync updates affect the local cache only if they introduce changes
+      // (e.g., an added plus address that wasn't previously confirmed via
+      // ConfirmPlusAddress).
+      case PlusAddressDataChange::Type::kAdd: {
+        const auto [it, inserted] = plus_profiles_.insert(profile);
+        if (inserted) {
+          plus_addresses_.insert(profile.plus_address);
+          applied_changes.emplace_back(PlusAddressDataChange::Type::kAdd,
+                                       profile);
+        }
+        break;
+      }
+      case PlusAddressDataChange::Type::kRemove: {
+        if (plus_profiles_.erase(profile)) {
+          plus_addresses_.erase(profile.plus_address);
+          applied_changes.emplace_back(PlusAddressDataChange::Type::kRemove,
+                                       profile);
+        }
+        break;
+      }
     }
   }
 
   for (Observer& o : observers_) {
-    o.OnPlusAddressesChanged();
+    o.OnPlusAddressesChanged(applied_changes);
   }
 }
 
 void PlusAddressService::OnWebDataServiceRequestDone(
     WebDataServiceBase::Handle handle,
     std::unique_ptr<WDTypedResult> result) {
-  CHECK_EQ(result->GetType(), PLUS_ADDRESS_RESULT);
-  ReplacePlusProfiles(
-      static_cast<WDResult<std::vector<PlusProfile>>*>(result.get())
-          ->GetValue());
-}
-
-void PlusAddressService::ReplacePlusProfiles(
-    const std::vector<PlusProfile>& profiles) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  plus_profiles_.clear();
-  plus_addresses_.clear();
+  CHECK_EQ(result->GetType(), PLUS_ADDRESS_RESULT);
+  CHECK(plus_profiles_.empty());
+  CHECK(plus_addresses_.empty());
+
+  const std::vector<PlusProfile>& profiles =
+      static_cast<WDResult<std::vector<PlusProfile>>*>(result.get())
+          ->GetValue();
+
+  std::vector<PlusAddressDataChange> applied_changes;
+  applied_changes.reserve(profiles.size());
   for (const PlusProfile& plus_profile : profiles) {
     plus_profiles_.insert(plus_profile);
     plus_addresses_.insert(plus_profile.plus_address);
+    applied_changes.emplace_back(PlusAddressDataChange::Type::kAdd,
+                                 plus_profile);
   }
+
   for (Observer& o : observers_) {
-    o.OnPlusAddressesChanged();
+    o.OnPlusAddressesChanged(applied_changes);
   }
 }
 
@@ -429,20 +496,8 @@ void PlusAddressService::HandleSignout() {
   plus_addresses_.clear();
   polling_timer_.Stop();
   plus_address_http_client_->Reset();
-  for (Observer& o : observers_) {
-    o.OnPlusAddressesChanged();
-  }
 }
 
-std::set<std::string> PlusAddressService::GetAndParseExcludedSites() {
-  std::set<std::string> parsed_excluded_sites;
-  for (const std::string& site :
-       base::SplitString(features::kPlusAddressExcludedSites.Get(), ",",
-                         base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-    parsed_excluded_sites.insert(site);
-  }
-  return parsed_excluded_sites;
-}
 
 bool PlusAddressService::IsSupportedOrigin(const url::Origin& origin) const {
   if (origin.opaque() || excluded_sites_.contains(GetEtldPlusOne(origin))) {

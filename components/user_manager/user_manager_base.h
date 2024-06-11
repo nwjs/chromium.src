@@ -22,6 +22,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/account_id/account_id.h"
+#include "components/user_manager/multi_user/multi_user_sign_in_policy_controller.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_manager_export.h"
@@ -47,8 +48,8 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
  public:
   // These enum values represent a legacy supervised user's (LSU) status on the
   // sign in screen.
-  // TODO(crbug/1155729): Remove once all LSUs deleted in the wild. LSUs were
-  // first hidden on the login screen in M74. Assuming a five year AUE, we
+  // TODO(crbug.com/40735554): Remove once all LSUs deleted in the wild. LSUs
+  // were first hidden on the login screen in M74. Assuming a five year AUE, we
   // should stop supporting devices with LSUs by 2024.
   // These values are logged to UMA. Entries should not be renumbered and
   // numeric values should never be reused. Please keep in sync with
@@ -81,6 +82,9 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
     // Overrides the home directory path for the `primary_user`.
     virtual void OverrideDirHome(const User& primary_user) = 0;
+
+    // Returns whether user session restore is in progress.
+    virtual bool IsUserSessionRestoreInProgress() = 0;
   };
 
   // Creates UserManagerBase with |task_runner| for UI thread, and given
@@ -101,12 +105,16 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // Registers UserManagerBase preferences.
   static void RegisterPrefs(PrefRegistrySimple* registry);
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
   // UserManager implementation:
   void Shutdown() override;
   const UserList& GetUsers() const override;
+  UserList GetUsersAllowedForMultiProfile() const override;
+  UserList FindLoginAllowedUsersFrom(const UserList& users) const final;
   const UserList& GetLoggedInUsers() const override;
   const UserList& GetLRULoggedInUsers() const override;
+  UserList GetUnlockUsers() const override;
   const AccountId& GetOwnerAccountId() const override;
   void GetOwnerAccountIdAsync(
       base::OnceCallback<void(const AccountId&)> callback) const override;
@@ -193,7 +201,11 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   void NotifyUserNotAllowed(const std::string& user_email) final;
   PrefService* GetLocalState() const final;
   bool IsFirstExecAfterBoot() const final;
+  void SetUserAffiliated(const AccountId& account_id,
+                         bool is_affiliated) override;
   bool HasBrowserRestarted() const final;
+  MultiUserSignInPolicyController* GetMultiUserSignInPolicyController()
+      override;
 
   void Initialize() override;
 
@@ -246,10 +258,7 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   virtual void NotifyOnLogin();
 
   // Notifies observers that another user was added to the session.
-  // If |user_switch_pending| is true this means that user has not been fully
-  // initialized yet like waiting for profile to be loaded.
-  virtual void NotifyUserAddedToSession(const User* added_user,
-                                        bool user_switch_pending);
+  void NotifyUserAddedToSession(const User* added_user);
 
   // Implementation for RemoveUser method. It is synchronous. It is called from
   // RemoveUserInternal after owner check.
@@ -300,8 +309,8 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   virtual void ResetOwnerId();
   virtual void SetOwnerId(const AccountId& owner_account_id);
 
-  virtual const AccountId& GetPendingUserSwitchID() const;
-  virtual void SetPendingUserSwitchId(const AccountId& account_id);
+  // If there's pending user switch, processes it.
+  void ProcessPendingUserSwitchId();
 
   // TODO(b/278643115): Move to private, once we migrate fake implementation
   // closer enough to the production behavior.
@@ -398,7 +407,7 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // Updates user account after locale was resolved.
   void DoUpdateAccountLocale(const AccountId& account_id,
-                             std::unique_ptr<std::string> resolved_locale);
+                             const std::string& resolved_locale);
 
   void RemoveLegacySupervisedUser(const AccountId& account_id);
 
@@ -411,6 +420,9 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // Interface to the signed settings store.
   const raw_ptr<ash::CrosSettings> cros_settings_;
+
+  // Handles multi-user sign-in policy.
+  MultiUserSignInPolicyController multi_user_sign_in_policy_controller_;
 
   // Indicates stage of loading user from prefs.
   UserLoadStage user_loading_stage_ = STAGE_NOT_LOADED;

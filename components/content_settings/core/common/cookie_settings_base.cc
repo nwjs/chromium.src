@@ -87,7 +87,7 @@ constexpr StorageAccessResult GetStorageAccessResult(
 constexpr std::optional<SettingSource> GetSettingSource(
     ThirdPartyCookieAllowMechanism mechanism) {
   switch (mechanism) {
-    // 3PCD-related mechanisms all map to `SETTING_SOURCE_TPCD_GRANT`.
+    // 3PCD-related mechanisms all map to `kTpcdGrant`.
     case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSource1pDt:
     case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSource3pDt:
     case ThirdPartyCookieAllowMechanism::kAllowBy3PCDMetadataSourceUnspecified:
@@ -100,7 +100,7 @@ constexpr std::optional<SettingSource> GetSettingSource(
     case ThirdPartyCookieAllowMechanism::kAllowBy3PCD:
     case ThirdPartyCookieAllowMechanism::kAllowBy3PCDHeuristics:
     case ThirdPartyCookieAllowMechanism::kAllowByTopLevel3PCD:
-      return SettingSource::SETTING_SOURCE_TPCD_GRANT;
+      return SettingSource::kTpcdGrant;
       // Other mechanisms do not map to a `SettingSource`.
     case ThirdPartyCookieAllowMechanism::kNone:
     case ThirdPartyCookieAllowMechanism::kAllowByExplicitSetting:
@@ -312,7 +312,7 @@ bool CookieSettingsBase::ShouldDeleteCookieOnExit(
   bool matches_session_only_rule = false;
   for (const auto& entry : cookie_settings) {
     // Skip WebUI third-party cookie exceptions.
-    if (entry.source == "webui_allowlist" &&
+    if (entry.source == ProviderType::kWebuiAllowlistProvider &&
         !entry.secondary_pattern.MatchesAllHosts()) {
       continue;
     }
@@ -576,8 +576,7 @@ CookieSettingsBase::DecideAccess(const GURL& url,
   }
 
   // Enterprise Policies:
-  if (is_explicit_setting &&
-      setting_source == SettingSource::SETTING_SOURCE_POLICY) {
+  if (is_explicit_setting && setting_source == SettingSource::kPolicy) {
     return AllowAllCookies{ThirdPartyCookieAllowMechanism::
                                kAllowByEnterprisePolicyCookieAllowedForUrls};
   }

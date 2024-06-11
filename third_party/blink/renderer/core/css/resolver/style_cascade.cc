@@ -48,6 +48,7 @@
 #include "third_party/blink/renderer/core/css/try_value_flips.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style_property_shorthand.h"
@@ -996,20 +997,11 @@ const CSSValue* StyleCascade::Resolve(const CSSProperty& property,
     return ResolveRevertLayer(property, priority, origin, resolver);
   }
   if (const auto* v = DynamicTo<CSSFlipRevertValue>(result)) {
-    return ResolveFlipRevert(*v, priority, origin, resolver);
+    return ResolveFlipRevert(property, *v, priority, origin, resolver);
   }
-  if (auto* auto_base_select_pair =
-          DynamicTo<CSSAppearanceAutoBaseSelectValuePair>(value)) {
-    // The UA stylesheet only uses -internal-auto-base-select() on select
-    // elements, which is currently the only element which supports
-    // appearance:base-select.
-    CHECK(IsA<HTMLSelectElement>(state_.GetElement()));
-
-    if (state_.StyleBuilder().HasBaseSelectAppearance()) {
-      return &auto_base_select_pair->Second();
-    } else {
-      return &auto_base_select_pair->First();
-    }
+  if (const auto* v = DynamicTo<CSSAppearanceAutoBaseSelectValuePair>(result)) {
+    return ResolveAppearanceAutoBaseSelect(property, *v, priority, origin,
+                                           resolver);
   }
   if (const auto* v = DynamicTo<CSSMathFunctionValue>(result)) {
     return ResolveMathFunction(property, *v, priority);
@@ -1157,15 +1149,14 @@ const CSSValue* StyleCascade::ResolvePendingSubstitution(
     sequence.StripCommentTokens();
 
     HeapVector<CSSPropertyValue, 64> parsed_properties;
-    const bool important = false;
 
     // NOTE: We don't actually need any original text here, since we're
     // not storing it in a custom property anywhere.
-    if (!CSSPropertyParser::ParseValue(shorthand_property_id, important,
-                                       {sequence.TokenRange(), StringView()},
-                                       shorthand_value->ParserContext(),
-                                       parsed_properties,
-                                       StyleRule::RuleType::kStyle)) {
+    if (!CSSPropertyParser::ParseValue(
+            shorthand_property_id, /*allow_important_annotation=*/false,
+            {sequence.TokenRange(), StringView()},
+            shorthand_value->ParserContext(), parsed_properties,
+            StyleRule::RuleType::kStyle)) {
       return cssvalue::CSSUnsetValue::Create();
     }
 
@@ -1244,7 +1235,8 @@ const CSSValue* StyleCascade::ResolveRevertLayer(const CSSProperty& property,
                  origin, resolver);
 }
 
-const CSSValue* StyleCascade::ResolveFlipRevert(const CSSFlipRevertValue& value,
+const CSSValue* StyleCascade::ResolveFlipRevert(const CSSProperty& property,
+                                                const CSSFlipRevertValue& value,
                                                 CascadePriority priority,
                                                 CascadeOrigin& origin,
                                                 CascadeResolver& resolver) {
@@ -1256,7 +1248,23 @@ const CSSValue* StyleCascade::ResolveFlipRevert(const CSSFlipRevertValue& value,
   const CSSValue* flipped = TryValueFlips::FlipValue(
       /* from_property */ to_property.PropertyID(), unflipped,
       value.Transform(), state_.StyleBuilder().GetWritingDirection());
-  return flipped;
+  return Resolve(property, *flipped, priority, origin, resolver);
+}
+
+const CSSValue* StyleCascade::ResolveAppearanceAutoBaseSelect(
+    const CSSProperty& property,
+    const CSSAppearanceAutoBaseSelectValuePair& value,
+    CascadePriority priority,
+    CascadeOrigin& origin,
+    CascadeResolver& resolver) {
+  // The UA stylesheet only uses -internal-appearance-auto-base-select(),
+  // on select elements, which is currently the only element which supports
+  // appearance:base-select.
+  CHECK(IsA<HTMLSelectElement>(state_.GetElement()));
+  const CSSValue& selected = state_.StyleBuilder().HasBaseSelectAppearance()
+                                 ? value.Second()
+                                 : value.First();
+  return Resolve(property, selected, priority, origin, resolver);
 }
 
 // Math functions can become invalid at computed-value time. Currently, this

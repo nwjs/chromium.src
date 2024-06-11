@@ -70,6 +70,7 @@
 #import "components/update_client/update_client.h"
 #import "components/variations/service/variations_service.h"
 #import "components/web_resource/web_resource_pref_names.h"
+#import "ios/chrome/app/spotlight/spotlight_util.h"
 #import "ios/chrome/app/variations_app_state_agent.h"
 #import "ios/chrome/browser/drive/model/drive_policy.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
@@ -183,6 +184,10 @@ const char kObsoleteAccountStorageNoticeShown[] =
 // Deprecated 03/2024.
 constexpr char kPreferencesMigratedToBasic[] =
     "browser.clear_data.preferences_migrated_to_basic";
+
+// Deprecated 05/2024.
+constexpr char kSyncCachedTrustedVaultAutoUpgradeDebugInfo[] =
+    "sync.cached_trusted_vault_auto_upgrade_debug_info";
 
 // Helper function migrating the preference `pref_name` of type "double" from
 // `defaults` to `pref_service`.
@@ -452,6 +457,9 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
 
   registry->RegisterBooleanPref(prefs::kIosCredentialProviderPromoPolicyEnabled,
                                 true);
+
+  registry->RegisterIntegerPref(prefs::kIosDefaultBrowserPromoLastAction, -1);
+
   // Preferences related to tab grid.
   // Default to 0 which is the unassigned value.
   registry->RegisterIntegerPref(prefs::kInactiveTabsTimeThreshold, 0);
@@ -501,7 +509,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
       PrefRegistry::LOSSY_PREF);
   registry->RegisterTimePref(prefs::kIosSafetyCheckManagerLastRunTime,
                              base::Time(), PrefRegistry::LOSSY_PREF);
-  // TODO(crbug.com/1481230): Remove this Pref when Settings Safety Check is
+  // TODO(crbug.com/40930653): Remove this Pref when Settings Safety Check is
   // refactored to use the new Safety Check Manager.
   registry->RegisterTimePref(prefs::kIosSettingsSafetyCheckLastRunTime,
                              base::Time());
@@ -785,6 +793,15 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
 
   registry->RegisterTimePref(prefs::kLastApplicationStorageMetricsLogTime,
                              base::Time());
+
+  registry->RegisterIntegerPref(spotlight::kSpotlightLastIndexingVersionKey, 0);
+  registry->RegisterTimePref(spotlight::kSpotlightLastIndexingDateKey,
+                             base::Time());
+
+  registry->RegisterDictionaryPref(
+      prefs::kContentNotificationsEnrollmentEligibility);
+
+  registry->RegisterStringPref(kSyncCachedTrustedVaultAutoUpgradeDebugInfo, "");
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -888,7 +905,7 @@ void MigrateObsoleteBrowserStatePrefs(const base::FilePath& state_path,
 
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
   // Added 09/2023.
-  // TODO(crbug.com/1486770) To be removed after a few milestones.
+  // TODO(crbug.com/40933843) To be removed after a few milestones.
   MigrateNSDatePreferenceFromUserDefaults(kActivityBucketLastReportedDateKey,
                                           prefs, defaults);
 
@@ -896,16 +913,16 @@ void MigrateObsoleteBrowserStatePrefs(const base::FilePath& state_path,
   prefs->ClearPref(kSyncRequested);
 
   // Added 10/2023.
-  // TODO(crbug.com/1486770) To be removed after a few milestones.
+  // TODO(crbug.com/40933843) To be removed after a few milestones.
   MigrateIntegerPreferenceFromUserDefaults(kActivityBucketKey, prefs, defaults);
 
   // Added 10/2023.
-  // TODO(crbug.com/1486770) To be removed after a few milestones.
+  // TODO(crbug.com/40933843) To be removed after a few milestones.
   MigrateDoublePreferenceFromUserDefaults(kTimeSpentInFeedAggregateKey, prefs,
                                           defaults);
 
   // Added 10/2023.
-  // TODO(crbug.com/1486770) To be removed after a few milestones.
+  // TODO(crbug.com/40933843) To be removed after a few milestones.
   MigrateNSDatePreferenceFromUserDefaults(kLastDayTimeInFeedReportedKey, prefs,
                                           defaults);
 
@@ -992,6 +1009,15 @@ void MigrateObsoleteBrowserStatePrefs(const base::FilePath& state_path,
 
   // Added 04/2024.
   prefs->ClearPref(prefs::kMixedContentAutoupgradeEnabled);
+
+  // Added 04/2024.
+  MigrateIntegerPreferenceFromUserDefaults(
+      spotlight::kSpotlightLastIndexingVersionKey, prefs, defaults);
+  MigrateNSDatePreferenceFromUserDefaults(
+      spotlight::kSpotlightLastIndexingDateKey, prefs, defaults);
+
+  // Added 05/2024.
+  prefs->ClearPref(kSyncCachedTrustedVaultAutoUpgradeDebugInfo);
 }
 
 void MigrateObsoleteUserDefault() {
@@ -1006,4 +1032,7 @@ void MigrateObsoleteUserDefault() {
 
   // TODO(b/322004644): Remove in M124+. Added 02/2024.
   [defaults removeObjectForKey:@"TimestampAppLaunchedOnColdStart"];
+
+  // Added 05/2024.
+  [defaults removeObjectForKey:@"lastSignificantUserEventVideo"];
 }

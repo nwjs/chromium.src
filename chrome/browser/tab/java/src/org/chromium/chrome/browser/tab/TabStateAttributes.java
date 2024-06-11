@@ -107,7 +107,7 @@ public class TabStateAttributes extends TabWebContentsUserData {
         } else {
             assert creationState == TabCreationState.FROZEN_ON_RESTORE;
         }
-        // TODO(crbug/1374456): Should this also handle mTab.getPendingLoadParams(), and ignore
+        // TODO(crbug.com/40242471): Should this also handle mTab.getPendingLoadParams(), and ignore
         //                      URL updates when the URL matches the pending load?
         mTab.addObserver(
                 new EmptyTabObserver() {
@@ -123,6 +123,11 @@ public class TabStateAttributes extends TabWebContentsUserData {
                         if (!closing && mDirtinessState == DirtinessState.UNTIDY) {
                             updateIsDirty(DirtinessState.DIRTY);
                         }
+                    }
+
+                    @Override
+                    public void onNavigationEntriesAppended(Tab tab) {
+                        updateIsDirty(DirtinessState.DIRTY);
                     }
 
                     @Override
@@ -154,7 +159,7 @@ public class TabStateAttributes extends TabWebContentsUserData {
 
                     @Override
                     public void onPageLoadFinished(Tab tab, GURL url) {
-                        // TODO(crbug/1374456): Reconcile the overlapping calls of
+                        // TODO(crbug.com/40242471): Reconcile the overlapping calls of
                         //                      didFinishNavigationInPrimaryMainFrame,
                         // onPageLoadFinished,
                         //                      and onLoadStopped.
@@ -163,7 +168,7 @@ public class TabStateAttributes extends TabWebContentsUserData {
 
                     @Override
                     public void onTitleUpdated(Tab tab) {
-                        // TODO(crbug/1374456): Is the title of a page normally received before
+                        // TODO(crbug.com/40242471): Is the title of a page normally received before
                         //                      onLoadStopped? If not, this will get marked as
                         // untidy
                         //                      soon after the initial page load.

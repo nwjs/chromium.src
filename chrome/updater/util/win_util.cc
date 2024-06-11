@@ -44,6 +44,7 @@
 #include "base/ranges/algorithm.h"
 #include "base/scoped_native_library.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
@@ -975,7 +976,13 @@ std::optional<base::CommandLine> CommandLineForLegacyFormat(
       VLOG(1) << "Empty switch in command line: [" << cmd_string << "]";
       return std::nullopt;
     }
-
+    if (base::StringPairs switch_value_pairs;
+        base::SplitStringIntoKeyValuePairs(switch_name, '=', '\n',
+                                           &switch_value_pairs)) {
+      command_line.AppendSwitchASCII(switch_value_pairs[0].first,
+                                     switch_value_pairs[0].second);
+      continue;
+    }
     if (is_legacy_switch(next_arg) || next_arg.empty()) {
       command_line.AppendSwitch(switch_name);
     } else {
@@ -1502,6 +1509,16 @@ std::wstring StringFromGuid(const GUID& guid) {
   wchar_t guid_string[kGuidStringCharacters] = {0};
   CHECK_NE(::StringFromGUID2(guid, guid_string, kGuidStringCharacters), 0);
   return guid_string;
+}
+
+bool StoreRunTimeEnrollmentToken(const std::string& enrollment_token) {
+  VLOG(1) << __func__ << ": " << enrollment_token;
+  return base::win::RegKey(HKEY_LOCAL_MACHINE,
+                           GetAppClientsKey(kUpdaterAppId).c_str(),
+                           Wow6432(KEY_SET_VALUE))
+             .WriteValue(kRegValueCloudManagementEnrollmentToken,
+                         base::SysUTF8ToWide(enrollment_token).c_str()) ==
+         ERROR_SUCCESS;
 }
 
 }  // namespace updater

@@ -259,7 +259,7 @@ class IsolatedWebAppUpdateManagerDevModeUpdateTest
 
 TEST_F(IsolatedWebAppUpdateManagerDevModeUpdateTest,
        DiscoversLocalDevModeUpdate) {
-  auto key_pair = web_package::WebBundleSigner::KeyPair::CreateRandom();
+  auto key_pair = web_package::WebBundleSigner::Ed25519KeyPair::CreateRandom();
   TestSignedWebBundle update_bundle = TestSignedWebBundleBuilder::BuildDefault(
       TestSignedWebBundleBuilder::BuildOptions()
           .SetVersion(base::Version("2.0.0"))
@@ -298,7 +298,7 @@ TEST_F(IsolatedWebAppUpdateManagerDevModeUpdateTest,
                               /*controlled_frame_partitions=*/_,
                               /*pending_update_info=*/Eq(std::nullopt))));
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())
@@ -316,7 +316,7 @@ class IsolatedWebAppUpdateManagerUpdateTest
 
  protected:
   struct IwaInfo {
-    IwaInfo(web_package::WebBundleSigner::KeyPair key_pair,
+    IwaInfo(web_package::WebBundleSigner::Ed25519KeyPair key_pair,
             IsolatedWebAppStorageLocation installed_location,
             base::Version installed_version,
             GURL update_manifest_url,
@@ -335,7 +335,7 @@ class IsolatedWebAppUpdateManagerUpdateTest
           update_app_name(std::move(update_app_name)) {}
 
     IsolatedWebAppUrlInfo url_info;
-    web_package::WebBundleSigner::KeyPair key_pair;
+    web_package::WebBundleSigner::Ed25519KeyPair key_pair;
     IsolatedWebAppStorageLocation installed_location;
     base::Version installed_version;
 
@@ -355,20 +355,22 @@ class IsolatedWebAppUpdateManagerUpdateTest
     command_scheduler->DelegateToRealImpl();
     fake_provider().SetScheduler(std::move(command_scheduler));
 
-    iwa_info1_ = IwaInfo(web_package::WebBundleSigner::KeyPair::CreateRandom(),
-                         IwaStorageOwnedBundle{"iwa1", /*dev_mode=*/false},
-                         base::Version("1.0.0"),
-                         GURL("https://example.com/update_manifest1.json"),
-                         GURL("https://example.com/bundle1.swbn"),
-                         base::Version("2.0.0"), "updated app 1");
+    iwa_info1_ =
+        IwaInfo(web_package::WebBundleSigner::Ed25519KeyPair::CreateRandom(),
+                IwaStorageOwnedBundle{"iwa1", /*dev_mode=*/false},
+                base::Version("1.0.0"),
+                GURL("https://example.com/update_manifest1.json"),
+                GURL("https://example.com/bundle1.swbn"),
+                base::Version("2.0.0"), "updated app 1");
     SetUpIwaInfo(*iwa_info1_);
 
-    iwa_info2_ = IwaInfo(web_package::WebBundleSigner::KeyPair::CreateRandom(),
-                         IwaStorageOwnedBundle{"iwa2", /*dev_mode=*/false},
-                         base::Version("4.0.0"),
-                         GURL("https://example.com/update_manifest2.json"),
-                         GURL("https://example.com/bundle2.swbn"),
-                         base::Version("7.0.0"), "updated app 2");
+    iwa_info2_ =
+        IwaInfo(web_package::WebBundleSigner::Ed25519KeyPair::CreateRandom(),
+                IwaStorageOwnedBundle{"iwa2", /*dev_mode=*/false},
+                base::Version("4.0.0"),
+                GURL("https://example.com/update_manifest2.json"),
+                GURL("https://example.com/bundle2.swbn"),
+                base::Version("7.0.0"), "updated app 2");
     SetUpIwaInfo(*iwa_info2_);
 
     SetTrustedWebBundleIdsForTesting({iwa_info1_->url_info.web_bundle_id(),
@@ -411,7 +413,7 @@ class IsolatedWebAppUpdateManagerUpdateTest
 
   TestSignedWebBundle CreateBundle(
       const base::Version& version,
-      const web_package::WebBundleSigner::KeyPair& key_pair) const {
+      const web_package::WebBundleSigner::Ed25519KeyPair& key_pair) const {
     return TestSignedWebBundleBuilder::BuildDefault(
         TestSignedWebBundleBuilder::BuildOptions()
             .SetVersion(version)
@@ -580,7 +582,7 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateMockTimeTest,
           "result", base::Value("Success::kUpdateFoundAndDryRunSuccessful")))));
   EXPECT_THAT(UpdateApplyLog(), IsEmpty());
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())
@@ -642,7 +644,7 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateMockTimeTest,
   EXPECT_THAT(UpdateApplyLog(), IsEmpty());
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())
@@ -694,7 +696,7 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateMockTimeTest, DiscoverUpdatesNow) {
           "result", base::Value("Success::kUpdateFoundAndDryRunSuccessful")))));
   EXPECT_THAT(UpdateApplyLog(), IsEmpty());
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())
@@ -874,14 +876,16 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateTest,
                   "app_id", base::Value(iwa_to_keep->url_info.app_id())))));
   EXPECT_THAT(UpdateDiscoveryLog(), IsEmpty());
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())
       ->Shutdown();
 }
 
-TEST_F(IsolatedWebAppUpdateManagerUpdateTest, StopsWaitingIfIwaIsUninstalled) {
+// TODO(b/338380813): The test is flaky on asan ChromeOS builder.
+TEST_F(IsolatedWebAppUpdateManagerUpdateTest,
+       DISABLED_StopsWaitingIfIwaIsUninstalled) {
   AddDummyIsolatedAppToRegistry(
       profile(), iwa_info1_->url_info.origin().GetURL(), "installed app",
       WebApp::IsolationData(iwa_info1_->installed_location,
@@ -910,15 +914,16 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateTest, StopsWaitingIfIwaIsUninstalled) {
   EXPECT_THAT(UpdateApplyTasks(), IsEmpty());
   EXPECT_THAT(UpdateApplyLog(), IsEmpty());
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())
       ->Shutdown();
 }
 
+// TODO(b/326527744): This test is flaky on asan ChromeOS builder.
 TEST_F(IsolatedWebAppUpdateManagerUpdateTest,
-       StopsNonStartedUpdateApplyTasksIfIwaIsUninstalled) {
+       DISABLED_StopsNonStartedUpdateApplyTasksIfIwaIsUninstalled) {
   AddDummyIsolatedAppToRegistry(
       profile(), iwa_info1_->url_info.origin().GetURL(), "installed app 1",
       WebApp::IsolationData(iwa_info1_->installed_location,
@@ -986,7 +991,7 @@ TEST_F(IsolatedWebAppUpdateManagerUpdateTest,
                   DictionaryHasValue("app_id", base::Value(iwa_to_keep)))));
   EXPECT_THAT(UpdateApplyLog(), IsEmpty());
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())
@@ -1110,7 +1115,7 @@ TEST_F(IsolatedWebAppUpdateManagerDiscoveryTimerTest,
         IsFalse());
   }
 
-  // TODO(crbug.com/1469880): As a temporary fix to avoid race conditions with
+  // TODO(crbug.com/40277668): As a temporary fix to avoid race conditions with
   // `ScopedProfileKeepAlive`s, manually shutdown `KeyedService`s holding them.
   fake_provider().Shutdown();
   ChromeBrowsingDataRemoverDelegateFactory::GetForProfile(profile())

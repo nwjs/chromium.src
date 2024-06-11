@@ -30,6 +30,7 @@
 #include "media/base/test_helpers.h"
 #include "media/base/timestamp_constants.h"
 #include "media/ffmpeg/ffmpeg_common.h"
+#include "media/ffmpeg/scoped_av_packet.h"
 #include "media/filters/audio_file_reader.h"
 #include "media/filters/ffmpeg_audio_decoder.h"
 #include "media/filters/in_memory_url_protocol.h"
@@ -209,11 +210,11 @@ class AudioDecoderTest
     ASSERT_TRUE(reader_->OpenDemuxerForTesting());
 
     // Load the first packet and check its timestamp.
-    AVPacket packet;
-    ASSERT_TRUE(reader_->ReadPacketForTesting(&packet));
-    EXPECT_EQ(params_.first_packet_pts, packet.pts);
+    auto packet = ScopedAVPacket::Allocate();
+    ASSERT_TRUE(reader_->ReadPacketForTesting(packet.get()));
+    EXPECT_EQ(params_.first_packet_pts, packet->pts);
     start_timestamp_ = ConvertFromTimeBase(
-        reader_->GetAVStreamForTesting()->time_base, packet.pts);
+        reader_->GetAVStreamForTesting()->time_base, packet->pts);
 
     // Seek back to the beginning.
     ASSERT_TRUE(reader_->SeekForTesting(start_timestamp_));
@@ -225,26 +226,27 @@ class AudioDecoderTest
 
 #if (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)) && \
     BUILDFLAG(USE_PROPRIETARY_CODECS)
-    // MediaCodec type requires config->extra_data() for AAC codec. For ADTS
+    // MediaCodec type requires config->aac_extra_data() for AAC codec. For ADTS
     // streams we need to extract it with a separate procedure.
     if ((decoder_type_ == AudioDecoderType::kMediaCodec ||
          decoder_type_ == AudioDecoderType::kMediaFoundation) &&
-        params_.codec == AudioCodec::kAAC && config.extra_data().empty()) {
+        params_.codec == AudioCodec::kAAC && config.aac_extra_data().empty()) {
       int sample_rate;
       ChannelLayout channel_layout;
       std::vector<uint8_t> extra_data;
       ASSERT_GT(ADTSStreamParser().ParseFrameHeader(
-                    packet.data, packet.size, nullptr, &sample_rate,
+                    packet->data, packet->size, nullptr, &sample_rate,
                     &channel_layout, nullptr, nullptr, &extra_data),
                 0);
       config.Initialize(AudioCodec::kAAC, kSampleFormatS16, channel_layout,
                         sample_rate, extra_data, EncryptionScheme::kUnencrypted,
                         base::TimeDelta(), 0);
+      config.set_aac_extra_data(extra_data);
       ASSERT_FALSE(config.extra_data().empty());
     }
 #endif
 
-    av_packet_unref(&packet);
+    av_packet_unref(packet.get());
 
     EXPECT_EQ(params_.codec, config.codec());
     EXPECT_EQ(params_.samples_per_second, config.samples_per_second());
@@ -272,27 +274,27 @@ class AudioDecoderTest
   }
 
   void Decode() {
-    AVPacket packet;
-    ASSERT_TRUE(reader_->ReadPacketForTesting(&packet));
+    auto packet = ScopedAVPacket::Allocate();
+    ASSERT_TRUE(reader_->ReadPacketForTesting(packet.get()));
 
     scoped_refptr<DecoderBuffer> buffer =
-        DecoderBuffer::CopyFrom(packet.data, packet.size);
+        DecoderBuffer::CopyFrom(AVPacketData(*packet));
     buffer->set_timestamp(ConvertFromTimeBase(
-        reader_->GetAVStreamForTesting()->time_base, packet.pts));
+        reader_->GetAVStreamForTesting()->time_base, packet->pts));
     buffer->set_duration(ConvertFromTimeBase(
-        reader_->GetAVStreamForTesting()->time_base, packet.duration));
-    if (packet.flags & AV_PKT_FLAG_KEY)
+        reader_->GetAVStreamForTesting()->time_base, packet->duration));
+    if (packet->flags & AV_PKT_FLAG_KEY)
       buffer->set_is_key_frame(true);
 
     // Don't set discard padding for Opus, it already has discard behavior set
     // based on the codec delay in the AudioDecoderConfig.
     if (decoder_type_ == AudioDecoderType::kFFmpeg &&
         params_.codec != AudioCodec::kOpus) {
-      SetDiscardPadding(&packet, buffer.get(), params_.samples_per_second);
+      SetDiscardPadding(packet.get(), buffer.get(), params_.samples_per_second);
     }
 
     // DecodeBuffer() shouldn't need the original packet since it uses the copy.
-    av_packet_unref(&packet);
+    av_packet_unref(packet.get());
     DecodeBuffer(std::move(buffer));
   }
 

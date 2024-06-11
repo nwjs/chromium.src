@@ -26,10 +26,11 @@
 #include "components/autofill/core/browser/data_model/credit_card_test_api.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/randomized_encoder.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_personal_data_manager.h"
-#include "components/autofill/core/browser/ui/popup_item_ids.h"
+#include "components/autofill/core/browser/ui/suggestion_type.h"
 #include "components/autofill/core/browser/webdata/payments/payments_autofill_table.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
@@ -198,19 +199,19 @@ AutofillProfile GetFullValidProfileForCanada() {
   return profile;
 }
 
-AutofillProfile GetFullProfile() {
-  AutofillProfile profile(AddressCountryCode("US"));
+AutofillProfile GetFullProfile(AddressCountryCode country_code) {
+  AutofillProfile profile(country_code);
   SetProfileInfo(&profile, "John", "H.", "Doe", "johndoe@hades.com",
                  "Underworld", "666 Erebus St.", "Apt 8", "Elysium", "CA",
-                 "91111", "US", "16502111111");
+                 "91111", country_code->c_str(), "16502111111");
   return profile;
 }
 
-AutofillProfile GetFullProfile2() {
-  AutofillProfile profile(AddressCountryCode("US"));
+AutofillProfile GetFullProfile2(AddressCountryCode country_code) {
+  AutofillProfile profile(country_code);
   SetProfileInfo(&profile, "Jane", "A.", "Smith", "jsmith@example.com", "ACME",
-                 "123 Main Street", "Unit 1", "Greensdale", "MI", "48838", "US",
-                 "13105557889");
+                 "123 Main Street", "Unit 1", "Greensdale", "MI", "48838",
+                 country_code->c_str(), "13105557889");
   return profile;
 }
 
@@ -681,7 +682,7 @@ void SetUpCreditCardAndBenefitData(
                     CreditCardCategoryBenefit::BenefitCategory::kSubscription));
           }},
       benefit);
-  personal_data.AddCreditCardBenefitForTest(benefit);
+  personal_data.payments_data_manager().AddCreditCardBenefitForTest(benefit);
   card.set_issuer_id(issuer_id);
   personal_data.AddServerCreditCard(card);
 }
@@ -853,12 +854,13 @@ void GenerateTestAutofillPopup(
   FormFieldData field;
   form.host_frame = MakeLocalFrameToken();
   form.renderer_id = MakeFormRendererId();
-  field.host_frame = MakeLocalFrameToken();
+  field.set_host_frame(MakeLocalFrameToken());
   field.set_renderer_id(MakeFieldRendererId());
-  field.is_focusable = true;
-  field.should_autocomplete = true;
+  field.set_is_focusable(true);
+  field.set_should_autocomplete(true);
+  field.set_bounds(gfx::RectF(100.f, 100.f));
   autofill_external_delegate->OnQuery(
-      form, field, gfx::RectF(100.f, 100.f),
+      form, field, /*caret_bounds=*/gfx::Rect(),
       AutofillSuggestionTriggerSource::kFormControlElementClicked);
 
   std::vector<Suggestion> suggestions;
@@ -984,11 +986,11 @@ void AddFieldPredictionsToForm(
   }
 }
 
-Suggestion CreateAutofillSuggestion(PopupItemId popup_item_id,
+Suggestion CreateAutofillSuggestion(SuggestionType type,
                                     const std::u16string& main_text_value,
                                     const Suggestion::Payload& payload) {
   Suggestion suggestion;
-  suggestion.popup_item_id = popup_item_id;
+  suggestion.type = type;
   suggestion.main_text.value = main_text_value;
   suggestion.payload = payload;
   return suggestion;

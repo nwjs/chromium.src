@@ -1,5 +1,4 @@
 ci/Mac13 Tests
-ci/Mac13 Tests (dbg)
 ci/Oreo Phone Tester
 ci/ios-simulator
 ci/ios-simulator-full-configs

@@ -15,6 +15,7 @@
 
 #include "base/bits.h"
 #include "base/containers/contains.h"
+#include "base/containers/fixed_flat_map.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -134,7 +135,6 @@ bool VaapiVideoEncodeAccelerator::Initialize(
     Client* client,
     std::unique_ptr<MediaLog> media_log) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
-  DCHECK_EQ(state_, kUninitialized);
   VLOGF(2) << "Initializing VAVEA, " << config.AsHumanReadableString();
 
   if (!can_use_encoder_) {
@@ -175,7 +175,7 @@ bool VaapiVideoEncodeAccelerator::Initialize(
     }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-    // TODO(crbug.com/1186051): Remove this restriction.
+    // TODO(crbug.com/40172317): Remove this restriction.
     for (size_t i = 0; i < config.spatial_layers.size(); ++i) {
       for (size_t j = i + 1; j < config.spatial_layers.size(); ++j) {
         if (config.spatial_layers[i].width == config.spatial_layers[j].width &&
@@ -217,9 +217,9 @@ bool VaapiVideoEncodeAccelerator::Initialize(
     return false;
   }
 
-  native_input_mode_ =
+  bool native_input_mode =
       config.storage_type == Config::StorageType::kGpuMemoryBuffer;
-  if (native_input_mode_ && config.input_format != PIXEL_FORMAT_NV12) {
+  if (native_input_mode && config.input_format != PIXEL_FORMAT_NV12) {
     // TODO(crbug.com/894381): Support other formats.
     MEDIA_LOG(ERROR, media_log.get())
         << "Unsupported format for native input mode: "
@@ -227,7 +227,7 @@ bool VaapiVideoEncodeAccelerator::Initialize(
     return false;
   }
 
-  if (config.HasSpatialLayer() && !native_input_mode_) {
+  if (config.HasSpatialLayer() && !native_input_mode) {
     MEDIA_LOG(ERROR, media_log.get())
         << "Spatial scalability is only supported for native input now";
     return false;
@@ -264,6 +264,9 @@ void VaapiVideoEncodeAccelerator::InitializeTask(const Config& config) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
   DCHECK_EQ(state_, kUninitialized);
   VLOGF(2);
+
+  native_input_mode_ =
+      config.storage_type == Config::StorageType::kGpuMemoryBuffer;
 
   output_codec_ = VideoCodecProfileToVideoCodec(config.output_profile);
   DCHECK_EQ(IsConfiguredForTesting(), !!vaapi_wrapper_);
@@ -671,6 +674,7 @@ scoped_refptr<VASurface> VaapiVideoEncodeAccelerator::CreateInputSurface(
     VaapiWrapper& vaapi_wrapper,
     const gfx::Size& encode_size,
     const std::vector<VaapiWrapper::SurfaceUsageHint>& surface_usage_hints) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
   if (!base::Contains(input_surfaces_, encode_size)) {
     auto surface =
         CreateScopedSurface(vaapi_wrapper, encode_size, surface_usage_hints);
@@ -965,12 +969,6 @@ void VaapiVideoEncodeAccelerator::UseOutputBitstreamBuffer(
   DVLOGF(4) << "id: " << buffer.id();
   DCHECK_CALLED_ON_VALID_SEQUENCE(child_sequence_checker_);
 
-  if (buffer.size() < output_buffer_byte_size_) {
-    NotifyError({EncoderStatus::Codes::kInvalidOutputBuffer,
-                 "Provided bitstream buffer too small"});
-    return;
-  }
-
   encoder_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&VaapiVideoEncodeAccelerator::UseOutputBitstreamBufferTask,
@@ -981,6 +979,12 @@ void VaapiVideoEncodeAccelerator::UseOutputBitstreamBufferTask(
     BitstreamBuffer buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
   DCHECK_NE(state_, kUninitialized);
+
+  if (buffer.size() < output_buffer_byte_size_) {
+    NotifyError({EncoderStatus::Codes::kInvalidOutputBuffer,
+                 "Provided bitstream buffer too small"});
+    return;
+  }
 
   available_bitstream_buffers_.push(std::move(buffer));
   TryToReturnBitstreamBuffers();
@@ -1132,7 +1136,16 @@ void VaapiVideoEncodeAccelerator::SetState(State state) {
     return;
   }
 
-  VLOGF(2) << "setting state to: " << state;
+  DCHECK_CALLED_ON_VALID_SEQUENCE(encoder_sequence_checker_);
+  if (VLOG_IS_ON(2)) {
+    constexpr auto kStateToString = base::MakeFixedFlatMap<State, const char*>(
+        {{kUninitialized, "kUninitialized"},
+         {kEncoding, "kEncoding"},
+         {kError, "kError"}});
+    CHECK(base::Contains(kStateToString, state));
+    VLOGF(2) << "setting state to: " << kStateToString.at(state);
+  }
+
   state_ = state;
 }
 

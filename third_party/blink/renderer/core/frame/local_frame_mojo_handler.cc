@@ -53,8 +53,10 @@
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/fullscreen/scoped_allow_fullscreen.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html/html_embed_element.h"
 #include "third_party/blink/renderer/core/html/html_link_element.h"
 #include "third_party/blink/renderer/core/html/html_meta_element.h"
+#include "third_party/blink/renderer/core/html/html_object_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
@@ -897,7 +899,7 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequestForTests(
       v8::Local<v8::Value> value = result.GetSuccessValue();
       if (resolve_promises && !value.IsEmpty() && value->IsPromise()) {
         auto promise = ScriptPromise<IDLAny>::FromV8Promise(
-            script_state, value.As<v8::Promise>());
+            script_state->GetIsolate(), value.As<v8::Promise>());
         promise.Then(handler->CreateResolveCallback(script_state, frame_),
                      handler->CreateRejectCallback(script_state, frame_));
       } else {
@@ -1333,11 +1335,11 @@ void LocalFrameMojoHandler::SetV8CompileHints(
 }
 
 void LocalFrameMojoHandler::SnapshotDocumentForViewTransition(
-    const viz::NavigationId& navigation_id,
+    const blink::ViewTransitionToken& transition_token,
     mojom::blink::PageSwapEventParamsPtr params,
     SnapshotDocumentForViewTransitionCallback callback) {
   ViewTransitionSupplement::SnapshotDocumentForNavigation(
-      *frame_->GetDocument(), navigation_id, std::move(params),
+      *frame_->GetDocument(), transition_token, std::move(params),
       std::move(callback));
 }
 
@@ -1433,6 +1435,34 @@ void LocalFrameMojoHandler::RequestFullscreenVideoElement() {
       return;
     }
   }
+}
+
+void LocalFrameMojoHandler::UpdatePrerenderURL(
+    const KURL& matched_url,
+    UpdatePrerenderURLCallback callback) {
+  CHECK(SecurityOrigin::Create(matched_url)
+            ->IsSameOriginWith(
+                &*GetDocument()->GetExecutionContext()->GetSecurityOrigin()));
+  auto* params = MakeGarbageCollected<NavigateEventDispatchParams>(
+      matched_url, NavigateEventType::kPrerenderNoVarySearchActivation,
+      WebFrameLoadType::kReplaceCurrentItem);
+  params->is_browser_initiated = true;
+
+  // TODO(crbug.com/41494389): Add test for how the navigation API can intercept
+  // this update.
+  if (frame_->DomWindow()->navigation()->DispatchNavigateEvent(params) !=
+      NavigationApi::DispatchResult::kContinue) {
+    std::move(callback).Run();
+    return;
+  }
+
+  GetDocument()->Loader()->RunURLAndHistoryUpdateSteps(
+      matched_url, nullptr,
+      mojom::blink::SameDocumentNavigationType::
+          kPrerenderNoVarySearchActivation,
+      /*data=*/nullptr, WebFrameLoadType::kReplaceCurrentItem,
+      /*is_browser_initiated=*/true);
+  std::move(callback).Run();
 }
 
 }  // namespace blink

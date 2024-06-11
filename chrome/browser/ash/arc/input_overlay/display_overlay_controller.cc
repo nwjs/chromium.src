@@ -58,6 +58,7 @@ namespace arc::input_overlay {
 namespace {
 
 using ash::game_dashboard_utils::GetNextWidgetToFocus;
+using ash::game_dashboard_utils::UpdateAccessibilityTree;
 
 // UI specs.
 constexpr int kMenuEntrySideMargin = 24;
@@ -151,6 +152,7 @@ class DisplayOverlayController::FocusCycler {
     if (auto it = std::find(widget_list_.begin(), widget_list_.end(), widget);
         it == widget_list_.end()) {
       widget_list_.emplace_back(widget);
+      UpdateAccessibilityTree(widget_list_);
     }
   }
 
@@ -158,6 +160,7 @@ class DisplayOverlayController::FocusCycler {
     if (auto it = std::find(widget_list_.begin(), widget_list_.end(), widget);
         it != widget_list_.end()) {
       widget_list_.erase(it);
+      UpdateAccessibilityTree(widget_list_);
     }
   }
 
@@ -1083,12 +1086,14 @@ void DisplayOverlayController::OnWindowPropertyChanged(aura::Window* window,
       const auto mapping_source = GetMappingSource();
       if (IsFlagChanged(flags, old_flags, ash::ArcGameControlsFlag::kEnabled)) {
         RecordToggleWithMappingSource(
+            GetPackageName(),
             /*is_feature=*/true,
             /*is_on=*/IsFlagSet(flags, ash::ArcGameControlsFlag::kEnabled),
             mapping_source);
       }
       if (IsFlagChanged(flags, old_flags, ash::ArcGameControlsFlag::kHint)) {
         RecordToggleWithMappingSource(
+            GetPackageName(),
             /*is_feature=*/false,
             /*is_on=*/IsFlagSet(flags, ash::ArcGameControlsFlag::kHint),
             mapping_source);

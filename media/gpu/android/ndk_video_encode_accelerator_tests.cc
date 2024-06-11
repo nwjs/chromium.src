@@ -129,12 +129,12 @@ class NdkVideoEncoderAcceleratorTest
     auto y = color & 0xFF;
     auto u = (color >> 8) & 0xFF;
     auto v = (color >> 16) & 0xFF;
-    libyuv::I420Rect(frame->writable_data(VideoFrame::kYPlane),
-                     frame->stride(VideoFrame::kYPlane),
-                     frame->writable_data(VideoFrame::kUPlane),
-                     frame->stride(VideoFrame::kUPlane),
-                     frame->writable_data(VideoFrame::kVPlane),
-                     frame->stride(VideoFrame::kVPlane),
+    libyuv::I420Rect(frame->writable_data(VideoFrame::Plane::kY),
+                     frame->stride(VideoFrame::Plane::kY),
+                     frame->writable_data(VideoFrame::Plane::kU),
+                     frame->stride(VideoFrame::Plane::kU),
+                     frame->writable_data(VideoFrame::Plane::kV),
+                     frame->stride(VideoFrame::Plane::kV),
                      0,                               // left
                      0,                               // top
                      frame->visible_rect().width(),   // right
@@ -162,8 +162,8 @@ class NdkVideoEncoderAcceleratorTest
     auto frame = VideoFrame::CreateFrame(PIXEL_FORMAT_XRGB, size,
                                          gfx::Rect(size), size, timestamp);
 
-    libyuv::ARGBRect(frame->writable_data(VideoFrame::kARGBPlane),
-                     frame->stride(VideoFrame::kARGBPlane),
+    libyuv::ARGBRect(frame->writable_data(VideoFrame::Plane::kARGB),
+                     frame->stride(VideoFrame::Plane::kARGB),
                      0,                               // left
                      0,                               // top
                      frame->visible_rect().width(),   // right
@@ -239,10 +239,13 @@ class NdkVideoEncoderAcceleratorTest
           switch (nalu.nal_unit_type) {
             case H264NALU::kSPS: {
               EXPECT_EQ(parser.ParseSPS(&id), H264Parser::kOk);
+              // TODO(crbug.com/343199623): Re-enable once we also set level.
+#if 0
               const H264SPS* sps = parser.GetSPS(id);
               VideoCodecProfile profile =
                   H264Parser::ProfileIDCToVideoCodecProfile(sps->profile_idc);
               EXPECT_EQ(profile, profile_);
+#endif
               break;
             }
 

@@ -98,6 +98,14 @@ bool ValidateJoinSecurityDomainsRequest(
     }
   }
 
+  if (member.member_type() !=
+          trusted_vault_pb::SecurityDomainMember::MEMBER_TYPE_UNSPECIFIED &&
+      request.member_type_hint() != 0 &&
+      static_cast<int>(member.member_type()) != request.member_type_hint()) {
+    DVLOG(1) << "JoinSecurityDomains request has inconsistent member type hint";
+    return false;
+  }
+
   return true;
 }
 
@@ -220,7 +228,7 @@ std::vector<uint8_t> FakeSecurityDomainsServer::RotateTrustedVaultKey(
     const std::vector<uint8_t>& last_trusted_vault_key) {
   base::AutoLock autolock(lock_);
   std::vector<uint8_t> new_trusted_vault_key(kSharedKeyLength);
-  base::RandBytes(new_trusted_vault_key.data(), kSharedKeyLength);
+  base::RandBytes(new_trusted_vault_key);
 
   state_.current_epoch++;
   state_.trusted_vault_keys.push_back(new_trusted_vault_key);

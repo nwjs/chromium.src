@@ -545,6 +545,9 @@ void ContentSettingsRegistry::Init() {
            ContentSettingsInfo::INHERIT_IF_LESS_PERMISSIVE,
            ContentSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);
 
+  // TODO(crbug.com/40842170): Reconsider how WINDOW_MANAGEMENT is synced. For
+  // now it remains on the legacy "window-placement" key (see
+  // crbug.com/40842072).
   Register(ContentSettingsType::WINDOW_MANAGEMENT, "window-placement",
            CONTENT_SETTING_ASK, WebsiteSettingsInfo::SYNCABLE,
            /*allowlisted_primary_schemes=*/{},
@@ -649,7 +652,7 @@ void ContentSettingsRegistry::Init() {
            WebsiteSettingsInfo::UNSYNCABLE,
            /*allowlisted_primary_schemes=*/{},
            /*valid_settings=*/{CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK},
-           WebsiteSettingsInfo::GENERIC_SINGLE_ORIGIN_SCOPE,
+           WebsiteSettingsInfo::REQUESTING_SCHEMEFUL_SITE_ONLY_SCOPE,
            WebsiteSettingsRegistry::ALL_PLATFORMS,
            ContentSettingsInfo::INHERIT_IN_INCOGNITO,
            ContentSettingsInfo::EXCEPTIONS_ON_SECURE_ORIGINS_ONLY);

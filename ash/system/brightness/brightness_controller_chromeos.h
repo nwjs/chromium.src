@@ -14,6 +14,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chromeos/dbus/power/power_manager_client.h"
+#include "components/prefs/pref_registry_simple.h"
 
 class AccountId;
 class PrefService;
@@ -47,13 +48,20 @@ class ASH_EXPORT BrightnessControllerChromeos
 
   ~BrightnessControllerChromeos() override;
 
+  // Registers user profile prefs with the specified registry.
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
+
   // Overridden from ash::BrightnessControlDelegate:
   void HandleBrightnessDown() override;
   void HandleBrightnessUp() override;
-  void SetBrightnessPercent(double percent, bool gradual) override;
+  void SetBrightnessPercent(double percent,
+                            bool gradual,
+                            BrightnessChangeSource source) override;
   void GetBrightnessPercent(
       base::OnceCallback<void(std::optional<double>)> callback) override;
   void SetAmbientLightSensorEnabled(bool enabled) override;
+  void GetAmbientLightSensorEnabled(
+      base::OnceCallback<void(std::optional<bool>)> callback) override;
   void HasAmbientLightSensor(
       base::OnceCallback<void(std::optional<bool>)> callback) override;
 
@@ -64,6 +72,8 @@ class ASH_EXPORT BrightnessControllerChromeos
   // PowerManagerClient::Observer:
   void ScreenBrightnessChanged(
       const power_manager::BacklightBrightnessChange& change) override;
+  void AmbientLightSensorEnabledChanged(
+      const power_manager::AmbientLightSensorChange& change) override;
 
   // LoginDataDispatcher::Observer:
   void OnFocusPod(const AccountId& account_id) override;

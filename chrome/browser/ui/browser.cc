@@ -76,7 +76,6 @@
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
-#include "chrome/browser/page_load_metrics/observers/navigation_handle_user_data.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -140,6 +139,7 @@
 #include "chrome/browser/ui/overscroll_pref_manager.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
+#include "chrome/browser/ui/signin/cookie_clear_on_exit_migration_notice.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/sync/browser_synced_window_delegate.h"
@@ -157,6 +157,8 @@
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
@@ -370,6 +372,43 @@ bool IsOnKioskSplashScreen() {
 #else
   return false;
 #endif
+}
+
+// Returns a pair [last_window, last_window_for_profile] indicating if `browser`
+// is the only browser in total and for this profile.
+// Ignores browsers that are in the process of closing.
+std::pair<bool, bool> IsLastWindow(const Browser& browser) {
+  bool last_window = true;
+  bool last_window_for_profile = true;
+  for (Browser* other_browser : *BrowserList::GetInstance()) {
+    // Don't count this browser window or any other in the process of closing.
+    // Window closing may be delayed, and windows that are in the process of
+    // closing don't count against our totals.
+    if (other_browser == &browser ||
+        other_browser->IsAttemptingToCloseBrowser()) {
+      continue;
+    }
+
+    last_window = false;
+
+    if (other_browser->profile() == browser.profile()) {
+      last_window_for_profile = false;
+      break;
+    }
+  }
+
+  return {last_window, last_window_for_profile};
+}
+
+// Returns whether the cookie migration notice should be shown: the migration
+// is not complete, and this is the last browser window open for this profile.
+bool ShouldShowCookieMigrationNoticeForBrowser(const Browser& browser) {
+  if (!CanShowCookieClearOnExitMigrationNotice(browser)) {
+    return false;
+  }
+
+  auto [last_window, last_window_for_profile] = IsLastWindow(browser);
+  return last_window_for_profile;
 }
 
 }  // namespace
@@ -613,6 +652,12 @@ Browser::Browser(const CreateParams& params)
   if (params.skip_window_init_for_testing)
     return;
 
+  // BrowserWindowFeatures need to be initialized before browser window
+  // creation, so that the features can be used in creating components
+  // in browser window.
+  features_ = BrowserWindowFeatures::CreateBrowserWindowFeatures();
+  features_->Init(this);
+
   window_ = params.window ? params.window.get()
                           : CreateBrowserWindow(std::unique_ptr<Browser>(this),
                                                 params.user_gesture,
@@ -644,8 +689,6 @@ Browser::Browser(const CreateParams& params)
   }
 
   BrowserList::AddBrowser(this);
-  features_ = BrowserWindowFeatures::CreateBrowserWindowFeatures();
-  features_->Init(this);
 }
 
 Browser::~Browser() {
@@ -658,7 +701,7 @@ Browser::~Browser() {
   // The tab strip should not have any tabs at this point.
   //
   // TODO(crbug.com/40887606): This DCHECK doesn't always pass.
-  // TODO(crbug.com/1434387): convert this to CHECK.
+  // TODO(crbug.com/40064092): convert this to CHECK.
   DCHECK(tab_strip_model_->empty());
 
   // Destroy the BrowserCommandController before removing the browser, so that
@@ -714,7 +757,7 @@ Browser::~Browser() {
   // Non-primary OffTheRecord profiles should not be destroyed directly by
   // Browser (e.g. for offscreen tabs, https://crbug.com/664351).
   //
-  // TODO(crbug.com/1153922): Use ScopedProfileKeepAlive for Incognito too,
+  // TODO(crbug.com/40159237): Use ScopedProfileKeepAlive for Incognito too,
   // instead of separate logic for Incognito and regular profiles.
   if (profile_->IsIncognitoProfile() &&
       !BrowserList::IsOffTheRecordBrowserInUse(profile_) &&
@@ -1012,12 +1055,30 @@ Browser::WarnBeforeClosingResult Browser::MaybeWarnBeforeClosing(
   // before-unload handlers by setting `force_skip_warning_user_on_close_` to
   // true or there are no pending downloads we need to prompt about) then
   // there's no need to warn.
-  if (force_skip_warning_user_on_close_ || CanCloseWithInProgressDownloads())
+  if (force_skip_warning_user_on_close_) {
     return WarnBeforeClosingResult::kOkToClose;
+  }
+
+  // `CanCloseWithInProgressDownloads()` may trigger a modal dialog.
+  bool can_close_with_downloads = CanCloseWithInProgressDownloads();
+  if (can_close_with_downloads &&
+      !ShouldShowCookieMigrationNoticeForBrowser(*this)) {
+    return WarnBeforeClosingResult::kOkToClose;
+  }
+
+  // If there is no download warning, show the cookie migration notice now.
+  // Otherwise, the download warning is being shown. Cookie migration notice
+  // will be shown after, if needed.
+  if (can_close_with_downloads) {
+    ShowCookieClearOnExitMigrationNotice(
+        *this, base::BindOnce(&Browser::CookieMigrationNoticeResponse,
+                              weak_factory_.GetWeakPtr()));
+  }
 
   DCHECK(!warn_before_closing_callback_)
       << "Tried to close window during close warning; dialog should be modal.";
   warn_before_closing_callback_ = std::move(warn_callback);
+
   return WarnBeforeClosingResult::kDoNotClose;
 }
 
@@ -1110,6 +1171,21 @@ void Browser::ClearForceShowBookmarkBarFlag(ForceShowBookmarkBarFlag flag) {
   UpdateBookmarkBarState(BOOKMARK_BAR_STATE_CHANGE_FORCE_SHOW);
 }
 
+views::WebView* Browser::GetWebView() {
+  return window_->GetContentsWebView();
+}
+
+void Browser::OpenURL(const GURL& gurl, WindowOpenDisposition disposition) {
+  OpenURL(content::OpenURLParams(gurl, content::Referrer(), disposition,
+                                 ui::PAGE_TRANSITION_LINK,
+                                 /*is_renderer_initiated=*/false),
+          /*navigation_handle_callback=*/{});
+}
+
+const SessionID& Browser::GetSessionID() {
+  return session_id_;
+}
+
 void Browser::OnWindowClosing() {
   if (const auto closing_status = HandleBeforeClose();
       closing_status != BrowserClosingStatus::kPermitted) {
@@ -1181,23 +1257,11 @@ Browser::DownloadCloseType Browser::OkToCloseWithInProgressDownloads(
 
   // Figure out how many windows are open total, and associated with this
   // profile, that are relevant for the ok-to-close decision.
-  int profile_window_count = 0;
-  int total_window_count = 0;
-  for (Browser* browser : *BrowserList::GetInstance()) {
-    // Don't count this browser window or any other in the process of closing.
-    // Window closing may be delayed, and windows that are in the process of
-    // closing don't count against our totals.
-    if (browser == this || browser->IsAttemptingToCloseBrowser())
-      continue;
-
-    if (browser->profile() == profile())
-      profile_window_count++;
-    total_window_count++;
-  }
+  auto [last_window, last_window_for_profile] = IsLastWindow(*this);
 
   // If there aren't any other windows, we're at browser shutdown,
   // which would cancel all current downloads.
-  if (total_window_count == 0) {
+  if (last_window) {
     *num_downloads_blocking = total_download_count;
     return DownloadCloseType::kBrowserShutdown;
   }
@@ -1207,7 +1271,7 @@ Browser::DownloadCloseType Browser::OkToCloseWithInProgressDownloads(
   // those downloads would be cancelled by our window (-> profile) close.
   DownloadCoreService* download_core_service =
       DownloadCoreServiceFactory::GetForBrowserContext(profile());
-  if ((profile_window_count == 0) &&
+  if (last_window_for_profile &&
       (download_core_service->BlockingShutdownCount() > 0) &&
       (profile()->IsIncognitoProfile() || profile()->IsGuestSession())) {
     *num_downloads_blocking = download_core_service->BlockingShutdownCount();
@@ -1690,32 +1754,6 @@ void Browser::UpdateInspectedWebContentsIfNecessary(
   }
 }
 
-std::unique_ptr<content::WebContents> Browser::SwapWebContents(
-    content::WebContents* old_contents,
-    std::unique_ptr<content::WebContents> new_contents) {
-  // Copies the background color and contents of the old WebContents to a new
-  // one that replaces it on the screen. This allows the new WebContents to
-  // have something to show before having loaded any contents. As a result, we
-  // avoid flashing white when navigating from a site with a dark background to
-  // another site with a dark background.
-  if (old_contents && new_contents) {
-    RenderWidgetHostView* old_view =
-        old_contents->GetPrimaryMainFrame()->GetView();
-    RenderWidgetHostView* new_view =
-        new_contents->GetPrimaryMainFrame()->GetView();
-    if (old_view && new_view)
-      new_view->TakeFallbackContentFrom(old_view);
-  }
-
-  // Clear the task manager tag. The TabStripModel will associate its own task
-  // manager tag.
-  task_manager::WebContentsTags::ClearTag(new_contents.get());
-
-  int index = tab_strip_model_->GetIndexOfWebContents(old_contents);
-  DCHECK_NE(TabStripModel::kNoTab, index);
-  return tab_strip_model_->ReplaceWebContentsAt(index, std::move(new_contents));
-}
-
 bool Browser::ShouldShowStaleContentOnEviction(content::WebContents* source) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   return source == tab_strip_model_->GetActiveWebContents();
@@ -1995,19 +2033,22 @@ void Browser::UpdateTargetURL(WebContents* source, const GURL& url) {
     GetStatusBubble()->SetURL(url);
 }
 
-void Browser::ContentsMouseEvent(WebContents* source,
-                                 bool motion,
-                                 bool exited) {
-  exclusive_access_manager_->OnUserInput();
+void Browser::ContentsMouseEvent(WebContents* source, const ui::Event& event) {
+  const ui::EventType type = event.type();
+  const bool exited = type == ui::ET_MOUSE_EXITED;
+  // Disregard synthesized events, and mouse enter and exit, which may occur
+  // without explicit user input events during window state changes.
+  if (type != ui::ET_MOUSE_ENTERED && !exited && !event.IsSynthesized()) {
+    exclusive_access_manager_->OnUserInput();
+  }
 
   // Mouse motion events update the status bubble, if it exists.
-  if (!GetStatusBubble() || (!motion && !exited))
-    return;
-
-  if (source == tab_strip_model_->GetActiveWebContents()) {
+  if (GetStatusBubble() && source == tab_strip_model_->GetActiveWebContents() &&
+      (type == ui::ET_MOUSE_MOVED || exited)) {
     GetStatusBubble()->MouseMoved(exited);
-    if (exited)
+    if (exited) {
       GetStatusBubble()->SetURL(GURL());
+    }
   }
 }
 
@@ -2266,15 +2307,14 @@ ui::WindowShowState Browser::GetWindowShowState() const {
 }
 
 bool Browser::CanEnterFullscreenModeForTab(
-    content::RenderFrameHost* requesting_frame,
-    const blink::mojom::FullscreenOptions& options) {
+    content::RenderFrameHost* requesting_frame) {
   // If the tab strip isn't editable then a drag session is in progress, and it
   // is not safe to enter fullscreen. https://crbug.com/1315080
   if (!tab_strip_model_delegate_->IsTabStripEditable())
     return false;
 
   return exclusive_access_manager_->fullscreen_controller()
-      ->CanEnterFullscreenModeForTab(requesting_frame, options.display_id);
+      ->CanEnterFullscreenModeForTab(requesting_frame);
 }
 
 void Browser::EnterFullscreenModeForTab(
@@ -2677,7 +2717,7 @@ void Browser::OnTabInsertedAt(WebContents* contents, int index) {
   // added to it. This is because scheduling the delete can not be undone, and
   // proper cleanup is not done if a WebContents is added once delete it
   // scheduled (WebContents is leaked, unload handlers aren't checked...).
-  // TODO(crbug.com/1434387): this should check that `is_delete_scheduled_` is
+  // TODO(crbug.com/40064092): this should check that `is_delete_scheduled_` is
   // false.
   DUMP_WILL_BE_CHECK(!is_delete_scheduled_);
 
@@ -3123,8 +3163,15 @@ bool Browser::CanCloseWithInProgressDownloads() {
 void Browser::InProgressDownloadResponse(bool cancel_downloads) {
   if (cancel_downloads) {
     cancel_download_confirmation_state_ = RESPONSE_RECEIVED;
-    std::move(warn_before_closing_callback_)
-        .Run(WarnBeforeClosingResult::kOkToClose);
+
+    if (ShouldShowCookieMigrationNoticeForBrowser(*this)) {
+      ShowCookieClearOnExitMigrationNotice(
+          *this, base::BindOnce(&Browser::CookieMigrationNoticeResponse,
+                                weak_factory_.GetWeakPtr()));
+    } else {
+      std::move(warn_before_closing_callback_)
+          .Run(WarnBeforeClosingResult::kOkToClose);
+    }
     return;
   }
 
@@ -3138,6 +3185,12 @@ void Browser::InProgressDownloadResponse(bool cancel_downloads) {
 
   std::move(warn_before_closing_callback_)
       .Run(WarnBeforeClosingResult::kDoNotClose);
+}
+
+void Browser::CookieMigrationNoticeResponse(bool proceed_closing) {
+  std::move(warn_before_closing_callback_)
+      .Run(proceed_closing ? WarnBeforeClosingResult::kOkToClose
+                           : WarnBeforeClosingResult::kDoNotClose);
 }
 
 void Browser::FinishWarnBeforeClosing(WarnBeforeClosingResult result) {
@@ -3283,12 +3336,12 @@ bool Browser::AppBrowserSupportsWindowFeature(WindowFeature feature,
     // current page can be shown when browsing a url that is not inside the app.
     // Note: Final determination of whether or not the toolbar is shown is made
     // by the |AppBrowserController|.
-    // TODO(crbug.com/992834): Make this control the visibility of Browser
+    // TODO(crbug.com/40639933): Make this control the visibility of Browser
     // Controls more generally.
     case FEATURE_TOOLBAR:
       return true;
     case FEATURE_TITLEBAR:
-    // TODO(crbug.com/992834): Make this control the visibility of
+    // TODO(crbug.com/40639933): Make this control the visibility of
     // CustomTabBarView.
     case FEATURE_LOCATIONBAR:
       return check_can_support || !fullscreen;
@@ -3349,7 +3402,7 @@ bool Browser::SupportsWindowFeatureImpl(WindowFeature feature,
     case TYPE_APP:
       if (app_controller_)
         return AppBrowserSupportsWindowFeature(feature, check_can_support);
-      // TODO(crbug.com/992834): Change legacy apps to TYPE_APP_POPUP.
+      // TODO(crbug.com/40639933): Change legacy apps to TYPE_APP_POPUP.
       return AppPopupBrowserSupportsWindowFeature(feature, check_can_support);
     case TYPE_DEVTOOLS:
     case TYPE_APP_POPUP:

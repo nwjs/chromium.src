@@ -129,6 +129,7 @@ void PasswordStoreProxyBackend::InitBackend(
 }
 
 void PasswordStoreProxyBackend::Shutdown(base::OnceClosure shutdown_completed) {
+  weak_ptr_factory_.InvalidateWeakPtrs();
   base::RepeatingClosure pending_shutdown_calls = base::BarrierClosure(
       /*num_closures=*/2, std::move(shutdown_completed));
   android_backend_->Shutdown(pending_shutdown_calls);
@@ -256,15 +257,17 @@ void PasswordStoreProxyBackend::UpdateLoginAsync(
 }
 
 void PasswordStoreProxyBackend::RemoveLoginAsync(
+    const base::Location& location,
     const PasswordForm& form,
     PasswordChangesOrErrorReply callback) {
-  main_backend()->RemoveLoginAsync(form, std::move(callback));
+  main_backend()->RemoveLoginAsync(location, form, std::move(callback));
   if (UsesAndroidBackendAsMainBackend()) {
-    shadow_backend()->RemoveLoginAsync(form, base::DoNothing());
+    shadow_backend()->RemoveLoginAsync(location, form, base::DoNothing());
   }
 }
 
 void PasswordStoreProxyBackend::RemoveLoginsByURLAndTimeAsync(
+    const base::Location& location,
     const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time delete_begin,
     base::Time delete_end,
@@ -275,31 +278,33 @@ void PasswordStoreProxyBackend::RemoveLoginsByURLAndTimeAsync(
   // later.
   CHECK(!sync_completion);
   main_backend()->RemoveLoginsByURLAndTimeAsync(
-      url_filter, delete_begin, delete_end, base::NullCallback(),
+      location, url_filter, delete_begin, delete_end, base::NullCallback(),
       std::move(callback));
   if (UsesAndroidBackendAsMainBackend()) {
     shadow_backend()->RemoveLoginsByURLAndTimeAsync(
-        url_filter, std::move(delete_begin), std::move(delete_end),
+        location, url_filter, std::move(delete_begin), std::move(delete_end),
         base::NullCallback(), base::DoNothing());
   }
 }
 
 void PasswordStoreProxyBackend::RemoveLoginsCreatedBetweenAsync(
+    const base::Location& location,
     base::Time delete_begin,
     base::Time delete_end,
     PasswordChangesOrErrorReply callback) {
-  main_backend()->RemoveLoginsCreatedBetweenAsync(delete_begin, delete_end,
-                                                  std::move(callback));
+  main_backend()->RemoveLoginsCreatedBetweenAsync(
+      location, delete_begin, delete_end, std::move(callback));
   if (UsesAndroidBackendAsMainBackend()) {
     shadow_backend()->RemoveLoginsCreatedBetweenAsync(
-        std::move(delete_begin), std::move(delete_end), base::DoNothing());
+        location, std::move(delete_begin), std::move(delete_end),
+        base::DoNothing());
   }
 }
 
 void PasswordStoreProxyBackend::DisableAutoSignInForOriginsAsync(
     const base::RepeatingCallback<bool(const GURL&)>& origin_filter,
     base::OnceClosure completion) {
-  // TODO(https://crbug.com/1278807): Implement error handling, when actual
+  // TODO(crbug.com/40208332): Implement error handling, when actual
   // store changes will be received from the store.
   main_backend()->DisableAutoSignInForOriginsAsync(origin_filter,
                                                    std::move(completion));
@@ -455,7 +460,7 @@ void PasswordStoreProxyBackend::MaybeClearBuiltInBackend() {
 
   if (base::FeatureList::IsEnabled(features::kClearLoginDatabaseForUPMUsers)) {
     built_in_backend_->RemoveLoginsCreatedBetweenAsync(
-        base::Time(), base::Time::Max(),
+        FROM_HERE, base::Time(), base::Time::Max(),
         base::BindOnce(&RecordPasswordDeletionResult));
   }
 }

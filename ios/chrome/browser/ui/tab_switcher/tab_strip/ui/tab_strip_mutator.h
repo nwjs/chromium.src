@@ -5,6 +5,9 @@
 #ifndef IOS_CHROME_BROWSER_UI_TAB_SWITCHER_TAB_STRIP_UI_TAB_STRIP_MUTATOR_H_
 #define IOS_CHROME_BROWSER_UI_TAB_SWITCHER_TAB_STRIP_UI_TAB_STRIP_MUTATOR_H_
 
+#ifdef __cplusplus
+class TabGroup;
+#endif
 @class TabGroupItem;
 @class TabSwitcherItem;
 
@@ -20,11 +23,19 @@
 /// Tells the receiver to close the `item`.
 - (void)closeItem:(TabSwitcherItem*)item;
 
+/// Tells the receiver to remove the `item` from its group.
+- (void)removeItemFromGroup:(TabSwitcherItem*)item;
+
 /// Tells the receiver to close all items except `item`.
 - (void)closeAllItemsExcept:(TabSwitcherItem*)item;
 
 /// Tells the receiver to create a new group containing `item`.
 - (void)createNewGroupWithItem:(TabSwitcherItem*)item;
+
+#ifdef __cplusplus
+/// Tells the receiver to add `item` to the group wrapped in `groupWrapper`.
+- (void)addItem:(TabSwitcherItem*)item toGroup:(const TabGroup*)group;
+#endif
 
 /// Tells the receiver to collapse the group associated with `tabGroupItem`.
 - (void)collapseGroup:(TabGroupItem*)tabGroupItem;

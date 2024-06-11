@@ -13,7 +13,6 @@
 #include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
-#include "build/buildflag.h"
 #include "components/password_manager/core/browser/password_store/password_store.h"
 #include "components/password_manager/core/browser/password_store/password_store_backend.h"
 
@@ -52,6 +51,8 @@ class FakePasswordStoreBackend : public PasswordStoreBackend {
   ~FakePasswordStoreBackend() override;
 
   void Clear();
+  void TriggerOnLoginsRetainedForAndroid(
+      const std::vector<PasswordForm>& password_forms);
 
   const PasswordMap& stored_passwords() const { return stored_passwords_; }
   IsAccountStore is_account_store() const { return is_account_store_; }
@@ -80,15 +81,18 @@ class FakePasswordStoreBackend : public PasswordStoreBackend {
                      PasswordChangesOrErrorReply callback) override;
   void UpdateLoginAsync(const PasswordForm& form,
                         PasswordChangesOrErrorReply callback) override;
-  void RemoveLoginAsync(const PasswordForm& form,
+  void RemoveLoginAsync(const base::Location& location,
+                        const PasswordForm& form,
                         PasswordChangesOrErrorReply callback) override;
   void RemoveLoginsByURLAndTimeAsync(
+      const base::Location& location,
       const base::RepeatingCallback<bool(const GURL&)>& url_filter,
       base::Time delete_begin,
       base::Time delete_end,
       base::OnceCallback<void(bool)> sync_completion,
       PasswordChangesOrErrorReply callback) override;
   void RemoveLoginsCreatedBetweenAsync(
+      const base::Location& location,
       base::Time delete_begin,
       base::Time delete_end,
       PasswordChangesOrErrorReply callback) override;
@@ -101,10 +105,6 @@ class FakePasswordStoreBackend : public PasswordStoreBackend {
   void OnSyncServiceInitialized(syncer::SyncService* sync_service) override;
   void RecordAddLoginAsyncCalledFromTheStore() override;
   void RecordUpdateLoginAsyncCalledFromTheStore() override;
-#if !BUILDFLAG(IS_ANDROID)
-  void GetUnsyncedCredentials(
-      base::OnceCallback<void(std::vector<PasswordForm>)> callback) override;
-#endif  // !BUILDFLAG(IS_ANDROID)
   base::WeakPtr<PasswordStoreBackend> AsWeakPtr() override;
 
   // Returns the task runner. Defaults to
@@ -136,6 +136,7 @@ class FakePasswordStoreBackend : public PasswordStoreBackend {
 
   raw_ptr<AffiliatedMatchHelper> match_helper_;
   PasswordMap stored_passwords_;
+  PasswordStoreBackend::RemoteChangesReceived remote_form_changes_received_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
   base::WeakPtrFactory<FakePasswordStoreBackend> weak_ptr_factory_{this};
 };

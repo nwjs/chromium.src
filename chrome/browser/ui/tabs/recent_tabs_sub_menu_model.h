@@ -21,6 +21,7 @@
 #include "components/sessions/core/session_id.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/sessions/core/tab_restore_service_observer.h"
+#include "components/sessions/core/tab_restore_types.h"
 #include "components/sync_sessions/synced_session.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/models/simple_menu_model.h"
@@ -117,17 +118,17 @@ class RecentTabsSubMenuModel : public ui::SimpleMenuModel,
 
   // Build a recently closed tab item with parameters needed to restore it, and
   // add it to the menumodel at |curr_model_index|.
-  void BuildLocalTabItem(const sessions::TabRestoreService::Tab& tab,
+  void BuildLocalTabItem(const sessions::tab_restore::Tab& tab,
                          size_t curr_model_index);
 
   // Build the recently closed window item with parameters needed to restore it,
   // and add it to the menumodel at |curr_model_index|.
-  void BuildLocalWindowItem(const sessions::TabRestoreService::Window& window,
+  void BuildLocalWindowItem(const sessions::tab_restore::Window& window,
                             size_t curr_model_index);
 
   // Build the recently closed group item with parameters needed to restore it,
   // and add it to the menumodel at |curr_model_index|.
-  void BuildLocalGroupItem(const sessions::TabRestoreService::Group& group,
+  void BuildLocalGroupItem(const sessions::tab_restore::Group& group,
                            size_t curr_model_index);
 
   // Build the tab item for other devices with parameters needed to restore it.
@@ -142,19 +143,19 @@ class RecentTabsSubMenuModel : public ui::SimpleMenuModel,
 
   // Create a submenu model representing the tabs within a window.
   std::unique_ptr<ui::SimpleMenuModel> CreateWindowSubMenuModel(
-      const sessions::TabRestoreService::Window& window);
+      const sessions::tab_restore::Window& window);
 
   // Create a submenu model representing the tabs within a tab group.
   std::unique_ptr<ui::SimpleMenuModel> CreateGroupSubMenuModel(
-      const sessions::TabRestoreService::Group& group);
+      const sessions::tab_restore::Group& group);
 
   // Adds a submenu item representation of |group_model| to |parent_model|.
   void AddGroupItemToModel(SimpleMenuModel* parent_model,
                            std::unique_ptr<SimpleMenuModel> group_model,
-                           tab_groups::TabGroupVisualData group_visual_data);
+                           const sessions::tab_restore::Group& group);
 
   // Adds a submenu item representation of a |tab| to |model|.
-  void AddTabItemToModel(const sessions::TabRestoreService::Tab* tab,
+  void AddTabItemToModel(const sessions::tab_restore::Tab* tab,
                          ui::SimpleMenuModel* model,
                          int command_id);
 

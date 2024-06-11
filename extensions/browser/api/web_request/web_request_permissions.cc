@@ -267,7 +267,7 @@ bool WebRequestPermissions::HideRequest(
                extensions::WebRequestResourceType::OBJECT);
 
     // Hide sub-frame requests to clientsX.google.com.
-    // TODO(crbug.com/890006): Determine if the code here can be cleaned up
+    // TODO(crbug.com/40595750): Determine if the code here can be cleaned up
     // since browser initiated non-navigation requests are now hidden from
     // extensions.
     if (request.web_request_type !=
@@ -349,7 +349,7 @@ bool WebRequestPermissions::HideRequest(
 
   // Safebrowsing and Chrome Webstore URLs are always protected, i.e. also
   // for requests from common renderers.
-  // TODO(crbug.com/1355623): it would be nice to be able to just use
+  // TODO(crbug.com/40235977): it would be nice to be able to just use
   // extension_urls::IsWebstoreDomain for the last two checks here, but the old
   // webstore check specifically requires the path to be checked, not just the
   // domain. However once the old webstore is turned down we can change it over

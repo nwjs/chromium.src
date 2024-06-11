@@ -15,14 +15,18 @@ import androidx.annotation.IntDef;
 import org.chromium.base.Promise;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
+import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninCoordinator;
 import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninView;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncCoordinator;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncHelper;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.lang.annotation.Retention;
@@ -34,7 +38,7 @@ public final class UpgradePromoCoordinator
                 FullscreenSigninCoordinator.Delegate {
     public interface Delegate {
         /** Notifies when the user clicked the "add account" button. */
-        void addAccountInUpgradePromo();
+        void addAccount();
 
         /**
          * The supplier that supplies whether reading policy value is necessary. See {@link
@@ -73,7 +77,9 @@ public final class UpgradePromoCoordinator
     }
 
     private final Context mContext;
+    private final ModalDialogManager mModalDialogManager;
     private final OneshotSupplier<ProfileProvider> mProfileSupplier;
+    private final PrivacyPreferencesManager mPrivacyPreferencesManager;
     private final Delegate mDelegate;
     private final boolean mDidShowSignin;
     private ViewSwitcher mViewSwitcher;
@@ -88,7 +94,9 @@ public final class UpgradePromoCoordinator
             Delegate delegate) {
         mContext = context;
         mViewSwitcher = new ViewSwitcher(context);
+        mModalDialogManager = modalDialogManager;
         mProfileSupplier = profileSupplier;
+        mPrivacyPreferencesManager = privacyPreferencesManager;
         mDelegate = delegate;
         inflateViewSwitcher();
         if (isSignedIn()) {
@@ -97,7 +105,7 @@ public final class UpgradePromoCoordinator
         } else {
             mSigninCoordinator =
                     new FullscreenSigninCoordinator(
-                            mContext, modalDialogManager, this, privacyPreferencesManager);
+                            mContext, mModalDialogManager, this, mPrivacyPreferencesManager);
             mSigninCoordinator.setView((FullscreenSigninView) mViewSwitcher.getCurrentView());
             mDidShowSignin = true;
         }
@@ -123,7 +131,7 @@ public final class UpgradePromoCoordinator
     /** Implements {@link FullscreenSigninCoordinator.Delegate} */
     @Override
     public void addAccount() {
-        mDelegate.addAccountInUpgradePromo();
+        mDelegate.addAccount();
     }
 
     /** Implements {@link FullscreenSigninCoordinator.Delegate} */
@@ -133,9 +141,14 @@ public final class UpgradePromoCoordinator
     /** Implements {@link FullscreenSigninCoordinator.Delegate} */
     @Override
     public void advanceToNextPage() {
-        // TODO(b/41493788): Update this method to account for enterprise policies, supervised
-        // accounts, etc..
         if (!isSignedIn() || mViewSwitcher.getDisplayedChild() == ViewSwitcherChild.HISTORY_SYNC) {
+            mDelegate.onFlowComplete();
+            return;
+        }
+        Profile profile = mProfileSupplier.get().getOriginalProfile();
+        HistorySyncHelper historySyncHelper = HistorySyncHelper.getForProfile(profile);
+        if (historySyncHelper.shouldSuppressHistorySync()) {
+            historySyncHelper.recordHistorySyncNotShown(SigninAccessPoint.SIGNIN_PROMO);
             mDelegate.onFlowComplete();
             return;
         }
@@ -144,7 +157,7 @@ public final class UpgradePromoCoordinator
                 new HistorySyncCoordinator(
                         mContext,
                         this,
-                        mProfileSupplier.get().getOriginalProfile(),
+                        profile,
                         SigninAccessPoint.SIGNIN_PROMO,
                         /* showEmailInFooter= */ !mDidShowSignin,
                         /* shouldSignOutOnDecline= */ false,
@@ -204,6 +217,19 @@ public final class UpgradePromoCoordinator
         return mDelegate.getNativeInitializationPromise();
     }
 
+    /** Implements {@link FullscreenSigninCoordinator.Delegate}. */
+    @Override
+    public boolean shouldDisplayManagementNoticeOnManagedDevices() {
+        // Management notice shouldn't be shown in the Upgrade promo flow, even on managed devices.
+        return false;
+    }
+
+    /** Implements {@link FullscreenSigninCoordinator.Delegate} */
+    @Override
+    public boolean shouldDisplayFooterText() {
+        return false;
+    }
+
     /** Implements {@link HistorySyncDelegate} */
     @Override
     public void dismissHistorySync() {
@@ -234,6 +260,37 @@ public final class UpgradePromoCoordinator
             return;
         }
         advanceToNextPage();
+    }
+
+    public void onAccountSelected(String accountName) {
+        mSigninCoordinator.onAccountSelected(accountName);
+    }
+
+    public void handleBackPress() {
+        @ViewSwitcherChild int currentlyDisplayedChild = mViewSwitcher.getDisplayedChild();
+        switch (currentlyDisplayedChild) {
+            case ViewSwitcherChild.SIGNIN:
+                if (isSignedIn()) {
+                    SigninManager signinManager =
+                            IdentityServicesProvider.get()
+                                    .getSigninManager(mProfileSupplier.get().getOriginalProfile());
+                    signinManager.signOut(SignoutReason.ABORT_SIGNIN);
+                }
+                mDelegate.onFlowComplete();
+                break;
+            case ViewSwitcherChild.HISTORY_SYNC:
+                if (!mDidShowSignin) {
+                    mDelegate.onFlowComplete();
+                    return;
+                }
+                mViewSwitcher.setDisplayedChild(ViewSwitcherChild.SIGNIN);
+                mSigninCoordinator =
+                        new FullscreenSigninCoordinator(
+                                mContext, mModalDialogManager, this, mPrivacyPreferencesManager);
+                mSigninCoordinator.setView((FullscreenSigninView) mViewSwitcher.getCurrentView());
+                mSigninCoordinator.reset();
+                return;
+        }
     }
 
     private void inflateViewSwitcher() {

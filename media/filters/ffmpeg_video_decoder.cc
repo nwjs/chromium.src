@@ -394,8 +394,9 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
   // TODO(fbarchard): Work around for FFmpeg http://crbug.com/27675
   // The decoder is in a bad state and not decoding correctly.
   // Checking for NULL avoids a crash in CopyPlane().
-  if (!frame->data[VideoFrame::kYPlane] || !frame->data[VideoFrame::kUPlane] ||
-      !frame->data[VideoFrame::kVPlane]) {
+  if (!frame->data[VideoFrame::Plane::kY] ||
+      !frame->data[VideoFrame::Plane::kU] ||
+      !frame->data[VideoFrame::Plane::kV]) {
     DLOG(ERROR) << "Video frame was produced yet has invalid frame data.";
     return false;
   }
@@ -451,10 +452,12 @@ bool FFmpegVideoDecoder::OnNewFrame(AVFrame* frame) {
     color_space = gfx::ColorSpace::CreateJpeg();
   } else if (codec_context_->codec_id == AV_CODEC_ID_H264 &&
              frame->colorspace == AVCOL_SPC_RGB &&
-             video_frame->format() == PIXEL_FORMAT_I420) {
+             VideoPixelFormatToChromaSampling(video_frame->format()) !=
+                 VideoChromaSampling::k444) {
     // Some H.264 videos contain a VUI that specifies a color matrix of GBR,
-    // when they are actually ordinary YUV. Only 4:2:0 formats are checked,
-    // because GBR is reasonable for 4:4:4 content. See crbug.com/1067377.
+    // when they are actually ordinary YUV. Default to BT.709 if the format is
+    // not 4:4:4 as GBR is reasonable for 4:4:4 content. See crbug.com/1067377
+    // and crbug.com/341266991.
     color_space = gfx::ColorSpace::CreateREC709();
   } else if (frame->color_primaries != AVCOL_PRI_UNSPECIFIED ||
              frame->color_trc != AVCOL_TRC_UNSPECIFIED ||

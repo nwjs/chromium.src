@@ -5,6 +5,7 @@
 module webnn.mojom;
 
 import "mojo/public/mojom/base/big_buffer.mojom";
+import "mojo/public/mojom/base/unguessable_token.mojom";
 import "services/webnn/public/mojom/webnn_error.mojom";
 
 // Represents the `MLOperand` which describes not only input and constant
@@ -515,6 +516,16 @@ struct Gather {
   uint32 axis = 0;
 };
 
+// Corresponds to `MLOperand gelu(MLOperand input)` that computes the gelu
+// function of the input tensor following the expression
+// 0.5 * x * (1 + erf(x / sqrt(2))).
+struct Gelu {
+  // The input operand (referenced by input_operand_id) must be distinct from
+  // the output operand (referenced by output_operand_id).
+  uint64 input_operand_id;
+  uint64 output_operand_id;
+};
+
 // Represents the processing direction of the input sequence for the recurrent
 // network.
 enum RecurrentNetworkDirection {
@@ -835,16 +846,12 @@ struct Softmax {
 };
 
 // Corresponds to `MLOperand softplus(MLOperand x)` that computes the softplus
-// function of the input tensor following the expression
-// ln(1 + exp(steepness * x)) / steepness.
+// function of the input tensor following the expression ln(1 + exp(x)).
 struct Softplus {
   // The input operand (referenced by input_operand_id) must be distinct from
   // the output operand (referenced by output_operand_id).
   uint64 input_operand_id;
   uint64 output_operand_id;
-
-  // The steepness value defaults to 1.0.
-  float steepness = 1.0;
 };
 
 // Corresponds to `MLOperand softsign(MLOperand x)` that computes the softsign
@@ -974,6 +981,7 @@ struct Where {
 union Activation {
   Clamp clamp;
   Elu elu;
+  Gelu gelu;
   HardSigmoid hard_sigmoid;
   LeakyRelu leaky_relu;
   Linear linear;
@@ -998,6 +1006,7 @@ union Operation {
   ElementWiseUnary element_wise_unary;
   Expand expand;
   Gather gather;
+  Gelu gelu;
   Gemm gemm;
   Gru gru;
   GruCell gru_cell;
@@ -1063,4 +1072,12 @@ interface WebNNGraph {
   // copy for inference.
   Compute(map<string, mojo_base.mojom.BigBuffer> named_inputs)
       => (ComputeResult result);
+
+  // Called by the renderer process to carry out the computational workload of
+  // the compiled graph. The key of map is the name of input/output to identify
+  // the tensor in the graph, the value is the MLBuffer containing the tensor
+  // data.
+  // TODO(crbug.com/331351967): remove Compute().
+  Dispatch(map<string, mojo_base.mojom.UnguessableToken> named_inputs,
+    map<string, mojo_base.mojom.UnguessableToken> named_outputs);
 };

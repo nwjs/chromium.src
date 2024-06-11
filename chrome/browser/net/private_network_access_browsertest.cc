@@ -334,7 +334,7 @@ IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessWithFeatureDisabledBrowserTest,
 // This test verifies that no feature is counted for top-level navigations from
 // a public page to a local page.
 //
-// TODO(crbug.com/1129326): Revisit this once the story around top-level
+// TODO(crbug.com/40149351): Revisit this once the story around top-level
 // navigations is closer to being resolved. Counting these events will help
 // decide what to do.
 IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessWithFeatureDisabledBrowserTest,
@@ -1211,7 +1211,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 // This test verifies that the chrome-untrusted:// scheme is considered local
 // for the purpose of Private Network Access computations.
-// TODO(crbug.com/1244544): The NTP no longer loads a chrome-untrusted://
+// TODO(crbug.com/40195864): The NTP no longer loads a chrome-untrusted://
 // iframe in all cases. Find another way to test the chrome-untrusted:// scheme.
 IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessWithFeatureEnabledBrowserTest,
                        DISABLED_SpecialSchemeChromeUntrusted) {
@@ -1230,9 +1230,9 @@ IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessWithFeatureEnabledBrowserTest,
   std::unique_ptr<net::EmbeddedTestServer> server = NewServer();
   GURL fetch_url = LocalNonSecureWithCrossOriginCors(*server);
 
-  // TODO(crbug.com/591068): The chrome-untrusted:// page should be kLocal, and
-  // not require a Private Network Access CORS preflight. However we have not
-  // yet implemented the CORS preflight mechanism, and fixing the underlying
+  // TODO(crbug.com/40459152): The chrome-untrusted:// page should be kLocal,
+  // and not require a Private Network Access CORS preflight. However we have
+  // not yet implemented the CORS preflight mechanism, and fixing the underlying
   // issue will not change the test result. Once CORS preflight is implemented,
   // review this test and delete this comment.
   // Note: CSP is blocking javascript eval, unless we run it in an isolated
@@ -1255,7 +1255,7 @@ IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessWithFeatureEnabledBrowserTest,
   std::unique_ptr<net::EmbeddedTestServer> server = NewServer();
   GURL fetch_url = LocalNonSecureWithCrossOriginCors(*server);
 
-  // TODO(crbug.com/591068): The devtools:// page should be kLocal, and not
+  // TODO(crbug.com/40459152): The devtools:// page should be kLocal, and not
   // require a Private Network Access CORS preflight. However we have not yet
   // implemented the CORS preflight mechanism, and fixing the underlying issue
   // will not change the test result. Once CORS preflight is implemented, review
@@ -1276,13 +1276,12 @@ IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessWithFeatureEnabledBrowserTest,
   std::unique_ptr<net::EmbeddedTestServer> server = NewServer();
   GURL fetch_url = LocalNonSecureWithCrossOriginCors(*server);
 
-  // TODO(crbug.com/591068): The chrome-search:// page should be kLocal, and not
-  // require a Private Network Access CORS preflight. However we have not yet
-  // implemented the CORS preflight mechanism, and fixing the underlying issue
-  // will not change the test result. Once CORS preflight is implemented, review
-  // this test and delete this comment.
-  // Note: CSP is blocking javascript eval, unless we run it in an isolated
-  // world.
+  // TODO(crbug.com/40459152): The chrome-search:// page should be kLocal, and
+  // not require a Private Network Access CORS preflight. However we have not
+  // yet implemented the CORS preflight mechanism, and fixing the underlying
+  // issue will not change the test result. Once CORS preflight is implemented,
+  // review this test and delete this comment. Note: CSP is blocking javascript
+  // eval, unless we run it in an isolated world.
   EXPECT_EQ(true, content::EvalJs(web_contents(), FetchScript(fetch_url),
                                   content::EXECUTE_SCRIPT_DEFAULT_OPTIONS,
                                   content::ISOLATED_WORLD_ID_CONTENT_END));
@@ -1335,9 +1334,9 @@ IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessWithFeatureEnabledBrowserTest,
   std::unique_ptr<net::EmbeddedTestServer> server = NewServer();
   GURL fetch_url = LocalNonSecureWithCrossOriginCors(*server);
 
-  // TODO(crbug.com/591068): The chrome-extension:// page should be kLocal, and
-  // not require a Private Network Access CORS preflight. However we have not
-  // yet implemented the CORS preflight mechanism, and fixing the underlying
+  // TODO(crbug.com/40459152): The chrome-extension:// page should be kLocal,
+  // and not require a Private Network Access CORS preflight. However we have
+  // not yet implemented the CORS preflight mechanism, and fixing the underlying
   // issue will not change the test result. Once CORS preflight is implemented,
   // review this test and delete this comment.
   // Note: CSP is blocking javascript eval, unless we run it in an isolated
@@ -1415,7 +1414,7 @@ class PrivateNetworkAccessAutoReloadBrowserTest
 // load due to a transient network error, it is auto-reloaded a short while
 // later and that fetch is not blocked as a private network request.
 //
-// TODO(crbug.com/1326341): Test is flaky.
+// TODO(crbug.com/40225769): Test is flaky.
 IN_PROC_BROWSER_TEST_F(PrivateNetworkAccessAutoReloadBrowserTest,
                        DISABLED_AutoReloadWorks) {
   ASSERT_TRUE(embedded_test_server()->Start());

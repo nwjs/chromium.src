@@ -41,9 +41,9 @@ inline jclass org_jni_1zero_SampleForTests_00024InnerStructB_clazz(JNIEnv* env) 
 // Forward declare used conversion functions to avoid a compiler warning that
 // triggers if a conversion specialization exists within the including .cc file.
 namespace jni_zero {
-template<> jni_zero::ScopedJavaLocalRef<jstring> ToJniType<const char*, jstring>(JNIEnv*, const char* const&);
-template<> jni_zero::tests::CPPClass* FromJniType<jni_zero::tests::CPPClass*, jobject>(JNIEnv*, const JavaRef<jobject>&);
-template<> std::string FromJniType<std::string, jstring>(JNIEnv*, const JavaRef<jstring>&);
+template<> jni_zero::ScopedJavaLocalRef<jobject> ToJniType<const char*>(JNIEnv*, const char* const&);
+template<> jni_zero::tests::CPPClass* FromJniType<jni_zero::tests::CPPClass*>(JNIEnv*, const JavaRef<jobject>&);
+template<> std::string FromJniType<std::string>(JNIEnv*, const JavaRef<jobject>&);
 }  // namespace jni_zero
 namespace jni_zero {
 namespace tests {
@@ -54,9 +54,7 @@ JNI_BOUNDARY_EXPORT void Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForT
     jlong nativeCPPClass,
     jobject caller,
     jobject b) {
-  CPPClass* native = reinterpret_cast<CPPClass*>(nativeCPPClass);
-  CHECK_NATIVE_PTR(env, jcaller, native, "AddStructB")
-  native->AddStructB(
+  reinterpret_cast<CPPClass*>(nativeCPPClass)->AddStructB(
       env,
       jni_zero::JavaParamRef<jobject>(env, caller),
       jni_zero::JavaParamRef<jobject>(env, b));
@@ -68,12 +66,10 @@ JNI_BOUNDARY_EXPORT void Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForT
     jlong nativeCPPClass,
     jobject caller,
     jbyteArray bytes) {
-  CPPClass* native = reinterpret_cast<CPPClass*>(nativeCPPClass);
-  CHECK_NATIVE_PTR(env, jcaller, native, "Destroy")
   std::vector<uint8_t> bytes_converted = jni_zero::ConvertArray<std::vector<uint8_t>>::FromJniType(
       env,
-      jni_zero::JavaParamRef<jbyteArray>(env, bytes));
-  native->Destroy(
+      jni_zero::JavaParamRef<jbyteArray>(env, static_cast<jbyteArray>(bytes)));
+  reinterpret_cast<CPPClass*>(nativeCPPClass)->Destroy(
       env,
       jni_zero::JavaParamRef<jobject>(env, caller),
       bytes_converted);
@@ -82,31 +78,31 @@ JNI_BOUNDARY_EXPORT void Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForT
 // Forward declaration. To be implemented by the including .cc file.
 static jni_zero::ScopedJavaLocalRef<jclass> JNI_SampleForTests_GetClass(
     JNIEnv* env,
-    const jni_zero::JavaParamRef<jclass>& arg0);
+    const jni_zero::JavaParamRef<jclass>& _env);
 
 JNI_BOUNDARY_EXPORT jclass Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1getClass(
     JNIEnv* env,
     jclass jcaller,
-    jclass arg0) {
-  auto ret = JNI_SampleForTests_GetClass(
+    jclass _env) {
+  auto _ret = JNI_SampleForTests_GetClass(
       env,
-      jni_zero::JavaParamRef<jclass>(env, arg0));
-  return ret.Release();
+      jni_zero::JavaParamRef<jclass>(env, _env));
+  return _ret.Release();
 }
 
 // Forward declaration. To be implemented by the including .cc file.
 static jdouble JNI_SampleForTests_GetDoubleFunction(
     JNIEnv* env,
-    const jni_zero::JavaParamRef<jobject>& caller);
+    const jni_zero::JavaParamRef<jobject>& ret);
 
 JNI_BOUNDARY_EXPORT jdouble Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1getDoubleFunction(
     JNIEnv* env,
     jclass jcaller,
-    jobject caller) {
-  auto ret = JNI_SampleForTests_GetDoubleFunction(
+    jobject ret) {
+  auto _ret = JNI_SampleForTests_GetDoubleFunction(
       env,
-      jni_zero::JavaParamRef<jobject>(env, caller));
-  return ret;
+      jni_zero::JavaParamRef<jobject>(env, ret));
+  return _ret;
 }
 
 // Forward declaration. To be implemented by the including .cc file.
@@ -115,8 +111,8 @@ static jfloat JNI_SampleForTests_GetFloatFunction(JNIEnv* env);
 JNI_BOUNDARY_EXPORT jfloat Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1getFloatFunction(
     JNIEnv* env,
     jclass jcaller) {
-  auto ret = JNI_SampleForTests_GetFloatFunction(env);
-  return ret;
+  auto _ret = JNI_SampleForTests_GetFloatFunction(env);
+  return _ret;
 }
 
 // Forward declaration. To be implemented by the including .cc file.
@@ -128,25 +124,25 @@ JNI_BOUNDARY_EXPORT jobject Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleF
     JNIEnv* env,
     jclass jcaller,
     jobject arg0) {
-  auto ret = JNI_SampleForTests_GetMap(
+  auto _ret = JNI_SampleForTests_GetMap(
       env,
       jni_zero::JavaParamRef<jobject>(env, arg0));
-  return ret.Release();
+  return _ret.Release();
 }
 
 // Forward declaration. To be implemented by the including .cc file.
 static jni_zero::ScopedJavaLocalRef<jobject> JNI_SampleForTests_GetNonPODDatatype(
     JNIEnv* env,
-    const jni_zero::JavaParamRef<jobject>& caller);
+    const jni_zero::JavaParamRef<jobject>& _jcaller);
 
 JNI_BOUNDARY_EXPORT jobject Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1getNonPODDatatype(
     JNIEnv* env,
     jclass jcaller,
-    jobject caller) {
-  auto ret = JNI_SampleForTests_GetNonPODDatatype(
+    jobject _jcaller) {
+  auto _ret = JNI_SampleForTests_GetNonPODDatatype(
       env,
-      jni_zero::JavaParamRef<jobject>(env, caller));
-  return ret.Release();
+      jni_zero::JavaParamRef<jobject>(env, _jcaller));
+  return _ret.Release();
 }
 
 // Forward declaration. To be implemented by the including .cc file.
@@ -158,10 +154,10 @@ JNI_BOUNDARY_EXPORT jthrowable Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1Samp
     JNIEnv* env,
     jclass jcaller,
     jthrowable arg0) {
-  auto ret = JNI_SampleForTests_GetThrowable(
+  auto _ret = JNI_SampleForTests_GetThrowable(
       env,
       jni_zero::JavaParamRef<jthrowable>(env, arg0));
-  return ret.Release();
+  return _ret.Release();
 }
 
 // Forward declaration. To be implemented by the including .cc file.
@@ -170,7 +166,8 @@ static jlong JNI_SampleForTests_Init(
     const jni_zero::JavaParamRef<jobject>& caller,
     const jni_zero::JavaParamRef<jstring>& param,
     jni_zero::ByteArrayView& bytes,
-    jni_zero::tests::CPPClass* convertedType);
+    jni_zero::tests::CPPClass* convertedType,
+    std::vector<jni_zero::ScopedJavaLocalRef<jobject>>& nonConvertedArray);
 
 JNI_BOUNDARY_EXPORT jlong Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1init(
     JNIEnv* env,
@@ -178,20 +175,25 @@ JNI_BOUNDARY_EXPORT jlong Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleFor
     jobject caller,
     jstring param,
     jbyteArray bytes,
-    jobject convertedType) {
+    jobject convertedType,
+    jobjectArray nonConvertedArray) {
   jni_zero::ByteArrayView bytes_converted = jni_zero::ConvertArray<jni_zero::ByteArrayView>::FromJniType(
       env,
-      jni_zero::JavaParamRef<jbyteArray>(env, bytes));
-  jni_zero::tests::CPPClass* convertedType_converted = jni_zero::FromJniType<jni_zero::tests::CPPClass*, jobject>(
+      jni_zero::JavaParamRef<jbyteArray>(env, static_cast<jbyteArray>(bytes)));
+  jni_zero::tests::CPPClass* convertedType_converted = jni_zero::FromJniType<jni_zero::tests::CPPClass*>(
       env,
       jni_zero::JavaParamRef<jobject>(env, convertedType));
-  auto ret = JNI_SampleForTests_Init(
+  std::vector<jni_zero::ScopedJavaLocalRef<jobject>> nonConvertedArray_converted = jni_zero::ConvertArray<std::vector<jni_zero::ScopedJavaLocalRef<jobject>>>::FromJniType(
+      env,
+      jni_zero::JavaParamRef<jobjectArray>(env, static_cast<jobjectArray>(nonConvertedArray)));
+  auto _ret = JNI_SampleForTests_Init(
       env,
       jni_zero::JavaParamRef<jobject>(env, caller),
       jni_zero::JavaParamRef<jstring>(env, param),
       bytes_converted,
-      convertedType_converted);
-  return ret;
+      convertedType_converted,
+      nonConvertedArray_converted);
+  return _ret;
 }
 
 JNI_BOUNDARY_EXPORT void Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1iterateAndDoSomethingWithStructB(
@@ -199,9 +201,7 @@ JNI_BOUNDARY_EXPORT void Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForT
     jclass jcaller,
     jlong nativeCPPClass,
     jobject caller) {
-  CPPClass* native = reinterpret_cast<CPPClass*>(nativeCPPClass);
-  CHECK_NATIVE_PTR(env, jcaller, native, "IterateAndDoSomethingWithStructB")
-  native->IterateAndDoSomethingWithStructB(
+  reinterpret_cast<CPPClass*>(nativeCPPClass)->IterateAndDoSomethingWithStructB(
       env,
       jni_zero::JavaParamRef<jobject>(env, caller));
 }
@@ -212,16 +212,14 @@ JNI_BOUNDARY_EXPORT jint Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForT
     jlong nativeCPPClass,
     jobject caller,
     jobjectArray strings) {
-  CPPClass* native = reinterpret_cast<CPPClass*>(nativeCPPClass);
-  CHECK_NATIVE_PTR(env, jcaller, native, "Method", 0)
-  std::vector<std::string> strings_converted = jni_zero::ConvertArray<std::vector<std::string>>::FromJniType<jstring>(
+  std::vector<std::string> strings_converted = jni_zero::ConvertArray<std::vector<std::string>>::FromJniType(
       env,
-      jni_zero::JavaParamRef<jobjectArray>(env, strings));
-  auto ret = native->Method(
+      jni_zero::JavaParamRef<jobjectArray>(env, static_cast<jobjectArray>(strings)));
+  auto _ret = reinterpret_cast<CPPClass*>(nativeCPPClass)->Method(
       env,
       jni_zero::JavaParamRef<jobject>(env, caller),
       strings_converted);
-  return ret;
+  return _ret;
 }
 
 JNI_BOUNDARY_EXPORT jdouble Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1methodOtherP0(
@@ -229,12 +227,10 @@ JNI_BOUNDARY_EXPORT jdouble Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleF
     jclass jcaller,
     jlong nativePtr,
     jobject caller) {
-  CPPClass::InnerClass* native = reinterpret_cast<CPPClass::InnerClass*>(nativePtr);
-  CHECK_NATIVE_PTR(env, jcaller, native, "MethodOtherP0", 0)
-  auto ret = native->MethodOtherP0(
+  auto _ret = reinterpret_cast<CPPClass::InnerClass*>(nativePtr)->MethodOtherP0(
       env,
       jni_zero::JavaParamRef<jobject>(env, caller));
-  return ret;
+  return _ret;
 }
 
 JNI_BOUNDARY_EXPORT jstring Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1returnAString(
@@ -242,28 +238,26 @@ JNI_BOUNDARY_EXPORT jstring Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleF
     jclass jcaller,
     jlong nativeCPPClass,
     jobject caller) {
-  CPPClass* native = reinterpret_cast<CPPClass*>(nativeCPPClass);
-  CHECK_NATIVE_PTR(env, jcaller, native, "ReturnAString", nullptr)
-  auto ret = native->ReturnAString(
+  auto _ret = reinterpret_cast<CPPClass*>(nativeCPPClass)->ReturnAString(
       env,
       jni_zero::JavaParamRef<jobject>(env, caller));
-  return ret.Release();
+  return _ret.Release();
 }
 
 // Forward declaration. To be implemented by the including .cc file.
 static void JNI_SampleForTests_SetNonPODDatatype(
     JNIEnv* env,
-    const jni_zero::JavaParamRef<jobject>& caller,
+    const jni_zero::JavaParamRef<jobject>& obj,
     const jni_zero::JavaParamRef<jobject>& rect);
 
 JNI_BOUNDARY_EXPORT void Java_org_jni_1zero_GEN_1JNI_org_1jni_11zero_1SampleForTests_1setNonPODDatatype(
     JNIEnv* env,
     jclass jcaller,
-    jobject caller,
+    jobject obj,
     jobject rect) {
   JNI_SampleForTests_SetNonPODDatatype(
       env,
-      jni_zero::JavaParamRef<jobject>(env, caller),
+      jni_zero::JavaParamRef<jobject>(env, obj),
       jni_zero::JavaParamRef<jobject>(env, rect));
 }
 
@@ -282,12 +276,12 @@ static jni_zero::ScopedJavaLocalRef<jobject> Java_SampleForTests_Constructor(
       "<init>",
       "(II)V",
       &cached_method_id);
-  auto ret = env->NewObject(
+  auto _ret = env->NewObject(
       clazz,
       call_context.method_id(),
       as_jint(foo),
       as_jint(bar));
-  return jni_zero::ScopedJavaLocalRef<jobject>(env, ret);
+  return jni_zero::ScopedJavaLocalRef<jobject>(env, _ret);
 }
 
 static void Java_SampleForTests_addStructA(
@@ -321,12 +315,12 @@ static jni_zero::ScopedJavaLocalRef<jclass> Java_SampleForTests_getClass(
       "getClass",
       "(Ljava/lang/Class;)Ljava/lang/Class;",
       &cached_method_id);
-  auto ret = env->CallObjectMethod(
+  auto _ret = env->CallObjectMethod(
       obj.obj(),
       call_context.method_id(),
       arg0.obj());
-  jclass ret2 = static_cast<jclass>(ret);
-  return jni_zero::ScopedJavaLocalRef<jclass>(env, ret2);
+  jclass _ret2 = static_cast<jclass>(_ret);
+  return jni_zero::ScopedJavaLocalRef<jclass>(env, _ret2);
 }
 
 static std::string Java_SampleForTests_getFirstString(
@@ -344,22 +338,21 @@ static std::string Java_SampleForTests_getFirstString(
       "getFirstString",
       "([Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
       &cached_method_id);
-  jni_zero::ScopedJavaLocalRef<jobjectArray> array_converted = jni_zero::ConvertArray<std::vector<const char*>>::ToJniType<jstring>(
+  jni_zero::ScopedJavaLocalRef<jobject> converted_array = jni_zero::ConvertArray<std::vector<const char*>>::ToJniType(
       env,
       array,
       jni_zero::g_string_class);
-  jni_zero::ScopedJavaLocalRef<jstring> finalArg_converted = jni_zero::ToJniType<const char*, jstring>(
+  jni_zero::ScopedJavaLocalRef<jobject> converted_finalArg = jni_zero::ToJniType<const char*>(
       env,
       finalArg);
-  auto ret = env->CallObjectMethod(
+  auto _ret = env->CallObjectMethod(
       obj.obj(),
       call_context.method_id(),
-      array_converted.obj(),
-      finalArg_converted.obj());
-  jstring ret2 = static_cast<jstring>(ret);
-  return jni_zero::FromJniType<std::string, jstring>(
+      converted_array.obj(),
+      converted_finalArg.obj());
+  return jni_zero::FromJniType<std::string>(
       env,
-      jni_zero::JavaParamRef<jstring>(env, ret2));
+      jni_zero::ScopedJavaLocalRef<jobject>(env, _ret));
 }
 
 static jni_zero::ScopedJavaLocalRef<jobject> Java_SampleForTests_getInnerEnum(
@@ -374,8 +367,8 @@ static jni_zero::ScopedJavaLocalRef<jobject> Java_SampleForTests_getInnerEnum(
       "getInnerEnum",
       "()Lorg/jni_zero/SampleForTests$InnerEnum;",
       &cached_method_id);
-  auto ret = env->CallStaticObjectMethod(clazz, call_context.method_id());
-  return jni_zero::ScopedJavaLocalRef<jobject>(env, ret);
+  auto _ret = env->CallStaticObjectMethod(clazz, call_context.method_id());
+  return jni_zero::ScopedJavaLocalRef<jobject>(env, _ret);
 }
 
 static jni_zero::ScopedJavaLocalRef<jobject> Java_SampleForTests_getInnerEnum(
@@ -391,11 +384,11 @@ static jni_zero::ScopedJavaLocalRef<jobject> Java_SampleForTests_getInnerEnum(
       "getInnerEnum",
       "(I)Lorg/jni_zero/SampleForTests$InnerEnum;",
       &cached_method_id);
-  auto ret = env->CallStaticObjectMethod(
+  auto _ret = env->CallStaticObjectMethod(
       clazz,
       call_context.method_id(),
       as_jint(a));
-  return jni_zero::ScopedJavaLocalRef<jobject>(env, ret);
+  return jni_zero::ScopedJavaLocalRef<jobject>(env, _ret);
 }
 
 static jni_zero::ScopedJavaLocalRef<jobject> Java_SampleForTests_getInnerInterface(
@@ -410,8 +403,8 @@ static jni_zero::ScopedJavaLocalRef<jobject> Java_SampleForTests_getInnerInterfa
       "getInnerInterface",
       "()Lorg/jni_zero/SampleForTests$InnerInterface;",
       &cached_method_id);
-  auto ret = env->CallStaticObjectMethod(clazz, call_context.method_id());
-  return jni_zero::ScopedJavaLocalRef<jobject>(env, ret);
+  auto _ret = env->CallStaticObjectMethod(clazz, call_context.method_id());
+  return jni_zero::ScopedJavaLocalRef<jobject>(env, _ret);
 }
 
 static jni_zero::ScopedJavaLocalRef<jthrowable> Java_SampleForTests_getThrowable(
@@ -428,12 +421,12 @@ static jni_zero::ScopedJavaLocalRef<jthrowable> Java_SampleForTests_getThrowable
       "getThrowable",
       "(Ljava/lang/Throwable;)Ljava/lang/Throwable;",
       &cached_method_id);
-  auto ret = env->CallObjectMethod(
+  auto _ret = env->CallObjectMethod(
       obj.obj(),
       call_context.method_id(),
       arg0.obj());
-  jthrowable ret2 = static_cast<jthrowable>(ret);
-  return jni_zero::ScopedJavaLocalRef<jthrowable>(env, ret2);
+  jthrowable _ret2 = static_cast<jthrowable>(_ret);
+  return jni_zero::ScopedJavaLocalRef<jthrowable>(env, _ret2);
 }
 
 static void Java_SampleForTests_iterateAndDoSomething(
@@ -455,8 +448,8 @@ static void Java_SampleForTests_iterateAndDoSomething(
 static jint Java_SampleForTests_javaMethod(
     JNIEnv* env,
     const jni_zero::JavaRef<jobject>& obj,
-    JniIntWrapper foo,
-    JniIntWrapper bar) {
+    JniIntWrapper _jcaller,
+    JniIntWrapper ret) {
   static std::atomic<jmethodID> cached_method_id(nullptr);
   jclass clazz = org_jni_1zero_SampleForTests_clazz(env);
   CHECK_CLAZZ(env, obj.obj(), clazz, 0);
@@ -467,40 +460,46 @@ static jint Java_SampleForTests_javaMethod(
       "javaMethod",
       "(II)I",
       &cached_method_id);
-  auto ret = env->CallIntMethod(
+  auto _ret = env->CallIntMethod(
       obj.obj(),
       call_context.method_id(),
-      as_jint(foo),
-      as_jint(bar));
-  return ret;
+      as_jint(_jcaller),
+      as_jint(ret));
+  return _ret;
 }
 
-static void Java_SampleForTests_javaMethodWithAnnotatedParam(
+static std::vector<int32_t> Java_SampleForTests_jniTypesAndAnnotations(
     JNIEnv* env,
     const jni_zero::JavaRef<jobject>& obj,
     MyEnum foo,
-    JniIntWrapper bar,
+    std::vector<int32_t> const& bar,
     JniIntWrapper baz,
     long bat) {
   static std::atomic<jmethodID> cached_method_id(nullptr);
   jclass clazz = org_jni_1zero_SampleForTests_clazz(env);
-  CHECK_CLAZZ(env, obj.obj(), clazz);
+  CHECK_CLAZZ(env, obj.obj(), clazz, nullptr);
   jni_zero::internal::JniJavaCallContext<true> call_context;
   call_context.Init<jni_zero::MethodID::TYPE_INSTANCE>(
       env,
       clazz,
-      "javaMethodWithAnnotatedParam",
-      "(IIIJ)V",
+      "jniTypesAndAnnotations",
+      "(I[IIJ)[I",
       &cached_method_id);
-  jint foo_converted = static_cast<jint>(foo);
-  jlong bat_converted = static_cast<jlong>(bat);
-  env->CallVoidMethod(
+  jint converted_foo = static_cast<jint>(foo);
+  jni_zero::ScopedJavaLocalRef<jobject> converted_bar = jni_zero::ConvertArray<std::vector<int32_t>>::ToJniType(
+      env,
+      bar);
+  jlong converted_bat = static_cast<jlong>(bat);
+  auto _ret = env->CallObjectMethod(
       obj.obj(),
       call_context.method_id(),
-      foo_converted,
-      as_jint(bar),
+      converted_foo,
+      converted_bar.obj(),
       as_jint(baz),
-      bat_converted);
+      converted_bat);
+  return jni_zero::ConvertArray<std::vector<int32_t>>::FromJniType(
+      env,
+      jni_zero::ScopedJavaLocalRef<jintArray>(env, static_cast<jintArray>(_ret)));
 }
 
 static void Java_SampleForTests_methodThatThrowsException(
@@ -532,14 +531,14 @@ static jboolean Java_SampleForTests_methodWithAnnotationParamAssignment(
       "methodWithAnnotationParamAssignment",
       "()Z",
       &cached_method_id);
-  auto ret = env->CallBooleanMethod(obj.obj(), call_context.method_id());
-  return ret;
+  auto _ret = env->CallBooleanMethod(obj.obj(), call_context.method_id());
+  return _ret;
 }
 
 static void Java_SampleForTests_methodWithGenericParams(
     JNIEnv* env,
     const jni_zero::JavaRef<jobject>& obj,
-    const jni_zero::JavaRef<jobject>& foo,
+    const jni_zero::JavaRef<jobject>& _env,
     const jni_zero::JavaRef<jobject>& bar) {
   static std::atomic<jmethodID> cached_method_id(nullptr);
   jclass clazz = org_jni_1zero_SampleForTests_clazz(env);
@@ -554,7 +553,7 @@ static void Java_SampleForTests_methodWithGenericParams(
   env->CallVoidMethod(
       obj.obj(),
       call_context.method_id(),
-      foo.obj(),
+      _env.obj(),
       bar.obj());
 }
 
@@ -585,8 +584,8 @@ static jboolean Java_SampleForTests_staticJavaMethod(JNIEnv* env) {
       "staticJavaMethod",
       "()Z",
       &cached_method_id);
-  auto ret = env->CallStaticBooleanMethod(clazz, call_context.method_id());
-  return ret;
+  auto _ret = env->CallStaticBooleanMethod(clazz, call_context.method_id());
+  return _ret;
 }
 
 static jni_zero::ScopedJavaLocalRef<jobject> Java_InnerStructA_create(
@@ -604,13 +603,13 @@ static jni_zero::ScopedJavaLocalRef<jobject> Java_InnerStructA_create(
       "create",
       "(JILjava/lang/String;)Lorg/jni_zero/SampleForTests$InnerStructA;",
       &cached_method_id);
-  auto ret = env->CallStaticObjectMethod(
+  auto _ret = env->CallStaticObjectMethod(
       clazz,
       call_context.method_id(),
       l,
       as_jint(i),
       s.obj());
-  return jni_zero::ScopedJavaLocalRef<jobject>(env, ret);
+  return jni_zero::ScopedJavaLocalRef<jobject>(env, _ret);
 }
 
 static jlong Java_InnerStructB_getKey(
@@ -626,8 +625,8 @@ static jlong Java_InnerStructB_getKey(
       "getKey",
       "()J",
       &cached_method_id);
-  auto ret = env->CallLongMethod(obj.obj(), call_context.method_id());
-  return ret;
+  auto _ret = env->CallLongMethod(obj.obj(), call_context.method_id());
+  return _ret;
 }
 
 static jni_zero::ScopedJavaLocalRef<jstring> Java_InnerStructB_getValue(
@@ -643,9 +642,9 @@ static jni_zero::ScopedJavaLocalRef<jstring> Java_InnerStructB_getValue(
       "getValue",
       "()Ljava/lang/String;",
       &cached_method_id);
-  auto ret = env->CallObjectMethod(obj.obj(), call_context.method_id());
-  jstring ret2 = static_cast<jstring>(ret);
-  return jni_zero::ScopedJavaLocalRef<jstring>(env, ret2);
+  auto _ret = env->CallObjectMethod(obj.obj(), call_context.method_id());
+  jstring _ret2 = static_cast<jstring>(_ret);
+  return jni_zero::ScopedJavaLocalRef<jstring>(env, _ret2);
 }
 
 

@@ -935,6 +935,7 @@ bool InlineNode::SetTextWithOffset(LayoutText* layout_text,
     return false;
   }
   layout_text->SetTextInternal(new_text);
+  layout_text->ClearHasNoControlItems();
   layout_text->ClearHasVariableLengthTransform();
 
   InlineNode node(editor.GetLayoutBlockFlow());
@@ -1367,7 +1368,6 @@ void InlineNode::ShapeText(InlineItemsData* data,
         .is_line_start = is_next_start_of_paragraph,
         .han_kerning_start =
             is_next_start_of_paragraph &&
-            RuntimeEnabledFeatures::CSSTextSpacingTrimEnabled() &&
             ShouldTrimStartOfParagraph(
                 font.GetFontDescription().GetTextSpacingTrim()) &&
             Character::MaybeHanKerningOpen(
@@ -1913,7 +1913,7 @@ static LayoutUnit ComputeContentSize(InlineNode node,
             continue;
           }
         }
-        if (item.Type() == InlineItem::kOpenRubyColumn && result.ruby_column) {
+        if (result.IsRubyColumn()) {
           ComputeFromMinSizeInternal(result.ruby_column->base_line);
           continue;
         }
@@ -1994,7 +1994,7 @@ static LayoutUnit ComputeContentSize(InlineNode node,
           // fragment (line) that we cannot compute max-content from
           // min-content.
           !line_breaker.HasClonedBoxDecorations() &&
-          !line_breaker.MayHaveRubyOverhang();
+          !line_info.MayHaveRubyOverhang();
       if (can_compute_max_size_from_min_size)
         max_size_from_min_size.ComputeFromMinSize(line_info);
     } else {

@@ -26,6 +26,7 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kUseGles2ForOopR);
 #if BUILDFLAG(IS_ANDROID)
 GPU_EXPORT BASE_DECLARE_FEATURE(kAndroidSurfaceControl);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControl);
+GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewSurfaceControlForTV);
 GPU_EXPORT BASE_DECLARE_FEATURE(kAImageReader);
 GPU_EXPORT BASE_DECLARE_FEATURE(kLimitAImageReaderMaxSizeToOne);
 GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewThreadSafeMediaDefault);
@@ -41,7 +42,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasOopRasterization);
 GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasOopWithoutGpuTileRaster);
 
 #if BUILDFLAG(IS_OZONE)
-GPU_EXPORT BASE_DECLARE_FEATURE(kEnablePerContextGLTextureCache);
 GPU_EXPORT BASE_DECLARE_FEATURE(kOzoneFrontBufferUsage);
 #endif
 
@@ -99,8 +99,6 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kPurgeOldCacheEntriesOnTimer);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kUseGpuSchedulerDfs);
 
-GPU_EXPORT BASE_DECLARE_FEATURE(kUseClientGmbInterface);
-
 #if BUILDFLAG(IS_ANDROID)
 // This flag is use additionally with kEnableDrDc to enable the feature for
 // vulkan enabled android devices.
@@ -117,10 +115,6 @@ GPU_EXPORT extern const base::FeatureParam<std::string> kWGSLUnsafeFeatures;
 GPU_EXPORT BASE_DECLARE_FEATURE(kIncreasedCmdBufferParseSlice);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kGpuCleanupInBackground);
-
-#if BUILDFLAG(IS_ANDROID)
-GPU_EXPORT BASE_DECLARE_FEATURE(kCmdDecoderSkipGLRedMesaWorkaroundOnAndroid);
-#endif
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kDeferredOverlaysRelease);
 

@@ -24,12 +24,14 @@
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
+// All elements.
+const CGFloat kMaxHeight = 600;
 
 // View constants.
-const CGFloat kBackgroundAlpha = 0.6;
 const CGFloat kHorizontalMargin = 32;
 const CGFloat kdotAndFieldContainerMargin = 44;
 const CGFloat kDotTitleSeparationMargin = 12;
@@ -38,8 +40,7 @@ const CGFloat kContainersMaxWidth = 400;
 // Group color selection constants.
 const CGFloat kColoredButtonSize = 24;
 const CGFloat kColoredButtonContentInset = 8;
-const CGFloat kColorSelectionImageSize = 13;
-const CGFloat kColorListViewHeight = 44;
+const CGFloat kColoredButtonWidthAndHeight = 40;
 const CGFloat kColorListBottomMargin = 16;
 const CGFloat kColoredDotSize = 21;
 
@@ -48,8 +49,9 @@ const CGFloat kSnapshotViewRatio = 0.83;
 const CGFloat kSnapshotViewMaxHeight = 190;
 const CGFloat kSnapshotViewCornerRadius = 18;
 const CGFloat kSnapshotViewVerticalMargin = 25;
-const CGFloat kSingleSnapshotRatio = 0.75;
+const CGFloat kSingleSnapshotRatio = 0.7;
 const CGFloat kMultipleSnapshotsRatio = 0.90;
+const CGFloat kSnapshotViewAnimationTime = 0.3;
 
 // Group title constants
 const CGFloat kTitleHorizontalMargin = 16;
@@ -74,8 +76,6 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
   UIButton* _selectedButton;
   // Default color.
   tab_groups::TabGroupColorId _defaultColor;
-  // StackView which contains all bottom views.
-  UIStackView* _bottomStackView;
   // List of tab group pictures.
   NSArray<GroupTabInfo*>* _tabGroupInfos;
   // Snapshots views container.
@@ -93,6 +93,22 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
   // multiple snapshots.
   NSArray<NSLayoutConstraint*>* _singleSnapshotConstraints;
   NSArray<NSLayoutConstraint*>* _multipleSnapshotsConstraints;
+
+  // Buttons to create or cancel the group creation.
+  UIButton* _creationButton;
+  UIButton* _cancelButton;
+  UIButton* _creationButtonCompact;
+  UIButton* _cancelButtonCompact;
+
+  // Constraints for portrait or landscape mode.
+  NSArray<NSLayoutConstraint*>* _compactConstraints;
+  NSArray<NSLayoutConstraint*>* _regularConstraints;
+
+  // Scrollview that containts color selection buttons.
+  UIView* _colorsScrollView;
+
+  // YES if the visual keyboard is displayed.
+  BOOL _keyboardDisplayed;
 }
 
 - (instancetype)initWithTabGroup:(const TabGroup*)tabGroup {
@@ -128,6 +144,7 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
   _selectedButton = _colorSelectionButtons[defaultButtonIndex];
   [_selectedButton setSelected:YES];
 
+  [self createConfigurations];
   [self updateViews];
 
   if (@available(iOS 17, *)) {
@@ -136,8 +153,13 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
   }
   [[NSNotificationCenter defaultCenter]
       addObserver:self
-         selector:@selector(hideSnapshotsIfNeeded)
+         selector:@selector(keyboardDidShow)
              name:UIKeyboardDidShowNotification
+           object:nil];
+  [[NSNotificationCenter defaultCenter]
+      addObserver:self
+         selector:@selector(keyboardDidHide)
+             name:UIKeyboardDidHideNotification
            object:nil];
   // To force display the keyboard when the view is shown.
   [_tabGroupTextField becomeFirstResponder];
@@ -165,11 +187,12 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
   UITextField* tabGroupTextField = [[UITextField alloc] init];
   tabGroupTextField.textColor = [UIColor colorNamed:kSolidBlackColor];
   tabGroupTextField.font =
-      [UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];
+      [UIFont preferredFontForTextStyle:UIFontTextStyleTitle1];
   tabGroupTextField.adjustsFontForContentSizeCategory = YES;
   tabGroupTextField.translatesAutoresizingMaskIntoConstraints = NO;
   tabGroupTextField.autocorrectionType = UITextAutocorrectionTypeNo;
   tabGroupTextField.spellCheckingType = UITextSpellCheckingTypeNo;
+  tabGroupTextField.clearButtonMode = UITextFieldViewModeWhileEditing;
   tabGroupTextField.accessibilityIdentifier =
       kCreateTabGroupTextFieldIdentifier;
   tabGroupTextField.text = _title;
@@ -243,7 +266,7 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
 }
 
 // Returns the cancel button.
-- (UIButton*)configuredCancelButton:(BOOL)isCompact {
+- (UIButton*)configuredCancelButtonCompacted:(BOOL)isCompact {
   UIButton* cancelButton = [[UIButton alloc] init];
   cancelButton.translatesAutoresizingMaskIntoConstraints = NO;
 
@@ -277,7 +300,7 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
 }
 
 // Returns the cancel button.
-- (UIButton*)configuredCreateGroupButton:(BOOL)isCompact {
+- (UIButton*)configuredCreateGroupButtonCompacted:(BOOL)isCompact {
   UIButton* creationButton = [[UIButton alloc] init];
   creationButton.translatesAutoresizingMaskIntoConstraints = NO;
 
@@ -350,11 +373,15 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
 
 // Dismisses the current view.
 - (void)dismissViewController {
-  // Hide the stack view before dismissing the view. The keyboard dismissing
-  // animation is longer than the view one, and element attached to the keyboard
-  // are still visible for a frame after the end of the view animation.
-  _bottomStackView.hidden = YES;
-  [self.delegate createOrEditTabGroupViewControllerDidDismiss:self];
+  // Hide elements attached to the keyboard for dismissing the view. The
+  // keyboard dismissing animation is longer than the view one, and elements
+  // attached to the keyboard are still visible for a frame after the end of the
+  // view animation.
+  _cancelButton.hidden = YES;
+  _creationButton.hidden = YES;
+  _colorsScrollView.hidden = YES;
+  [self.delegate createOrEditTabGroupViewControllerDidDismiss:self
+                                                     animated:YES];
 }
 
 // Changes the selected color.
@@ -396,41 +423,31 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
         configurationWithPointSize:kColoredButtonSize
                             weight:UIImageSymbolWeightRegular
                              scale:UIImageSymbolScaleDefault];
-    UIImage* baseImage =
+
+    UIImage* normalSymbolImage =
         DefaultSymbolWithConfiguration(kCircleFillSymbol, configuration);
-    baseImage =
-        [baseImage imageWithTintColor:TabGroup::ColorForTabGroupColorId(colorID)
-                        renderingMode:UIImageRenderingModeAlwaysOriginal];
-
-    UIImageSymbolConfiguration* selectionConfiguration =
-        [UIImageSymbolConfiguration
-            configurationWithPointSize:kColorSelectionImageSize
-                                weight:UIImageSymbolWeightBold
-                                 scale:UIImageSymbolScaleLarge];
-    UIImage* selectionRingImage =
-        DefaultSymbolWithConfiguration(kCircleSymbol, selectionConfiguration);
-    selectionRingImage = [selectionRingImage
-        imageWithTintColor:[UIColor colorNamed:kGrey100Color]
+    normalSymbolImage = [normalSymbolImage
+        imageWithTintColor:TabGroup::ColorForTabGroupColorId(colorID)
              renderingMode:UIImageRenderingModeAlwaysOriginal];
-    UIGraphicsBeginImageContextWithOptions(baseImage.size, NO, 0.0f);
-    [baseImage drawInRect:CGRectMake(0, 0, baseImage.size.width,
-                                     baseImage.size.height)];
-    [selectionRingImage
-        drawInRect:CGRectMake(baseImage.size.width / 2 -
-                                  selectionRingImage.size.width / 2,
-                              baseImage.size.height / 2 -
-                                  selectionRingImage.size.height / 2,
-                              selectionRingImage.size.width,
-                              selectionRingImage.size.height)];
-    UIImage* selectionImage = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
 
-    [colorButton setImage:baseImage forState:UIControlStateNormal];
-    [colorButton setImage:selectionImage forState:UIControlStateSelected];
+    UIImage* selectedSymbolImage =
+        DefaultSymbolWithConfiguration(kCircleCircleFillSymbol, configuration);
+    selectedSymbolImage = [selectedSymbolImage
+        imageWithTintColor:TabGroup::ColorForTabGroupColorId(colorID)
+             renderingMode:UIImageRenderingModeAlwaysOriginal];
 
+    [colorButton setImage:normalSymbolImage forState:UIControlStateNormal];
+    [colorButton setImage:selectedSymbolImage forState:UIControlStateSelected];
     [colorButton addTarget:self
                     action:@selector(coloredButtonTapped:)
           forControlEvents:UIControlEventTouchUpInside];
+
+    [NSLayoutConstraint activateConstraints:@[
+      [colorButton.widthAnchor
+          constraintEqualToConstant:kColoredButtonWidthAndHeight],
+      [colorButton.heightAnchor
+          constraintEqualToAnchor:colorButton.widthAnchor],
+    ]];
 
     [buttons addObject:colorButton];
   }
@@ -441,23 +458,37 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
 // Returns the configured view, which contains all the available colors.
 - (UIView*)listOfColorView {
   UIStackView* colorsView = [[UIStackView alloc] init];
-  colorsView.distribution = UIStackViewDistributionEqualSpacing;
   colorsView.alignment = UIStackViewAlignmentCenter;
   colorsView.translatesAutoresizingMaskIntoConstraints = NO;
 
   UIScrollView* scrollView = [[UIScrollView alloc] init];
   scrollView.translatesAutoresizingMaskIntoConstraints = NO;
   scrollView.canCancelContentTouches = YES;
+  [scrollView setShowsHorizontalScrollIndicator:NO];
+  [scrollView setShowsVerticalScrollIndicator:NO];
   [scrollView addSubview:colorsView];
 
   for (UIButton* button in _colorSelectionButtons) {
     [colorsView addArrangedSubview:button];
   }
 
-  AddSameConstraints(colorsView, scrollView);
+  CGFloat viewWidth = self.view.safeAreaLayoutGuide.layoutFrame.size.width;
+  CGFloat selectionWidth =
+      [_colorSelectionButtons count] * kColoredButtonWidthAndHeight;
+
+  if (selectionWidth > viewWidth) {
+    [scrollView setContentInset:UIEdgeInsetsMake(0, kHorizontalMargin, 0,
+                                                 kHorizontalMargin)];
+  }
+
+  NSLayoutConstraint* scrollViewWidthConstraint = [scrollView.widthAnchor
+      constraintGreaterThanOrEqualToAnchor:colorsView.widthAnchor];
+  scrollViewWidthConstraint.priority = UILayoutPriorityDefaultLow;
+
+  AddSameConstraints(scrollView.contentLayoutGuide, colorsView);
   [NSLayoutConstraint activateConstraints:@[
-    [colorsView.heightAnchor constraintEqualToConstant:kColorListViewHeight],
-    [scrollView.heightAnchor constraintEqualToConstant:kColorListViewHeight],
+    [scrollView.heightAnchor constraintEqualToAnchor:colorsView.heightAnchor],
+    scrollViewWidthConstraint,
   ]];
 
   return scrollView;
@@ -470,89 +501,109 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
 
 // Updates all the view and subviews depending on space available.
 - (void)updateViews {
-  [self.view.subviews
-      makeObjectsPerformSelector:@selector(removeFromSuperview)];
-  [self setupBackground];
+  _cancelButton.hidden = NO;
+  _creationButton.hidden = NO;
+  _cancelButtonCompact.hidden = NO;
+  _creationButtonCompact.hidden = NO;
+
   BOOL isVerticallyCompacted =
       self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
   if (isVerticallyCompacted) {
-    [self compactConfiguration];
+    _cancelButton.hidden = YES;
+    _creationButton.hidden = YES;
+    [NSLayoutConstraint deactivateConstraints:_regularConstraints];
+    [NSLayoutConstraint activateConstraints:_compactConstraints];
   } else {
-    [self regularConfiguration];
+    _cancelButtonCompact.hidden = YES;
+    _creationButtonCompact.hidden = YES;
+    [NSLayoutConstraint deactivateConstraints:_compactConstraints];
+    [NSLayoutConstraint activateConstraints:_regularConstraints];
   }
+
   [self.view layoutIfNeeded];
+  [self hideSnapshotsIfNeeded];
+  // To force display the keyboard.
+  [_tabGroupTextField becomeFirstResponder];
+}
+
+// Hides the snapshots container depending on some conditions.
+- (void)hideSnapshotsIfNeeded {
+  BOOL tooSmall = _snapshotsContainer.frame.size.height < 60;
+  BOOL isVerticallyCompacted =
+      self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
+  CGFloat updatedAlpha = (tooSmall || isVerticallyCompacted) ? 0 : 1;
+  if (_snapshotsContainer.alpha == updatedAlpha) {
+    return;
+  }
+
+  __weak UIView* weakSnapshotsContainer = _snapshotsContainer;
+  [UIView animateWithDuration:kSnapshotViewAnimationTime
+                   animations:^{
+                     [weakSnapshotsContainer setAlpha:updatedAlpha];
+                   }];
+}
+
+// Called when the virtual keyboard is shown.
+- (void)keyboardDidShow {
+  _keyboardDisplayed = YES;
   [self hideSnapshotsIfNeeded];
 }
 
-// Hides the snapshots container if it is too small.
-- (void)hideSnapshotsIfNeeded {
-  if (_snapshotsContainer.frame.size.height < 60) {
-    [_snapshotsContainer setHidden:YES];
-  } else {
-    [_snapshotsContainer setHidden:NO];
-  }
+// Called when the virtual keyboard is hidden.
+- (void)keyboardDidHide {
+  _keyboardDisplayed = NO;
+  [self hideSnapshotsIfNeeded];
 }
 
 // Configures the view and all subviews when there is enough space.
-- (void)regularConfiguration {
+- (void)createConfigurations {
   UIView* dotAndFieldContainer = [self configuredDotAndFieldContainer];
   UILayoutGuide* snapshotsContainerLayoutGuide = [[UILayoutGuide alloc] init];
   _snapshotsContainer = [self configuredSnapshotsContainer];
-  UIView* colorsView = [self listOfColorView];
-  UIButton* creationButton = [self configuredCreateGroupButton:NO];
-  UIButton* cancelButton = [self configuredCancelButton:NO];
+  _colorsScrollView = [self listOfColorView];
+  _creationButton = [self configuredCreateGroupButtonCompacted:NO];
+  _cancelButton = [self configuredCancelButtonCompacted:NO];
+  _creationButtonCompact = [self configuredCreateGroupButtonCompacted:YES];
+  _cancelButtonCompact = [self configuredCancelButtonCompacted:YES];
 
-  _bottomStackView = [[UIStackView alloc]
-      initWithArrangedSubviews:@[ colorsView, creationButton, cancelButton ]];
-  _bottomStackView.translatesAutoresizingMaskIntoConstraints = NO;
-  _bottomStackView.axis = UILayoutConstraintAxisVertical;
-  [_bottomStackView setCustomSpacing:kColorListBottomMargin
-                           afterView:colorsView];
+  UIView* container = [[UIView alloc] init];
+  container.translatesAutoresizingMaskIntoConstraints = NO;
 
-  [self.view addSubview:dotAndFieldContainer];
-  [self.view addSubview:_snapshotsContainer];
-  [self.view addLayoutGuide:snapshotsContainerLayoutGuide];
-  [self.view addSubview:_bottomStackView];
+  [container addSubview:dotAndFieldContainer];
+  [container addSubview:_snapshotsContainer];
+  [container addLayoutGuide:snapshotsContainerLayoutGuide];
+  [container addSubview:_colorsScrollView];
+  [container addSubview:_cancelButtonCompact];
+  [container addSubview:_creationButtonCompact];
+  [container addSubview:_cancelButton];
+  [container addSubview:_creationButton];
+  [self.view addSubview:container];
 
-  [NSLayoutConstraint activateConstraints:@[
+  NSLayoutConstraint* keyboardConstraint = [container.bottomAnchor
+      constraintEqualToAnchor:self.view.keyboardLayoutGuide.topAnchor];
+  keyboardConstraint.priority = UILayoutPriorityDefaultHigh + 1;
+
+  _regularConstraints = @[
     [dotAndFieldContainer.leadingAnchor
-        constraintGreaterThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                                 .leadingAnchor
+        constraintGreaterThanOrEqualToAnchor:container.leadingAnchor
                                     constant:kHorizontalMargin],
-    [dotAndFieldContainer.topAnchor
-        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor
-                       constant:kdotAndFieldContainerMargin],
     [dotAndFieldContainer.trailingAnchor
-        constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                              .trailingAnchor
+        constraintLessThanOrEqualToAnchor:container.trailingAnchor
                                  constant:-kHorizontalMargin],
-    [dotAndFieldContainer.heightAnchor
-        constraintGreaterThanOrEqualToConstant:kButtonsHeight],
-    [_bottomStackView.bottomAnchor
-        constraintEqualToAnchor:self.view.keyboardLayoutGuide.topAnchor
-                       constant:-kButtonsMargin],
-    [_bottomStackView.leadingAnchor
-        constraintGreaterThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                                 .leadingAnchor
-                                    constant:kHorizontalMargin],
-    [_bottomStackView.trailingAnchor
-        constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                              .trailingAnchor
-                                 constant:-kHorizontalMargin],
+    [_creationButton.bottomAnchor
+        constraintEqualToAnchor:_cancelButton.topAnchor],
+    [_cancelButton.bottomAnchor constraintEqualToAnchor:container.bottomAnchor
+                                               constant:-kButtonsMargin],
+    [_creationButton.topAnchor
+        constraintEqualToAnchor:_colorsScrollView.bottomAnchor
+                       constant:kColorListBottomMargin],
+
     [snapshotsContainerLayoutGuide.topAnchor
         constraintEqualToAnchor:dotAndFieldContainer.bottomAnchor
                        constant:kSnapshotViewVerticalMargin],
     [snapshotsContainerLayoutGuide.bottomAnchor
-        constraintEqualToAnchor:colorsView.topAnchor
+        constraintEqualToAnchor:_colorsScrollView.topAnchor
                        constant:-kSnapshotViewVerticalMargin],
-    [snapshotsContainerLayoutGuide.leadingAnchor
-        constraintGreaterThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                                 .leadingAnchor
-                                    constant:kHorizontalMargin],
-    [snapshotsContainerLayoutGuide.trailingAnchor
-        constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                              .trailingAnchor
-                                 constant:-kHorizontalMargin],
 
     [_snapshotsContainer.centerXAnchor
         constraintEqualToAnchor:snapshotsContainerLayoutGuide.centerXAnchor],
@@ -564,82 +615,71 @@ const CGFloat kButtonBackgroundCornerRadius = 15;
     [_snapshotsContainer.bottomAnchor
         constraintLessThanOrEqualToAnchor:snapshotsContainerLayoutGuide
                                               .bottomAnchor],
-    [dotAndFieldContainer.widthAnchor
-        constraintLessThanOrEqualToConstant:kContainersMaxWidth],
     [snapshotsContainerLayoutGuide.widthAnchor
         constraintEqualToAnchor:dotAndFieldContainer.widthAnchor],
-    [_bottomStackView.widthAnchor
+    [_creationButton.widthAnchor
+        constraintEqualToAnchor:dotAndFieldContainer.widthAnchor],
+    [_cancelButton.widthAnchor
         constraintEqualToAnchor:dotAndFieldContainer.widthAnchor],
 
-    [dotAndFieldContainer.centerXAnchor
-        constraintEqualToAnchor:self.view.centerXAnchor],
     [snapshotsContainerLayoutGuide.centerXAnchor
         constraintEqualToAnchor:self.view.centerXAnchor],
-    [_bottomStackView.centerXAnchor
+    [_creationButton.centerXAnchor
         constraintEqualToAnchor:self.view.centerXAnchor],
-  ]];
-}
+    [_cancelButton.centerXAnchor
+        constraintEqualToAnchor:self.view.centerXAnchor],
+  ];
 
-// Configures the view and subviews when the screen is small.
-- (void)compactConfiguration {
-  UIView* dotAndFieldContainer = [self configuredDotAndFieldContainer];
-  UIView* colorsView = [self listOfColorView];
-  UIButton* creationButton = [self configuredCreateGroupButton:YES];
-  UIButton* cancelButton = [self configuredCancelButton:YES];
-
-  UIStackView* containedStackView = [[UIStackView alloc]
-      initWithArrangedSubviews:@[ dotAndFieldContainer, colorsView ]];
-  containedStackView.translatesAutoresizingMaskIntoConstraints = NO;
-  containedStackView.axis = UILayoutConstraintAxisVertical;
-  containedStackView.distribution = UIStackViewDistributionEqualSpacing;
-
-  _bottomStackView = [[UIStackView alloc] initWithArrangedSubviews:@[
-    cancelButton, containedStackView, creationButton
-  ]];
-  _bottomStackView.translatesAutoresizingMaskIntoConstraints = NO;
-  _bottomStackView.distribution = UIStackViewDistributionEqualSpacing;
-  _bottomStackView.alignment = UIStackViewAlignmentTop;
-
-  [self.view addSubview:_bottomStackView];
+  _compactConstraints = @[
+    [_cancelButtonCompact.leadingAnchor
+        constraintEqualToAnchor:container.leadingAnchor
+                       constant:kHorizontalMargin],
+    [_cancelButtonCompact.trailingAnchor
+        constraintLessThanOrEqualToAnchor:dotAndFieldContainer.leadingAnchor],
+    [_cancelButtonCompact.topAnchor
+        constraintEqualToAnchor:container.topAnchor
+                       constant:kdotAndFieldContainerMargin],
+    [_creationButtonCompact.leadingAnchor
+        constraintGreaterThanOrEqualToAnchor:dotAndFieldContainer
+                                                 .trailingAnchor],
+    [_creationButtonCompact.trailingAnchor
+        constraintEqualToAnchor:container.trailingAnchor
+                       constant:-kHorizontalMargin],
+    [_creationButtonCompact.topAnchor
+        constraintEqualToAnchor:container.topAnchor
+                       constant:kdotAndFieldContainerMargin],
+    [_colorsScrollView.bottomAnchor
+        constraintEqualToAnchor:container.bottomAnchor],
+  ];
 
   [NSLayoutConstraint activateConstraints:@[
-    [_bottomStackView.leadingAnchor
-        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor
-                       constant:kHorizontalMargin],
-    [_bottomStackView.topAnchor
-        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor
+    [dotAndFieldContainer.topAnchor
+        constraintEqualToAnchor:container.topAnchor
                        constant:kdotAndFieldContainerMargin],
-    [_bottomStackView.trailingAnchor
-        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor
-                       constant:-kHorizontalMargin],
-    [_bottomStackView.bottomAnchor
-        constraintEqualToAnchor:self.view.keyboardLayoutGuide.topAnchor
-                       constant:-kButtonsMargin],
-    [containedStackView.bottomAnchor
-        constraintEqualToAnchor:_bottomStackView.bottomAnchor],
-
+    [dotAndFieldContainer.heightAnchor
+        constraintGreaterThanOrEqualToConstant:kButtonsHeight],
     [dotAndFieldContainer.widthAnchor
         constraintLessThanOrEqualToConstant:kContainersMaxWidth],
-    [containedStackView.widthAnchor
-        constraintEqualToAnchor:dotAndFieldContainer.widthAnchor],
-  ]];
-}
+    [dotAndFieldContainer.centerXAnchor
+        constraintEqualToAnchor:self.view.centerXAnchor],
+    [_colorsScrollView.leadingAnchor
+        constraintGreaterThanOrEqualToAnchor:container.leadingAnchor],
+    [_colorsScrollView.trailingAnchor
+        constraintLessThanOrEqualToAnchor:container.trailingAnchor],
+    [_colorsScrollView.centerXAnchor
+        constraintEqualToAnchor:self.view.centerXAnchor],
 
-// Configures the view background.
-- (void)setupBackground {
-  if (!UIAccessibilityIsReduceTransparencyEnabled()) {
-    self.view.backgroundColor = [[UIColor colorNamed:kGrey900Color]
-        colorWithAlphaComponent:kBackgroundAlpha];
-    UIBlurEffect* blurEffect =
-        [UIBlurEffect effectWithStyle:UIBlurEffectStyleRegular];
-    UIVisualEffectView* blurEffectView =
-        [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-    blurEffectView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:blurEffectView];
-    AddSameConstraints(self.view, blurEffectView);
-  } else {
-    self.view.backgroundColor = [UIColor blackColor];
-  }
+    [container.topAnchor
+        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+    [container.leadingAnchor
+        constraintGreaterThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
+                                                 .leadingAnchor],
+    [container.trailingAnchor
+        constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
+                                              .trailingAnchor],
+    [container.heightAnchor constraintLessThanOrEqualToConstant:kMaxHeight],
+    keyboardConstraint,
+  ]];
 }
 
 // Returns the view which contains all the selected tabs' snapshot which will be

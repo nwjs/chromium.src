@@ -32,10 +32,12 @@ import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.components.embedder_support.util.WebResourceResponseInfo;
 import org.chromium.content_public.browser.test.util.TestCallbackHelperContainer.OnPageStartedHelper;
+import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.io.FileInputStream;
 import java.io.UnsupportedEncodingException;
@@ -495,6 +497,68 @@ public class AwPrerenderTest extends AwParameterizedTest {
                 shouldOverrideUrlLoadingHelper.requestHeaders());
     }
 
+    // Tests that subframe navigation of prerendered page emits shouldInterceptRequest with
+    // Sec-Purpose header.
+    @Test
+    @LargeTest
+    @Feature({"AndroidWebView"})
+    @Features.EnableFeatures({AwFeatures.WEBVIEW_PRERENDER2})
+    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    public void testSubframeOfPrerenderedPageAndShouldInterceptRequest() throws Throwable {
+        String subframeUrl1 = mTestServer.getURL("/android_webview/test/data/hello_world.html?q=1");
+        String subframeUrl2 = mTestServer.getURL("/android_webview/test/data/hello_world.html?q=2");
+        String prerenderUrl =
+                mTestServer.getURL(
+                        "/android_webview/test/data/prerender.html?iframeSrc="
+                                .concat(subframeUrl1));
+
+        final TestAwContentsClient.ShouldInterceptRequestHelper helper =
+                mContentsClient.getShouldInterceptRequestHelper();
+
+        {
+            helper.clearUrls();
+            int callCount = helper.getCallCount();
+            injectSpeculationRulesAndWait(prerenderUrl);
+            helper.waitForCallback(callCount);
+            Assert.assertEquals(helper.getUrls(), Arrays.asList(prerenderUrl));
+            AwContentsClient.AwWebResourceRequest request = helper.getRequestsForUrl(prerenderUrl);
+            Assert.assertEquals(request.requestHeaders.get("Sec-Purpose"), "prefetch;prerender");
+        }
+
+        {
+            helper.clearUrls();
+            int callCount = helper.getCallCount();
+            helper.waitForCallback(callCount);
+            Assert.assertEquals(helper.getUrls(), Arrays.asList(subframeUrl1));
+            AwContentsClient.AwWebResourceRequest request = helper.getRequestsForUrl(subframeUrl1);
+            // Subframe navigation of prerendered page also has a Sec-Purpose header.
+            Assert.assertEquals(request.requestHeaders.get("Sec-Purpose"), "prefetch;prerender");
+        }
+
+        {
+            int callCount = helper.getCallCount();
+            activatePage(prerenderUrl);
+            Assert.assertEquals(
+                    "Prerender activation navigation doesn't trigger shouldInterceptRequest",
+                    helper.getCallCount(),
+                    callCount);
+        }
+
+        {
+            helper.clearUrls();
+            int callCount = helper.getCallCount();
+            final String script = String.format("createIframe('%s');", subframeUrl2);
+            mActivityTestRule.executeJavaScriptAndWaitForResult(
+                    mAwContents, mContentsClient, script);
+            helper.waitForCallback(callCount);
+            Assert.assertEquals(helper.getUrls(), Arrays.asList(subframeUrl2));
+            AwContentsClient.AwWebResourceRequest request = helper.getRequestsForUrl(subframeUrl2);
+            // Subframe navigation of the activated page doesn't have a Sec-Purpose header.
+            Assert.assertNotNull(request.requestHeaders);
+            Assert.assertNull(request.requestHeaders.get("Sec-Purpose"));
+        }
+    }
+
     // Tests postMessage() from JS to Java during prerendering are deferred until activation.
     // TODO(crbug.com/41490450): Test postMessage() from iframes.
     @Test
@@ -537,5 +601,95 @@ public class AwPrerenderTest extends AwParameterizedTest {
         Assert.assertEquals(0, data.mPorts.length);
 
         Assert.assertTrue(mWebMessageListener.hasNoMoreOnPostMessage());
+    }
+
+    // Tests that WebView.addJavascriptInterface() cancels prerendered pages.
+    @Test
+    @LargeTest
+    @Feature({"AndroidWebView"})
+    @Features.EnableFeatures({AwFeatures.WEBVIEW_PRERENDER2})
+    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    public void testPrerenderingCanceledWhenAddingJSInterface() throws Throwable {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
+                                /*kJavaScriptInterfaceAdded*/ 79)
+                        .build();
+
+        // Start prerendering.
+        injectSpeculationRulesAndWait(mPrerenderingUrl);
+
+        // Inject a JavaScript object. This should cancel prerendering.
+        Object testInjectedObject =
+                new Object() {
+                    @JavascriptInterface
+                    public void mock() {}
+                };
+        AwActivityTestRule.addJavascriptInterfaceOnUiThread(
+                mAwContents, testInjectedObject, "testInjectedObject");
+
+        // Wait until prerendering is canceled for the interface addition.
+        histogramWatcher.pollInstrumentationThreadUntilSatisfied();
+    }
+
+    // Tests that WebView.removeJavascriptInterface() cancels prerendered pages.
+    @Test
+    @LargeTest
+    @Feature({"AndroidWebView"})
+    @Features.EnableFeatures({AwFeatures.WEBVIEW_PRERENDER2})
+    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    public void testPrerenderingCanceledWhenRemovingJSInterface() throws Throwable {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
+                                /*kJavaScriptInterfaceRemoved*/ 80)
+                        .build();
+
+        // Inject a JavaScript object.
+        Object testInjectedObject =
+                new Object() {
+                    @JavascriptInterface
+                    public void mock() {}
+                };
+        AwActivityTestRule.addJavascriptInterfaceOnUiThread(
+                mAwContents, testInjectedObject, "testInjectedObject");
+
+        // Start prerendering.
+        injectSpeculationRulesAndWait(mPrerenderingUrl);
+
+        // Remove the JavaScript object. This should cancel prerendering.
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> mAwContents.removeJavascriptInterface("testInjectedObject"));
+
+        // Wait until prerendering is canceled for the interface removal.
+        histogramWatcher.pollInstrumentationThreadUntilSatisfied();
+    }
+
+    // Tests that WebViewCompat.addWebMessageListener() cancels prerendered pages.
+    @Test
+    @LargeTest
+    @Feature({"AndroidWebView"})
+    @Features.EnableFeatures({AwFeatures.WEBVIEW_PRERENDER2})
+    @Features.DisableFeatures({BlinkFeatures.PRERENDER2_MEMORY_CONTROLS})
+    public void testPrerenderingCanceledWhenAddingWebMessageListener() throws Throwable {
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
+                                /*kAllPrerenderingCanceled*/ 81)
+                        .build();
+
+        // Start prerendering.
+        injectSpeculationRulesAndWait(mPrerenderingUrl);
+
+        // Add a WebMessageListener. This should cancel prerendering.
+        TestWebMessageListener listener = new TestWebMessageListener();
+        TestWebMessageListener.addWebMessageListenerOnUiThread(
+                mAwContents, "awMessagePort", new String[] {"*"}, listener);
+
+        // Wait until prerendering is canceled for the listener addition.
+        histogramWatcher.pollInstrumentationThreadUntilSatisfied();
     }
 }

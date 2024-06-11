@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <limits>
 
-#include "build/build_config.h"
+#include "partition_alloc/build_config.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_buildflags.h"
 #include "partition_alloc/partition_alloc_check.h"
@@ -136,12 +136,12 @@ namespace {
 }  // namespace
 
 void Stack::IteratePointers(StackVisitor* visitor) const {
-#if BUILDFLAG(STACK_SCAN_SUPPORTED)
+#if PA_BUILDFLAG(STACK_SCAN_SUPPORTED)
   PAPushAllRegistersAndIterateStack(this, visitor, &IteratePointersImpl);
   // No need to deal with callee-saved registers as they will be kept alive by
   // the regular conservative stack iteration.
   IterateSafeStackIfNecessary(visitor);
-#endif  // BUILDFLAG(STACK_SCAN_SUPPORTED)
+#endif  // PA_BUILDFLAG(STACK_SCAN_SUPPORTED)
 }
 
 StackTopRegistry::StackTopRegistry() = default;

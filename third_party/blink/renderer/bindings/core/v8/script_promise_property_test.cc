@@ -106,12 +106,11 @@ class ScriptPromisePropertyResetter : public ScriptFunction::Callable {
 class ScriptPromisePropertyTestBase {
  public:
   ScriptPromisePropertyTestBase()
-      : page_(std::make_unique<DummyPageHolder>(gfx::Size(1, 1))) {
+      : page_(std::make_unique<DummyPageHolder>(gfx::Size(1, 1))),
+        other_world_(DOMWrapperWorld::EnsureIsolatedWorld(GetIsolate(), 1)) {
     v8::HandleScope handle_scope(GetIsolate());
-    other_script_state_ = ScriptState::Create(
-        v8::Context::New(GetIsolate()),
-        DOMWrapperWorld::EnsureIsolatedWorld(GetIsolate(), 1),
-        /* execution_context = */ nullptr);
+    // Force initialization of v8::Context and ScriptState for the other world.
+    page_->GetFrame().GetWindowProxy(OtherWorld());
   }
 
   virtual ~ScriptPromisePropertyTestBase() { DestroyContext(); }
@@ -122,10 +121,12 @@ class ScriptPromisePropertyTestBase {
     return ToScriptStateForMainWorld(&page_->GetFrame());
   }
   DOMWrapperWorld& MainWorld() { return MainScriptState()->World(); }
-  ScriptState* OtherScriptState() { return other_script_state_; }
-  DOMWrapperWorld& OtherWorld() { return other_script_state_->World(); }
+  ScriptState* OtherScriptState() {
+    return ToScriptState(&page_->GetFrame(), OtherWorld());
+  }
+  DOMWrapperWorld& OtherWorld() { return *other_world_; }
   ScriptState* CurrentScriptState() {
-    return ScriptState::Current(GetIsolate());
+    return ScriptState::ForCurrentRealm(GetIsolate());
   }
 
   void PerformMicrotaskCheckpoint() {
@@ -143,10 +144,7 @@ class ScriptPromisePropertyTestBase {
 
   void DestroyContext() {
     page_.reset();
-    if (other_script_state_) {
-      other_script_state_->DisposePerContextData();
-      other_script_state_ = nullptr;
-    }
+    other_world_ = nullptr;
   }
 
   void Gc() { ThreadState::Current()->CollectAllGarbageForTesting(); }
@@ -164,19 +162,20 @@ class ScriptPromisePropertyTestBase {
 
   ScriptValue Wrap(DOMWrapperWorld& world,
                    GarbageCollectedScriptWrappable* value) {
-    v8::HandleScope handle_scope(GetIsolate());
+    v8::Isolate* isolate = GetIsolate();
+    v8::HandleScope handle_scope(isolate);
     ScriptState* script_state =
-        ScriptState::From(ToV8Context(DomWindow(), world));
+        ScriptState::From(isolate, ToV8Context(DomWindow(), world));
     ScriptState::Scope scope(script_state);
     return ScriptValue(
-        GetIsolate(),
+        isolate,
         ToV8Traits<GarbageCollectedScriptWrappable>::ToV8(script_state, value));
   }
 
  private:
   test::TaskEnvironment task_environment_;
   std::unique_ptr<DummyPageHolder> page_;
-  Persistent<ScriptState> other_script_state_;
+  Persistent<DOMWrapperWorld> other_world_;
 };
 
 // This is the main test class.

@@ -78,7 +78,8 @@ mojom::GpuChannel& GpuChannelHost::GetGpuChannel() {
 uint32_t GpuChannelHost::OrderingBarrier(
     int32_t route_id,
     int32_t put_offset,
-    std::vector<SyncToken> sync_token_fences) {
+    std::vector<SyncToken> sync_token_fences,
+    uint64_t release_count) {
   AutoLock lock(context_lock_);
 
   if (pending_ordering_barrier_ &&
@@ -94,20 +95,36 @@ uint32_t GpuChannelHost::OrderingBarrier(
       pending_ordering_barrier_->sync_token_fences.end(),
       std::make_move_iterator(sync_token_fences.begin()),
       std::make_move_iterator(sync_token_fences.end()));
+  pending_ordering_barrier_->release_count = release_count;
   return pending_ordering_barrier_->deferred_message_id;
 }
 
 uint32_t GpuChannelHost::EnqueueDeferredMessage(
     mojom::DeferredRequestParamsPtr params,
-    std::vector<SyncToken> sync_token_fences) {
+    std::vector<SyncToken> sync_token_fences,
+    uint64_t release_count) {
   AutoLock lock(context_lock_);
 
   EnqueuePendingOrderingBarrier();
   enqueued_deferred_message_id_ = next_deferred_message_id_++;
   deferred_messages_.push_back(mojom::DeferredRequest::New(
-      std::move(params), std::move(sync_token_fences)));
+      std::move(params), std::move(sync_token_fences), release_count));
   return enqueued_deferred_message_id_;
 }
+
+#if BUILDFLAG(IS_WIN)
+void GpuChannelHost::CopyToGpuMemoryBufferAsync(
+    const Mailbox& mailbox,
+    std::vector<SyncToken> sync_token_dependencies,
+    uint64_t release_count,
+    base::OnceCallback<void(bool)> callback) {
+  AutoLock lock(context_lock_);
+  InternalFlush(UINT32_MAX);
+  GetGpuChannel().CopyToGpuMemoryBufferAsync(
+      mailbox, std::move(sync_token_dependencies), release_count,
+      std::move(callback));
+}
+#endif
 
 void GpuChannelHost::EnsureFlush(uint32_t deferred_message_id) {
   AutoLock lock(context_lock_);
@@ -120,7 +137,6 @@ void GpuChannelHost::VerifyFlush(uint32_t deferred_message_id) {
   InternalFlush(deferred_message_id);
 
   bool ipc_needed = false;
-  bool ipc_issued = false;
   const bool skip_flush_if_possible =
       base::FeatureList::IsEnabled(features::kConditionallySkipGpuChannelFlush);
 
@@ -143,7 +159,6 @@ void GpuChannelHost::VerifyFlush(uint32_t deferred_message_id) {
       // A sync IPC was just completed which serves the same purpose as Flush()
       // which is a noop sync IPC. No need to continue.
       ipc_needed = false;
-      ipc_issued = true;
     }
     // GPUChannel has not processed ids up to the ones that were flushed. IPC
     // needed.
@@ -159,12 +174,6 @@ void GpuChannelHost::VerifyFlush(uint32_t deferred_message_id) {
   if (ipc_needed) {
     mojo::SyncCallRestrictions::ScopedAllowSyncCall allow_sync;
     GetGpuChannel().Flush();
-    ipc_issued = true;
-  }
-
-  constexpr double kMetricsLoggingFrequency = 0.01;
-  if (metrics_sub_sampler_.ShouldSample(kMetricsLoggingFrequency)) {
-    UMA_HISTOGRAM_BOOLEAN("GPU.ChannelHost.SkippedFlush", !ipc_issued);
   }
 }
 
@@ -186,7 +195,8 @@ void GpuChannelHost::EnqueuePendingOrderingBarrier() {
               pending_ordering_barrier_->route_id,
               mojom::DeferredCommandBufferRequestParams::NewAsyncFlush(
                   std::move(params)))),
-      std::move(pending_ordering_barrier_->sync_token_fences)));
+      std::move(pending_ordering_barrier_->sync_token_fences),
+      pending_ordering_barrier_->release_count));
   pending_ordering_barrier_.reset();
 }
 

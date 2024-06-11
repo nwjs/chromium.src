@@ -205,21 +205,6 @@ class BookmarkBridge {
         assert mIsNativeBookmarkModelLoaded;
         if (id == null) return null;
 
-        if (BookmarkId.SHOPPING_FOLDER.equals(id)) {
-            return new BookmarkItem(
-                    id,
-                    /* title= */ null,
-                    /* url= */ null,
-                    /* isFolder= */ true,
-                    /* parentId= */ getRootFolderId(),
-                    /* isEditable= */ false,
-                    /* isManaged= */ false,
-                    /* dateAdded= */ 0L,
-                    /* read= */ false,
-                    /* dateLastOpened= */ 0L,
-                    /* isAccountBookmark= */ false);
-        }
-
         return BookmarkBridgeJni.get()
                 .getBookmarkById(mNativeBookmarkBridge, id.getId(), id.getType());
     }
@@ -466,9 +451,7 @@ class BookmarkBridge {
         ThreadUtils.assertOnUiThread();
         if (mNativeBookmarkBridge == 0) return new ArrayList<>();
         assert mIsNativeBookmarkModelLoaded;
-        if (BookmarkId.SHOPPING_FOLDER.equals(id)) {
-            return searchBookmarks("", null, PowerBookmarkType.SHOPPING, -1);
-        }
+
         List<BookmarkId> result = new ArrayList<>();
         BookmarkBridgeJni.get()
                 .getChildIds(mNativeBookmarkBridge, id.getId(), id.getType(), result);
@@ -1102,7 +1085,7 @@ class BookmarkBridge {
 
         BookmarkId getDefaultBookmarkFolder(long nativeBookmarkBridge);
 
-        // TODO(crbug.com/1515332): Remove this method.
+        // TODO(crbug.com/41487884): Remove this method.
         void getAllFoldersWithDepths(
                 long nativeBookmarkBridge, List<BookmarkId> folderList, List<Integer> depthList);
 
@@ -1152,7 +1135,7 @@ class BookmarkBridge {
 
         boolean doesBookmarkExist(long nativeBookmarkBridge, long id, int type);
 
-        // TODO(crbug.com/1515332): Remove this method.
+        // TODO(crbug.com/41487884): Remove this method.
         void getBookmarksForFolder(
                 long nativeBookmarkBridge, BookmarkId folderId, List<BookmarkItem> bookmarksList);
 

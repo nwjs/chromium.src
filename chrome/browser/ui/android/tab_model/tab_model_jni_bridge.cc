@@ -37,10 +37,13 @@ using content::WebContents;
 TabModelJniBridge::TabModelJniBridge(JNIEnv* env,
                                      jobject jobj,
                                      Profile* profile,
-                                     ActivityType activity_type)
+                                     ActivityType activity_type,
+                                     bool track_in_native_model_list)
     : TabModel(profile, activity_type),
       java_object_(env, env->NewWeakGlobalRef(jobj)) {
-  TabModelList::AddTabModel(this);
+  if (track_in_native_model_list) {
+    TabModelList::AddTabModel(this);
+  }
 }
 
 void TabModelJniBridge::Destroy(JNIEnv* env, const JavaParamRef<jobject>& obj) {
@@ -212,6 +215,26 @@ void TabModelJniBridge::BroadcastSessionRestoreComplete(
   TabModel::BroadcastSessionRestoreComplete();
 }
 
+int TabModelJniBridge::GetTabCountNavigatedInTimeWindow(
+    const base::Time& begin_time,
+    const base::Time& end_time) const {
+  JNIEnv* env = AttachCurrentThread();
+  int64_t begin_time_ms = begin_time.InMillisecondsSinceUnixEpoch();
+  int64_t end_time_ms = end_time.InMillisecondsSinceUnixEpoch();
+  return Java_TabModelJniBridge_getTabCountNavigatedInTimeWindow(
+      env, java_object_.get(env), begin_time_ms, end_time_ms);
+}
+
+void TabModelJniBridge::CloseTabsNavigatedInTimeWindow(
+    const base::Time& begin_time,
+    const base::Time& end_time) {
+  JNIEnv* env = AttachCurrentThread();
+  int64_t begin_time_ms = begin_time.InMillisecondsSinceUnixEpoch();
+  int64_t end_time_ms = end_time.InMillisecondsSinceUnixEpoch();
+  return Java_TabModelJniBridge_closeTabsNavigatedInTimeWindow(
+      env, java_object_.get(env), begin_time_ms, end_time_ms);
+}
+
 // static
 jclass TabModelJniBridge::GetClazz(JNIEnv* env) {
   return org_chromium_chrome_browser_tabmodel_TabModelJniBridge_clazz(env);
@@ -221,11 +244,14 @@ TabModelJniBridge::~TabModelJniBridge() {
   TabModelList::RemoveTabModel(this);
 }
 
-static jlong JNI_TabModelJniBridge_Init(JNIEnv* env,
-                                        const JavaParamRef<jobject>& obj,
-                                        Profile* profile,
-                                        jint j_activity_type) {
+static jlong JNI_TabModelJniBridge_Init(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& obj,
+    Profile* profile,
+    jint j_activity_type,
+    unsigned char track_in_native_model_list) {
   TabModel* tab_model = new TabModelJniBridge(
-      env, obj, profile, static_cast<ActivityType>(j_activity_type));
+      env, obj, profile, static_cast<ActivityType>(j_activity_type),
+      track_in_native_model_list);
   return reinterpret_cast<intptr_t>(tab_model);
 }

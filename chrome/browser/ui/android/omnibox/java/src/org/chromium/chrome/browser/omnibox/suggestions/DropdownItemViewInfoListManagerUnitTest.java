@@ -27,10 +27,8 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
-import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.omnibox.OmniboxFeatures;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
 import org.chromium.ui.modelutil.ListObservable.ListObserver;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -43,7 +41,6 @@ import java.util.List;
 /** Tests for {@link DropdownItemViewInfoListManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@EnableFeatures({ChromeFeatureList.OMNIBOX_MODERNIZE_VISUAL_UPDATE})
 public class DropdownItemViewInfoListManagerUnitTest {
     public @Rule MockitoRule mockitoRule = MockitoJUnit.rule();
     public @Rule TestRule mProcessor = new Features.JUnitProcessor();
@@ -64,7 +61,7 @@ public class DropdownItemViewInfoListManagerUnitTest {
         when(mEditUrlSuggestionProcessor.getViewTypeId())
                 .thenReturn(OmniboxSuggestionUiType.EDIT_URL_SUGGESTION);
         when(mHeaderProcessor.getViewTypeId()).thenReturn(OmniboxSuggestionUiType.HEADER);
-        ChromeFeatureList.sOmniboxModernizeVisualUpdate.setForTesting(true);
+        OmniboxFeatures.sOmniboxModernizeVisualUpdate.setForTesting(true);
 
         mSuggestionModels = new ModelList();
         mSuggestionModels.addObserver(mListObserver);
@@ -72,8 +69,6 @@ public class DropdownItemViewInfoListManagerUnitTest {
         mContext = ContextUtils.getApplicationContext();
         mManager = new DropdownItemViewInfoListManager(mSuggestionModels, mContext);
         mManager.onNativeInitialized();
-
-        Assert.assertTrue(OmniboxFeatures.shouldShowModernizeVisualUpdate(mContext));
     }
 
     /**

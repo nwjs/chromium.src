@@ -76,6 +76,8 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -1079,10 +1081,8 @@ void PaintLayerScrollableArea::UpdateAfterLayout() {
 
   PositionOverflowControls();
 
-  if (RuntimeEnabledFeatures::CSSScrollStartEnabled()) {
-    if (IsApplyingScrollStart()) {
-      ApplyScrollStart();
-    }
+  if (IsApplyingScrollStart()) {
+    ApplyScrollStart();
   }
 }
 
@@ -1262,12 +1262,16 @@ mojom::blink::ColorScheme PaintLayerScrollableArea::UsedColorSchemeScrollbars()
   //     specified),
   //   - the preferred color scheme is dark (OS-based),
   //   - the browser preferred color scheme is dark.
+  //   - there is no custom browser theme active
+  //   - there is no color-picked browser theme active
+  //     (both theme conditions are embedded into
+  //        `GetPreferredRootScrollbarColorScheme()`)
   if (IsGlobalRootNonOverlayScroller() &&
       layout_box->StyleRef().ColorSchemeFlagsIsNormal()) {
     const auto& document = layout_box->GetDocument();
     if (document.GetPreferredColorScheme() ==
             mojom::blink::PreferredColorScheme::kDark &&
-        document.GetSettings()->GetBrowserPreferredColorScheme() ==
+        document.GetSettings()->GetPreferredRootScrollbarColorScheme() ==
             mojom::blink::PreferredColorScheme::kDark) {
       UseCounter::Count(GetLayoutBox()->GetDocument(),
                         WebFeature::kUsedColorSchemeRootScrollbarsDark);
@@ -1345,7 +1349,7 @@ void PaintLayerScrollableArea::UpdateAfterStyleChange(
 
   // The scrollbar overlay color theme depends on styles such as the background
   // color and the used color scheme.
-  RecalculateScrollbarOverlayColorTheme();
+  RecalculateOverlayScrollbarColorScheme();
 
   if (NeedsScrollbarReconstruction()) {
     RemoveScrollbarsForReconstruction();
@@ -1507,7 +1511,7 @@ static inline const LayoutObject& ScrollbarStyleSource(
     // can scroll.
     Element* body = doc.body();
     if (body && body->GetLayoutObject() && body->GetLayoutObject()->IsBox() &&
-        body->GetLayoutObject()->StyleRef().HasCustomScrollbarStyle(doc)) {
+        body->GetLayoutObject()->StyleRef().HasCustomScrollbarStyle(body)) {
       return *body->GetLayoutObject();
     }
 
@@ -1515,7 +1519,7 @@ static inline const LayoutObject& ScrollbarStyleSource(
     Element* doc_element = doc.documentElement();
     if (doc_element && doc_element->GetLayoutObject() &&
         doc_element->GetLayoutObject()->StyleRef().HasCustomScrollbarStyle(
-            doc) &&
+            doc_element) &&
         !layout_box.StyleRef().UsesStandardScrollbarStyle()) {
       return *doc_element->GetLayoutObject();
     }
@@ -1563,7 +1567,7 @@ int PaintLayerScrollableArea::ComputeHypotheticalScrollbarThickness(
 
   const LayoutObject& style_source = ScrollbarStyleSource(*GetLayoutBox());
   if (style_source.StyleRef().HasCustomScrollbarStyle(
-          style_source.GetDocument())) {
+          GetElementForScrollStart())) {
     return CustomScrollbar::HypotheticalScrollbarThickness(this, orientation,
                                                            &style_source);
   }
@@ -1572,7 +1576,7 @@ int PaintLayerScrollableArea::ComputeHypotheticalScrollbarThickness(
   if (theme.UsesOverlayScrollbars() && !should_include_overlay_thickness)
     return 0;
   return theme.ScrollbarThickness(ScaleFromDIP(),
-                                  style_source.StyleRef().ScrollbarWidth());
+                                  style_source.StyleRef().UsedScrollbarWidth());
 }
 
 bool PaintLayerScrollableArea::NeedsScrollbarReconstruction() const {
@@ -1582,7 +1586,7 @@ bool PaintLayerScrollableArea::NeedsScrollbarReconstruction() const {
   const LayoutObject& style_source = ScrollbarStyleSource(*GetLayoutBox());
   bool needs_custom =
       style_source.IsBox() && style_source.StyleRef().HasCustomScrollbarStyle(
-                                  style_source.GetDocument());
+                                  GetElementForScrollStart());
 
   Scrollbar* scrollbars[] = {HorizontalScrollbar(), VerticalScrollbar()};
 
@@ -1613,7 +1617,7 @@ bool PaintLayerScrollableArea::NeedsScrollbarReconstruction() const {
       return true;
 
     EScrollbarWidth current_width = scrollbar->CSSScrollbarWidth();
-    if (current_width != style_source.StyleRef().ScrollbarWidth()) {
+    if (current_width != style_source.StyleRef().UsedScrollbarWidth()) {
       return true;
     }
   }
@@ -1630,7 +1634,8 @@ void PaintLayerScrollableArea::ComputeScrollbarExistence(
       !CanHaveOverflowScrollbars(*GetLayoutBox()) ||
       GetLayoutBox()->GetFrame()->GetSettings()->GetHideScrollbars() ||
       GetLayoutBox()->IsFieldset() || GetLayoutBox()->IsFrameSet() ||
-      GetLayoutBox()->StyleRef().ScrollbarWidth() == EScrollbarWidth::kNone) {
+      GetLayoutBox()->StyleRef().UsedScrollbarWidth() ==
+          EScrollbarWidth::kNone) {
     needs_horizontal_scrollbar = false;
     needs_vertical_scrollbar = false;
     return;
@@ -1667,10 +1672,10 @@ void PaintLayerScrollableArea::ComputeScrollbarExistence(
     // only appear when scrolling, we don't create them if there isn't overflow
     // to scroll. Thus, overlay scrollbars can't be "always on". i.e.
     // |overlay:scroll| behaves like |overlay:auto|.
-    Document& document = GetLayoutBox()->GetDocument();
-    bool has_custom_scrollbar_style = ScrollbarStyleSource(*GetLayoutBox())
-                                          .StyleRef()
-                                          .HasCustomScrollbarStyle(document);
+    bool has_custom_scrollbar_style =
+        ScrollbarStyleSource(*GetLayoutBox())
+            .StyleRef()
+            .HasCustomScrollbarStyle(GetElementForScrollStart());
     bool will_be_overlay = GetPageScrollbarTheme().UsesOverlayScrollbars() &&
                            !has_custom_scrollbar_style;
     if (will_be_overlay) {
@@ -2661,11 +2666,14 @@ Scrollbar* PaintLayerScrollableArea::ScrollbarManager::CreateScrollbar(
   DCHECK(orientation == kHorizontalScrollbar ? !h_bar_is_attached_
                                              : !v_bar_is_attached_);
   Scrollbar* scrollbar = nullptr;
+  Element* element = nullptr;
   const LayoutObject& style_source =
       ScrollbarStyleSource(*ScrollableArea()->GetLayoutBox());
-  if (style_source.StyleRef().HasCustomScrollbarStyle(
-          style_source.GetDocument())) {
-    DCHECK(style_source.GetNode() && style_source.GetNode()->IsElementNode());
+  if (style_source.GetNode() && style_source.GetNode()->IsElementNode()) {
+    element = To<Element>(style_source.GetNode());
+  }
+  if (style_source.StyleRef().HasCustomScrollbarStyle(element)) {
+    DCHECK(element);
     scrollbar = MakeGarbageCollected<CustomScrollbar>(
         ScrollableArea(), orientation, &style_source);
   } else {
@@ -3216,16 +3224,20 @@ Node* PaintLayerScrollableArea::GetSnapEventTargetAlongAxis(
   if (!ids) {
     return nullptr;
   }
+  Node* node = nullptr;
   if ((axis == kBlock && horiz) || (axis == kInline && !horiz)) {
     if (ids->y) {
-      return DOMNodeIds::NodeForId(DOMNodeIdFromCompositorElementId(ids->y));
+      node = DOMNodeIds::NodeForId(DOMNodeIdFromCompositorElementId(ids->y));
     }
   } else if ((axis == kInline && horiz) || (axis == kBlock && !horiz)) {
     if (ids->x) {
-      return DOMNodeIds::NodeForId(DOMNodeIdFromCompositorElementId(ids->x));
+      node = DOMNodeIds::NodeForId(DOMNodeIdFromCompositorElementId(ids->x));
     }
   }
-  return nullptr;
+  if (node && node->IsPseudoElement()) {
+    node = node->parentElement();
+  }
+  return node;
 }
 
 void PaintLayerScrollableArea::SetSnapchangedTargetIds(

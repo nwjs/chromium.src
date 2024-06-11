@@ -4,6 +4,8 @@
 
 #include "components/history_embeddings/history_embeddings_features.h"
 
+#include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 #include "build/build_config.h"
 
 namespace history_embeddings {
@@ -11,6 +13,10 @@ namespace history_embeddings {
 BASE_FEATURE(kHistoryEmbeddings,
              "HistoryEmbeddings",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kPassageExtractionDelay(&kHistoryEmbeddings,
+                                                      "PassageExtractionDelay",
+                                                      0);
 
 const base::FeatureParam<int> kPassageExtractionMaxWordsPerAggregatePassage(
     &kHistoryEmbeddings,
@@ -29,5 +35,24 @@ const base::FeatureParam<double> kContentVisibilityThreshold(
     &kHistoryEmbeddings,
     "ContentVisibilityThreshold",
     0.5);
+
+const base::FeatureParam<bool> kUseMlEmbedder(&kHistoryEmbeddings,
+                                              "UseMlEmbedder",
+                                              true);
+
+const base::FeatureParam<bool> kOmniboxUnscoped(&kHistoryEmbeddings,
+                                                "OmniboxUnscoped",
+                                                false);
+
+const base::FeatureParam<int> kScheduledEmbeddingsMin(&kHistoryEmbeddings,
+                                                      "ScheduledEmbeddingsMin",
+                                                      1);
+const base::FeatureParam<int> kScheduledEmbeddingsMax(&kHistoryEmbeddings,
+                                                      "ScheduledEmbeddingsMax",
+                                                      1);
+
+const base::FeatureParam<bool> kSendQualityLog(&kHistoryEmbeddings,
+                                               "SendQualityLog",
+                                               false);
 
 }  // namespace history_embeddings

@@ -102,6 +102,23 @@ void IsolatedWorldManager::SetUserScriptWorldProperties(
   }
 }
 
+void IsolatedWorldManager::ClearUserScriptWorldProperties(
+    const std::string& host_id,
+    const std::optional<std::string>& world_id) {
+  // Clear the pending world registration.
+  pending_worlds_info_.erase(std::make_pair(host_id, world_id));
+
+  // Determine if there's already an IsolatedWorldInfo for this world. If there
+  // is, reset it to the default values from the user script configuration. This
+  // ensures future worlds created from this config will have the proper state.
+  IsolatedWorldInfo* world_info = FindIsolatedWorldInfo(
+      host_id, mojom::ExecutionWorld::kUserScript, world_id);
+  if (world_info) {
+    world_info->csp = std::nullopt;
+    world_info->enable_messaging = false;
+  }
+}
+
 bool IsolatedWorldManager::IsMessagingEnabledInUserScriptWorld(
     int blink_world_id) {
   auto iter = isolated_worlds_.find(blink_world_id);
@@ -130,8 +147,8 @@ int IsolatedWorldManager::GetOrCreateIsolatedWorldForHost(
     int blink_world_id = g_next_blink_world_id++;
     // This map will tend to pile up over time, but realistically, you're never
     // going to have enough injection hosts for it to matter.
-    // TODO(crbug/1429408): Are we sure about that? Processes can stick around
-    // awhile.... (and this could be affected by introducing user script
+    // TODO(crbug.com/40262660): Are we sure about that? Processes can stick
+    // around awhile.... (and this could be affected by introducing user script
     // worlds).
     world_info = &isolated_worlds_[blink_world_id];
     world_info->host_id = host_id;

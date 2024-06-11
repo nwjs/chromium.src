@@ -25,6 +25,9 @@ extern const char kPrivacySandboxAdsNoticeCCTAppIdName[];
 
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 extern const base::FeatureParam<std::string> kPrivacySandboxAdsNoticeCCTAppId;
+
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<bool> kPrivacySandboxAdsNoticeCCTIncludeModeB;
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Split out name definitions since about_flags otherwise complains about the
@@ -151,6 +154,13 @@ BASE_DECLARE_FEATURE(kPrivacySandboxAttestationsUserBlockingPriority);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxProactiveTopicsBlocking);
 
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const char kPrivacySandboxProactiveTopicsBlockingIncludeModeBName[];
+
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<bool>
+    kPrivacySandboxProactiveTopicsBlockingIncludeModeB;
+
 // Enables showing the rollback notice for Tracking Protection in settings.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kTrackingProtectionSettingsPageRollbackNotice);
@@ -200,13 +210,13 @@ BASE_DECLARE_FEATURE(kIpProtectionUx);
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kPrivacySandboxRelatedWebsiteSetsUi);
 
-// Enables updated cookie settings page UI.
-COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
-BASE_DECLARE_FEATURE(kCookieSettingsUiAlignment);
-
 // Enables settings UX + behavior for the full Tracking Protection launch.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kTrackingProtectionSettingsLaunch);
+
+// Enables tracking protection content setting updates.
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kTrackingProtectionContentSetting);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables the trackingProtectionNoticeController to notify the
@@ -214,6 +224,14 @@ BASE_DECLARE_FEATURE(kTrackingProtectionSettingsLaunch);
 // enqueued).
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kTrackingProtectionNoticeRequestTracking);
+
+// Enables UserBypass logic for Progressive Web Apps on Android
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kTrackingProtectionUserBypassPwa);
+
+// Triggers UserBypass logic for Progressive Web Apps on Android
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kTrackingProtectionUserBypassPwaTrigger);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // Enables visibility for toggles on the top-level Ad Privacy page.
@@ -227,6 +245,24 @@ extern const base::FeatureParam<bool> kPsRedesignAdPrivacyPageEnableToggles;
 // Enables IPH reminders for tracking protection features.
 COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
 BASE_DECLARE_FEATURE(kTrackingProtectionReminder);
+
+// Enables Activity Type Storage
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+BASE_DECLARE_FEATURE(kPrivacySandboxActivityTypeStorage);
+
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const char kPrivacySandboxActivityTypeStorageLastNLaunchesName[];
+
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<int>
+    kPrivacySandboxActivityTypeStorageLastNLaunches;
+
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const char kPrivacySandboxActivityTypeStorageWithinXDaysName[];
+
+COMPONENT_EXPORT(PRIVACY_SANDBOX_FEATURES)
+extern const base::FeatureParam<int>
+    kPrivacySandboxActivityTypeStorageWithinXDays;
 
 }  // namespace privacy_sandbox
 

@@ -152,6 +152,14 @@ _OS_SPECIFIC_FILTER['mac'] = [
     'ChromeDriverTest.testFindChildElementsStaleElement2',
     # Flaky: https://crbug.com/1486520
     'ChromeDriverTest.testClickStaleElement',
+        # Failing on macOS 14 due to https://crbug.com/40233722
+    'ChromeDriverSecureContextTest.testAddVirtualAuthenticator',
+    'ChromeDriverSecureContextTest.testAddVirtualAuthenticatorDefaultBackupSettings',
+    'ChromeDriverSecureContextTest.testAddVirtualAuthenticatorDefaultParams',
+    'ChromeDriverSecureContextTest.testGetCredentials',
+    'ChromeDriverSecureContextTest.testRemoveAllCredentials',
+    'ChromeDriverSecureContextTest.testRemoveCredential',
+    'ChromeDriverSecureContextTest.testSetUserVerified'
 ]
 
 _BROWSER_SPECIFIC_FILTER = {}
@@ -161,8 +169,6 @@ _BROWSER_SPECIFIC_FILTER['chrome'] = [
     'ChromeDriverTest.testHeadlessWithUserDataDirStarts',
     # This test is a chrome-headless-shell version of testWindowFullScreen
     'ChromeDriverTest.testWindowFullScreenHeadless',
-    # Chrome does not support --remote-debugging-address argument
-    'RemoteBrowserTest.testConnectToRemoteBrowserLiteralAddressHeadless',
 ]
 _BROWSER_SPECIFIC_FILTER['chrome-headless-shell'] = [
     # Maximize and FullScreeen operations make no sense in chrome-headless-mode.
@@ -224,7 +230,7 @@ _BROWSER_AND_PLATFORM_SPECIFIC_FILTER['chrome-headless-shell']['mac'] = [
     'ChromeDriverSecureContextTest.testGetVirtualSensorInformation',
     'ChromeDriverSecureContextTest.testUpdateVirtualSensor',
     # Flaky on Mac: https://crbug.com/1503101
-    'BidiTest.*'
+    'BidiTest.*',
 ]
 _BROWSER_AND_PLATFORM_SPECIFIC_FILTER['chrome-headless-shell']['win'] = [
     # https://bugs.chromium.org/p/chromium/issues/detail?id=1196363
@@ -1452,6 +1458,38 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
         'document.body.innerHTML = "<div>new</div>";')
     with self.assertRaises(chromedriver.StaleElementReference):
       div.FindElements('tag name', 'br')
+
+  def testFindWithInvalidSelector(self):
+    selectors = ['css selector', 'xpath'];
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    self._driver.ExecuteScript(
+        'document.body.innerHTML = "<div>a</div><div>b</div>";')
+    root = self._driver.FindElement('css selector', 'div')
+    for selector in selectors:
+      with self.assertRaises(chromedriver.InvalidSelector):
+        self._driver.FindElement(selector, '>-?!.#&<@*')
+      with self.assertRaises(chromedriver.InvalidSelector):
+        self._driver.FindElements(selector, '>-?!.#&<@*')
+      with self.assertRaises(chromedriver.InvalidSelector):
+        root.FindElement(selector, '>-?!.#&<@*')
+      with self.assertRaises(chromedriver.InvalidSelector):
+        root.FindElements(selector, '>-?!.#&<@*')
+
+  def testFindWithEmptySelector(self):
+    selectors = ['css selector', 'xpath'];
+    self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
+    self._driver.ExecuteScript(
+        'document.body.innerHTML = "<div>a</div><div>b</div>";')
+    root = self._driver.FindElement('css selector', 'div')
+    for selector in selectors:
+      with self.assertRaises(chromedriver.InvalidSelector):
+        self._driver.FindElement(selector, '')
+      with self.assertRaises(chromedriver.InvalidSelector):
+        self._driver.FindElements(selector, '')
+      with self.assertRaises(chromedriver.InvalidSelector):
+        root.FindElement(selector, '>-?!.#&<@*')
+      with self.assertRaises(chromedriver.InvalidSelector):
+        root.FindElements(selector, '>-?!.#&<@*')
 
   def testClickElement(self):
     self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
@@ -6610,54 +6648,6 @@ class RemoteBrowserTest(ChromeDriverBaseTest):
     if exception is not None:
       raise exception
 
-  def testConnectToRemoteBrowserLiteralAddressHeadless(self):
-    debug_addrs = ['127.0.0.1', '::1']
-    debug_url_addrs = ['127.0.0.1', '[::1]']
-
-    for (debug_addr, debug_url_addr) in zip(debug_addrs, debug_url_addrs):
-      # Must use retries since there is an inherent race condition in port
-      # selection.
-      ports_generator = util.FindProbableFreePorts()
-      exception = None
-      for _ in range(3):
-        exception = None
-        port = next(ports_generator)
-        temp_dir = util.MakeTempDir()
-        print('temp dir is ' + temp_dir)
-        cmd = [_CHROME_BINARY,
-              '--remote-debugging-address=%s' % debug_addr,
-              '--remote-debugging-port=%d' % port,
-              '--user-data-dir=%s' % temp_dir,
-              '--use-mock-keychain',
-              '--password-store=basic',
-              'data:,']
-        process = subprocess.Popen(cmd)
-        try:
-          driver = self.CreateDriver(
-            debugger_address='%s:%d' % (debug_url_addr, port))
-          driver.ExecuteScript(
-            'console.info("%s")' % 'connecting at %d!' % port)
-          driver.Quit()
-        except Exception as e:
-          exception = e
-
-        # The process must be closed on each iteration otherwise a resource leak
-        # happens.
-        if process.poll() is None:
-          process.terminate()
-          # Wait for Chrome to exit here to prevent a race with Chrome to
-          # delete/modify the temporary user-data-dir.
-          # Maximum wait ~1 second.
-          for _ in range(20):
-            if process.poll() is not None:
-              break
-            print('continuing to wait for Chrome to exit')
-            time.sleep(.05)
-          else:
-            process.kill()
-        break
-      if exception is not None:
-        raise exception
 
 
 class LaunchDesktopTest(ChromeDriverBaseTest):
@@ -6899,7 +6889,7 @@ class PureBidiTest(ChromeDriverBaseTestWithWebServer):
     # Resampling can change the distance of a synthetic scroll.
     chrome_switches.append('disable-features=ResamplingScrollEvents')
     options['args'] = chrome_switches
-    # TODO(crbug.com/1011000): Work around a bug with headless on Mac.
+    # TODO(crbug.com/40101714): Work around a bug with headless on Mac.
     if (util.GetPlatformName() == 'mac' and
         browser_name == 'chrome-headless-shell'):
       options['excludeSwitches'] = ['--enable-logging']
@@ -7100,6 +7090,57 @@ class PureBidiTest(ChromeDriverBaseTestWithWebServer):
         'params': {
         }
       })
+
+  def testCloseWithUserPromptOpened(self):
+    connection = self.createWebSocketConnection()
+    connection.SetTimeout(60)  # 1 min as the test is likely to timeout
+    response = connection.SendCommand(self.createSessionNewCommand())
+    context1 = connection.SendCommand({
+        'method': 'browsingContext.create',
+        'params': {
+            'type': 'tab'
+        }
+    })
+    context_id1 = context1["context"]
+    context2 = connection.SendCommand({
+        'method': 'browsingContext.create',
+        'params': {
+            'type': 'tab'
+        }
+    })
+    context_id2 = context2["context"]
+
+    url = "data:text/html,<script>alert('Blocking')</script>"
+
+    connection.SendCommand({
+        'method': 'browsingContext.navigate',
+        'params': {
+            'url': url,
+            'context': context_id1
+        }
+    })
+    connection.SendCommand({
+        'method': 'browsingContext.navigate',
+        'params': {
+            'url': url,
+            'context': context_id2
+        }
+    })
+
+    connection.SendCommand({
+        'method': 'browsingContext.close',
+        'params': {
+            'context': context_id1
+        }
+    })
+
+    # Should be able to make further calls to BiDi
+    connection.SendCommand({
+          'method': 'browsingContext.getTree',
+          'params': {
+          }
+      })
+
 
 class BidiTest(ChromeDriverBaseTestWithWebServer):
 

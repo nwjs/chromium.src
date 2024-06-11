@@ -241,11 +241,11 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // HasPlatformOverlayScrollbars() but we don't bother it because
   // overflow:overlay might be deprecated soon.
   bool HasOverlayScrollbars() const;
-  void SetScrollbarOverlayColorTheme(ScrollbarOverlayColorTheme);
-  void RecalculateScrollbarOverlayColorTheme();
-  ScrollbarOverlayColorTheme GetScrollbarOverlayColorTheme() const {
-    return static_cast<ScrollbarOverlayColorTheme>(
-        scrollbar_overlay_color_theme_);
+  void SetOverlayScrollbarColorScheme(mojom::blink::ColorScheme);
+  void RecalculateOverlayScrollbarColorScheme();
+  mojom::blink::ColorScheme GetOverlayScrollbarColorScheme() const {
+    return static_cast<mojom::blink::ColorScheme>(
+        overlay_scrollbar_color_scheme__);
   }
 
   // Returns the color provider for this scrollbar.
@@ -379,6 +379,9 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   virtual ScrollOffset GetScrollOffset() const {
     return ScrollOffset(ScrollOffsetInt());
   }
+  // Returns a floored version of the scroll offset as the web-exposed scroll
+  // offset to ensure web compatibility in DOM APIs.
+  virtual ScrollOffset GetWebExposedScrollOffset() const;
   virtual gfx::Vector2d MinimumScrollOffsetInt() const = 0;
   virtual ScrollOffset MinimumScrollOffset() const {
     return ScrollOffset(MinimumScrollOffsetInt());
@@ -723,7 +726,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   ScrollOffset pending_scroll_anchor_adjustment_;
 
-  unsigned scrollbar_overlay_color_theme_ : 2;
+  unsigned overlay_scrollbar_color_scheme__ : 2;
 
   unsigned horizontal_scrollbar_needs_paint_invalidation_ : 1;
   unsigned vertical_scrollbar_needs_paint_invalidation_ : 1;

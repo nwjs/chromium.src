@@ -204,6 +204,11 @@ public abstract class CronetLogger {
         private final boolean mWasConnectionMigrationAttempted;
         private final boolean mDidConnectionMigrationSucceed;
         private final RequestTerminalState mTerminalState;
+        private final int mNonfinalUserCallbackExceptionCount;
+        private final int mReadCount;
+        private final int mOnUploadReadCount;
+        private final boolean mIsBidiStream;
+        private final boolean mFinalUserCallbackThrew;
 
         public CronetTrafficInfo(
                 long requestHeaderSizeInBytes,
@@ -216,7 +221,12 @@ public abstract class CronetLogger {
                 String negotiatedProtocol,
                 boolean wasConnectionMigrationAttempted,
                 boolean didConnectionMigrationSucceed,
-                RequestTerminalState terminalState) {
+                RequestTerminalState terminalState,
+                int nonfinalUserCallbackExceptionCount,
+                int readCount,
+                int uploadReadCount,
+                boolean isBidiStream,
+                boolean finalUserCallbackThrew) {
             mRequestHeaderSizeInBytes = requestHeaderSizeInBytes;
             mRequestBodySizeInBytes = requestBodySizeInBytes;
             mResponseHeaderSizeInBytes = responseHeaderSizeInBytes;
@@ -228,9 +238,16 @@ public abstract class CronetLogger {
             mWasConnectionMigrationAttempted = wasConnectionMigrationAttempted;
             mDidConnectionMigrationSucceed = didConnectionMigrationSucceed;
             mTerminalState = terminalState;
+            mNonfinalUserCallbackExceptionCount = nonfinalUserCallbackExceptionCount;
+            mReadCount = readCount;
+            mOnUploadReadCount = uploadReadCount;
+            mIsBidiStream = isBidiStream;
+            mFinalUserCallbackThrew = finalUserCallbackThrew;
         }
 
-        /** @return The total size of headers sent in bytes */
+        /**
+         * @return The total size of headers sent in bytes
+         */
         public long getRequestHeaderSizeInBytes() {
             return mRequestHeaderSizeInBytes;
         }
@@ -292,6 +309,26 @@ public abstract class CronetLogger {
 
         public RequestTerminalState getTerminalState() {
             return mTerminalState;
+        }
+
+        public int getNonfinalUserCallbackExceptionCount() {
+            return mNonfinalUserCallbackExceptionCount;
+        }
+
+        public int getReadCount() {
+            return mReadCount;
+        }
+
+        public int getOnUploadReadCount() {
+            return mOnUploadReadCount;
+        }
+
+        public boolean getIsBidiStream() {
+            return mIsBidiStream;
+        }
+
+        public boolean getFinalUserCallbackThrew() {
+            return mFinalUserCallbackThrew;
         }
     }
 

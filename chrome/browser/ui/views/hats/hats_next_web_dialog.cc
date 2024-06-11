@@ -65,12 +65,6 @@ class HatsNextWebDialog::HatsWebView : public views::WebView {
 
   ~HatsWebView() override = default;
 
-  // views::WebView:
-  void PreferredSizeChanged() override {
-    WebView::PreferredSizeChanged();
-    dialog_->UpdateWidgetSize();
-  }
-
   // content::WebContentsDelegate:
   bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
                          const content::ContextMenuParams& params) override {
@@ -115,7 +109,7 @@ class HatsNextWebDialog::HatsWebView : public views::WebView {
     return nullptr;
   }
 
-  // TODO(crbug.com/1493711): Remove this whole function after HaTSWebUI is
+  // TODO(crbug.com/40285934): Remove this whole function after HaTSWebUI is
   // launched.
   // content::WebContentsObserver:
   void DidStartNavigation(
@@ -153,8 +147,10 @@ HatsNextWebDialog::HatsNextWebDialog(
           product_specific_bits_data,
           product_specific_string_data) {}
 
-gfx::Size HatsNextWebDialog::CalculatePreferredSize() const {
-  gfx::Size preferred_size = views::View::CalculatePreferredSize();
+gfx::Size HatsNextWebDialog::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  gfx::Size preferred_size =
+      views::View::CalculatePreferredSize(available_size);
   preferred_size.SetToMax(kMinSize);
   preferred_size.SetToMin(kMaxSize);
   return preferred_size;
@@ -246,7 +242,9 @@ HatsNextWebDialog::HatsNextWebDialog(
               : BrowserView::GetBrowserViewForBrowser(browser)
                     ->toolbar_button_provider()
                     ->GetAppMenuButton(),
-          views::BubbleBorder::TOP_RIGHT),
+          views::BubbleBorder::TOP_RIGHT,
+          views::BubbleBorder::DIALOG_SHADOW,
+          /*autosize=*/true),
       otr_profile_(browser->profile()->GetOffTheRecordProfile(
           Profile::OTRProfileID::CreateUnique("HaTSNext:WebDialog"),
           /*create_if_needed=*/true)),
@@ -312,7 +310,7 @@ HatsNextWebDialog::~HatsNextWebDialog() {
   web_view_->web_contents()->SetDelegate(nullptr);
 }
 
-// TODO(crbug.com/1493711): Remove this whole function after HaTSWebUI is
+// TODO(crbug.com/40285934): Remove this whole function after HaTSWebUI is
 // launched.
 GURL HatsNextWebDialog::GetParameterizedHatsURL() const {
   GURL param_url =
@@ -359,7 +357,7 @@ void HatsNextWebDialog::LoadTimedOut() {
   std::move(failure_callback_).Run();
 }
 
-// TODO(crbug.com/1493711): Remove this whole function after HaTSWebUI is
+// TODO(crbug.com/40285934): Remove this whole function after HaTSWebUI is
 // launched.
 void HatsNextWebDialog::OnSurveyStateUpdateReceived(std::string state) {
   loading_timer_.AbandonAndStop();
@@ -388,10 +386,6 @@ void HatsNextWebDialog::ShowWidget() {
 
 void HatsNextWebDialog::CloseWidget() {
   widget_->Close();
-}
-
-void HatsNextWebDialog::UpdateWidgetSize() {
-  SizeToContents();
 }
 
 bool HatsNextWebDialog::IsWaitingForSurveyForTesting() {

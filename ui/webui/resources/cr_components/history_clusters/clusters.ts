@@ -29,6 +29,14 @@ import {getTemplate} from './clusters.html.js';
 import type {Cluster, URLVisit} from './history_cluster_types.mojom-webui.js';
 import type {PageCallbackRouter, PageHandlerRemote, QueryResult} from './history_clusters.mojom-webui.js';
 
+function jsDateToMojoDate(date: Date): Time {
+  const windowsEpoch = Date.UTC(1601, 0, 1, 0, 0, 0, 0);
+  const unixEpoch = Date.UTC(1970, 0, 1, 0, 0, 0, 0);
+  const epochDeltaInMs = unixEpoch - windowsEpoch;
+  const internalValue = BigInt(date.valueOf() + epochDeltaInMs) * BigInt(1000);
+  return {internalValue};
+}
+
 /**
  * @fileoverview This file provides a custom element that requests and shows
  * history clusters given a query. It handles loading more clusters using
@@ -81,6 +89,11 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
         value: '',
       },
 
+      timeRangeStart: {
+        type: Object,
+        observer: 'onQueryChanged_',
+      },
+
       /**
        * The placeholder text to show when the results are empty.
        */
@@ -116,6 +129,14 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
         type: Object,
         observer: 'onScrollTargetChanged_',
       },
+
+      scrollOffset: Number,
+
+      isEmpty: {
+        type: Boolean,
+        reflectToAttribute: true,
+        computed: 'computeIsEmpty_(result_.clusters.length)',
+      },
     };
   }
 
@@ -123,8 +144,11 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
   // Properties
   //============================================================================
 
+  isEmpty: boolean;
   query: string;
   scrollTarget: HTMLElement = document.documentElement;
+  scrollOffset: number = 0;
+  timeRangeStart?: Date;
   private callbackRouter_: PageCallbackRouter;
   private headerText_: string;
   private inSidePanel_: boolean;
@@ -340,7 +364,7 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
       this.set('result_.canLoadMore', result.canLoadMore);
     } else {
       // Scroll to the top when `result` contains a new set of clusters.
-      this.scrollTop = 0;
+      this.scrollTarget.scrollTop = 0;
       this.result_ = result;
     }
 
@@ -359,7 +383,8 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
     // Do this on browser idle to avoid jank and to give the DOM a chance to be
     // updated with the results we just got.
     this.onBrowserIdle_().then(() => {
-      if (this.scrollHeight <= this.clientHeight && this.result_.canLoadMore) {
+      if (this.scrollTarget.scrollHeight <= this.scrollTarget.clientHeight &&
+          this.result_.canLoadMore) {
         this.onLoadMoreButtonClick_();
       }
     });
@@ -386,6 +411,7 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
       }
       this.pageHandler_.startQueryClusters(
           this.query.trim(),
+          this.timeRangeStart ? jsDateToMojoDate(this.timeRangeStart) : null,
           new URLSearchParams(window.location.search).has('recluster'));
     });
   }
@@ -428,6 +454,10 @@ export class HistoryClustersElement extends HistoryClustersElementBase {
 
   private onScrollTargetChanged_() {
     this.$.clusters.notifyResize();
+  }
+
+  private computeIsEmpty_() {
+    return this.result_.clusters.length === 0;
   }
 }
 

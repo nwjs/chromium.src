@@ -17,6 +17,7 @@ import androidx.core.view.WindowInsetsAnimationCompat.BoundsCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import org.chromium.base.ObserverList;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -41,11 +42,11 @@ public class InsetObserver implements OnApplyWindowInsetsListener {
     private final View mRootView;
     // Insets to be added to the current safe area.
     private int mBottomInsetsForEdgeToEdge;
-    private final boolean mInsetsManagementEnabled;
     private final Rect mDisplayCutoutRect;
 
     // Cached state
     private WindowInsetsCompat mLastSeenRawWindowInset;
+    private static @Nullable WindowInsetsCompat sInitialRawWindowInsetsForTesting;
 
     /** Allows observing changes to the window insets from Android system UI. */
     public interface WindowInsetObserver {
@@ -110,11 +111,9 @@ public class InsetObserver implements OnApplyWindowInsetsListener {
      * Creates an instance of {@link InsetObserver}.
      *
      * @param rootView The root view of the app.
-     * @param insetsManagementEnabled Whether the edge-to-edge insets management flag is enabled.
      */
-    public InsetObserver(View rootView, boolean insetsManagementEnabled) {
+    public InsetObserver(View rootView) {
         mRootView = rootView;
-        mInsetsManagementEnabled = insetsManagementEnabled;
         mWindowInsets = new Rect();
         mCurrentSafeArea = new Rect();
         mDisplayCutoutRect = new Rect();
@@ -168,6 +167,13 @@ public class InsetObserver implements OnApplyWindowInsetsListener {
                     }
                 };
 
+        // Populate the root window insets if available.
+        if (mRootView.getRootWindowInsets() != null) {
+            mLastSeenRawWindowInset =
+                    WindowInsetsCompat.toWindowInsetsCompat(mRootView.getRootWindowInsets());
+        } else if (sInitialRawWindowInsetsForTesting != null) {
+            mLastSeenRawWindowInset = sInitialRawWindowInsetsForTesting;
+        }
         ViewCompat.setWindowInsetsAnimationCallback(rootView, mWindowInsetsAnimationProxyCallback);
         ViewCompat.setOnApplyWindowInsetsListener(rootView, this);
     }
@@ -311,11 +317,7 @@ public class InsetObserver implements OnApplyWindowInsetsListener {
         mCurrentSafeArea.set(newSafeArea);
         // Create a new rect to avoid rect being changed by observers.
         for (WindowInsetObserver mObserver : mObservers) {
-            if (mInsetsManagementEnabled) {
-                mObserver.onSafeAreaChanged(new Rect(mCurrentSafeArea));
-            } else {
-                mObserver.onSafeAreaChanged(mCurrentSafeArea);
-            }
+            mObserver.onSafeAreaChanged(new Rect(mCurrentSafeArea));
         }
     }
 
@@ -343,5 +345,14 @@ public class InsetObserver implements OnApplyWindowInsetsListener {
 
         mBottomInsetsForEdgeToEdge = bottomInset;
         updateCurrentSafeArea();
+    }
+
+    /**
+     * Sets the initial raw window insets for a testing environment. Note - if using mocks, please
+     * mock the #getInsets() method to return some valid insets.
+     */
+    public static void setInitialRawWindowInsetsForTesting(WindowInsetsCompat windowInsets) {
+        sInitialRawWindowInsetsForTesting = windowInsets;
+        ResettersForTesting.register(() -> sInitialRawWindowInsetsForTesting = null);
     }
 }

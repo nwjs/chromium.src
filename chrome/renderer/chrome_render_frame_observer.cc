@@ -514,6 +514,20 @@ void ChromeRenderFrameObserver::RequestBitmapForContextNode(
   std::move(callback).Run(image);
 }
 
+void ChromeRenderFrameObserver::RequestBoundsForContextNodeDiagnostic(
+    RequestBoundsForContextNodeDiagnosticCallback callback) {
+  WebNode context_node = render_frame()->GetWebFrame()->ContextMenuImageNode();
+  gfx::Rect bounds;
+  if (context_node.IsNull() || !context_node.IsElementNode()) {
+    std::move(callback).Run(bounds);
+    return;
+  }
+
+  WebElement web_element = context_node.To<WebElement>();
+  bounds = web_element.BoundsInWidget();
+  std::move(callback).Run(bounds);
+}
+
 void ChromeRenderFrameObserver::RequestReloadImageForContextNode() {
   WebLocalFrame* frame = render_frame()->GetWebFrame();
   // TODO(dglazkov): This code is clearly in the wrong place. Need
@@ -663,13 +677,14 @@ void ChromeRenderFrameObserver::CapturePageText(
   }
   DCHECK_GT(capture_max_size, 0U);
 
-  std::u16string contents;
+  scoped_refptr<const base::RefCountedString16> contents;
+
   {
     TRACE_EVENT0("renderer", "ChromeRenderFrameObserver::CapturePageText");
-
-    contents = WebFrameContentDumper::DumpFrameTreeAsText(
-                   render_frame()->GetWebFrame(), capture_max_size)
-                   .Utf16();
+    contents = base::MakeRefCounted<const base::RefCountedString16>(
+        WebFrameContentDumper::DumpFrameTreeAsText(
+            render_frame()->GetWebFrame(), capture_max_size)
+            .Utf16());
   }
 
 #if 0
@@ -689,7 +704,7 @@ void ChromeRenderFrameObserver::CapturePageText(
   // Will swap out the string.
   if (phishing_classifier_) {
     phishing_classifier_->PageCaptured(
-        &contents, layout_type == blink::WebMeaningfulLayout::kFinishedParsing);
+        contents, layout_type == blink::WebMeaningfulLayout::kFinishedParsing);
   }
   if (phishing_image_embedder_) {
     phishing_image_embedder_->PageCaptured(

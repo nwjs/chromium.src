@@ -9,11 +9,11 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
-#import "ios/chrome/browser/main/model/browser_util.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
+#import "ios/chrome/browser/shared/model/web_state_list/browser_util.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_group.h"
 #import "ios/chrome/browser/shared/model/web_state_list/tab_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -24,6 +24,7 @@
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_utils.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/tab_group_consumer.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/tab_groups/tab_groups_commands.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_idle_status_handler.h"
 #import "ios/chrome/browser/ui/tab_switcher/web_state_tab_switcher_item.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/web/public/navigation/navigation_manager.h"
@@ -57,6 +58,7 @@
     [_groupConsumer setGroupTitle:tabGroup->GetTitle()];
     [_groupConsumer setGroupColor:tabGroup->GetColor()];
 
+    [self switchToMode:TabGridModeGroup];
     [self populateConsumerItems];
   }
   return self;
@@ -65,16 +67,22 @@
 #pragma mark - TabGroupMutator
 
 - (BOOL)addNewItemInGroup {
+  [self.tabGridIdleStatusHandler
+      tabGridDidPerformAction:TabGridActionType::kInPageAction];
   return [self addTabToGroup:_tabGroup.get()];
 }
 
 - (void)ungroup {
+  [self.tabGridIdleStatusHandler
+      tabGridDidPerformAction:TabGridActionType::kInPageAction];
   auto scoped_lock = self.webStateList->StartBatchOperation();
   self.webStateList->DeleteGroup(_tabGroup.get());
   _tabGroup.reset();
 }
 
 - (void)deleteGroup {
+  [self.tabGridIdleStatusHandler
+      tabGridDidPerformAction:TabGridActionType::kInPageAction];
   CloseAllWebStatesInGroup(*self.webStateList, _tabGroup.get(),
                            WebStateList::CLOSE_USER_ACTION);
   _tabGroup.reset();
@@ -189,9 +197,10 @@
       base::UmaHistogramEnumeration(kUmaGroupViewDragOrigin,
                                     DragItemOrigin::kOtherBrwoser);
       destinationWebStateIndex += destinationIndex;
-      MoveTabToBrowser(tabInfo.tabID, self.browser, destinationWebStateIndex);
-      self.webStateList->MoveToGroup({destinationWebStateIndex},
-                                     _tabGroup.get());
+      const auto insertionParams =
+          WebStateList::InsertionParams::AtIndex(destinationWebStateIndex)
+              .InGroup(_tabGroup.get());
+      MoveTabToBrowser(tabInfo.tabID, self.browser, insertionParams);
     } else {
       base::UmaHistogramEnumeration(kUmaGroupViewDragOrigin,
                                     DragItemOrigin::kSameCollection);
@@ -221,7 +230,7 @@
                         change:(const WebStateListChangeDetach&)detachChange
                         status:(const WebStateListStatus&)status {
   DCHECK_EQ(self.webStateList, webStateList);
-  if (webStateList->IsBatchInProgress()) {
+  if (webStateList->IsBatchInProgress() || !_tabGroup) {
     return;
   }
   CHECK(detachChange.group() == _tabGroup.get());
@@ -241,7 +250,7 @@
                        change:(const WebStateListChange&)change
                        status:(const WebStateListStatus&)status {
   DCHECK_EQ(self.webStateList, webStateList);
-  if (webStateList->IsBatchInProgress()) {
+  if (webStateList->IsBatchInProgress() || !_tabGroup) {
     return;
   }
 
@@ -260,9 +269,9 @@
 
           GridItemIdentifier* tabIdentifierToAddToGroup =
               [GridItemIdentifier tabIdentifier:currentWebState];
-
           [self.consumer removeItemWithIdentifier:tabIdentifierToAddToGroup
                            selectedItemIdentifier:[self activeIdentifier]];
+          [self removeObservationForWebState:currentWebState];
         }
 
         if (newGroup == _tabGroup.get()) {
@@ -272,6 +281,7 @@
 
           [self insertItem:[GridItemIdentifier tabIdentifier:currentWebState]
               beforeWebStateIndex:webStateIndex + 1];
+          [self addObservationForWebState:currentWebState];
         }
         break;
       }
@@ -354,8 +364,40 @@
 
 #pragma mark - Private
 
+// Adds a tab to the `group`. Returns whether it succeed.
+- (BOOL)addTabToGroup:(const TabGroup*)group {
+  if (!self.browser || !group) {
+    return NO;
+  }
+  ChromeBrowserState* browserState = self.browser->GetBrowserState();
+  if (!browserState ||
+      !IsAddNewTabAllowedByPolicy(browserState->GetPrefs(),
+                                  browserState->IsOffTheRecord())) {
+    return NO;
+  }
+
+  WebStateList* webStateList = self.webStateList;
+  if (!webStateList->ContainsGroup(group)) {
+    return NO;
+  }
+
+  web::WebState::CreateParams params(browserState);
+  std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
+
+  web::NavigationManager::WebLoadParams loadParams((GURL(kChromeUINewTabURL)));
+  loadParams.transition_type = ui::PAGE_TRANSITION_TYPED;
+  webState->GetNavigationManager()->LoadURLWithParams(loadParams);
+
+  webStateList->InsertWebState(
+      std::move(webState),
+      WebStateList::InsertionParams::Automatic().InGroup(group).Activate());
+
+  return YES;
+}
+
 // Inserts an item representing `webState` in the consumer at `index`.
 - (void)insertInConsumerWebState:(web::WebState*)webState atIndex:(int)index {
+  CHECK(_tabGroup);
   GridItemIdentifier* newItem = [GridItemIdentifier tabIdentifier:webState];
 
   GridItemIdentifier* nextItemIdentifier;

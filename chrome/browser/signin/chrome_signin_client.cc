@@ -30,7 +30,6 @@
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/force_signin_verifier.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_features.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
@@ -105,7 +104,7 @@
 namespace {
 
 // List of sources for which sign out is always allowed.
-// TODO(crbug.com/1161966): core product logic should not rely on metric
+// TODO(crbug.com/40162614): core product logic should not rely on metric
 // sources/callsites.  Consider removing such logic, potentially as part of
 // introducing a cross-platform SigninManager.
 signin_metrics::ProfileSignout kAlwaysAllowedSignoutSources[] = {
@@ -308,7 +307,7 @@ void ChromeSigninClient::PreSignOut(
   // `signin_metrics::ProfileSignout::kRevokeSyncFromSettings` when the user
   // turns off sync from the settings, we should also keep the window open at
   // this point.
-  // TODO(https://crbug.com/1478102): Check for managed accounts to be modified
+  // TODO(crbug.com/40280466): Check for managed accounts to be modified
   // when aligning Managed vs Consumer accounts.
   bool user_declines_sync_after_consenting_to_management =
       (signout_source_metric == signin_metrics::ProfileSignout::kAbortSignin ||
@@ -431,7 +430,7 @@ ChromeSigninClient::CreateBoundSessionOAuthMultiloginDelegate() const {
 SigninClient::SignoutDecision ChromeSigninClient::GetSignoutDecision(
     bool has_sync_account,
     const std::optional<signin_metrics::ProfileSignout> signout_source) const {
-  // TODO(crbug.com/1366360): Revisit |kAlwaysAllowedSignoutSources| in general
+  // TODO(crbug.com/40239707): Revisit |kAlwaysAllowedSignoutSources| in general
   // and for Lacros main profile.
   for (const auto& always_allowed_source : kAlwaysAllowedSignoutSources) {
     if (!signout_source.has_value()) {

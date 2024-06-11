@@ -229,7 +229,7 @@ void ShellDesktopControllerAura::PowerButtonEventReceived(
   }
 }
 
-void ShellDesktopControllerAura::OnDisplayModeChanged(
+void ShellDesktopControllerAura::OnDisplayConfigurationChanged(
     const display::DisplayConfigurator::DisplayStateList& displays) {
   for (const display::DisplaySnapshot* display_mode : displays) {
     if (!display_mode->current_mode())
@@ -331,7 +331,7 @@ void ShellDesktopControllerAura::InitWindowManager() {
     // classes in CreateDesktopScreen() do, and remove this.
     display::Screen::SetScreenInstance(screen_.get());
 #else
-    // TODO(crbug.com/756680): Refactor DesktopScreen out of views.
+    // TODO(crbug.com/40535820): Refactor DesktopScreen out of views.
     screen_ = views::CreateDesktopScreen();
 #endif
   }

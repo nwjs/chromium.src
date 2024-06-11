@@ -379,6 +379,8 @@ class CORE_EXPORT WebFrameWidgetImpl
   void ClearEditCommands() override;
   bool IsPasting() override;
   bool HandlingSelectRange() override;
+  void CalculateSelectionBounds(gfx::Rect& anchor_in_root_frame,
+                                gfx::Rect& focus_in_root_frame) override;
   void ReleaseMouseLockAndPointerCaptureForTesting() override;
   const viz::FrameSinkId& GetFrameSinkId() override;
   WebHitTestResult HitTestResultAt(const gfx::PointF&) override;
@@ -642,11 +644,11 @@ class CORE_EXPORT WebFrameWidgetImpl
   ScreenMetricsEmulator* DeviceEmulator();
 
   // Calculates the selection bounds in the root frame. Returns bounds unchanged
-  // when there is no focused frame or no selection.
-  void CalculateSelectionBounds(
-      gfx::Rect& anchor_in_root_frame,
-      gfx::Rect& focus_in_root_frame,
-      gfx::Rect* bounding_box_in_root_frame = nullptr);
+  // when there is no focused frame. Returns the caret bounds if the selection
+  // range is empty.
+  void CalculateSelectionBounds(gfx::Rect& anchor_in_root_frame,
+                                gfx::Rect& focus_in_root_frame,
+                                gfx::Rect* bounding_box_in_root_frame);
 
   // Returns if auto resize mode is enabled.
   bool AutoResizeMode();
@@ -709,6 +711,12 @@ class CORE_EXPORT WebFrameWidgetImpl
   bool WillBeDestroyed() const;
 
   bool IsScrollGestureActive() const;
+
+  // Request the compositor thread to tell the GPU process to generate a
+  // screenshot of the current viewport. The screenshot is tagged with `token`.
+  // The caller must have requested a new `viz::LocalSurfaceID` before making
+  // this request.
+  void RequestViewportScreenshot(const base::UnguessableToken& token);
 
   // Request a new `viz::LocalSurfaceId` on the compositor thread.
   void RequestNewLocalSurfaceId();

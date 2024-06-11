@@ -63,6 +63,7 @@
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace web_app {
 
@@ -158,12 +159,13 @@ void CompleteWithGeneratedResponse(
                                    /*cached_metadata=*/std::nullopt);
 
   if (body.has_value()) {
-    uint32_t write_size = body->size();
+    size_t write_size = body->size();
     MojoResult write_result = producer_handle->WriteData(
         body->c_str(), &write_size, MOJO_WRITE_DATA_FLAG_NONE);
     if (write_result != MOJO_RESULT_OK || write_size != body->size()) {
       loader_client->OnComplete(
           network::URLLoaderCompletionStatus(net::ERR_FAILED));
+      return;
     }
   } else {
     producer_handle.reset();
@@ -182,7 +184,7 @@ void LogErrorMessageToConsole(std::optional<int> frame_tree_node_id,
     LOG(ERROR) << error_message;
     return;
   }
-  // TODO(crbug.com/1365850): The console message will vanish from the console
+  // TODO(crbug.com/40239529): The console message will vanish from the console
   // if the user does not have the `Preserve Log` option enabled, since it is
   // triggered before the navigation commits. We should try to use a similar
   // approach as in crrev.com/c/3397976, but `FrameTreeNode` is not part of
@@ -356,7 +358,7 @@ class IsolatedWebAppURLLoader : public network::mojom::URLLoader {
       }
     }
 
-    // TODO(crbug.com/990733): For the initial implementation, we allow only
+    // TODO(crbug.com/41474458): For the initial implementation, we allow only
     // net::HTTP_OK, but we should clarify acceptable status code in the spec.
     if (response->head()->response_code != net::HTTP_OK) {
       LogErrorMessageToConsole(
@@ -382,10 +384,9 @@ class IsolatedWebAppURLLoader : public network::mojom::URLLoader {
     options.struct_size = sizeof(MojoCreateDataPipeOptions);
     options.flags = MOJO_CREATE_DATA_PIPE_FLAG_NONE;
     options.element_num_bytes = 1;
-    options.capacity_num_bytes =
-        std::min(base::strict_cast<uint64_t>(
-                     network::features::GetDataPipeDefaultAllocationSize()),
-                 response->head()->payload_length);
+    options.capacity_num_bytes = std::min(
+        uint64_t{network::features::GetDataPipeDefaultAllocationSize()},
+        response->head()->payload_length);
 
     auto result =
         mojo::CreateDataPipe(&options, producer_handle, consumer_handle);
@@ -444,12 +445,16 @@ class IsolatedWebAppURLLoader : public network::mojom::URLLoader {
 }  // namespace
 
 IsolatedWebAppURLLoaderFactory::IsolatedWebAppURLLoaderFactory(
-    std::optional<int> frame_tree_node_id,
     Profile* profile,
+    std::optional<url::Origin> app_origin,
+    std::optional<int> frame_tree_node_id,
     mojo::PendingReceiver<network::mojom::URLLoaderFactory> factory_receiver)
     : network::SelfDeletingURLLoaderFactory(std::move(factory_receiver)),
-      frame_tree_node_id_(frame_tree_node_id),
-      profile_(profile) {
+      profile_(profile),
+      app_origin_(std::move(app_origin)),
+      frame_tree_node_id_(frame_tree_node_id) {
+  CHECK(!app_origin_.has_value() ||
+        app_origin_->scheme() == chrome::kIsolatedAppScheme);
   profile_observation_.Observe(profile);
 }
 
@@ -465,6 +470,13 @@ void IsolatedWebAppURLLoaderFactory::CreateLoaderAndStart(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(resource_request.url.SchemeIs(chrome::kIsolatedAppScheme));
   DCHECK(resource_request.url.IsStandard());
+
+  if (!CanRequestUrl(resource_request.url)) {
+    network::URLLoaderCompletionStatus status(net::ERR_BLOCKED_BY_CLIENT);
+    mojo::Remote<network::mojom::URLLoaderClient>(std::move(loader_client))
+        ->OnComplete(status);
+    return;
+  }
 
   mojo::PendingRemote<network::mojom::URLLoaderClient> wrapped_loader_client;
   mojo::MakeSelfOwnedReceiver(
@@ -706,26 +718,39 @@ void IsolatedWebAppURLLoaderFactory::LogErrorAndFail(
       ->OnComplete(network::URLLoaderCompletionStatus(net::ERR_FAILED));
 }
 
-// static
-mojo::PendingRemote<network::mojom::URLLoaderFactory>
-IsolatedWebAppURLLoaderFactory::Create(
-    int frame_tree_node_id,
-    content::BrowserContext* browser_context) {
-  return CreateInternal(frame_tree_node_id, browser_context);
+bool IsolatedWebAppURLLoaderFactory::CanRequestUrl(const GURL& url) const {
+  // If no origin was specified we should allow the request. This will be the
+  // case for navigations and worker script/update loads.
+  if (!app_origin_) {
+    return true;
+  }
+  return app_origin_->IsSameOriginWith(url);
 }
 
 // static
 mojo::PendingRemote<network::mojom::URLLoaderFactory>
-IsolatedWebAppURLLoaderFactory::CreateForServiceWorker(
-    content::BrowserContext* browser_context) {
-  return CreateInternal(/*frame_tree_node_id=*/std::nullopt, browser_context);
+IsolatedWebAppURLLoaderFactory::CreateForFrame(
+    content::BrowserContext* browser_context,
+    std::optional<url::Origin> app_origin,
+    int frame_tree_node_id) {
+  return CreateInternal(browser_context, std::move(app_origin),
+                        frame_tree_node_id);
+}
+
+// static
+mojo::PendingRemote<network::mojom::URLLoaderFactory>
+IsolatedWebAppURLLoaderFactory::Create(content::BrowserContext* browser_context,
+                                       std::optional<url::Origin> app_origin) {
+  return CreateInternal(browser_context, std::move(app_origin),
+                        /*frame_tree_node_id=*/std::nullopt);
 }
 
 // static
 mojo::PendingRemote<network::mojom::URLLoaderFactory>
 IsolatedWebAppURLLoaderFactory::CreateInternal(
-    std::optional<int> frame_tree_node_id,
-    content::BrowserContext* browser_context) {
+    content::BrowserContext* browser_context,
+    std::optional<url::Origin> app_origin,
+    std::optional<int> frame_tree_node_id) {
   DCHECK(browser_context);
   DCHECK(!browser_context->ShutdownStarted());
 
@@ -735,9 +760,8 @@ IsolatedWebAppURLLoaderFactory::CreateInternal(
   // more receivers - see the
   // network::SelfDeletingURLLoaderFactory::OnDisconnect method.
   new IsolatedWebAppURLLoaderFactory(
-      /*frame_tree_node_id=*/frame_tree_node_id,
-      Profile::FromBrowserContext(browser_context),
-      pending_remote.InitWithNewPipeAndPassReceiver());
+      Profile::FromBrowserContext(browser_context), std::move(app_origin),
+      frame_tree_node_id, pending_remote.InitWithNewPipeAndPassReceiver());
 
   return pending_remote;
 }

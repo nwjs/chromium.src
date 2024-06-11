@@ -473,6 +473,9 @@ class PasswordsPrivateChangePasswordManagerPinFunction
 
   // ExtensionFunction overrides.
   ResponseAction Run() override;
+
+ private:
+  void OnPinChangeCompleted(bool success);
 };
 
 class PasswordsPrivateIsPasswordManagerPinAvailableFunction
@@ -483,6 +486,35 @@ class PasswordsPrivateIsPasswordManagerPinAvailableFunction
 
  protected:
   ~PasswordsPrivateIsPasswordManagerPinAvailableFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+};
+
+class PasswordsPrivateDisconnectCloudAuthenticatorFunction
+    : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("passwordsPrivate.disconnectCloudAuthenticator",
+                             PASSWORDSPRIVATE_DISCONNECTCLOUDAUTHENTICATOR)
+
+ protected:
+  ~PasswordsPrivateDisconnectCloudAuthenticatorFunction() override = default;
+
+  // ExtensionFunction overrides.
+  ResponseAction Run() override;
+
+ private:
+  void OnDisconnectCloudAuthenticatorCompleted(bool success);
+};
+
+class PasswordsPrivateIsConnectedToCloudAuthenticatorFunction
+    : public ExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("passwordsPrivate.isConnectedToCloudAuthenticator",
+                             PASSWORDSPRIVATE_ISCONNECTEDTOCLOUDAUTHENTICATOR)
+
+ protected:
+  ~PasswordsPrivateIsConnectedToCloudAuthenticatorFunction() override = default;
 
   // ExtensionFunction overrides.
   ResponseAction Run() override;

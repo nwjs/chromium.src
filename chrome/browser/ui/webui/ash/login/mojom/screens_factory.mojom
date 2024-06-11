@@ -13,12 +13,29 @@ import "chrome/browser/ui/webui/ash/login/mojom/screens_osauth.mojom";
 interface ScreensFactory {
   // ash.screens_common.mojom
 
+  // Creates a DrivePinningPageHandler and connects it up to the
+  // DrivePinningPage.
+  CreateDrivePinningScreenHandler(
+      pending_remote<ash.screens_common.mojom.DrivePinningPage> page,
+      pending_receiver<ash.screens_common.mojom.DrivePinningPageHandler> handler);
+  // Creates a GestureNavigationPageHandler and
+  // connects it up to the GestureNavigationPage.
+  CreateGestureNavigationPageHandler(
+      pending_receiver<ash.screens_common.mojom.GestureNavigationPageHandler>
+          handler);
+
   // Creates a GaiaInfoPageHandler and connects it up to the GaiaInfoPage.
   CreateGaiaInfoScreenHandler(
-        pending_remote<ash.screens_common.mojom.GaiaInfoPage> page,
-        pending_receiver<ash.screens_common.mojom.GaiaInfoPageHandler> handler);
+      pending_remote<ash.screens_common.mojom.GaiaInfoPage> page,
+      pending_receiver<ash.screens_common.mojom.GaiaInfoPageHandler> handler);
 
   // ash.screens_oobe.mojom
+
+  // Creates a ConsumerUpdatePageHandler and connects it up to the
+  // ConsumerUpdatePage.
+  CreateConsumerUpdatePageHandler(
+      pending_remote<ash.screens_oobe.mojom.ConsumerUpdatePage> page,
+      pending_receiver<ash.screens_oobe.mojom.ConsumerUpdatePageHandler> handler);
 
   // Creates a PackagedLicensePageHandler and
   // connects it up to the PackagedLicensePage.
@@ -31,6 +48,6 @@ interface ScreensFactory {
   // Creates a LocalDataLossWarningPageHandler and
   // connects it up to the LocalDataLossWarningPage.
   CreateLocalDataLossWarningPageHandler(
-    pending_receiver<ash.screens_osauth.mojom.LocalDataLossWarningPageHandler>
-        handler);
+      pending_receiver<ash.screens_osauth.mojom.LocalDataLossWarningPageHandler>
+          handler);
 };

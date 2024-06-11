@@ -11,11 +11,17 @@ import type {CenterRotatedBox} from 'chrome-untrusted://lens/geometry.mojom-webu
 import type {LensPageRemote} from 'chrome-untrusted://lens/lens.mojom-webui.js';
 import type {OverlayObject} from 'chrome-untrusted://lens/overlay_object.mojom-webui.js';
 import type {SelectionOverlayElement} from 'chrome-untrusted://lens/selection_overlay.js';
+import {loadTimeData} from 'chrome-untrusted://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertNotEquals, assertNull, assertStringContains} from 'chrome-untrusted://webui-test/chai_assert.js';
+// clang-format off
+// <if expr="not chromeos_lacros">
+import {assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
+// </if>
+// clang-format on
 import {flushTasks, waitAfterNextRender} from 'chrome-untrusted://webui-test/polymer_test_util.js';
 
 import {assertBoxesWithinThreshold, createObject} from '../utils/object_utils.js';
-import {simulateClick, simulateDrag} from '../utils/selection_utils.js';
+import {getImageBoundingRect, simulateClick, simulateDrag} from '../utils/selection_utils.js';
 import {createLine, createParagraph, createText, createWord} from '../utils/text_utils.js';
 
 import {TestLensOverlayBrowserProxy} from './test_overlay_browser_proxy.js';
@@ -36,6 +42,10 @@ suite('SelectionOverlay', function() {
     callbackRouterRemote =
         testBrowserProxy.callbackRouter.$.bindNewPipeAndPassRemote();
     BrowserProxyImpl.setInstance(testBrowserProxy);
+
+    // Turn off the shimmer. Since the shimmer is resource intensive, turn off
+    // to prevent from causing issues in the tests.
+    loadTimeData.overrideValues({'enableShimmer': false});
 
     selectionOverlayElement = document.createElement('lens-selection-overlay');
     document.body.appendChild(selectionOverlayElement);
@@ -99,6 +109,9 @@ suite('SelectionOverlay', function() {
             },
             {x: 0, y: 0});
 
+        const textQuery = await testBrowserProxy.handler.whenCalled(
+            'issueTextSelectionRequest');
+        assertDeepEquals('hello', textQuery);
         assertEquals(
             0, testBrowserProxy.handler.getCallCount('issueLensRequest'));
       });
@@ -130,6 +143,9 @@ suite('SelectionOverlay', function() {
         const rect =
             await testBrowserProxy.handler.whenCalled('issueLensRequest');
         assertDeepEquals(expectedRect, rect);
+        assertEquals(
+            0,
+            testBrowserProxy.handler.getCallCount('issueTextSelectionRequest'));
       });
 
   test(
@@ -163,16 +179,48 @@ suite('SelectionOverlay', function() {
                 .regionSelectionCanvas.height);
       });
 
-  test(
-      `verify that only objects respond to taps, even when text overlaps`,
+    test(
+      'verify object selection canvas resizes when selection overlay resizes',
+      async () => {
+        selectionOverlayElement.style.display = 'block';
+        selectionOverlayElement.style.width = '50px';
+        selectionOverlayElement.style.height = '50px';
+        // Resize observer does not trigger with flushTasks(), so we need to use
+        // waitAfterNextRender() instead.
+        await waitAfterNextRender(selectionOverlayElement);
+        assertEquals(
+            50,
+            selectionOverlayElement.$.objectSelectionLayer.$
+                .objectSelectionCanvas.width);
+        assertEquals(
+            50,
+            selectionOverlayElement.$.objectSelectionLayer.$
+                .objectSelectionCanvas.height);
+
+        selectionOverlayElement.style.width = '200px';
+        selectionOverlayElement.style.height = '200px';
+        await waitAfterNextRender(selectionOverlayElement);
+        assertEquals(
+            200,
+            selectionOverlayElement.$.objectSelectionLayer.$
+                .objectSelectionCanvas.width);
+        assertEquals(
+            200,
+            selectionOverlayElement.$.objectSelectionLayer.$
+                .objectSelectionCanvas.height);
+      });
+
+    test(
+      `verify that text respond to taps, even when an object is underneath`,
       async () => {
         await Promise.all([addWords(), addObjects()]);
 
         await simulateClick(selectionOverlayElement, {x: 80, y: 20});
 
-        const rect =
-            await testBrowserProxy.handler.whenCalled('issueLensRequest');
-        assertBoxesWithinThreshold(objects[0]!.geometry.boundingBox, rect);
+        const textQuery =
+            await testBrowserProxy.handler.whenCalled('issueTextSelectionRequest');
+        assertDeepEquals('test', textQuery);
+        assertEquals(0, testBrowserProxy.handler.getCallCount('issueLensRequest'));
       });
 
   test(
@@ -208,6 +256,48 @@ suite('SelectionOverlay', function() {
             await testBrowserProxy.handler.whenCalled('issueLensRequest');
         assertDeepEquals(expectedRect, rect);
       });
+
+  // <if expr="not chromeos_lacros">
+  test(
+      'verify that region search over text triggers detected text context menu',
+      async () => {
+        await addWords();
+
+        await simulateDrag(
+            selectionOverlayElement, {x: 51, y: 10}, {x: 80, y: 40});
+
+        assertEquals(
+            1, testBrowserProxy.handler.getCallCount('issueLensRequest'));
+        assertEquals(
+            0,
+            testBrowserProxy.handler.getCallCount('issueTextSelectionRequest'));
+        assertTrue(
+            selectionOverlayElement.getShowDetectedTextContextMenuForTesting());
+
+        testBrowserProxy.handler.reset();
+        selectionOverlayElement.handleSelectTextForTesting();
+
+        const textQuery = await testBrowserProxy.handler.whenCalled(
+            'issueTextSelectionRequest');
+        assertDeepEquals('there test', textQuery);
+        assertEquals(
+            0, testBrowserProxy.handler.getCallCount('issueLensRequest'));
+      });
+
+  test('verify that detected text context menu works', async () => {
+    await addWords();
+
+    await simulateDrag(selectionOverlayElement, {x: 51, y: 10}, {x: 80, y: 40});
+    selectionOverlayElement.handleSelectTextForTesting();
+
+    const textQuery =
+        await testBrowserProxy.handler.whenCalled('issueTextSelectionRequest');
+    assertDeepEquals('there test', textQuery);
+    assertEquals(1, testBrowserProxy.handler.getCallCount('issueLensRequest'));
+    assertFalse(
+        selectionOverlayElement.getShowDetectedTextContextMenuForTesting());
+  });
+  // </if>
 
   test('verify that region search triggers post selection', async () => {
     await simulateDrag(
@@ -293,4 +383,188 @@ suite('SelectionOverlay', function() {
         await waitAfterNextRender(selectionOverlayElement);
         assertNull(selectionOverlayElement.getAttribute('is-resized'));
       });
+
+  test('verify that you can drag text over post selection', async () => {
+    // Add the words
+    await addWords();
+    // Add the post selection over the words.
+    await simulateDrag(selectionOverlayElement, {x: 150, y: 150}, {x: 5, y: 5});
+    testBrowserProxy.handler.reset();
+
+    // Drag that starts on a word and post selection.
+    const wordEl = selectionOverlayElement.$.textSelectionLayer
+                       .getWordNodesForTesting()[1]!;
+    const wordElBoundingBox = wordEl.getBoundingClientRect();
+    await simulateDrag(
+        selectionOverlayElement, {
+          x: wordElBoundingBox.left + (wordElBoundingBox.width / 2),
+          y: wordElBoundingBox.top + (wordElBoundingBox.height / 2),
+        },
+        {
+          x: wordElBoundingBox.right,
+          y: wordElBoundingBox.bottom,
+        });
+
+    const textQuery =
+        await testBrowserProxy.handler.whenCalled('issueTextSelectionRequest');
+    assertDeepEquals('there test', textQuery);
+    assertEquals(0, testBrowserProxy.handler.getCallCount('issueLensRequest'));
+  });
+
+  test(
+      'verify that dragging on post selection over an object does not tap that object',
+      async () => {
+        // Add the objects
+        await addObjects();
+        // Add the post selection over the words.
+        await simulateDrag(
+            selectionOverlayElement, {x: 150, y: 150}, {x: 5, y: 5});
+        testBrowserProxy.handler.reset();
+
+        // Store the previous post seleciton dimensions.
+        let postSelectionStyles =
+            selectionOverlayElement.$.postSelectionRenderer.style;
+        const oldLeft =
+            parseInt(postSelectionStyles.getPropertyValue('--selection-top'));
+        const oldTop =
+            parseInt(postSelectionStyles.getPropertyValue('--selection-left'));
+
+        // Drag that starts on an object
+        const objectEl = selectionOverlayElement.$.objectSelectionLayer
+                             .getObjectNodesForTesting()[1]!;
+        const objectBoundingBox = objectEl.getBoundingClientRect();
+        await simulateDrag(
+            selectionOverlayElement, {
+              x: objectBoundingBox.left + (objectBoundingBox.width / 2),
+              y: objectBoundingBox.top + (objectBoundingBox.height / 2),
+            },
+            {
+              x: 100,
+              y: 100,
+            });
+        // Should only be called once from post selection adjustment and not
+        // object tap.
+        assertEquals(
+            1, testBrowserProxy.handler.getCallCount('issueLensRequest'));
+
+        // Get most recent styles
+        postSelectionStyles =
+            selectionOverlayElement.$.postSelectionRenderer.style;
+        assertNotEquals(
+            oldLeft,
+            parseInt(postSelectionStyles.getPropertyValue('--selection-left')));
+        assertNotEquals(
+            oldTop,
+            parseInt(postSelectionStyles.getPropertyValue('--selection-top')));
+      });
+  test(
+      `verify that only objects respond to taps, even when post selection overlaps`,
+      async () => {
+        // Add the objects
+        await addObjects();
+        // Add the post selection over the words.
+        await simulateDrag(
+            selectionOverlayElement, {x: 150, y: 150}, {x: 5, y: 5});
+        testBrowserProxy.handler.reset();
+
+        // Click on an object behind post selection
+        const objectEl = selectionOverlayElement.$.objectSelectionLayer
+                             .getObjectNodesForTesting()[1]!;
+        const objectBoundingBox = objectEl.getBoundingClientRect();
+        await simulateClick(selectionOverlayElement, {
+          x: objectBoundingBox.left + (objectBoundingBox.width / 2),
+          y: objectBoundingBox.top + (objectBoundingBox.height / 2),
+        });
+
+        // Should only be called once from post selection adjustment and not
+        // object tap.
+        assertEquals(
+            1, testBrowserProxy.handler.getCallCount('issueLensRequest'));
+
+        // Verify tap triggered new post selection
+        const postSelectionStyles =
+            selectionOverlayElement.$.postSelectionRenderer.style;
+        const parentBoundingRect =
+            selectionOverlayElement.getBoundingClientRect();
+
+        // Based on box coordinates of {x: 70, y: 35, width: 20, height: 10},
+        const expectedHeight = 10 / parentBoundingRect.height * 100;
+        const expectedWidth = 20 / parentBoundingRect.width * 100;
+        const expectedTop = 30 / parentBoundingRect.height * 100;
+        const expectedLeft = 60 / parentBoundingRect.width * 100;
+
+        // Only look at first 5 digits to account for rounding errors.
+        assertStringContains(
+            postSelectionStyles.getPropertyValue('--selection-height'),
+            expectedHeight.toString().substring(0, 6));
+        assertStringContains(
+            postSelectionStyles.getPropertyValue('--selection-width'),
+            expectedWidth.toString().substring(0, 6));
+        assertStringContains(
+            postSelectionStyles.getPropertyValue('--selection-top'),
+            expectedTop.toString().substring(0, 6));
+        assertStringContains(
+            postSelectionStyles.getPropertyValue('--selection-left'),
+            expectedLeft.toString().substring(0, 6));
+      });
+
+  test(
+      `verify that post selection corners are draggable over text and objects`,
+      async () => {
+        await Promise.all([addWords(), addObjects()]);
+        // Add the post selection to have top left corner overlap with text
+        // and objects
+        await simulateDrag(
+            selectionOverlayElement, {x: 10, y: 150}, {x: 80, y: 20});
+        testBrowserProxy.handler.reset();
+
+        // Start drag on word corner over word and object
+        await simulateDrag(
+            selectionOverlayElement, {x: 85, y: 25}, {x: 100, y: 50});
+
+        // No text request was triggered
+        assertEquals(
+            0,
+            testBrowserProxy.handler.getCallCount('issueTextSelectionRequest'));
+        // Lens request for the new region
+        const expectedRect: CenterRotatedBox = {
+          box: normalizedBox({
+            x: 55,
+            y: 100,
+            width: 90,
+            height: 100,
+          }),
+          rotation: 0,
+          coordinateType: CenterRotatedBox_CoordinateType.kNormalized,
+        };
+        const rect =
+            await testBrowserProxy.handler.whenCalled('issueLensRequest');
+        assertBoxesWithinThreshold(expectedRect, rect);
+      });
+  test('verify that completing a drag calls closeSearchBubble', async () => {
+    const imageBounds = getImageBoundingRect(selectionOverlayElement);
+    const startPointInsideOverlay = {
+      x: imageBounds.left + 10,
+      y: imageBounds.top + 10,
+    };
+    const endPointAboveOverlay = {
+      x: imageBounds.left + 100,
+      y: imageBounds.top - 30,
+    };
+
+    await simulateDrag(
+        selectionOverlayElement, startPointInsideOverlay, endPointAboveOverlay);
+
+    await testBrowserProxy.handler.whenCalled('closeSearchBubble');
+    assertEquals(1, testBrowserProxy.handler.getCallCount('closeSearchBubble'));
+  });
+  test(`verify that a tap calls closeSearchBubble`, async () => {
+    const imageBounds = getImageBoundingRect(selectionOverlayElement);
+    await simulateClick(
+        selectionOverlayElement,
+        {x: imageBounds.left + 10, y: imageBounds.top + 10});
+
+    await testBrowserProxy.handler.whenCalled('closeSearchBubble');
+    assertEquals(1, testBrowserProxy.handler.getCallCount('closeSearchBubble'));
+  });
 });

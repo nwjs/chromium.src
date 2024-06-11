@@ -104,6 +104,7 @@ import org.chromium.chrome.browser.sync.settings.AccountManagementFragment;
 import org.chromium.chrome.browser.sync.settings.SignInPreference;
 import org.chromium.chrome.browser.sync.settings.SyncPromoPreference;
 import org.chromium.chrome.browser.sync.settings.SyncPromoPreference.State;
+import org.chromium.chrome.browser.tasks.tab_management.TabsSettings;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistoryOptInActivityLauncher;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistoryOptInCoordinator;
@@ -126,6 +127,7 @@ import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.test.util.AccountCapabilitiesBuilder;
 import org.chromium.components.signin.test.util.FakeAccountManagerFacade;
 import org.chromium.components.sync.SyncService;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
@@ -341,8 +343,9 @@ public class MainSettingsFragmentTest {
         launchSettingsActivity();
 
         onView(withId(R.id.recycler_view))
-                .perform(scrollTo(hasDescendant(withText(R.string.sync_promo_turn_on_sync))));
-        onView(withText(R.string.sync_promo_turn_on_sync)).perform(click());
+                .perform(scrollTo(hasDescendant(withText(R.string.signin_settings_title))));
+        onView(withText(R.string.signin_settings_subtitle)).check(matches(isDisplayed()));
+        onView(withText(R.string.signin_settings_title)).perform(click());
 
         verify(mSigninAndHistoryOptInActivityLauncher)
                 .launchActivityIfAllowed(
@@ -378,7 +381,6 @@ public class MainSettingsFragmentTest {
     // Tests that no alert icon is visible if there are no identity errors.
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.SYNC_SHOW_IDENTITY_ERRORS_FOR_SIGNED_IN_USERS)
     public void testSigninRowShowsNoAlertWhenNoIdentityErrors() {
         // Sign-in and open settings.
         mSyncTestRule.setUpAccountAndSignInForTesting();
@@ -392,7 +394,6 @@ public class MainSettingsFragmentTest {
     // an identity error.
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.SYNC_SHOW_IDENTITY_ERRORS_FOR_SIGNED_IN_USERS)
     public void testSigninRowShowsNoAlertForIdentityErrorsForSyncingUsers() {
         FakeSyncServiceImpl fakeSyncService =
                 TestThreadUtils.runOnUiThreadBlockingNoException(
@@ -415,7 +416,6 @@ public class MainSettingsFragmentTest {
     // signed-in non-syncing user.
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.SYNC_SHOW_IDENTITY_ERRORS_FOR_SIGNED_IN_USERS)
     public void testSigninRowShowsAlertForIdentityErrors() {
         FakeSyncServiceImpl fakeSyncService =
                 TestThreadUtils.runOnUiThreadBlockingNoException(
@@ -437,7 +437,6 @@ public class MainSettingsFragmentTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @EnableFeatures(ChromeFeatureList.SYNC_SHOW_IDENTITY_ERRORS_FOR_SIGNED_IN_USERS)
     public void testRenderOnIdentityErrorForSignedInUsers() throws IOException {
         FakeSyncServiceImpl fakeSyncService =
                 TestThreadUtils.runOnUiThreadBlockingNoException(
@@ -455,7 +454,7 @@ public class MainSettingsFragmentTest {
         launchSettingsActivity();
 
         // Population of profile data is flaky. Thus, wait till it's populated.
-        // TODO(crbug.com/1503649): Check if there exists an alternate way out.
+        // TODO(crbug.com/40944114): Check if there exists an alternate way out.
         SignInPreference signInPreference = mMainSettings.findPreference(MainSettings.PREF_SIGN_IN);
         CriteriaHelper.pollUiThread(
                 () -> {
@@ -638,16 +637,8 @@ public class MainSettingsFragmentTest {
         // Account set up.
         final SigninTestRule signinTestRule = mSyncTestRule.getSigninTestRule();
         AccountInfo accountInfo =
-                new AccountInfo.Builder(
-                                AccountManagerTestRule.generateChildEmail("test@gmail.com"),
-                                FakeAccountManagerFacade.toGaiaId("test-gaia-id"))
-                        .fullName("ChildTest Full")
-                        .givenName("ChildTest Given")
-                        .accountCapabilities(
-                                SigninTestRule.NON_DISPLAYABLE_EMAIL_ACCOUNT_CAPABILITIES)
-                        .build();
-        signinTestRule.addAccountAndWaitForSeeding(accountInfo);
-        signinTestRule.waitForSignin(accountInfo);
+                signinTestRule.addChildTestAccountThenWaitForSignin(
+                        new AccountCapabilitiesBuilder().setCanHaveEmailAddressDisplayed(false));
 
         // Force update the preference so that NON_DISPLAYABLE_EMAIL_ACCOUNT_CAPABILITIES is
         // actually utilized. This is to replicate downstream implementation behavior, where
@@ -894,6 +885,24 @@ public class MainSettingsFragmentTest {
         Assert.assertNull(
                 "Home modules config setting should not be shown on automotive",
                 mMainSettings.findPreference(MainSettings.PREF_HOME_MODULES_CONFIG));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.TAB_GROUP_SYNC_ANDROID)
+    public void testTabsSettingsOn() {
+        launchSettingsActivity();
+        assertSettingsExists(MainSettings.PREF_TABS, TabsSettings.class);
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.TAB_GROUP_SYNC_ANDROID)
+    public void testTabsSettingsOff() {
+        launchSettingsActivity();
+        Assert.assertNull(
+                "Tabs settings should not be shown",
+                mMainSettings.findPreference(MainSettings.PREF_TABS));
     }
 
     @Test

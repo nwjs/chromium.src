@@ -26,25 +26,39 @@ class ProductSpecificationsService : public KeyedService {
   base::WeakPtr<syncer::ModelTypeControllerDelegate>
   GetSyncControllerDelegate();
 
-  const std::vector<const ProductSpecificationsSet>
+  virtual const std::vector<ProductSpecificationsSet>
   GetAllProductSpecifications();
+
+  virtual const std::optional<ProductSpecificationsSet> GetSetByUuid(
+      const base::Uuid& uuid);
 
   // Add new product specifications set called |name| with product pages
   // corresponding to |urls|.
-  const std::optional<const ProductSpecificationsSet>
+  virtual const std::optional<ProductSpecificationsSet>
   AddProductSpecificationsSet(const std::string& name,
-                              const std::vector<const GURL>& urls);
+                              const std::vector<GURL>& urls);
+
+  // Set the URLs for a product specifications set associated with the provided
+  // Uuid. If a set with the provided Uuid exists, an updated
+  // ProductSpecificationsSet will be returned, otherwise nullopt.
+  std::optional<ProductSpecificationsSet> SetUrls(
+      const base::Uuid& uuid,
+      const std::vector<GURL>& urls);
+
+  // Set the name for a product specifications set associated with the provided
+  // Uuid. If a set with the provided Uuid exists, an updated
+  // ProductSpecificationsSet will be returned, otherwise nullopt.
+  std::optional<ProductSpecificationsSet> SetName(const base::Uuid& uuid,
+                                                  const std::string& name);
 
   // Deletes product specification set corresponding to identifier |uuid|.
-  void DeleteProductSpecificationsSet(const std::string& uuid);
+  virtual void DeleteProductSpecificationsSet(const std::string& uuid);
 
   // Observer monitoring add/remove/update of ProductSpecificationSets.
-  void AddObserver(
-      const commerce::ProductSpecificationsSet::Observer* observer);
+  void AddObserver(commerce::ProductSpecificationsSet::Observer* observer);
 
   // Remove observer monitoring add/remove/update of ProductSpecificationSets.
-  void RemoveObserver(
-      const commerce::ProductSpecificationsSet::Observer* observer);
+  void RemoveObserver(commerce::ProductSpecificationsSet::Observer* observer);
 
  private:
   std::unique_ptr<ProductSpecificationsSyncBridge> bridge_;

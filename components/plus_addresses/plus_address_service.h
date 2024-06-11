@@ -7,10 +7,9 @@
 
 #include <memory>
 #include <optional>
-#include <set>
 #include <string>
-#include <unordered_set>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
@@ -48,9 +47,17 @@ class PlusAddressService : public KeyedService,
  public:
   class Observer : public base::CheckedObserver {
    public:
-    // Called whenever the set of `PlusProfile`s returned by `GetPlusProfiles()`
-    // changes, e.g. because a new plus addresses arrived via Sync.
-    virtual void OnPlusAddressesChanged() = 0;
+    // Called whenever the set of plus addresses cached in the service
+    // gets modified (e.g. `SavePlusProfile` calls, sync updates, etc).
+    // `changes` represents a sequence of addition or removal operations
+    // triggered on the local cache. Notably, update operations are emulated as
+    // a remove operation of the old value followed by an addition of the
+    // updated value.
+    virtual void OnPlusAddressesChanged(
+        const std::vector<PlusAddressDataChange>& changes) = 0;
+
+    // Called when the observed PlusAddressService is being destroyed.
+    virtual void OnPlusAddressServiceShutdown() = 0;
   };
 
   // The number of `HTTP_FORBIDDEN` responses that the user may receive before
@@ -79,7 +86,8 @@ class PlusAddressService : public KeyedService,
   void RecordAutofillSuggestionEvent(SuggestionEvent suggestion_event) override;
 
   // PlusAddressWebDataService::Observer:
-  void OnWebDataChangedBySync(const PlusAddressSyncDataChange& change) override;
+  void OnWebDataChangedBySync(
+      const std::vector<PlusAddressDataChange>& changes) override;
 
   // WebDataServiceConsumer:
   void OnWebDataServiceRequestDone(
@@ -96,22 +104,20 @@ class PlusAddressService : public KeyedService,
   bool SupportsPlusAddresses(const url::Origin& origin,
                              bool is_off_the_record) const;
 
-  // Same as `GetPlusAddress`, but packages the plus address along with its
-  // eTLD+1.
-  std::optional<PlusProfile> GetPlusProfile(const url::Origin& origin) const;
+  // Gets a plus address, if one exists, for the passed-in facet.
+  std::optional<std::string> GetPlusAddress(
+      const PlusProfile::facet_t& facet) const;
+
+  // Same as `GetPlusAddress()`, but returns the entire profile.
+  std::optional<PlusProfile> GetPlusProfile(
+      const PlusProfile::facet_t& facet) const;
 
   // Returns all the cached plus profiles. There are no server requests
   // triggered by this method, only the cached responses are returned.
   std::vector<PlusProfile> GetPlusProfiles() const;
 
-  // Gets a plus address, if one exists, for the passed-in origin. Note that all
-  // plus address activity is scoped to eTLD+1. This class owns the conversion
-  // of `origin` to its eTLD+1 form.
-  std::optional<std::string> GetPlusAddress(const url::Origin& origin) const;
-
-  // Saves a plus profile for the given origin, which is converted to its eTLD+1
-  // form prior to persistence.
-  void SavePlusProfile(url::Origin origin, const PlusProfile& profile);
+  // Saves a confirmed plus profile for its facet.
+  void SavePlusProfile(const PlusProfile& profile);
 
   // Asks the PlusAddressHttpClient to reserve a plus address for use on
   // `origin` and returns the plus address via `on_completed`.
@@ -119,6 +125,14 @@ class PlusAddressService : public KeyedService,
   // Virtual to allow overriding the behavior in tests.
   virtual void ReservePlusAddress(const url::Origin& origin,
                                   PlusAddressRequestCallback on_completed);
+
+  // Asks the PlusAddressHttpClient to refresh the plus address for `origin` and
+  // calls `on_completed` with the result.
+  void RefreshPlusAddress(const url::Origin& origin,
+                          PlusAddressRequestCallback on_completed);
+
+  // Returns whether refreshing a plus address on `origin` is supported.
+  bool IsRefreshingSupported(const url::Origin& origin);
 
   // Asks the PlusAddressHttpClient to confirm `plus_address` for use on
   // `origin` and returns the plus address via `on_completed`.
@@ -168,17 +182,10 @@ class PlusAddressService : public KeyedService,
                                      PlusAddressRequestCallback callback,
                                      const PlusProfileOrError& maybe_profile);
 
-  // Get and parse the excluded sites.
-  std::set<std::string> GetAndParseExcludedSites();
-
   // Checks whether the `origin` supports plus address.
   // Returns `true` when origin is not opaque, ETLD+1 of `origin` is not
   // on `excluded_sites_` set, and scheme is http or https.
   bool IsSupportedOrigin(const url::Origin& origin) const;
-
-  // Replaces the data stored in `plus_profiles_` and `plus_addresses_`
-  // with the contents of `profiles`, and notifies observers about this change.
-  void ReplacePlusProfiles(const std::vector<PlusProfile>& profiles);
 
   // Updates `plus_profiles_` and `plus_addresses_` using `map`.
   // TODO(b/322147254): Remove once integration has finished.
@@ -186,12 +193,12 @@ class PlusAddressService : public KeyedService,
 
   // The user's existing set of `PlusProfile`s, ordered by facet. Since only a
   // single address per facet is supported, this can be used as the comparator.
-  std::set<PlusProfile, PlusProfileFacetComparator> plus_profiles_
+  base::flat_set<PlusProfile, PlusProfileFacetComparator> plus_profiles_
       GUARDED_BY_CONTEXT(sequence_checker_);
 
   // Used to drive the `IsPlusAddress` function, and derived from the values of
   // `plus_profiles_`.
-  std::unordered_set<std::string> plus_addresses_
+  base::flat_set<std::string> plus_addresses_
       GUARDED_BY_CONTEXT(sequence_checker_);
 
   // Stores pointer to IdentityManager instance. It must outlive the
@@ -217,7 +224,7 @@ class PlusAddressService : public KeyedService,
 
   // Store set of excluded sites ETLD+1 where PlusAddressService is not
   // supported.
-  std::set<std::string> excluded_sites_;
+  base::flat_set<std::string> excluded_sites_;
 
   // Stores last auth error (potentially NONE) to toggle is_enabled() on/off.
   // Defaults to NONE to enable this service while refresh tokens (and potential

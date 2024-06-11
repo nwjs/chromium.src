@@ -9,12 +9,14 @@
 #include "components/sync/protocol/app_specifics.pb.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
 #include "components/sync/protocol/contact_info_specifics.pb.h"
+#include "components/sync/protocol/cookie_specifics.pb.h"
 #include "components/sync/protocol/gaia_password_reuse.pb.h"
 #include "components/sync/protocol/get_updates_caller_info.pb.h"
 #include "components/sync/protocol/model_type_state.pb.h"
 #include "components/sync/protocol/nigori_specifics.pb.h"
 #include "components/sync/protocol/note_entity.pb.h"
 #include "components/sync/protocol/power_bookmark_specifics.pb.h"
+#include "components/sync/protocol/proto_value_conversions.h"
 #include "components/sync/protocol/reading_list_specifics.pb.h"
 #include "components/sync/protocol/saved_tab_group_specifics.pb.h"
 #include "components/sync/protocol/session_specifics.pb.h"
@@ -57,9 +59,8 @@ const char* ProtoEnumToString(
 const char* ProtoEnumToString(
     sync_pb::ContactInfoSpecifics::VerificationStatus verification_status);
 
-const char* ProtoEnumToString(sync_pb::NigoriSpecifics::
-    AutoUpgradeDebugInfo::AutoUpgradeExperimentGroup
-        auto_upgrade_experiment_group);
+const char* ProtoEnumToString(
+    sync_pb::TrustedVaultAutoUpgradeExperimentGroup::Type type);
 
 const char* ProtoEnumToString(sync_pb::NigoriSpecifics::PassphraseType type);
 
@@ -201,6 +202,18 @@ const char* ProtoEnumToString(
     sync_pb::WorkspaceDeskSpecifics::TabGroupColor color);
 
 const char* ProtoEnumToString(sync_pb::ModelTypeState::InitialSyncState state);
+
+const char* ProtoEnumToString(
+    sync_pb::CookieSpecifics::CookieSameSite site_restrictions);
+
+const char* ProtoEnumToString(
+    sync_pb::CookieSpecifics::CookiePriority priority);
+
+const char* ProtoEnumToString(
+    sync_pb::CookieSpecifics::CookieSourceScheme source_scheme);
+
+const char* ProtoEnumToString(
+    sync_pb::CookieSpecifics::CookieSourceType source_type);
 
 }  // namespace syncer
 

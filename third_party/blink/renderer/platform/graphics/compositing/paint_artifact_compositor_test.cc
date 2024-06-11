@@ -233,6 +233,10 @@ class PaintArtifactCompositorTest : public testing::Test,
     return *paint_artifact_compositor_;
   }
 
+  int CcNodeId(const PaintPropertyNode& node) {
+    return node.CcNodeId(GetPropertyTrees().sequence_number());
+  }
+
  private:
   MockScrollCallbacks scroll_callbacks_;
   Persistent<PaintArtifactCompositor> paint_artifact_compositor_;
@@ -1024,7 +1028,6 @@ static RefCountedPropertyTreeState ScrollState2(
 
 static void CheckCcScrollNode(const ScrollPaintPropertyNode& blink_scroll,
                               const cc::ScrollNode& cc_scroll) {
-  EXPECT_TRUE(cc_scroll.scrollable);
   EXPECT_EQ(blink_scroll.ContainerRect().size(), cc_scroll.container_bounds);
   EXPECT_EQ(blink_scroll.ContentsRect().size(), cc_scroll.bounds);
   EXPECT_EQ(blink_scroll.UserScrollableHorizontal(),
@@ -1602,9 +1605,9 @@ TEST_P(PaintArtifactCompositorTest, FixedPositionScrollState) {
 
   auto& scroll_tree = GetPropertyTrees().scroll_tree();
   auto& transform_tree = GetPropertyTrees().transform_tree();
-  // Node #0 reserved for null. #1 for root render surface. #2 is for scroll_a.
-  // scroll #3 and transform #4 are for scroll_b. Transform #3 is for
-  // fixed_transform.
+  // Scroll node #0 reserved for null, #1 for root render surface, #2 is for
+  // scroll_a, and #3 for scroll_b. Transform ids depend on the order in the
+  // painted_scroll_translations_ HashMap so are not deterministic.
   ASSERT_EQ(4u, scroll_tree.size());
   ASSERT_EQ(5u, transform_tree.size());
   ASSERT_EQ(3u, LayerCount());
@@ -1613,7 +1616,7 @@ TEST_P(PaintArtifactCompositorTest, FixedPositionScrollState) {
   auto* layer_a = LayerAt(0);
   EXPECT_EQ(scroll_a.GetCompositorElementId(), scroll_node_a->element_id);
   EXPECT_EQ(1, scroll_node_a->parent_id);
-  EXPECT_EQ(2, scroll_node_a->transform_id);
+  EXPECT_EQ(CcNodeId(scroll_state_a.Transform()), scroll_node_a->transform_id);
   EXPECT_EQ(2, layer_a->scroll_tree_index());
   EXPECT_EQ(1, layer_a->transform_tree_index());
 
@@ -1623,7 +1626,7 @@ TEST_P(PaintArtifactCompositorTest, FixedPositionScrollState) {
   } else {
     EXPECT_EQ(1, fixed_layer->scroll_tree_index());
   }
-  EXPECT_EQ(3, fixed_layer->transform_tree_index());
+  EXPECT_EQ(CcNodeId(*fixed_transform), fixed_layer->transform_tree_index());
   auto* fixed_transform_node = transform_tree.Node(3);
   EXPECT_EQ(1, fixed_transform_node->parent_id);
 
@@ -1631,9 +1634,9 @@ TEST_P(PaintArtifactCompositorTest, FixedPositionScrollState) {
   auto* layer_b = LayerAt(2);
   EXPECT_EQ(2, scroll_node_b->parent_id);
   EXPECT_EQ(scroll_b.GetCompositorElementId(), scroll_node_b->element_id);
-  EXPECT_EQ(4, scroll_node_b->transform_id);
+  EXPECT_EQ(CcNodeId(scroll_state_b.Transform()), scroll_node_b->transform_id);
   EXPECT_EQ(3, layer_b->scroll_tree_index());
-  EXPECT_EQ(3, layer_b->transform_tree_index());
+  EXPECT_EQ(CcNodeId(*fixed_transform), layer_b->transform_tree_index());
 }
 
 TEST_P(PaintArtifactCompositorTest, MergeSimpleChunks) {
@@ -3674,23 +3677,21 @@ TEST_P(PaintArtifactCompositorTest, SynthesizedClipDelegateBackdropFilter) {
   Update(artifact.Build());
 
   // Expectation in effect stack diagram:
-  //                     content1
-  //       content0      [  e1  ]  clip_mask1        content2
-  // [ mask_isolation_0 ][  mask_isolation_1  ][ mask_isolation_2  ]
-  // [                             e0                              ]
+  //                           content1
+  //       content0      [        e1        ]      content2
+  // [ mask_isolation_0 ][ mask_isolation_1 ][ mask_isolation_2  ]
+  // [                            e0                             ]
   // Three content layers.
-  ASSERT_EQ(4u, LayerCount());
+  ASSERT_EQ(3u, LayerCount());
   const cc::Layer* content0 = LayerAt(0);
   const cc::Layer* content1 = LayerAt(1);
-  const cc::Layer* clip_mask1 = LayerAt(2);
-  const cc::Layer* content2 = LayerAt(3);
+  const cc::Layer* content2 = LayerAt(2);
 
-  // Three synthesized layers, two of which are null because they use fast
-  // rounded corners. One real synthesized layer is needed because the rounded
-  // clip and the backdrop filter are in different transform spaces.
+  // Three synthesized layers, all are null because they use fast rounded
+  // corners.
   ASSERT_EQ(3u, SynthesizedClipLayerCount());
   EXPECT_FALSE(SynthesizedClipLayerAt(0));
-  EXPECT_EQ(clip_mask1, SynthesizedClipLayerAt(1));
+  EXPECT_FALSE(SynthesizedClipLayerAt(1));
   EXPECT_FALSE(SynthesizedClipLayerAt(2));
 
   int t1_id = content0->transform_tree_index();
@@ -3734,23 +3735,11 @@ TEST_P(PaintArtifactCompositorTest, SynthesizedClipDelegateBackdropFilter) {
   EXPECT_EQ(t1_id, mask_isolation_1.transform_id);
   EXPECT_EQ(c2_id, mask_isolation_1.clip_id);
   EXPECT_FALSE(mask_isolation_1.backdrop_filters.IsEmpty());
-  EXPECT_FALSE(mask_isolation_1.is_fast_rounded_corner);
+  EXPECT_TRUE(mask_isolation_1.is_fast_rounded_corner);
   // Opacity should also be moved to mask_isolation_1.
   EXPECT_EQ(0.5f, mask_isolation_1.opacity);
-  EXPECT_EQ(gfx::RRectF(),
+  EXPECT_EQ(gfx::RRectF(40, 30, 300, 200, 5),
             mask_isolation_1.mask_filter_info.rounded_corner_bounds());
-
-  EXPECT_EQ(t1_id, clip_mask1->transform_tree_index());
-  EXPECT_EQ(c2_id, clip_mask1->clip_tree_index());
-  const cc::EffectNode& mask =
-      *GetPropertyTrees().effect_tree().Node(clip_mask1->effect_tree_index());
-  ASSERT_EQ(mask_isolation_1_id, mask.parent_id);
-  EXPECT_EQ(SkBlendMode::kDstIn, mask.blend_mode);
-  EXPECT_TRUE(static_cast<const cc::PictureLayer*>(clip_mask1)
-                  ->is_backdrop_filter_mask());
-  EXPECT_TRUE(clip_mask1->element_id());
-  EXPECT_EQ(clip_mask1->element_id(),
-            mask_isolation_1.backdrop_mask_element_id);
 
   EXPECT_EQ(t1_id, content2->transform_tree_index());
   EXPECT_EQ(c1_id, content2->clip_tree_index());

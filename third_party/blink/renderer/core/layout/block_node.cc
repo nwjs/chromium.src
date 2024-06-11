@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_marquee_element.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/block_break_token.h"
@@ -236,10 +237,10 @@ bool CanUseCachedIntrinsicInlineSizes(const ConstraintSpace& constraint_space,
 
   // Check if we have any percentage padding.
   const auto& style = node.Style();
-  if (style.MayHavePadding() && (style.PaddingTop().IsPercentOrCalc() ||
-                                 style.PaddingRight().IsPercentOrCalc() ||
-                                 style.PaddingBottom().IsPercentOrCalc() ||
-                                 style.PaddingLeft().IsPercentOrCalc())) {
+  if (style.MayHavePadding() &&
+      (style.PaddingTop().HasPercent() || style.PaddingRight().HasPercent() ||
+       style.PaddingBottom().HasPercent() ||
+       style.PaddingLeft().HasPercent())) {
     return false;
   }
 
@@ -1293,6 +1294,14 @@ void BlockNode::CopyChildFragmentPosition(
   if (!layout_box)
     return;
 
+  if (child_fragment.GetBoxType() == PhysicalFragment::kPageContainer ||
+      child_fragment.GetBoxType() == PhysicalFragment::kPageBorderBox) {
+    // These fragment types don't need to write anything back to their
+    // LayoutBox. Furthermore, they have no parent, so the check below would
+    // fail.
+    return;
+  }
+
   DCHECK(layout_box->Parent()) << "Should be called on children only.";
 
   LayoutPoint point = LayoutBoxUtils::ComputeLocation(
@@ -1312,6 +1321,17 @@ void BlockNode::MakeRoomForExtraColumns(LayoutUnit block_size) const {
           ->LastMultiColumnSet()
           ->LastFragmentainerGroup();
   last_group.ExtendLogicalBottomInFlowThread(block_size);
+}
+
+void BlockNode::FinishPageContainerLayout(const LayoutResult* result) const {
+  DCHECK_EQ(result->Status(), LayoutResult::kSuccess);
+  DCHECK(result->GetPhysicalFragment().GetBoxType() ==
+             PhysicalFragment::kPageContainer ||
+         result->GetPhysicalFragment().GetBoxType() ==
+             PhysicalFragment::kPageBorderBox);
+  DCHECK(
+      To<PhysicalBoxFragment>(result->GetPhysicalFragment()).IsOnlyForNode());
+  StoreResultInLayoutBox(result, /*BlockBreakToken=*/nullptr);
 }
 
 void BlockNode::CopyFragmentItemsToLayoutBox(

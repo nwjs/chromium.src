@@ -207,8 +207,8 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTestNoWebUiTabStrip,
       return window->GetProperty(chromeos::kWindowStateTypeKey) ==
              chromeos::WindowStateType::kMaximized;
     }));
-    // TODO(crbug.com/1466385): Remove waiting for bounds change when the bug is
-    // fixed.
+    // TODO(crbug.com/40276379): Remove waiting for bounds change when the bug
+    // is fixed.
     ASSERT_TRUE(base::test::RunUntil(
         [&]() { return frame_view->bounds() != old_bounds; }));
   }
@@ -284,7 +284,7 @@ IN_PROC_BROWSER_TEST_F(
 // This test does not make sense for the webUI tabstrip, since the frame is not
 // painted in that case.
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-// TODO(crbug.com/1466385): Reenable when bug is fixed.
+// TODO(crbug.com/40276379): Reenable when bug is fixed.
 #define MAYBE_NonImmersiveFullscreen DISABLED_NonImmersiveFullscreen
 #else
 #define MAYBE_NonImmersiveFullscreen NonImmersiveFullscreen
@@ -320,7 +320,7 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTestNoWebUiTabStrip,
 
 // Tests that caption buttons are hidden when entering tab fullscreen.
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-// TODO(crbug.com/1466385): Reenable when bug is fixed.
+// TODO(crbug.com/40276379): Reenable when bug is fixed.
 #define MAYBE_CaptionButtonsHiddenNonImmersiveFullscreen \
   DISABLED_CaptionButtonsHiddenNonImmersiveFullscreen
 #else
@@ -518,8 +518,8 @@ class WebAppNonClientFrameViewChromeOSTest
   // |SetUpWebApp()| must be called after |SetUpOnMainThread()| to make sure
   // the Network Service process has been setup properly.
   void SetUpWebApp() {
-    auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    web_app_info->start_url = GetAppURL();
+    auto web_app_info =
+        web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(GetAppURL());
     web_app_info->scope = GetAppURL().GetWithoutFilename();
     web_app_info->display_mode = blink::mojom::DisplayMode::kStandalone;
     web_app_info->theme_color = GetThemeColor();
@@ -1116,8 +1116,14 @@ IN_PROC_BROWSER_TEST_F(PreventCloseBrowserNonClientFrameViewChromeOSTest,
   ClearWebAppSettings();
 }
 
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// TODO(crbug.com/339083706): Flaky on Lacros.
+#define MAYBE_ImmersiveModeTopViewInset DISABLED_ImmersiveModeTopViewInset
+#else
+#define MAYBE_ImmersiveModeTopViewInset ImmersiveModeTopViewInset
+#endif
 IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTest,
-                       ImmersiveModeTopViewInset) {
+                       MAYBE_ImmersiveModeTopViewInset) {
   Browser* app_browser =
       CreateBrowserForApp("test_browser_app", browser()->profile());
 
@@ -1189,7 +1195,7 @@ IN_PROC_BROWSER_TEST_P(BrowserNonClientFrameViewChromeOSTest,
 using FloatBrowserNonClientFrameViewChromeOSTest =
     TopChromeMdParamTest<ChromeOSBrowserUITest>;
 
-// TODO(crbug.com/1494785): Port this test to Lacros.
+// TODO(crbug.com/40286309): Port this test to Lacros.
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 IN_PROC_BROWSER_TEST_P(FloatBrowserNonClientFrameViewChromeOSTest,
                        TabletModeMultitaskMenu) {
@@ -1268,7 +1274,7 @@ IN_PROC_BROWSER_TEST_P(FloatBrowserNonClientFrameViewChromeOSTest,
 // Test that for a browser app window, its caption buttons may or may not hide
 // in tablet mode.
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-// TODO(crbug.com/1505656): Finish porting to Lacros when the bug is fixed.
+// TODO(crbug.com/40946296): Finish porting to Lacros when the bug is fixed.
 #define MAYBE_BrowserAppHeaderVisibilityInTabletModeTest \
   DISABLED_BrowserAppHeaderVisibilityInTabletModeTest
 #else
@@ -1411,7 +1417,7 @@ IN_PROC_BROWSER_TEST_P(HomeLauncherBrowserNonClientFrameViewChromeOSTest,
 }
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-// TODO(crbug.com/1505656): Finish porting to Lacros when the bug is fixed.
+// TODO(crbug.com/40946296): Finish porting to Lacros when the bug is fixed.
 #define MAYBE_TabletModeAppCaptionButtonVisibility \
   DISABLED_TabletModeAppCaptionButtonVisibility
 #else
@@ -1449,45 +1455,7 @@ IN_PROC_BROWSER_TEST_P(HomeLauncherBrowserNonClientFrameViewChromeOSTest,
   EXPECT_FALSE(immersive_mode_controller->IsEnabled());
 }
 
-namespace {
-
-class TabSearchFrameCaptionButtonTest
-    : public TopChromeMdParamTest<ChromeOSBrowserUITest> {
- public:
-  TabSearchFrameCaptionButtonTest() = default;
-  TabSearchFrameCaptionButtonTest(const TabSearchFrameCaptionButtonTest&) =
-      delete;
-  TabSearchFrameCaptionButtonTest& operator=(
-      const TabSearchFrameCaptionButtonTest&) = delete;
-  ~TabSearchFrameCaptionButtonTest() override = default;
-
-  void SetUp() override {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kChromeOSTabSearchCaptionButton);
-    TopChromeMdParamTest<ChromeOSBrowserUITest>::SetUp();
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-}  // namespace
-
-IN_PROC_BROWSER_TEST_P(TabSearchFrameCaptionButtonTest,
-                       TabSearchBubbleHostTest) {
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  BrowserNonClientFrameViewChromeOS* frame_view =
-      GetFrameViewChromeOS(browser_view);
-  ASSERT_TRUE(browser()->is_type_normal());
-
-  chromeos::FrameCaptionButtonContainerView::TestApi test(
-      frame_view->caption_button_container());
-  EXPECT_TRUE(test.custom_button());
-  EXPECT_EQ(browser_view->GetTabSearchBubbleHost()->button(),
-            test.custom_button());
-}
-
-// TODO(crbug.com/1494785): Port this kiosk test to Lacros?
+// TODO(crbug.com/40286309): Port this kiosk test to Lacros?
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 namespace {
 
@@ -1548,7 +1516,7 @@ IN_PROC_BROWSER_TEST_P(LockedFullscreenBrowserNonClientFrameViewChromeOSTest,
   EXPECT_TRUE(browser_view->GetWidget()->IsFullscreen());
   EXPECT_FALSE(browser_view->immersive_mode_controller()->IsEnabled());
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // TODO(crbug.com/1466385): Enable this assertion once the bug is fixed (at
+  // TODO(crbug.com/40276379): Enable this assertion once the bug is fixed (at
   // the moment PinWindow returns too early).
 #else
   EXPECT_FALSE(IsShelfVisible());
@@ -1714,8 +1682,8 @@ class BrowserNonClientFrameViewAshThemeChangeTest
         }
         const GURL app_url =
             test_server_->GetURL("app.com", "/ssl/google.html");
-        auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-        web_app_info->start_url = app_url;
+        auto web_app_info =
+            web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(app_url);
         web_app_info->scope = app_url.GetWithoutFilename();
         web_app_info->theme_color = SK_ColorWHITE;
         web_app_info->dark_mode_theme_color = SK_ColorBLACK;
@@ -1864,7 +1832,6 @@ INSTANTIATE_TEST_SUITE(BrowserNonClientFrameViewChromeOSTestWithWebUiTabStrip);
 INSTANTIATE_TEST_SUITE(FloatBrowserNonClientFrameViewChromeOSTest);
 INSTANTIATE_TEST_SUITE(HomeLauncherBrowserNonClientFrameViewChromeOSTest);
 INSTANTIATE_TEST_SUITE(LockedFullscreenBrowserNonClientFrameViewChromeOSTest);
-INSTANTIATE_TEST_SUITE(TabSearchFrameCaptionButtonTest);
 INSTANTIATE_TEST_SUITE(WebAppNonClientFrameViewChromeOSTest);
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

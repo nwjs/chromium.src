@@ -103,15 +103,6 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
       },
 
       /**
-       * Indicates the UI is busy with an operation and cannot be interacted
-       * with.
-       */
-      showBusy: {
-        type: Boolean,
-        value: false,
-      },
-
-      /**
        * Indicates no profiles were found while scanning.
        */
       showNoProfilesFound: {
@@ -142,7 +133,7 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
       },
 
       /**
-       *  TODO(crbug.com/1093185): add type |BarcodeDetector| when externs
+       *  TODO(crbug.com/40134918): add type |BarcodeDetector| when externs
        *  becomes available
        */
       qrCodeDetector_: {
@@ -200,7 +191,6 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
   activationCode: string;
   showError: boolean;
   isFromQrCode: boolean;
-  showBusy: boolean;
   showNoProfilesFound: boolean;
   private state_: PageState;
   private cameraCount_: number;
@@ -291,7 +281,7 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
   }
 
   /**
-   * TODO(crbug.com/1093185): Remove suppression when shape_detection extern
+   * TODO(crbug.com/40134918): Remove suppression when shape_detection extern
    * definitions become available.
    */
   private async initBarcodeDetector_(): Promise<void> {
@@ -469,7 +459,7 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
   }
 
   /**
-   * TODO(crbug.com/1093185): Remove suppression when shape_detection extern
+   * TODO(crbug.com/40134918): Remove suppression when shape_detection extern
    * definitions become available.
    */
   private async detectActivationCode_(frame: ImageBitmap):
@@ -648,11 +638,8 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
     }
   }
 
-  private isUiElementDisabled_(uiElement: UiElement, state: PageState,
-      showBusy: boolean): boolean {
-    if (showBusy) {
-      return true;
-    }
+  private isUiElementDisabled_(uiElement: UiElement, state: PageState):
+      boolean {
     switch (uiElement) {
       case UiElement.SWITCH_CAMERA:
         return state === PageState.SWITCHING_CAM_USER_TO_ENVIRONMENT ||
@@ -682,11 +669,7 @@ export class ActivationCodePageElement extends ActivationCodePageElementBase {
     return state === PageState.MANUAL_ENTRY_INSTALL_FAILURE;
   }
 
-  private getInputSubtitle_(showBusy: boolean): string {
-    if (showBusy) {
-      return this.i18n('scanQrCodeLoading');
-    }
-
+  private getInputSubtitle_(): string {
     // Because this string contains '<' and '>' characters, we cannot use i18n
     // methods.
     return loadTimeData.getString('scanQrCodeInputSubtitle');

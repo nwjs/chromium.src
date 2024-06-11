@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/trace_event/category_registry.h"
 
 #include <string.h>
@@ -95,7 +100,7 @@ bool CategoryRegistry::GetOrCreateCategoryLocked(
   // Create a new category.
   size_t category_index = category_index_.load(std::memory_order_acquire);
   if (category_index >= kMaxCategories) {
-    NOTREACHED() << "must increase kMaxCategories";
+    NOTREACHED_IN_MIGRATION() << "must increase kMaxCategories";
     *category = kCategoryExhausted;
     return false;
   }

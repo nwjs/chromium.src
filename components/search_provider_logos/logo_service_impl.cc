@@ -398,7 +398,7 @@ void LogoServiceImpl::OnCachedLogoRead(
     scoped_refptr<base::RefCountedString> encoded_image =
         cached_logo->encoded_image;
     image_decoder_->DecodeImage(
-        encoded_image->data(), gfx::Size(),  // No particular size desired.
+        encoded_image->as_string(), gfx::Size(),  // No particular size desired.
         /*data_decoder=*/nullptr,
         ImageDecodedHandlerWithTimeout::Wrap(base::BindOnce(
             &LogoServiceImpl::OnLightCachedImageDecoded,
@@ -438,7 +438,8 @@ void LogoServiceImpl::OnLightCachedImageDecoded(
       cached_logo->dark_encoded_image;
 
   image_decoder_->DecodeImage(
-      dark_encoded_image->data(), gfx::Size(),  // No particular size desired.
+      dark_encoded_image->as_string(),
+      gfx::Size(),  // No particular size desired.
       /*data_decoder=*/nullptr,
       ImageDecodedHandlerWithTimeout::Wrap(base::BindOnce(
           &LogoServiceImpl::OnCachedLogoAvailable,
@@ -533,7 +534,7 @@ void LogoServiceImpl::OnFreshLogoParsed(bool* parsing_failed,
     scoped_refptr<base::RefCountedString> encoded_image = logo->encoded_image;
 
     image_decoder_->DecodeImage(
-        encoded_image->data(), gfx::Size(),  // No particular size desired.
+        encoded_image->as_string(), gfx::Size(),  // No particular size desired.
         /*data_decoder=*/nullptr,
         ImageDecodedHandlerWithTimeout::Wrap(base::BindOnce(
             &LogoServiceImpl::OnLightFreshImageDecoded,
@@ -561,7 +562,8 @@ void LogoServiceImpl::OnLightFreshImageDecoded(
       logo->dark_encoded_image;
 
   image_decoder_->DecodeImage(
-      dark_encoded_image->data(), gfx::Size(),  // No particular size desired.
+      dark_encoded_image->as_string(),
+      gfx::Size(),  // No particular size desired.
       /*data_decoder=*/nullptr,
       ImageDecodedHandlerWithTimeout::Wrap(base::BindOnce(
           &LogoServiceImpl::OnFreshLogoAvailable,

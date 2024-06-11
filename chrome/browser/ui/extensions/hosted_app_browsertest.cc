@@ -45,6 +45,7 @@
 #include "chrome/browser/web_applications/external_install_options.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
+#include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -60,7 +61,6 @@
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/context_menu_params.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
@@ -188,7 +188,7 @@ class HostedOrWebAppTest : public extensions::ExtensionBrowserTest,
       : app_browser_(nullptr),
         https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {
     std::vector<base::test::FeatureRef> disabled{
-        // TODO(crbug.com/1394910): Remove this and use HTTPS URLs in the
+        // TODO(crbug.com/40248833): Remove this and use HTTPS URLs in the
         // tests.
         features::kHttpsUpgrades,
     };
@@ -219,8 +219,8 @@ class HostedOrWebAppTest : public extensions::ExtensionBrowserTest,
           base::StringPrintf(kAppDotComManifest, start_url.spec().c_str()));
       SetupApp(test_app_dir.UnpackedPath());
     } else {
-      auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-      web_app_info->start_url = start_url;
+      auto web_app_info =
+          web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
       web_app_info->scope = start_url.GetWithoutFilename();
       web_app_info->user_display_mode =
           web_app::mojom::UserDisplayMode::kStandalone;
@@ -353,7 +353,7 @@ class HostedOrWebAppTest : public extensions::ExtensionBrowserTest,
   // used by the NetworkService.
   content::ContentMockCertVerifier cert_verifier_;
 
-  web_app::OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
+  web_app::OsIntegrationTestOverrideBlockingRegistration faked_os_integration_;
 };
 
 // Tests that "Open link in new tab" opens a link in a foreground tab.
@@ -365,8 +365,7 @@ IN_PROC_BROWSER_TEST_P(HostedOrWebAppTest, DISABLED_OpenLinkInNewTab) {
   TestAppActionOpensForegroundTab(
       base::BindOnce(
           [](content::WebContents* app_contents, const GURL& target_url) {
-            ui_test_utils::UrlLoadObserver url_observer(
-                target_url, content::NotificationService::AllSources());
+            ui_test_utils::UrlLoadObserver url_observer(target_url);
             content::ContextMenuParams params;
             params.page_url = app_contents->GetLastCommittedURL();
             params.link_url = target_url;
@@ -404,8 +403,7 @@ IN_PROC_BROWSER_TEST_P(HostedOrWebAppTest, MAYBE_CtrlClickLink) {
   // Set up an app which covers app.com URLs.
   GURL app_url =
       embedded_test_server()->GetURL("app.com", "/click_modifier/href.html");
-  ui_test_utils::UrlLoadObserver url_observer(
-      app_url, content::NotificationService::AllSources());
+  ui_test_utils::UrlLoadObserver url_observer(app_url);
   SetupAppWithURL(app_url);
   // Wait for the URL to load so that we can click on the page.
   url_observer.Wait();
@@ -418,8 +416,7 @@ IN_PROC_BROWSER_TEST_P(HostedOrWebAppTest, MAYBE_CtrlClickLink) {
   TestAppActionOpensForegroundTab(
       base::BindOnce(
           [](content::WebContents* app_contents, const GURL& target_url) {
-            ui_test_utils::UrlLoadObserver url_observer(
-                target_url, content::NotificationService::AllSources());
+            ui_test_utils::UrlLoadObserver url_observer(target_url);
             int ctrl_key;
 #if BUILDFLAG(IS_MAC)
             ctrl_key = blink::WebInputEvent::Modifiers::kMetaKey;
@@ -888,8 +885,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppTestWithAutoupgradesDisabled,
 
   const GURL app_url = GetMixedContentAppURL();
 
-  ui_test_utils::UrlLoadObserver url_observer(
-      app_url, content::NotificationService::AllSources());
+  ui_test_utils::UrlLoadObserver url_observer(app_url);
   SetupAppWithURL(app_url);
   url_observer.Wait();
 
@@ -1356,7 +1352,13 @@ IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest, PopupsInsideHostedApp) {
 // This test was flaky on Win7 because it was bumping up against a 45 second
 // timeout. If it starts flaking on Windows 10+, it should be broken up into
 // smaller tests. See https://crbug.com/807471.
-IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest, FromOutsideHostedApp) {
+// TODO(crbug.com/335469702): Flaky on Linux ChromiumOS MSAN.
+#if BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)
+#define MAYBE_FromOutsideHostedApp DISABLED_FromOutsideHostedApp
+#else
+#define MAYBE_FromOutsideHostedApp FromOutsideHostedApp
+#endif
+IN_PROC_BROWSER_TEST_P(HostedAppProcessModelTest, MAYBE_FromOutsideHostedApp) {
   // Set up and launch the hosted app.
   GURL app_url =
       embedded_test_server()->GetURL("app.site.test", "/frame_tree/simple.htm");

@@ -6,15 +6,16 @@ package org.chromium.chrome.browser.ui.desktop_windowing;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
-import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher.ActivityState;
@@ -23,6 +24,7 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher.Activit
 @RunWith(BaseRobolectricTestRunner.class)
 public class AppHeaderUtilsUnitTest {
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
+    @Mock private DesktopWindowStateProvider mDesktopWindowStateProvider;
 
     @Before
     public void setup() {
@@ -55,7 +57,11 @@ public class AppHeaderUtilsUnitTest {
     @Test
     public void isActivityFocused_unfocusedActivityStates() {
         var activityStates =
-                new int[] {ActivityState.PAUSED_WITH_NATIVE, ActivityState.STOPPED_WITH_NATIVE};
+                new int[] {
+                    ActivityState.PAUSED_WITH_NATIVE,
+                    ActivityState.STOPPED_WITH_NATIVE,
+                    ActivityState.DESTROYED
+                };
         for (int state : activityStates) {
             when(mActivityLifecycleDispatcher.getCurrentActivityState()).thenReturn(state);
             assertFalse(
@@ -65,32 +71,30 @@ public class AppHeaderUtilsUnitTest {
     }
 
     @Test
-    public void isActivityFocused_unknownActivityState() {
-        when(mActivityLifecycleDispatcher.getCurrentActivityState())
-                .thenReturn(ActivityState.DESTROYED);
-        assertTrue(
-                "Activity focus state is incorrect.",
-                AppHeaderUtils.isActivityFocusedAtStartup(mActivityLifecycleDispatcher));
-    }
-
-    @Test
     public void isAppInDesktopWindow() {
         // Assume that the supplier is not initialized.
         assertFalse(
                 "Desktop windowing mode status is incorrect.",
-                AppHeaderUtils.isAppInDesktopWindow(/* desktopWindowModeSupplier= */ null));
+                AppHeaderUtils.isAppInDesktopWindow(/* appHeaderStateProvider= */ null));
 
-        // Assume entry into desktop windowing mode.
-        ObservableSupplierImpl<Boolean> mDesktopWindowModeSupplier = new ObservableSupplierImpl<>();
-        mDesktopWindowModeSupplier.set(true);
-        assertTrue(
-                "Desktop windowing mode status is incorrect.",
-                AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowModeSupplier));
-
-        // Assume exit from desktop windowing mode.
-        mDesktopWindowModeSupplier.set(false);
+        // Assume that the provider does not has a valid AppHeaderState.
         assertFalse(
                 "Desktop windowing mode status is incorrect.",
-                AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowModeSupplier));
+                AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateProvider));
+
+        AppHeaderState state = Mockito.mock(AppHeaderState.class);
+        doReturn(state).when(mDesktopWindowStateProvider).getAppHeaderState();
+
+        // Assume state not in desktop windowing mode.
+        doReturn(false).when(state).isInDesktopWindow();
+        assertFalse(
+                "Desktop windowing mode status is incorrect.",
+                AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateProvider));
+
+        // Assume state is in desktop windowing mode.
+        doReturn(true).when(state).isInDesktopWindow();
+        assertTrue(
+                "Desktop windowing mode status is incorrect.",
+                AppHeaderUtils.isAppInDesktopWindow(mDesktopWindowStateProvider));
     }
 }

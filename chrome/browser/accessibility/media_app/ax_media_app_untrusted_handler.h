@@ -25,7 +25,6 @@
 #include "mojo/public/cpp/bindings/message.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"
 #include "ui/accessibility/ax_action_handler_base.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_mode.h"
@@ -49,6 +48,10 @@ class RenderFrameHost;
 class WebContents;
 
 }  // namespace content
+
+namespace screen_ai {
+class OpticalCharacterRecognizer;
+}
 
 namespace ui {
 
@@ -111,8 +114,11 @@ class AXMediaAppUntrustedHandler
   std::string PopDirtyPage();
   virtual void OcrNextDirtyPageIfAny();
 
+  size_t min_pages_per_batch_ = 2u;
+  size_t pages_ocred_on_initial_load_ = 0u;
   // `AXMediaApp` should outlive this handler.
   raw_ptr<AXMediaApp> media_app_;
+  bool has_landmark_node_ = true;
   ui::AXTreeManager document_;
   std::unique_ptr<TreeSource> document_source_;
   std::unique_ptr<TreeSerializer> document_serializer_;
@@ -123,9 +129,11 @@ class AXMediaAppUntrustedHandler
       page_serializers_;
   std::unique_ptr<std::vector<const ui::AXTreeUpdate>>
       pending_serialized_updates_for_testing_;
-  mojo::Remote<screen_ai::mojom::ScreenAIAnnotator> screen_ai_annotator_;
+  scoped_refptr<screen_ai::OpticalCharacterRecognizer> ocr_;
 
  private:
+  size_t ComputePagesPerBatch() const;
+  std::vector<ui::AXNodeData> CreateStatusNodesWithLandmark() const;
   void SendAXTreeToAccessibilityService(const ui::AXTreeManager& manager,
                                         TreeSerializer& serializer);
   void UpdateDocumentTree();
@@ -139,10 +147,10 @@ class AXMediaAppUntrustedHandler
                    const ui::AXTreeUpdate& tree_update);
   content::WebContents* GetMediaAppWebContents() const;
   content::RenderFrameHost* GetMediaAppRenderFrameHost() const;
-  ui::AXNodeID GetMediaAppRootNodeID() const;
   void StitchDocumentTree();
   bool HasRendererTerminatedDueToBadPageId(const std::string& method_name,
                                            const std::string& page_id);
+  std::unique_ptr<gfx::Transform> MakeTransformFromOffsetAndScale() const;
 
   base::ScopedObservation<ui::AXPlatform, ui::AXModeObserver>
       ax_mode_observation_{this};
@@ -150,7 +158,9 @@ class AXMediaAppUntrustedHandler
   raw_ref<content::BrowserContext> browser_context_;
   mojo::Remote<media_app_ui::mojom::OcrUntrustedPage> media_app_page_;
   gfx::RectF viewport_box_;
+  float scale_factor_ = 0.0f;
   base::circular_deque<std::string> dirty_page_ids_;
+  bool text_extracted_ = false;
   ui::AXTreeID document_tree_id_ = ui::AXTreeID::CreateNewAXTreeID();
   SEQUENCE_CHECKER(sequence_checker_);
   std::optional<mojo::ReportBadMessageCallback> bad_message_callback_ =

@@ -33,6 +33,7 @@
 #include "chrome/browser/web_applications/test/web_app_icon_test_utils.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
 #include "components/web_package/test_support/signed_web_bundles/web_bundle_signer.h"
 #include "components/web_package/web_bundle_builder.h"
 #include "net/http/http_request_headers.h"
@@ -143,6 +144,23 @@ base::expected<IsolatedWebAppUrlInfo, std::string> Install(
   }
 
   return url_info;
+}
+
+web_package::SignedWebBundleId CreateSignedWebBundleIdFromKeyPair(
+    const web_package::WebBundleSigner::KeyPair& key_pair) {
+  return absl::visit(
+      base::Overloaded{
+          [](const web_package::WebBundleSigner::Ed25519KeyPair&
+                 ed25519_key_pair) {
+            return web_package::SignedWebBundleId::CreateForEd25519PublicKey(
+                ed25519_key_pair.public_key);
+          },
+          [](const web_package::WebBundleSigner::EcdsaP256KeyPair&
+                 ecdsa_p256_key_pair) {
+            return web_package::SignedWebBundleId::CreateForEcdsaP256PublicKey(
+                ecdsa_p256_key_pair.public_key);
+          }},
+      key_pair);
 }
 
 }  // namespace
@@ -659,29 +677,29 @@ IsolatedWebAppBuilder::BuildAndStartProxyServer() {
 
 std::unique_ptr<ScopedBundledIsolatedWebApp>
 IsolatedWebAppBuilder::BuildBundle() {
-  return BuildBundle(web_package::WebBundleSigner::KeyPair::CreateRandom());
+  return BuildBundle(
+      web_package::WebBundleSigner::Ed25519KeyPair::CreateRandom());
 }
 
 std::unique_ptr<ScopedBundledIsolatedWebApp> IsolatedWebAppBuilder::BuildBundle(
     const web_package::WebBundleSigner::KeyPair& key_pair) {
   return ScopedBundledIsolatedWebApp::Create(
-      web_package::SignedWebBundleId::CreateForEd25519PublicKey(
-          key_pair.public_key),
+      CreateSignedWebBundleIdFromKeyPair(key_pair),
       BuildInMemoryBundle(key_pair), manifest_builder_);
 }
 
 std::unique_ptr<BundledIsolatedWebApp> IsolatedWebAppBuilder::BuildBundle(
     const base::FilePath& bundle_path) {
-  return BuildBundle(bundle_path,
-                     web_package::WebBundleSigner::KeyPair::CreateRandom());
+  return BuildBundle(
+      bundle_path,
+      web_package::WebBundleSigner::Ed25519KeyPair::CreateRandom());
 }
 
 std::unique_ptr<BundledIsolatedWebApp> IsolatedWebAppBuilder::BuildBundle(
     const base::FilePath& bundle_path,
     const web_package::WebBundleSigner::KeyPair& key_pair) {
   return std::make_unique<BundledIsolatedWebApp>(
-      web_package::SignedWebBundleId::CreateForEd25519PublicKey(
-          key_pair.public_key),
+      CreateSignedWebBundleIdFromKeyPair(key_pair),
       BuildInMemoryBundle(key_pair), bundle_path, manifest_builder_);
 }
 

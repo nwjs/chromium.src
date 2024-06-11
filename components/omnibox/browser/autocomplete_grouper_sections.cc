@@ -125,19 +125,23 @@ void ZpsSection::InitFromMatches(ACMatches& matches) {
 /* static */ size_t AndroidNonZPSSection::num_visible_matches_{6};
 
 AndroidNonZPSSection::AndroidNonZPSSection(
+    bool show_only_search_suggestions,
     omnibox::GroupConfigMap& group_configs)
     : Section(
           15,
           {{1,  // Default match, not part of the Grouping.
             {{omnibox::GROUP_SEARCH, {1}},
-             {omnibox::GROUP_OTHER_NAVS, {1}},
+             {omnibox::GROUP_OTHER_NAVS, {1u}},
              {omnibox::GROUP_MOBILE_RICH_ANSWER,
               {OmniboxFieldTrial::kAnswerActionsShowRichCard.Get() &&
                        !OmniboxFieldTrial::kAnswerActionsShowAboveKeyboard.Get()
                    ? 1u
                    : 0u}}}},
+
            {num_visible_matches_ - 1,  // Top section / above the keyboard.
-            {{omnibox::GROUP_SEARCH, {5}}, {omnibox::GROUP_OTHER_NAVS, {5}}}},
+            {{omnibox::GROUP_SEARCH, {14}},
+             {omnibox::GROUP_OTHER_NAVS,
+              {show_only_search_suggestions ? 0u : 14u}}}},
            {1,  // Dedicated section for rich answer card just above the fold.
             {{omnibox::GROUP_MOBILE_RICH_ANSWER,
               {OmniboxFieldTrial::kAnswerActionsShowRichCard.Get() &&
@@ -145,7 +149,9 @@ AndroidNonZPSSection::AndroidNonZPSSection(
                    ? 1u
                    : 0u}}}},
            {14,  // Bottom section, up to the Section limit.
-            {{omnibox::GROUP_SEARCH, {9}}, {omnibox::GROUP_OTHER_NAVS, {9}}}}},
+            {{omnibox::GROUP_SEARCH, {14}},
+             {omnibox::GROUP_OTHER_NAVS,
+              {show_only_search_suggestions ? 0u : 14u}}}}},
           group_configs,
           omnibox::GroupConfig_SideType_DEFAULT_PRIMARY) {}
 
@@ -210,11 +216,20 @@ AndroidWebZpsSection::AndroidWebZpsSection(
           group_configs) {}
 
 DesktopNTPZpsSection::DesktopNTPZpsSection(
-    omnibox::GroupConfigMap& group_configs)
-    : ZpsSection(8,
+    omnibox::GroupConfigMap& group_configs,
+    size_t limit)
+    : ZpsSection(limit,
                  {
                      {8, omnibox::GROUP_PERSONALIZED_ZERO_SUGGEST},
                      {8, omnibox::GROUP_TRENDS},
+                 },
+                 group_configs) {}
+
+DesktopNTPZpsIPHSection::DesktopNTPZpsIPHSection(
+    omnibox::GroupConfigMap& group_configs)
+    : ZpsSection(1,
+                 {
+                     {1, omnibox::GROUP_ZERO_SUGGEST_IN_PRODUCT_HELP},
                  },
                  group_configs) {}
 

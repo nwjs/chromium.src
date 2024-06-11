@@ -361,7 +361,7 @@ float GetSdrLumForScreenBrightness(float percent, float hdr_max_lum) {
   }
 
   DCHECK_LE(sdr_lum, hdr_max_lum);
-  DCHECK_GT(sdr_lum, sdr_min);
+  DCHECK_GE(sdr_lum, sdr_min);
   return sdr_lum;
 }
 
@@ -1347,24 +1347,15 @@ void DisplayManager::UpdateDisplaysWith(
     }
   }
 
-  for (const auto& display : removed_displays) {
-    NotifyDisplayRemoved(display);
-  }
-
-  for (size_t index : added_display_indices) {
-    NotifyDisplayAdded(active_display_list_[index]);
+  if (!removed_displays.empty()) {
+    NotifyDisplaysRemoved(removed_displays);
   }
 
   active_display_list_.resize(active_display_list_size);
   is_updating_display_list_ = false;
 
-  // OnDidRemoveDisplays is called after the displays have been removed,
-  // in comparison to NotifyDisplayRemoved/OnDisplayRemoved which on Ash
-  // is called before.
-  if (!removed_displays.empty()) {
-    for (auto& display_observer : display_observers_) {
-      display_observer.OnDisplaysRemoved(removed_displays);
-    }
+  for (size_t index : added_display_indices) {
+    NotifyDisplayAdded(active_display_list_[index]);
   }
 
   UpdatePrimaryDisplayIdIfNecessary();
@@ -1728,7 +1719,7 @@ void DisplayManager::SetMirrorMode(
     MultipleDisplayState new_state =
         enabled ? MULTIPLE_DISPLAY_STATE_MULTI_MIRROR
                 : MULTIPLE_DISPLAY_STATE_MULTI_EXTENDED;
-    display_configurator_->SetDisplayMode(new_state);
+    display_configurator_->SetMultipleDisplayState(new_state);
     return;
   }
   multi_display_mode_ =
@@ -2392,17 +2383,43 @@ void DisplayManager::AddMirrorDisplayInfoIfAny(
 
 void DisplayManager::InsertAndUpdateDisplayInfo(
     const ManagedDisplayInfo& new_info) {
+  ManagedDisplayInfo* info = nullptr;
   auto it = display_info_.find(new_info.id());
   if (it != display_info_.end()) {
-    ManagedDisplayInfo* info = &(it->second);
+    info = &(it->second);
     info->Copy(new_info);
   } else {
-    display_info_[new_info.id()] = new_info;
+    info = &display_info_[new_info.id()];
+    *info = new_info;
+
     // Set from_native_platform to false so that all information
     // (rotation, zoom factor etc.) is copied.
-    display_info_[new_info.id()].set_from_native_platform(false);
+    info->set_from_native_platform(false);
+
+    // If an external display is plugged in for the first time and doesn't have
+    // any entry in display_info_, such as those from Pref or from previous
+    // config, apply recommended default zoom factor.
+    ApplyDefaultZoomFactorIfNecessary(*info);
   }
-  display_info_[new_info.id()].UpdateDisplaySize();
+
+  CHECK(info);
+  info->UpdateDisplaySize();
+}
+
+void DisplayManager::ApplyDefaultZoomFactorIfNecessary(
+    ManagedDisplayInfo& info) {
+  // Only apply to external display. The internal display has good handle of
+  // default dpi.
+  if (IsInternalDisplayId(info.id())) {
+    return;
+  }
+
+  // Ignore unified display.
+  if (info.id() == kUnifiedDisplayId) {
+    return;
+  }
+
+  info.UpdateZoomFactorToMatchTargetDPI();
 }
 
 Display DisplayManager::CreateDisplayFromDisplayInfoById(int64_t id) {
@@ -2579,9 +2596,9 @@ void DisplayManager::NotifyWillRemoveDisplays(const Displays& displays) {
   }
 }
 
-void DisplayManager::NotifyDisplayRemoved(const Display& display) {
+void DisplayManager::NotifyDisplaysRemoved(const Displays& displays) {
   for (auto& display_observer : display_observers_) {
-    display_observer.OnDisplayRemoved(display);
+    display_observer.OnDisplaysRemoved(displays);
   }
 }
 

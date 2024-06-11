@@ -39,12 +39,12 @@ BASE_FEATURE(kEnforceNoExecutableFileHandles,
              "EnforceNoExecutableFileHandles",
              FEATURE_ENABLED_BY_DEFAULT);
 
-// TODO(crbug.com/851128): Roll out this to 100% before replacing existing
-// NOTREACHED()s with NOTREACHED_NORETURN() as part of NOTREACHED() migration.
-// Note that a prerequisite for rolling out this experiment is that existing
-// NOTREACHED reports are at a very low rate. Once this rolls out we should
-// monitor that crash rates for the experiment population is within a 1-5% or
-// lower than the control group.
+// TODO(crbug.com/40580068): Roll out this to 100% before replacing existing
+// NOTREACHED_IN_MIGRATION()s with NOTREACHED_NORETURN() as part of
+// NOTREACHED_IN_MIGRATION() migration. Note that a prerequisite for rolling out
+// this experiment is that existing NOTREACHED reports are at a very low rate.
+// Once this rolls out we should monitor that crash rates for the experiment
+// population is within a 1-5% or lower than the control group.
 BASE_FEATURE(kNotReachedIsFatal,
              "NotReachedIsFatal",
              FEATURE_DISABLED_BY_DEFAULT);
@@ -70,7 +70,7 @@ BASE_FEATURE(kPartialLowEndModeOn3GbDevices,
 // with a subset of low-end features to see if we get a good memory vs.
 // performance tradeoff.
 //
-// TODO(crbug.com/1434873): |#if| out 32-bit before launching or going to
+// TODO(crbug.com/40264947): |#if| out 32-bit before launching or going to
 // high Stable %, because we will enable the feature only for <8GB 64-bit
 // devices, where we didn't ship yet. However, we first need a larger
 // population to collect data.

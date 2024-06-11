@@ -9,7 +9,6 @@
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/data_sharing/public/features.h"
-#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/sync/base/command_line_switches.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/model_type.h"
@@ -49,14 +48,17 @@ class SyncServiceFactoryTest : public PlatformTest {
  protected:
   // Returns the collection of default datatypes.
   syncer::ModelTypeSet DefaultDatatypes() {
-    static_assert(51 == syncer::GetNumModelTypes(),
+    static_assert(52 == syncer::GetNumModelTypes(),
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled).");
 
     syncer::ModelTypeSet datatypes;
 
-    // Common types. This excludes PASSWORDS because the password store factory
-    // is null for testing and hence no controller gets instantiated.
+    // Common types. This excludes PASSWORDS,
+    // INCOMING_PASSWORD_SHARING_INVITATION and
+    // INCOMING_PASSWORD_SHARING_INVITATION, because the password store factory
+    // is null for testing and hence no controller gets instantiated for those
+    // types.
     datatypes.Put(syncer::AUTOFILL);
     datatypes.Put(syncer::AUTOFILL_PROFILE);
     if (base::FeatureList::IsEnabled(
@@ -77,21 +79,13 @@ class SyncServiceFactoryTest : public PlatformTest {
     datatypes.Put(syncer::PREFERENCES);
     datatypes.Put(syncer::PRIORITY_PREFERENCES);
     datatypes.Put(syncer::READING_LIST);
-    // TODO(crbug.com/919489) Add SECURITY_EVENTS data type once it is enabled.
+    // TODO(crbug.com/41434211) Add SECURITY_EVENTS data type once it is
+    // enabled.
     datatypes.Put(syncer::SESSIONS);
     datatypes.Put(syncer::SUPERVISED_USER_SETTINGS);
     datatypes.Put(syncer::USER_EVENTS);
     datatypes.Put(syncer::USER_CONSENTS);
     datatypes.Put(syncer::SEND_TAB_TO_SELF);
-    if (base::FeatureList::IsEnabled(
-            password_manager::features::
-                kPasswordManagerEnableReceiverService)) {
-      datatypes.Put(syncer::INCOMING_PASSWORD_SHARING_INVITATION);
-    }
-    if (base::FeatureList::IsEnabled(
-            password_manager::features::kPasswordManagerEnableSenderService)) {
-      datatypes.Put(syncer::OUTGOING_PASSWORD_SHARING_INVITATION);
-    }
     if (base::FeatureList::IsEnabled(
             data_sharing::features::kDataSharingFeature)) {
       datatypes.Put(syncer::COLLABORATION_GROUP);

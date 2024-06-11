@@ -45,6 +45,13 @@ enum class ClientKeyType {
   kUserVerified,
 };
 
+// Describes the result of a PIN claim validation by the enclave service.
+enum class PINValidationResult {
+  kSuccess,
+  kIncorrect,
+  kLocked,
+};
+
 // A ClientSignature is the result of signing an enclave request with a
 // client-side identity key.
 struct COMPONENT_EXPORT(DEVICE_FIDO) ClientSignature {
@@ -65,6 +72,21 @@ using SignedMessage = std::array<uint8_t, 2 * crypto::kSHA256Length>;
 using SigningCallback = base::OnceCallback<void(
     SignedMessage,
     base::OnceCallback<void(std::optional<ClientSignature>)>)>;
+
+// A callback that creates a new user-verifying key and provides its public key
+// for submission to the enclave service.
+using UVKeyCreationCallback = base::OnceCallback<void(
+    base::OnceCallback<void(base::span<const uint8_t>)>)>;
+
+// A callback that is called when the Enclave responds to a request using a PIN
+// for UV. PIN errors can be handled, and PIN success allows the failed attempt
+// counter to be reset.
+using PINResultCallback = base::OnceCallback<void(PINValidationResult)>;
+
+// Called at the successful completion of MakeCredential to save the
+// newly-created passkey to sync data.
+using SavePasskeyCallback =
+    base::OnceCallback<void(sync_pb::WebauthnCredentialSpecifics)>;
 
 // A PIN entered by the user, after hashing and encoding.
 struct COMPONENT_EXPORT(DEVICE_FIDO) ClaimedPIN {
@@ -88,6 +110,17 @@ struct COMPONENT_EXPORT(DEVICE_FIDO) CredentialRequest {
   CredentialRequest(CredentialRequest&&);
 
   SigningCallback signing_callback;
+  // `pin_result_callback` is invoked when the Enclave rejects or accepts the
+  // claimed PIN.
+  PINResultCallback pin_result_callback;
+  // Callback for storing a newly-created passkey.
+  SavePasskeyCallback save_passkey_callback;
+  // Callback for deferred creation of a UV key.
+  UVKeyCreationCallback uv_key_creation_callback;
+  // Callback to be invoked if an error occurs that is fatal to the device's
+  // enclave service registration, requiring it to be reset to an unregistered
+  // state.
+  base::OnceClosure unregister_callback;
   // access_token contains an OAuth2 token to authenticate access to the enclave
   // at the account level.
   std::string access_token;
@@ -104,9 +137,14 @@ struct COMPONENT_EXPORT(DEVICE_FIDO) CredentialRequest {
   // entity optionally contains a passkey Sync entity. This may be omitted for
   // create() requests.
   std::unique_ptr<sync_pb::WebauthnCredentialSpecifics> entity;
+  // existing_cred_ids contains a list of credential IDs in the current
+  // RP ID. Only populated for create() requests.
+  std::vector<std::vector<uint8_t>> existing_cred_ids;
   // The PIN entered by the user (wrapped for the enclave), and the correct PIN
   // (encrypted to the security domain secret). Optional, may be nullptr.
   std::unique_ptr<ClaimedPIN> claimed_pin;
+  // True when a user verification has been performed, false otherwise.
+  bool user_verified = false;
 };
 
 }  // namespace device::enclave

@@ -8,6 +8,7 @@
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
+#include "base/functional/callback_helpers.h"
 #include "content/public/common/content_features.h"
 #include "content/shell/common/shell_switches.h"
 
@@ -76,18 +77,25 @@ bool ShellFederatedPermissionContext::IsAutoReauthnEmbargoed(
 }
 
 void ShellFederatedPermissionContext::SetRequiresUserMediation(
-    const GURL& rp_url,
+    const url::Origin& rp_origin,
     bool requires_user_mediation) {
   if (requires_user_mediation) {
-    require_user_mediation_sites_.insert(rp_url);
+    require_user_mediation_sites_.insert(net::SchemefulSite(rp_origin));
   } else {
-    require_user_mediation_sites_.erase(rp_url);
+    require_user_mediation_sites_.erase(net::SchemefulSite(rp_origin));
   }
+  OnSetRequiresUserMediation(rp_origin, base::DoNothing());
 }
 
 bool ShellFederatedPermissionContext::RequiresUserMediation(
-    const GURL& rp_url) {
-  return require_user_mediation_sites_.contains(rp_url);
+    const url::Origin& rp_origin) {
+  return require_user_mediation_sites_.contains(net::SchemefulSite(rp_origin));
+}
+
+void ShellFederatedPermissionContext::OnSetRequiresUserMediation(
+    const url::Origin& relying_party,
+    base::OnceClosure callback) {
+  std::move(callback).Run();
 }
 
 base::Time ShellFederatedPermissionContext::GetAutoReauthnEmbargoStartTime(
@@ -209,7 +217,7 @@ void ShellFederatedPermissionContext::SetIdpSigninStatus(
     observer.OnIdpSigninStatusReceived(idp_origin, idp_signin_status);
   }
 
-  // TODO(crbug.com/1382989): Replace this with AddIdpSigninStatusObserver.
+  // TODO(crbug.com/40245925): Replace this with AddIdpSigninStatusObserver.
   if (idp_signin_status_closure_)
     idp_signin_status_closure_.Run();
 }

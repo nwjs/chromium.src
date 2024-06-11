@@ -24,6 +24,7 @@ module.exports = {
     'new-parens': 'error',
     'no-array-constructor': 'error',
     'no-console': ['error', {allow: ['info', 'warn', 'error', 'assert']}],
+    'no-debugger': 'error',
     'no-extra-boolean-cast': 'error',
     'no-extra-semi': 'error',
     'no-new-wrappers': 'error',
@@ -71,6 +72,11 @@ module.exports = {
       // https://google.github.io/styleguide/tsguide.html#return-type-only-generics
       'selector': 'TSAsExpression > CallExpression > MemberExpression[property.name=/^querySelector$/]',
       'message': 'Don\'t use \'querySelector(...) as Type\'. Use the type parameter, \'querySelector<Type>(...)\' instead',
+    },
+    {
+      // https://google.github.io/styleguide/tsguide.html#return-type-only-generics
+      'selector': 'TSAsExpression > TSNonNullExpression > CallExpression > MemberExpression[property.name=/^querySelector$/]',
+      'message': 'Don\'t use \'querySelector(...)! as Type\'. Use the type parameter, \'querySelector<Type>(...)\', followed by an assertion instead',
     },
     {
       // https://google.github.io/styleguide/tsguide.html#return-type-only-generics

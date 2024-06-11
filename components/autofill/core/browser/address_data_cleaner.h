@@ -9,6 +9,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/scoped_observation.h"
+#include "components/autofill/core/browser/address_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/autofill_profile_comparator.h"
 #include "components/autofill/core/browser/field_types.h"
@@ -24,15 +25,13 @@ class SyncService;
 
 namespace autofill {
 
-class PersonalDataManager;
-
 // AddressDataCleaner is responsible for applying address cleanups on browser
 // startup, after sync is ready (if applicable).
-class AddressDataCleaner : public PersonalDataManagerObserver,
+class AddressDataCleaner : public AddressDataManager::Observer,
                            public syncer::SyncServiceObserver {
  public:
   AddressDataCleaner(
-      PersonalDataManager& personal_data_manager,
+      AddressDataManager& address_data_manager,
       syncer::SyncService* sync_service,
       PrefService& pref_service,
       AlternativeStateNameMapUpdater* alternative_state_name_map_updater);
@@ -65,6 +64,18 @@ class AddressDataCleaner : public PersonalDataManagerObserver,
       base::span<const AutofillProfile> other_profiles,
       const AutofillProfileComparator& comparator);
 
+  // Decides whether the `ProfileTokenQuality` stored for the `profile` and
+  // `type` can be considered low quality for deduplication purposes. This is
+  // the case if it has at least four non "neutral" observations, of which at
+  // least two more are considered "bad" than "good" (see implementation for a
+  // definition). If a profile has a `CalculateMinimalIncompatibleTypeSets()` of
+  // size one and the token is considered low quality, this qualifies it for
+  // silent removal. Moreover, this qualifies the token for special treatment
+  // during the import logic.
+  static bool IsTokenLowQualityForDeduplicationPurposes(
+      const AutofillProfile& profile,
+      FieldType type);
+
  private:
   friend class AddressDataCleanerTestApi;
 
@@ -75,8 +86,8 @@ class AddressDataCleaner : public PersonalDataManagerObserver,
   // Delete profiles unused for at least `kDisusedDataModelDeletionTimeDelta`.
   void DeleteDisusedAddresses();
 
-  // PersonalDataManagerObserver
-  void OnPersonalDataChanged() override;
+  // AddressDataManager::Observer
+  void OnAddressDataChanged() override;
 
   // syncer::SyncServiceObserver
   void OnStateChanged(syncer::SyncService* sync_service) override;
@@ -84,7 +95,7 @@ class AddressDataCleaner : public PersonalDataManagerObserver,
   // Used to ensure that cleanups are only performed once per profile startup.
   bool are_cleanups_pending_ = true;
 
-  const raw_ref<PersonalDataManager> personal_data_manager_;
+  const raw_ref<AddressDataManager> address_data_manager_;
   const raw_ptr<syncer::SyncService> sync_service_;
   // Used to check whether deduplication was already run this milestone.
   const raw_ref<PrefService> pref_service_;
@@ -94,9 +105,9 @@ class AddressDataCleaner : public PersonalDataManagerObserver,
   const raw_ptr<AlternativeStateNameMapUpdater>
       alternative_state_name_map_updater_;
 
-  // Observe the PDM, so cleanups can run when the data was loaded from the DB.
-  base::ScopedObservation<PersonalDataManager, PersonalDataManagerObserver>
-      pdm_observer_{this};
+  // Observe the ADM, so cleanups can run when the data was loaded from the DB.
+  base::ScopedObservation<AddressDataManager, AddressDataManager::Observer>
+      adm_observer_{this};
 
   // Observer Sync, so cleanups are not run before any new data was synced down
   // on startup.

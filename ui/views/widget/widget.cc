@@ -17,6 +17,7 @@
 #include "base/observer_list.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/current_thread.h"
 #include "base/trace_event/base_tracing.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -34,6 +35,8 @@
 #include "ui/display/screen.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
+#include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/drag_controller.h"
@@ -222,7 +225,7 @@ Widget::~Widget() {
     owned_native_widget_.reset();
     DCHECK(!native_widget_);
   } else if (ownership_ == InitParams::NATIVE_WIDGET_OWNS_WIDGET) {
-    // TODO(crbug.com/937381): Revert to DCHECK once we figure out the reason.
+    // TODO(crbug.com/41444457): Revert to DCHECK once we figure out the reason.
     CHECK(!native_widget_)
         << "Destroying a widget with a live native widget. "
         << "Widget probably should use WIDGET_OWNS_NATIVE_WIDGET ownership.";
@@ -231,6 +234,8 @@ Widget::~Widget() {
     if (native_widget_) {
       native_widget_->Close();
     }
+    HandleWidgetDestroying();
+    HandleWidgetDestroyed();
   }
   // Destroy RootView after the native widget, so in case the WidgetDelegate is
   // a View in the RootView hierarchy it gets destroyed as a WidgetDelegate
@@ -705,6 +710,10 @@ gfx::Size Widget::GetSize() const {
   return GetRestoredBounds().size();
 }
 
+gfx::Insets Widget::GetCustomInsetsInDIP() const {
+  return gfx::Insets();
+}
+
 void Widget::CenterWindow(const gfx::Size& size) {
   if (native_widget_)
     native_widget_->CenterWindow(size);
@@ -841,8 +850,9 @@ void Widget::CloseNow() {
 
   DCHECK(native_widget_initialized_) << "Native widget is never initialized.";
 
-  if (native_widget_)
+  if (native_widget_) {
     native_widget_->CloseNow();
+  }
 }
 
 bool Widget::IsClosed() const {
@@ -1115,8 +1125,15 @@ void Widget::RunShellDrag(View* view,
   }
 
   WidgetDeletionObserver widget_deletion_observer(this);
-  native_widget_->RunShellDrag(view, std::move(data), location, operation,
-                               source);
+  {
+    // Since application tasks are needed in drag-induced nested message loops
+    // which occur here, (notably bookmark and download dragging), application
+    // tasks need to run. Only views:: and ui::EventDispatcher stacks are
+    // present, which expect this re-entrancy.
+    base::CurrentThread::ScopedAllowApplicationTasksInNativeNestedLoop allow;
+    native_widget_->RunShellDrag(view, std::move(data), location, operation,
+                                 source);
+  }
 
   // The widget may be destroyed during the drag operation.
   if (!widget_deletion_observer.IsWidgetAlive())
@@ -1606,6 +1623,16 @@ bool Widget::OnNativeWidgetActivationChanged(bool active) {
   for (WidgetObserver& observer : observers_)
     observer.OnWidgetActivationChanged(this, active);
 
+  if (active) {
+    base::AutoReset<bool> is_traversing_widget_tree(&is_traversing_widget_tree_,
+                                                    true);
+    for (Widget* widget = this; widget; widget = widget->parent()) {
+      for (WidgetObserver& observer : widget->observers_) {
+        observer.OnWidgetTreeActivated(widget, this);
+      }
+    }
+  }
+
   const bool was_paint_as_active = ShouldPaintAsActive();
 
   // Widgets in a widget tree should share the same ShouldPaintAsActive().
@@ -1679,29 +1706,14 @@ void Widget::OnNativeWidgetDestroying() {
   // Tell the focus manager (if any) that root_view is being removed
   // in case that the focused view is under this root view.
   DCHECK(native_widget_);
-  if (GetFocusManager() && root_view_)
-    GetFocusManager()->ViewRemoved(root_view_.get());
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetDestroying(this);
-  if (non_client_view_)
-    non_client_view_->WindowClosing();
-  widget_delegate_->WindowClosing();
+  HandleWidgetDestroying();
 }
 
 void Widget::OnNativeWidgetDestroyed() {
-  for (WidgetObserver& observer : observers_)
-    observer.OnWidgetDestroyed(this);
-
-  if (widget_delegate_) {
-    widget_delegate_->DeleteDelegate();
-  }
-  // Immediately reset the weak ptr. If NATIVE_WIDGET_OWNS_WIDGET destruction of
-  // the NativeWidget can destroy the Widget. We don't want to touch the
-  // NativeWidget during the destruction of the Widget either since some member
-  // variables on the NativeWidget may already be destroyed. In
-  // WIDGET_OWNS_NATIVE_WIDGET the NativeWidget will be cleaned up through
-  // |owned_native_widget_|
-  native_widget_.reset();
+  // Mark the widget as closed so that DeleteDelegate() won't call
+  // InvalidateLayout().
+  widget_closed_ = true;
+  HandleWidgetDestroyed();
 }
 
 void Widget::OnNativeWidgetParentChanged(gfx::NativeView parent) {
@@ -2090,7 +2102,7 @@ void Widget::SetColorModeOverride(
 ui::ColorProviderKey Widget::GetColorProviderKey() const {
   // Generally all Widgets should inherit the key of their parent, falling back
   // to the key set by the NativeTheme otherwise.
-  // TODO(crbug.com/1455535): `parent_` does not always resolve to the logical
+  // TODO(crbug.com/40272831): `parent_` does not always resolve to the logical
   // parent as expected here (e.g. bubbles). This should be addressed and the
   // use of parent_ below replaced with something like GetLogicalParent().
   ui::ColorProviderKey key =
@@ -2243,6 +2255,7 @@ void Widget::SetParent(Widget* parent) {
     return;
 
   Widget* old_parent = parent_.get();
+  CHECK(!is_traversing_widget_tree_);
   parent_ = parent ? parent->GetWeakPtr() : nullptr;
 
   // Release the paint-as-active lock on the old parent.
@@ -2322,6 +2335,55 @@ void Widget::ClearFocusFromWidget() {
 void Widget::HandleShowRequested() {
   sublevel_manager_->EnsureOwnerSublevel();
   internal::AnyWidgetObserverSingleton::GetInstance()->OnAnyWidgetShown(this);
+}
+
+void Widget::HandleWidgetDestroying() {
+  if (native_widget_destroyed_) {
+    return;
+  }
+  if (GetFocusManager() && root_view_) {
+    GetFocusManager()->ViewRemoved(root_view_.get());
+  }
+  for (WidgetObserver& observer : observers_) {
+    observer.OnWidgetDestroying(this);
+  }
+  if (non_client_view_) {
+    non_client_view_->WindowClosing();
+  }
+  if (widget_delegate_) {
+    widget_delegate_->WindowClosing();
+  }
+}
+
+void Widget::HandleWidgetDestroyed() {
+  if (native_widget_destroyed_) {
+    return;
+  }
+  for (WidgetObserver& observer : observers_)
+    observer.OnWidgetDestroyed(this);
+
+  native_widget_destroyed_ = true;
+  auto weak_ptr = GetWeakPtr();
+  if (widget_delegate_) {
+    widget_delegate_->DeleteDelegate();
+  }
+  // When the ownership_ is CLIENT_OWNS_WIDGET, the DeleteDelegate() call above
+  // *might* also cause the Widget to be destroyed. The following statement
+  // checks for this. If this function is called from within the Widget
+  // destructor, the delegate has already been notified (WidgetDestroyed() is
+  // called from the destructor) that the Widget is being destroyed, so the call
+  // to inform the client that the Widget is a "zombie"
+  // (WidgetDelegate::WidgetIsZombie()) isn't performed.
+  if (!weak_ptr) {
+    return;
+  }
+  // Immediately reset the weak ptr. If NATIVE_WIDGET_OWNS_WIDGET destruction of
+  // the NativeWidget can destroy the Widget. We don't want to touch the
+  // NativeWidget during the destruction of the Widget either since some member
+  // variables on the NativeWidget may already be destroyed. In
+  // WIDGET_OWNS_NATIVE_WIDGET the NativeWidget will be cleaned up through
+  // |owned_native_widget_|
+  native_widget_.reset();
 }
 
 BEGIN_METADATA_BASE(Widget)

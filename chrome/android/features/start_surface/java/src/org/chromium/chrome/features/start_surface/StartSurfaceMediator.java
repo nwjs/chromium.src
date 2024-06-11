@@ -146,7 +146,6 @@ class StartSurfaceMediator
             new ObservableSupplierImpl<>();
     private final CallbackController mCallbackController = new CallbackController();
     private final View mLogoContainerView;
-    private final boolean mMoveDownLogo;
     private final ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     private final TabCreatorManager mTabCreatorManager;
     private final boolean mUseMagicStack;
@@ -242,7 +241,6 @@ class StartSurfaceMediator
         mLogoContainerView = logoContainerView;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
         mActivityLifecycleDispatcher.register(this);
-        mMoveDownLogo = ReturnToChromeUtil.moveDownLogo();
         mProfileSupplier = profileSupplier;
         mProfileSupplier.addObserver(this::onProfileAvailable);
 
@@ -271,7 +269,8 @@ class StartSurfaceMediator
                     new TabModelSelectorObserver() {
                         @Override
                         public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
-                            // TODO(crbug.com/982018): Optimize to not listen for selected Tab model
+                            // TODO(crbug.com/40635216): Optimize to not listen for selected Tab
+                            // model
                             // change when overview is not shown.
                             updateIncognitoMode(newModel.isIncognito());
                         }
@@ -286,8 +285,7 @@ class StartSurfaceMediator
                 mNormalTabModelObserver =
                         new TabModelObserver() {
                             @Override
-                            public void willCloseTab(
-                                    Tab tab, boolean animate, boolean didCloseAlone) {
+                            public void willCloseTab(Tab tab, boolean didCloseAlone) {
                                 if (isHomepageShown()
                                         && mTabModelSelector.getModel(false).getCount() <= 1) {
                                     setTabCardVisibility(false);
@@ -438,7 +436,7 @@ class StartSurfaceMediator
                         public void onUrlFocusChange(boolean hasFocus) {
                             if (hasFakeSearchBox()) {
                                 setFakeBoxVisibility(!hasFocus);
-                                // TODO(crbug.com/1365694): We should call
+                                // TODO(crbug.com/40239477): We should call
                                 // setLogoVisibility(!hasFocus) here.
                                 // However, AppBarLayout's getTotalScrollRange() eliminates the gone
                                 // child view's heights. Therefore, when focus is got, the
@@ -912,7 +910,7 @@ class StartSurfaceMediator
         // Because there are multiple upstream tab selection listeners that attempt to re-trigger
         // the onTabSelecting in response to TabModelObserver#didSelectTab it is necessary to treat
         // this as a non-rentrant method until the original operation finishes.
-        // TODO(crbug/1495121): This can be removed once StartSurfaceRefactor is cleaned up.
+        // TODO(crbug.com/40286397): This can be removed once StartSurfaceRefactor is cleaned up.
         if (mShouldIgnoreTabSelecting) return;
         mShouldIgnoreTabSelecting = true;
 
@@ -957,7 +955,7 @@ class StartSurfaceMediator
         mPropertyModel.set(IS_INCOGNITO, mIsIncognito);
         updateBackgroundColor(mPropertyModel);
 
-        // TODO(crbug.com/1021399): This looks not needed since there is no way to change incognito
+        // TODO(crbug.com/40657059): This looks not needed since there is no way to change incognito
         // mode when focusing on the omnibox and incognito mode change won't affect the visibility
         // of the tab switcher toolbar.
         if (mPropertyModel.get(IS_SHOWING_OVERVIEW)) notifyStateChange();
@@ -1042,16 +1040,14 @@ class StartSurfaceMediator
     }
 
     private void setLogoVisibility(boolean isVisible) {
-        if (!mMoveDownLogo) return;
+        if (!mIsSurfacePolishEnabled) return;
 
         if (isVisible && mLogoCoordinator == null) {
             mLogoCoordinator = initializeLogo();
             if (mIsNativeInitialized) mLogoCoordinator.initWithNative();
         }
         if (mLogoCoordinator != null) {
-            boolean isShowingHomepage = isHomepageShown();
-            mLogoCoordinator.updateVisibilityAndMaybeCleanUp(
-                    isShowingHomepage && isVisible, !isShowingHomepage, false);
+            mLogoCoordinator.updateVisibility(false);
         }
     }
 
@@ -1194,21 +1190,13 @@ class StartSurfaceMediator
             LogoUtils.setLogoViewLayoutParams(
                     logoView,
                     mContext.getResources(),
-                    false,
-                    StartSurfaceConfiguration.SURFACE_POLISH_LESS_BRAND_SPACE.getValue(),
+                    /* isTablet= */ false,
                     StartSurfaceConfiguration.isLogoPolishEnabled(),
                     StartSurfaceConfiguration.getLogoSizeForLogoPolish());
         }
 
         mLogoCoordinator =
-                new LogoCoordinator(
-                        mContext,
-                        logoClickedCallback,
-                        logoView,
-                        true,
-                        null,
-                        isHomepageShown(),
-                        this);
+                new LogoCoordinator(mContext, logoClickedCallback, logoView, true, null, this);
         return mLogoCoordinator;
     }
 
@@ -1226,7 +1214,7 @@ class StartSurfaceMediator
                 TASKS_SURFACE_BODY_TOP_MARGIN,
                 resources.getDimensionPixelSize(R.dimen.tasks_surface_body_top_margin));
 
-        // TODO(crbug.com/1315676): Clean up this code when the refactor is enabled.
+        // TODO(crbug.com/40221888): Clean up this code when the refactor is enabled.
         mPropertyModel.set(
                 MV_TILES_CONTAINER_TOP_MARGIN,
                 resources.getDimensionPixelSize(R.dimen.mv_tiles_container_top_margin));

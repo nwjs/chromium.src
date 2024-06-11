@@ -5,9 +5,12 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
+#include <initializer_list>
 #include <memory>
+#include <optional>
 #include <type_traits>
 
 #include "base/check_deref.h"
@@ -19,6 +22,8 @@
 #include "base/numerics/checked_math.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/single_thread_task_runner.h"
+#include "cc/paint/paint_filter.h"
+#include "cc/paint/paint_flags.h"
 #include "cc/paint/refcounted_buffer.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_metrics.h"
@@ -56,6 +61,7 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/v8_canvas_style.h"
 #include "third_party/blink/renderer/modules/webcodecs/video_frame.h"
 #include "third_party/blink/renderer/modules/webgpu/dawn_conversions.h"
+#include "third_party/blink/renderer/modules/webgpu/dawn_enum_conversions.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_device.h"
 #include "third_party/blink/renderer/modules/webgpu/gpu_texture.h"
@@ -79,7 +85,8 @@
 #include "third_party/blink/renderer/platform/image-encoders/image_encoder_utils.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
-#include "third_party/skia/include/core/SkPathBuilder.h"
+#include "third_party/skia/include/core/SkPath.h"
+#include "third_party/skia/include/core/SkRefCnt.h"
 #include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 
@@ -233,6 +240,8 @@ void BaseRenderingContext2D::beginLayer(ScriptState* script_state,
   sk_sp<PaintFilter> filter;
   if (const V8CanvasFilterInput* filter_input = CHECK_DEREF(options).filter();
       filter_input != nullptr) {
+    AddLayerFilterUserCount(filter_input);
+
     HTMLCanvasElement* canvas_for_filter = HostAsHTMLCanvasElement();
     FilterOperations filter_operations = CanvasFilter::CreateFilterOperations(
         *filter_input, AccessFont(canvas_for_filter), canvas_for_filter,
@@ -285,6 +294,42 @@ void BaseRenderingContext2D::beginLayer(ScriptState* script_state,
   setGlobalCompositeOperation("source-over");
 }
 
+void BaseRenderingContext2D::AddLayerFilterUserCount(
+    const V8CanvasFilterInput* filter_input) {
+  UseCounter::Count(GetTopExecutionContext(),
+                    WebFeature::kCanvas2DLayersFilters);
+  if (filter_input->GetContentType() ==
+      V8CanvasFilterInput::ContentType::kString) {
+    UseCounter::Count(GetTopExecutionContext(),
+                      WebFeature::kCanvas2DLayersCSSFilters);
+  } else {
+    UseCounter::Count(GetTopExecutionContext(),
+                      WebFeature::kCanvas2DLayersFilterObjects);
+  }
+}
+
+class ScopedResetCtm {
+ public:
+  ScopedResetCtm(const CanvasRenderingContext2DState& state,
+                 cc::PaintCanvas& canvas) : canvas_(canvas) {
+    if (!state.GetTransform().IsIdentity()) {
+      ctm_to_restore_ = canvas_.getLocalToDevice();
+      ctm_to_restore_->dump();
+      canvas_.save();
+      canvas_.setMatrix(SkM44());
+    }
+  }
+  ~ScopedResetCtm() {
+    if (ctm_to_restore_.has_value()) {
+      canvas_.setMatrix(*ctm_to_restore_);
+    }
+  }
+
+ private:
+  cc::PaintCanvas& canvas_;
+  std::optional<SkM44> ctm_to_restore_;
+};
+
 CanvasRenderingContext2DState::SaveType
 BaseRenderingContext2D::SaveLayerForState(
     const CanvasRenderingContext2DState& state,
@@ -293,19 +338,53 @@ BaseRenderingContext2D::SaveLayerForState(
   const int initial_save_count = canvas.getSaveCount();
   bool needs_compositing = state.GlobalComposite() != SkBlendMode::kSrcOver;
 
-  // Global states must be applied on the result of the layer's filter.
-  // For alpha + shadows or compositing, we must use two nested layers. The
+  // The "copy" globalCompositeOperation replaces everything that was in the
+  // canvas. We therefore have to clear the canvas before proceeding. Since the
+  // shadow and foreground are composited one after the other, the foreground
+  // gets composited over the shadow itself. This means that in "copy"
+  // compositing mode, drawing the foreground will clear the shadow. There's
+  // therefore no need to draw the shadow at all.
+  //
+  // Global states must be applied on the result of the layer's filter, so the
+  // filter has to go in a nested layer.
+  //
+  // For alpha + (shadows or compositing), we must use two nested layers. The
   // inner one applies the alpha and the outer one applies the shadow and/or
   // compositing. This is needed to to get a transparent foreground, as the
   // alpha would otherwise be applied to the result of foreground+background.
-  if (state.ShouldDrawShadows() || BlendModeRequiresCompositedDraw(state)) {
-    cc::PaintFlags flags;
-    flags.setBlendMode(state.GlobalComposite());
+  if (state.GlobalComposite() == SkBlendMode::kSrc) {
+    canvas.clear(HasAlpha() ? SkColors::kTransparent : SkColors::kBlack);
     needs_compositing = false;
-    if (state.ShouldDrawShadows()) {
+  } else if (bool should_draw_shadow = state.ShouldDrawShadows(),
+             needs_composited_draw = BlendModeRequiresCompositedDraw(state);
+             should_draw_shadow || needs_composited_draw) {
+    if (should_draw_shadow && needs_composited_draw) {
+      ScopedResetCtm scoped_reset_ctm(state, canvas);
+      // According to the WHATWG spec, the shadow and foreground need to be
+      // composited independently to the canvas, one after the other
+      // (https://html.spec.whatwg.org/multipage/canvas.html#drawing-model).
+      // This is done by drawing twice, once for the background and once more
+      // for the foreground. For layers, we can do this by passing two filters
+      // that will each do a composite pass of the input to the destination.
+      // Passing `nullptr` for the second pass means no filter is applied to the
+      // foreground.
+      cc::PaintFlags flags;
+      flags.setBlendMode(state.GlobalComposite());
+      sk_sp<PaintFilter> foreground_filter;  // nullptr means no filter.
+      canvas.saveLayerFilters(
+          std::array{state.ShadowOnlyImageFilter(), foreground_filter}, flags);
+    } else if (should_draw_shadow) {
+      ScopedResetCtm scoped_reset_ctm(state, canvas);
+      cc::PaintFlags flags;
       flags.setImageFilter(state.ShadowAndForegroundImageFilter());
+      flags.setBlendMode(state.GlobalComposite());
+      canvas.saveLayer(flags);
+    } else {
+      cc::PaintFlags flags;
+      flags.setBlendMode(state.GlobalComposite());
+      canvas.saveLayer(flags);
     }
-    canvas.saveLayer(flags);
+    needs_compositing = false;
   }
 
   if (filter || needs_compositing) {
@@ -322,10 +401,7 @@ BaseRenderingContext2D::SaveLayerForState(
   }
 
   const int save_diff = canvas.getSaveCount() - initial_save_count;
-  CHECK(save_diff == 1 || save_diff == 2);
-  using SaveType = CanvasRenderingContext2DState::SaveType;
-  return save_diff == 2 ? SaveType::kBeginEndLayerTwoSaves
-                        : SaveType::kBeginEndLayerOneSave;
+  return CanvasRenderingContext2DState::LayerSaveCountToSaveType(save_diff);
 }
 
 void BaseRenderingContext2D::endLayer(ExceptionState& exception_state) {
@@ -388,8 +464,8 @@ void BaseRenderingContext2D::PopAndRestore(cc::PaintCanvas& canvas) {
     GetModifiablePath().Transform(GetState().GetTransform());
   }
 
-  if (state_stack_.back()->GetSaveType() ==
-      CanvasRenderingContext2DState::SaveType::kBeginEndLayerTwoSaves) {
+  for (int i = 0, to_restore = state_stack_.back()->LayerSaveCount() - 1;
+       i < to_restore; ++i) {
     canvas.restore();
   }
 
@@ -424,9 +500,7 @@ void BaseRenderingContext2D::ValidateStateStackImpl(
 
     if (state_stack_[i]->IsLayerSaveType()) {
       ++actual_layer_count;
-    }
-    if (state_stack_[i]->GetSaveType() == SaveType::kBeginEndLayerTwoSaves) {
-      ++extra_layer_saves;
+      extra_layer_saves += state_stack_[i]->LayerSaveCount() - 1;
     }
   }
   DCHECK_EQ(layer_count_, actual_layer_count);
@@ -1409,11 +1483,11 @@ static void StrokeRectOnCanvas(const gfx::RectF& rect,
   DCHECK_EQ(flags->getStyle(), cc::PaintFlags::kStroke_Style);
   if ((rect.width() > 0) != (rect.height() > 0)) {
     // When stroking, we must skip the zero-dimension segments
-    SkPathBuilder path;
+    SkPath path;
     path.moveTo(rect.x(), rect.y());
     path.lineTo(rect.right(), rect.bottom());
     path.close();
-    canvas->drawPath(path.detach(), *flags);
+    canvas->drawPath(path, *flags);
     return;
   }
   canvas->drawRect(gfx::RectFToSkRect(rect), *flags);
@@ -3107,7 +3181,7 @@ void BaseRenderingContext2D::DrawTextInternal(
   gfx::PointF location(ClampTo<float>(x),
                        ClampTo<float>(y + GetFontBaseline(*font_data)));
   gfx::RectF bounds;
-  double font_width = font.Width(text_run, &bounds);
+  double font_width = font.BidiWidth(text_run, &bounds);
 
   bool use_max_width = (max_width && *max_width < font_width);
   double width = use_max_width ? *max_width : font_width;
@@ -3416,6 +3490,18 @@ GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
     return nullptr;
   }
 
+  // Verify that the usage flags are supported.
+  constexpr wgpu::TextureUsage kSupportedUsageFlags =
+      wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst |
+      wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::RenderAttachment;
+  wgpu::TextureUsage tex_usage =
+      AsDawnFlags<wgpu::TextureUsage>(access_options->usage());
+  if (tex_usage & ~kSupportedUsageFlags) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Usage flags are not supported.");
+    return nullptr;
+  }
+
   // We can't rely on the HTMLCanvasElement, because the canvas may not actually
   // exist in the HTML. (e.g. `new OffscreenCanvas` has no HTML element.)
   // We also can't use GetImage() here, because that will return null if the
@@ -3433,13 +3519,10 @@ GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
   }
 
   SkImageInfo image_info = image->GetSkImageInfo();
-  constexpr WGPUTextureUsage kUsage = static_cast<WGPUTextureUsage>(
-      WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopySrc |
-      WGPUTextureUsage_CopyDst | WGPUTextureUsage_RenderAttachment);
   scoped_refptr<WebGPUMailboxTexture> texture =
       WebGPUMailboxTexture::FromStaticBitmapImage(
           blink_device->GetDawnControlClient(), blink_device->GetHandle(),
-          kUsage, image, image_info,
+          tex_usage, image, image_info,
           gfx::Rect(image_info.width(), image_info.height()),
           /*is_dummy_mailbox_texture=*/false);
   if (!texture) {
@@ -3449,7 +3532,7 @@ GPUTexture* BaseRenderingContext2D::beginWebGPUAccess(
   }
 
   webgpu_access_texture_ = MakeGarbageCollected<GPUTexture>(
-      blink_device, AsDawnType(image_info.colorType()), kUsage,
+      blink_device, AsDawnType(image_info.colorType()), tex_usage,
       std::move(texture), access_options->getLabelOr(String()));
 
   return webgpu_access_texture_;
@@ -3466,7 +3549,6 @@ bool BaseRenderingContext2D::CopyGPUTextureToResourceProvider(
   CHECK(mailbox_texture);
 
   const gpu::Mailbox& mailbox = mailbox_texture->GetMailbox();
-  CHECK(mailbox.IsSharedImage());
 
   // Dissociating the mailbox texture from WebGPU forces the GPU queue to drain,
   // and yields a sync token for OverwriteImage.

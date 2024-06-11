@@ -20,6 +20,7 @@
 #include "base/scoped_observation.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
+#include "chrome/browser/predictors/lcp_critical_path_predictor/lcp_critical_path_predictor_util.h"
 #include "chrome/browser/predictors/loading_predictor_config.h"
 #include "chrome/browser/predictors/resource_prefetch_predictor_tables.h"
 #include "components/history/core/browser/history_db_task.h"
@@ -163,8 +164,6 @@ class ResourcePrefetchPredictor : public history::HistoryServiceObserver {
       sqlite_proto::KeyValueData<RedirectData, internal::LastVisitTimeCompare>;
   using OriginDataMap =
       sqlite_proto::KeyValueData<OriginData, internal::LastVisitTimeCompare>;
-  using LcppDataMap =
-      sqlite_proto::KeyValueData<LcppData, internal::LastVisitTimeCompare>;
 
   ResourcePrefetchPredictor(const LoadingPredictorConfig& config,
                             Profile* profile);
@@ -207,8 +206,8 @@ class ResourcePrefetchPredictor : public history::HistoryServiceObserver {
   // Deletes all URLs from the predictor database and caches.
   void DeleteAllUrls();
 
-  // Returns LcppData for the `url`, or std::nullopt on failure.
-  std::optional<LcppData> GetLcppData(const GURL& url) const;
+  // Returns LcppStat for the `url`, or std::nullopt on failure.
+  std::optional<LcppStat> GetLcppStat(const GURL& url) const;
 
  private:
   friend class LoadingPredictor;

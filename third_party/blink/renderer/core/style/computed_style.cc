@@ -49,8 +49,10 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/html/forms/html_legend_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_html_element.h"
+#include "third_party/blink/renderer/core/html/html_li_element.h"
 #include "third_party/blink/renderer/core/html/html_progress_element.h"
 #include "third_party/blink/renderer/core/layout/custom/layout_worklet.h"
 #include "third_party/blink/renderer/core/layout/layout_block.h"
@@ -704,6 +706,35 @@ bool ComputedStyle::HighlightPseudoElementStylesDependOnViewportUnits() const {
   return false;
 }
 
+bool ComputedStyle::HighlightPseudoElementStylesHaveVariableReferences() const {
+  const StyleHighlightData& highlight_data = HighlightData();
+  if (highlight_data.Selection() &&
+      highlight_data.Selection()->HasVariableReference()) {
+    return true;
+  }
+  if (highlight_data.TargetText() &&
+      highlight_data.TargetText()->HasVariableReference()) {
+    return true;
+  }
+  if (highlight_data.SpellingError() &&
+      highlight_data.SpellingError()->HasVariableReference()) {
+    return true;
+  }
+  if (highlight_data.GrammarError() &&
+      highlight_data.GrammarError()->HasVariableReference()) {
+    return true;
+  }
+  const CustomHighlightsStyleMap& custom_highlights =
+      highlight_data.CustomHighlights();
+  for (auto custom_highlight : custom_highlights) {
+    if (custom_highlight.value->HasVariableReference()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const ComputedStyle* ComputedStyle::GetCachedPseudoElementStyle(
     PseudoId pseudo_id,
     const AtomicString& pseudo_argument) const {
@@ -1264,14 +1295,6 @@ void ComputedStyle::UpdatePropertySpecificDifferences(
       BackdropFilter() != other.BackdropFilter() ||
       PotentialCompositingReasonsFor3DTransformChanged(other)) {
     diff.SetCompositingReasonsChanged();
-  }
-
-  // TODO(crbug.com/1246826): Remove CompositablePaintAnimationChanged.
-  if (RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
-      (HasCurrentBackgroundColorAnimation() !=
-           other.HasCurrentBackgroundColorAnimation() ||
-       other.CompositablePaintAnimationChanged())) {
-    diff.SetCompositablePaintEffectChanged();
   }
 }
 
@@ -1925,10 +1948,6 @@ ETextAlign ComputedStyle::GetTextAlign(bool is_last_line) const {
   return GetTextAlign();
 }
 
-bool ComputedStyle::ShouldUseTextIndent(bool is_first_line) const {
-  return is_first_line;
-}
-
 // Unicode 11 introduced Georgian capital letters (U+1C90 - U+1CBA,
 // U+1CB[D-F]), but virtually no font covers them. For now map them back
 // to their lowercase counterparts (U+10D0 - U+10FA, U+10F[D-F]).
@@ -2321,22 +2340,41 @@ const CSSValue* ComputedStyle::GetVariableValue(
   return blink::GetVariableValue(*this, name, is_inherited_property);
 }
 
-bool ComputedStyle::HasCustomScrollbarStyle(const Document& document) const {
+bool ComputedStyle::HasCustomScrollbarStyle(Element* element) const {
+  if (!element) {
+    return false;
+  }
 
   // Ignore ::-webkit-scrollbar when the web setting to prefer default scrollbar
-  // styling is true. This web setting ignores both ::-webkit-scrollbar styling
-  // and standard properties.
-  if (RuntimeEnabledFeatures::PreferDefaultScrollbarStylesEnabled()) {
-    const Settings* settings = document.GetSettings();
-    if (settings && settings->GetPrefersDefaultScrollbarStyles()) {
-      return false;
-    }
+  // styling is true. The exception to this case is when 'display' is set to
+  // 'none'.
+  if (RuntimeEnabledFeatures::PreferDefaultScrollbarStylesEnabled() &&
+      PrefersDefaultScrollbarStyles() && element &&
+      !ScrollbarIsHiddenByCustomStyle(element)) {
+    return false;
   }
 
   // Ignore non-standard ::-webkit-scrollbar when standard properties are in
   // use.
   return HasPseudoElementStyle(kPseudoIdScrollbar) &&
          !UsesStandardScrollbarStyle();
+}
+
+EScrollbarWidth ComputedStyle::UsedScrollbarWidth() const {
+  if (PrefersDefaultScrollbarStyles() &&
+      ScrollbarWidth() != EScrollbarWidth::kNone) {
+    return EScrollbarWidth::kAuto;
+  }
+
+  return ScrollbarWidth();
+}
+
+StyleScrollbarColor* ComputedStyle::UsedScrollbarColor() const {
+  if (PrefersDefaultScrollbarStyles()) {
+    return nullptr;
+  }
+
+  return ScrollbarColor();
 }
 
 Length ComputedStyle::LineHeight() const {
@@ -2363,7 +2401,7 @@ float ComputedStyle::ComputedLineHeight(const Length& lh, const Font& font) {
     return 0.0f;
   }
 
-  if (lh.IsPercentOrCalc()) {
+  if (lh.HasPercent()) {
     return MinimumValueForLength(
         lh, LayoutUnit(font.GetFontDescription().ComputedSize()));
   }
@@ -2386,7 +2424,7 @@ LayoutUnit ComputedStyle::ComputedLineHeightAsFixed(const Font& font) const {
     return LayoutUnit();
   }
 
-  if (lh.IsPercentOrCalc()) {
+  if (lh.HasPercent()) {
     return MinimumValueForLength(lh, ComputedFontSizeAsFixed(font));
   }
 
@@ -2707,7 +2745,7 @@ std::optional<blink::Color> ComputedStyle::AccentColorResolved() const {
 }
 
 std::optional<blink::Color> ComputedStyle::ScrollbarThumbColorResolved() const {
-  if (const StyleScrollbarColor* scrollbar_color = ScrollbarColor()) {
+  if (const StyleScrollbarColor* scrollbar_color = UsedScrollbarColor()) {
     return scrollbar_color->GetThumbColor().Resolve(GetCurrentColor(),
                                                     UsedColorScheme());
   }
@@ -2715,7 +2753,7 @@ std::optional<blink::Color> ComputedStyle::ScrollbarThumbColorResolved() const {
 }
 
 std::optional<blink::Color> ComputedStyle::ScrollbarTrackColorResolved() const {
-  if (const StyleScrollbarColor* scrollbar_color = ScrollbarColor()) {
+  if (const StyleScrollbarColor* scrollbar_color = UsedScrollbarColor()) {
     return scrollbar_color->GetTrackColor().Resolve(GetCurrentColor(),
                                                     UsedColorScheme());
   }
@@ -2763,10 +2801,31 @@ bool ComputedStyle::IsInterleavingRoot(const ComputedStyle* style) {
                        unensured->HasAnchorFunctions());
 }
 
+bool ComputedStyle::ScrollbarIsHiddenByCustomStyle(Element* element) const {
+  // It is necessary to check the cached styles because native input
+  // controls are styled this way.
+  const ComputedStyle* cached_scrollbar_style =
+      GetCachedPseudoElementStyle(kPseudoIdScrollbar);
+  if (cached_scrollbar_style &&
+      cached_scrollbar_style->Display() == EDisplay::kNone) {
+    return true;
+  }
+
+  if (!element) {
+    return false;
+  }
+
+  const ComputedStyle* uncached_scrollbar_style =
+      element->UncachedStyleForPseudoElement(
+          StyleRequest(kPseudoIdScrollbar, StyleRequest::kForComputedStyle));
+  return uncached_scrollbar_style &&
+         uncached_scrollbar_style->Display() == EDisplay::kNone;
+}
+
 bool ComputedStyle::CalculateIsStackingContextWithoutContainment() const {
   // Force a stacking context for transform-style: preserve-3d. This happens
-  // even if preserves-3d is ignored due to a 'grouping property' being present
-  // which requires flattening. See:
+  // even if preserves-3d is ignored due to a 'grouping property' being
+  // present which requires flattening. See:
   // ComputedStyle::HasGroupingPropertyForUsedTransformStyle3D().
   // This is legacy behavior that is left ambiguous in the official specs.
   // See https://crbug.com/663650 for more details.

@@ -715,6 +715,7 @@ xnn_status DefineXnnNodeForConv2d(xnn_subgraph_t subgraph,
             GetXnnOutputRangeForActivation(options->activation()->Operator());
         break;
       case webnn::mojom::blink::Activation::Tag::kElu:
+      case webnn::mojom::blink::Activation::Tag::kGelu:
       case webnn::mojom::blink::Activation::Tag::kHardSigmoid:
       case webnn::mojom::blink::Activation::Tag::kLeakyRelu:
       case webnn::mojom::blink::Activation::Tag::kLinear:
@@ -867,6 +868,7 @@ xnn_status DefineXnnNodeForConvTranspose2d(
             GetXnnOutputRangeForActivation(options->activation()->Operator());
         break;
       case webnn::mojom::blink::Activation::Tag::kElu:
+      case webnn::mojom::blink::Activation::Tag::kGelu:
       case webnn::mojom::blink::Activation::Tag::kHardSigmoid:
       case webnn::mojom::blink::Activation::Tag::kLeakyRelu:
       case webnn::mojom::blink::Activation::Tag::kLinear:
@@ -1403,8 +1405,7 @@ xnn_status DefineXnnNodeForPRelu(xnn_subgraph_t subgraph,
       return xnn_status_unsupported_parameter;
     }
   }
-  if (slope->Dimensions()[slope_rank - 1] !=
-      input->Dimensions()[input->Dimensions().size() - 1]) {
+  if (slope->Dimensions().back() != input->Dimensions().back()) {
     error_message = "The input and slope should have the same last dimension.";
     return xnn_status_unsupported_parameter;
   }
@@ -1968,6 +1969,7 @@ xnn_status DefineXnnNode(xnn_subgraph_t subgraph,
     case webnn::mojom::blink::Operation::Tag::kBatchNormalization:
     case webnn::mojom::blink::Operation::Tag::kExpand:
     case webnn::mojom::blink::Operation::Tag::kGather:
+    case webnn::mojom::blink::Operation::Tag::kGelu:
     case webnn::mojom::blink::Operation::Tag::kGru:
     case webnn::mojom::blink::Operation::Tag::kGruCell:
     case webnn::mojom::blink::Operation::Tag::kHardSigmoid:
@@ -2188,6 +2190,14 @@ void MLGraphXnnpack::ComputeImpl(
                           std::move(outputs_info), MakeCrossThreadHandle(this),
                           MakeCrossThreadHandle(resolver),
                           resolver_task_runner_));
+}
+
+void MLGraphXnnpack::DispatchImpl(ScopedMLTrace scoped_trace,
+                                  const MLNamedBuffers& inputs,
+                                  const MLNamedBuffers& outputs,
+                                  ExceptionState& exception_state) {
+  exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
+                                    "Not implemented");
 }
 
 // static

@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/process/process_metrics.h"
 
 #include <dirent.h>
@@ -490,7 +495,7 @@ bool GetSystemMemoryInfo(SystemMemoryInfoKB* meminfo) {
 
 Value::Dict VmStatInfo::ToDict() const {
   Value::Dict res;
-  // TODO(crbug.com/1334256): Make base::Value able to hold uint64_t and remove
+  // TODO(crbug.com/40228085): Make base::Value able to hold uint64_t and remove
   // casts below.
   res.Set("pswpin", static_cast<int>(pswpin));
   res.Set("pswpout", static_cast<int>(pswpout));

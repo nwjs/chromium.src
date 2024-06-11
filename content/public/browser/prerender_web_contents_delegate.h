@@ -42,9 +42,7 @@ class CONTENT_EXPORT PrerenderWebContentsDelegate : public WebContentsDelegate {
                           const std::string& frame_name,
                           const GURL& target_url,
                           WebContents* new_contents, const std::u16string& nw_window_manifest) override;
-  bool CanEnterFullscreenModeForTab(
-      RenderFrameHost* requesting_frame,
-      const blink::mojom::FullscreenOptions& options) override;
+  bool CanEnterFullscreenModeForTab(RenderFrameHost* requesting_frame) override;
   void EnterFullscreenModeForTab(
       RenderFrameHost* requesting_frame,
       const blink::mojom::FullscreenOptions& options) override;

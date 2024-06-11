@@ -58,7 +58,7 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::ACCESS_POINT_READING_LIST:
       return true;
     case signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS:
-    // TODO(crbug.com/1478824): Pass ACCESS_POINT_TAB_SWITCHER and not recent
+    // TODO(crbug.com/40280655): Pass ACCESS_POINT_TAB_SWITCHER and not recent
     // tabs in the tab switcher promo.
     case signin_metrics::AccessPoint::ACCESS_POINT_TAB_SWITCHER:
     case signin_metrics::AccessPoint::
@@ -79,7 +79,6 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
     case signin_metrics::AccessPoint::ACCESS_POINT_AUTOFILL_DROPDOWN:
-    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
     case signin_metrics::AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
     case signin_metrics::AccessPoint::ACCESS_POINT_MACHINE_LOGON:
     case signin_metrics::AccessPoint::ACCESS_POINT_GOOGLE_SERVICES_SETTINGS:
@@ -122,6 +121,10 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
         ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+    case signin_metrics::AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return false;
   }
@@ -167,7 +170,6 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
     case signin_metrics::AccessPoint::ACCESS_POINT_AUTOFILL_DROPDOWN:
-    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
     case signin_metrics::AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
     case signin_metrics::AccessPoint::ACCESS_POINT_MACHINE_LOGON:
     case signin_metrics::AccessPoint::ACCESS_POINT_GOOGLE_SERVICES_SETTINGS:
@@ -212,6 +214,10 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
         ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+    case signin_metrics::AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -259,7 +265,6 @@ void RecordImpressionsTilDismissHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
     case signin_metrics::AccessPoint::ACCESS_POINT_AUTOFILL_DROPDOWN:
-    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
     case signin_metrics::AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
     case signin_metrics::AccessPoint::ACCESS_POINT_MACHINE_LOGON:
     case signin_metrics::AccessPoint::ACCESS_POINT_GOOGLE_SERVICES_SETTINGS:
@@ -304,6 +309,10 @@ void RecordImpressionsTilDismissHistogramForAccessPoint(
         ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+    case signin_metrics::AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -351,7 +360,6 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
     case signin_metrics::AccessPoint::ACCESS_POINT_AUTOFILL_DROPDOWN:
-    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
     case signin_metrics::AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
     case signin_metrics::AccessPoint::ACCESS_POINT_MACHINE_LOGON:
     case signin_metrics::AccessPoint::ACCESS_POINT_GOOGLE_SERVICES_SETTINGS:
@@ -396,6 +404,10 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
         ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+    case signin_metrics::AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -430,7 +442,6 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
     case signin_metrics::AccessPoint::ACCESS_POINT_AUTOFILL_DROPDOWN:
-    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
     case signin_metrics::AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
     case signin_metrics::AccessPoint::ACCESS_POINT_MACHINE_LOGON:
     case signin_metrics::AccessPoint::ACCESS_POINT_GOOGLE_SERVICES_SETTINGS:
@@ -477,6 +488,10 @@ const char* DisplayedCountPreferenceKey(
         ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+    case signin_metrics::AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return nullptr;
   }
@@ -509,7 +524,6 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
     case signin_metrics::AccessPoint::ACCESS_POINT_AUTOFILL_DROPDOWN:
-    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
     case signin_metrics::AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
     case signin_metrics::AccessPoint::ACCESS_POINT_MACHINE_LOGON:
     case signin_metrics::AccessPoint::ACCESS_POINT_GOOGLE_SERVICES_SETTINGS:
@@ -556,6 +570,10 @@ const char* AlreadySeenSigninViewPreferenceKey(
         ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case signin_metrics::AccessPoint::
         ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case signin_metrics::AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+    case signin_metrics::AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return nullptr;
   }
@@ -792,7 +810,7 @@ id<SystemIdentity> GetDisplayedIdentity(
                                          self.signinPromoAction) != nullptr;
   if (self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
     if (!self.displayedIdentity) {
-      // TODO(crbug.com/1227708): The default identity should already be known
+      // TODO(crbug.com/40777223): The default identity should already be known
       // by the mediator. We should not have no identity. This can be reproduced
       // with EGtests with bots. The identity notification might not have
       // received yet. Let's update the promo identity.
@@ -1146,7 +1164,7 @@ id<SystemIdentity> GetDisplayedIdentity(
 
 - (void)onChromeAccountManagerServiceShutdown:
     (ChromeAccountManagerService*)accountManagerService {
-  // TODO(crbug.com/1489595): Remove `[self disconnect]`.
+  // TODO(crbug.com/40284086): Remove `[self disconnect]`.
   [self disconnect];
 }
 

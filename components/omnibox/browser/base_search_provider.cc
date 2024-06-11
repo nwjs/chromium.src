@@ -44,6 +44,7 @@
 
 namespace {
 constexpr bool is_android = !!BUILDFLAG(IS_ANDROID);
+constexpr bool is_ios = !!BUILDFLAG(IS_IOS);
 
 bool MatchTypeAndContentsAreEqual(const AutocompleteMatch& lhs,
                                   const AutocompleteMatch& rhs) {
@@ -212,7 +213,7 @@ AutocompleteMatch BaseSearchProvider::CreateSearchSuggestion(
 
   // Attach Actions in Suggest to the newly created match on Android if Google
   // is the default search engine.
-  if (is_android &&
+  if ((is_android || is_ios) &&
       search::TemplateURLIsGoogle(template_url, search_terms_data)) {
     for (const omnibox::ActionInfo& action_info :
          suggestion.entity_info().action_suggestions()) {
@@ -494,6 +495,13 @@ void BaseSearchProvider::AddMatchToMap(
   // Metadata is needed only for prefetching queries.
   if (result.should_prefetch())
     match.RecordAdditionalInfo(kSuggestMetadataKey, metadata);
+
+  // Initialize the ML scoring signals for this suggestion if needed.
+  if (!match.scoring_signals) {
+    match.scoring_signals = std::make_optional<ScoringSignals>();
+  }
+
+  match.scoring_signals->set_search_suggest_relevance(result.relevance());
 
   // Try to add `match` to `map`.
   // NOTE: Keep this ToLower() call in sync with url_database.cc.

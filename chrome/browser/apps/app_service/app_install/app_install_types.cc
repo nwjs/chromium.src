@@ -16,6 +16,8 @@ std::ostream& operator<<(std::ostream& out, AppInstallSurface surface) {
       return out << "AppPreloadServiceOem";
     case AppInstallSurface::kAppPreloadServiceDefault:
       return out << "AppPreloadServiceDefault";
+    case AppInstallSurface::kOobeAppRecommendations:
+      return out << "OobeAppRecommendations";
     case AppInstallSurface::kAppInstallUriUnknown:
       return out << "AppInstallUriUnknown";
     case AppInstallSurface::kAppInstallUriShowoff:
@@ -26,6 +28,8 @@ std::ostream& operator<<(std::ostream& out, AppInstallSurface surface) {
       return out << "AppInstallUriGetit";
     case AppInstallSurface::kAppInstallUriLauncher:
       return out << "AppInstallUriLauncher";
+    case AppInstallSurface::kAppInstallUriPeripherals:
+      return out << "AppInstallUriPeripherals";
   }
 }
 
@@ -69,6 +73,15 @@ std::ostream& operator<<(std::ostream& out, const WebAppInstallData& data) {
   return out << "}";
 }
 
+std::ostream& operator<<(std::ostream& out,
+                         const GeForceNowAppInstallData& data) {
+  return out << "GeForceNowAppInstallData{}";
+}
+
+std::ostream& operator<<(std::ostream& out, const SteamAppInstallData& data) {
+  return out << "SteamAppInstallData{}";
+}
+
 AppInstallData::AppInstallData(PackageId package_id)
     : package_id(std::move(package_id)) {}
 
@@ -97,6 +110,8 @@ std::ostream& operator<<(std::ostream& out, const AppInstallData& data) {
     out << screenshot << ", ";
   }
   out << "}, ";
+
+  out << ", install_url: " << data.install_url;
 
   out << ", app_type_data: ";
   absl::visit([&out](const auto& data) { out << data; }, data.app_type_data);

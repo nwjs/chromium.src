@@ -13,6 +13,19 @@
 
 namespace history_embeddings {
 
+namespace {
+
+constexpr int64_t kEmbeddingsVersion = 1;
+constexpr size_t kEmbeddingsSize = 768ul;
+
+Embedding FakeEmbedding() {
+  Embedding embedding(std::vector<float>(kEmbeddingsSize, 1.0f));
+  embedding.Normalize();
+  return embedding;
+}
+
+}  // namespace
+
 class HistoryEmbeddingsSqlDatabaseTest : public testing::Test {
  public:
   void SetUp() override {
@@ -35,7 +48,8 @@ class HistoryEmbeddingsSqlDatabaseTest : public testing::Test {
       ASSERT_TRUE(sql_database->InsertOrReplacePassages(url_passages_1));
 
       UrlEmbeddings embeddings_1(1, 10, base::Time::Now());
-      embeddings_1.embeddings.push_back(Embedding({1.0f, 2.0f, 3.0f, 4.0f}));
+      embeddings_1.embeddings.emplace_back(
+          std::vector<float>(kEmbeddingsSize, 1.0f));
       ASSERT_TRUE(sql_database->AddUrlEmbeddings(embeddings_1));
     }
 
@@ -46,7 +60,8 @@ class HistoryEmbeddingsSqlDatabaseTest : public testing::Test {
       ASSERT_TRUE(sql_database->InsertOrReplacePassages(url_passages_2));
 
       UrlEmbeddings embeddings_2(2, 11, base::Time::Now());
-      embeddings_2.embeddings.push_back(Embedding({1.0f, 2.0f, 3.0f, 4.0f}));
+      embeddings_2.embeddings.emplace_back(
+          std::vector<float>(kEmbeddingsSize, 1.0f));
       ASSERT_TRUE(sql_database->AddUrlEmbeddings(embeddings_2));
     }
 
@@ -56,7 +71,7 @@ class HistoryEmbeddingsSqlDatabaseTest : public testing::Test {
   }
 
   size_t GetEmbeddingCount(SqlDatabase* sql_database) {
-    auto iterator = sql_database->MakeEmbeddingsIterator();
+    auto iterator = sql_database->MakeEmbeddingsIterator({});
     EXPECT_TRUE(iterator);
     size_t count = 0;
     while (iterator->Next()) {
@@ -71,6 +86,7 @@ class HistoryEmbeddingsSqlDatabaseTest : public testing::Test {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadPassages) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
 
   // Write passages
   UrlPassages url_passages(1, 1, base::Time::Now());
@@ -82,6 +98,7 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadPassages) {
   // Reset and reload.
   sql_database.reset();
   sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
 
   // Read passages
   auto read_proto = sql_database->GetPassages(1);
@@ -98,43 +115,30 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadPassages) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadEmbeddings) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
 
-  // Write embeddings
+  // Write embeddings.
   constexpr size_t kCount = 2;
   UrlEmbeddings url_embeddings[kCount] = {
       UrlEmbeddings(1, 1, base::Time::Now()),
       UrlEmbeddings(2, 2, base::Time::Now()),
   };
-  url_embeddings[0].embeddings.push_back(Embedding({
-      1.0f,
-      2.0f,
-      3.0f,
-      4.0f,
-  }));
-  url_embeddings[1].embeddings.push_back(Embedding({
-      1.0f,
-      2.0f,
-      3.0f,
-      4.0f,
-  }));
-  url_embeddings[1].embeddings.push_back(Embedding({
-      5.0f,
-      6.0f,
-      7.0f,
-      8.0f,
-  }));
+  url_embeddings[0].embeddings.push_back(FakeEmbedding());
+  url_embeddings[1].embeddings.push_back(FakeEmbedding());
+  url_embeddings[1].embeddings.push_back(FakeEmbedding());
   EXPECT_TRUE(sql_database->AddUrlEmbeddings(url_embeddings[0]));
   EXPECT_TRUE(sql_database->AddUrlEmbeddings(url_embeddings[1]));
 
   // Reset and reload.
   sql_database.reset();
   sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
 
-  // Read embeddings
+  // Read embeddings.
   {
     // Block scope destructs iterator before database is closed.
     std::unique_ptr<VectorDatabase::EmbeddingsIterator> iterator =
-        sql_database->MakeEmbeddingsIterator();
+        sql_database->MakeEmbeddingsIterator({});
     EXPECT_TRUE(iterator);
     for (const UrlEmbeddings& url_embedding : url_embeddings) {
       const UrlEmbeddings* read_url_embeddings = iterator->Next();
@@ -155,8 +159,77 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, WriteCloseAndThenReadEmbeddings) {
       << "DB file is still there after destruction.";
 }
 
+TEST_F(HistoryEmbeddingsSqlDatabaseTest, TimeRangeNarrowsSearchResult) {
+  auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
+
+  // Write embeddings.
+  const base::Time now = base::Time::Now();
+  for (size_t i = 0; i < 3; i++) {
+    UrlEmbeddings url_embeddings(i + 1, i + 1, now + base::Minutes(i));
+    for (size_t j = 0; j < 3; j++) {
+      url_embeddings.embeddings.push_back(FakeEmbedding());
+    }
+    sql_database->AddUrlEmbeddings(std::move(url_embeddings));
+  }
+  Embedding query = FakeEmbedding();
+
+  // An ordinary search with full results:
+  {
+    std::vector<ScoredUrl> scored_urls =
+        sql_database
+            ->FindNearest({}, 3, query,
+                          base::BindRepeating([]() { return false; }))
+            .scored_urls;
+    CHECK_EQ(scored_urls.size(), 3u);
+  }
+
+  // Narrowed searches with time range.
+  {
+    std::vector<ScoredUrl> scored_urls =
+        sql_database
+            ->FindNearest(now, 3, query,
+                          base::BindRepeating([]() { return false; }))
+            .scored_urls;
+    CHECK_EQ(scored_urls.size(), 3u);
+  }
+  {
+    std::vector<ScoredUrl> scored_urls =
+        sql_database
+            ->FindNearest(now + base::Seconds(30), 3, query,
+                          base::BindRepeating([]() { return false; }))
+            .scored_urls;
+    CHECK_EQ(scored_urls.size(), 2u);
+  }
+  {
+    std::vector<ScoredUrl> scored_urls =
+        sql_database
+            ->FindNearest(now + base::Seconds(90), 3, query,
+                          base::BindRepeating([]() { return false; }))
+            .scored_urls;
+    CHECK_EQ(scored_urls.size(), 1u);
+  }
+  {
+    std::vector<ScoredUrl> scored_urls =
+        sql_database
+            ->FindNearest(now + base::Minutes(2), 3, query,
+                          base::BindRepeating([]() { return false; }))
+            .scored_urls;
+    CHECK_EQ(scored_urls.size(), 1u);
+  }
+  {
+    std::vector<ScoredUrl> scored_urls =
+        sql_database
+            ->FindNearest(now + base::Seconds(121), 3, query,
+                          base::BindRepeating([]() { return false; }))
+            .scored_urls;
+    CHECK_EQ(scored_urls.size(), 0u);
+  }
+}
+
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, InsertOrReplacePassages) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
 
   UrlPassages url_passages(1, 1, base::Time::Now());
   url_passages.passages.add_passages("fake passage 1");
@@ -179,12 +252,13 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, InsertOrReplacePassages) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, IteratorMaySafelyOutliveDatabase) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
   AddBasicMockData(sql_database.get());
 
   // Without database reset, iteration reads data.
   {
     std::unique_ptr<VectorDatabase::EmbeddingsIterator> iterator =
-        sql_database->MakeEmbeddingsIterator();
+        sql_database->MakeEmbeddingsIterator({});
     EXPECT_TRUE(iterator);
     EXPECT_TRUE(iterator->Next());
   }
@@ -192,7 +266,7 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, IteratorMaySafelyOutliveDatabase) {
   // With database reset, iteration gracefully ends.
   {
     std::unique_ptr<VectorDatabase::EmbeddingsIterator> iterator =
-        sql_database->MakeEmbeddingsIterator();
+        sql_database->MakeEmbeddingsIterator({});
     EXPECT_TRUE(iterator);
 
     // Reset database while iterator is still in scope.
@@ -205,6 +279,7 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, IteratorMaySafelyOutliveDatabase) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForUrlId) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
   AddBasicMockData(sql_database.get());
 
   EXPECT_TRUE(sql_database->DeleteDataForUrlId(3))
@@ -223,6 +298,7 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForUrlId) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForVisitId) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
   AddBasicMockData(sql_database.get());
 
   EXPECT_TRUE(sql_database->DeleteDataForVisitId(40))
@@ -241,6 +317,7 @@ TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteDataForVisitId) {
 
 TEST_F(HistoryEmbeddingsSqlDatabaseTest, DeleteAllData) {
   auto sql_database = std::make_unique<SqlDatabase>(history_dir_.GetPath());
+  sql_database->SetEmbedderMetadata({kEmbeddingsVersion, kEmbeddingsSize});
   AddBasicMockData(sql_database.get());
 
   EXPECT_TRUE(sql_database->DeleteAllData());

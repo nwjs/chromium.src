@@ -209,6 +209,10 @@ bool CanvasResource::PrepareAcceleratedTransferableResource(
     MailboxSyncMode sync_mode) {
   TRACE_EVENT0("blink",
                "CanvasResource::PrepareAcceleratedTransferableResource");
+  // This method should only be called if this instance actually supports
+  // accelerated compositing.
+  CHECK(SupportsAcceleratedCompositing());
+
   // Gpu compositing is a prerequisite for compositing an accelerated resource
   DCHECK(SharedGpuContext::IsGpuCompositingEnabled());
   if (!ContextProviderWrapper())
@@ -226,27 +230,6 @@ bool CanvasResource::PrepareAcceleratedTransferableResource(
     out_resource->synchronization_type =
         viz::TransferableResource::SynchronizationType::kGpuCommandsCompleted;
   }
-
-  return true;
-}
-
-bool CanvasResource::PrepareUnacceleratedTransferableResource(
-    viz::TransferableResource* out_resource) {
-  TRACE_EVENT0("blink",
-               "CanvasResource::PrepareUnacceleratedTransferableResource");
-  const gpu::Mailbox& mailbox = GetOrCreateGpuMailbox(kVerifiedSyncToken);
-  if (mailbox.IsZero())
-    return false;
-
-  // For software compositing, the display compositor assumes an N32 format for
-  // the resource type and completely ignores the format set on the
-  // TransferableResource. Clients are expected to render in N32 format but use
-  // RGBA as the tagged format on resources.
-  *out_resource = viz::TransferableResource::MakeSoftware(
-      mailbox, gpu::SyncToken(), Size(), viz::SinglePlaneFormat::kRGBA_8888,
-      viz::TransferableResource::ResourceSource::kCanvas);
-
-  out_resource->color_space = GetColorSpace();
 
   return true;
 }
@@ -351,6 +334,29 @@ void CanvasResourceSharedBitmap::TearDown() {
   shared_mapping_ = {};
 }
 
+bool CanvasResourceSharedBitmap::PrepareUnacceleratedTransferableResource(
+    viz::TransferableResource* out_resource) {
+  TRACE_EVENT0(
+      "blink",
+      "CanvasResourceSharedBitmap::PrepareUnacceleratedTransferableResource");
+  if (shared_bitmap_id_.IsZero()) {
+    return false;
+  }
+
+  // For software compositing, the display compositor assumes an N32 format for
+  // the resource type and completely ignores the format set on the
+  // TransferableResource. Clients are expected to render in N32 format but use
+  // RGBA as the tagged format on resources.
+  *out_resource = viz::TransferableResource::MakeSoftwareSharedBitmap(
+      shared_bitmap_id_, gpu::SyncToken(), Size(),
+      viz::SinglePlaneFormat::kRGBA_8888,
+      viz::TransferableResource::ResourceSource::kCanvas);
+
+  out_resource->color_space = GetColorSpace();
+
+  return true;
+}
+
 void CanvasResourceSharedBitmap::Abandon() {
   shared_mapping_ = {};
 }
@@ -363,11 +369,9 @@ void CanvasResourceSharedBitmap::NotifyResourceLost() {
 
 const gpu::Mailbox& CanvasResourceSharedBitmap::GetOrCreateGpuMailbox(
     MailboxSyncMode sync_mode) {
-  return shared_bitmap_id_;
-}
-
-bool CanvasResourceSharedBitmap::HasGpuMailbox() const {
-  return !shared_bitmap_id_.IsZero();
+  // By contract this method is valid to call only if
+  // SupportsAcceleratedCompositing() is true.
+  NOTREACHED_NORETURN();
 }
 
 void CanvasResourceSharedBitmap::TakeSkImage(sk_sp<SkImage> image) {
@@ -433,13 +437,9 @@ CanvasResourceRasterSharedImage::CanvasResourceRasterSharedImage(
   // textures by WebGL (via AcceleratedStaticBitmapImage::CopyToTexture()).
   // Hence, GLES2_READ usage is necessary regardless of whether raster is over
   // GLES.
-  // TODO(crbug.com/1518735): Determine whether FRAMEBUFFER_HINT can be
-  // eliminated.
-  shared_image_usage_flags = shared_image_usage_flags |
-                             gpu::SHARED_IMAGE_USAGE_RASTER_READ |
-                             gpu::SHARED_IMAGE_USAGE_RASTER_WRITE |
-                             gpu::SHARED_IMAGE_USAGE_GLES2_READ |
-                             gpu::SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT;
+  shared_image_usage_flags =
+      shared_image_usage_flags | gpu::SHARED_IMAGE_USAGE_RASTER_READ |
+      gpu::SHARED_IMAGE_USAGE_RASTER_WRITE | gpu::SHARED_IMAGE_USAGE_GLES2_READ;
   if (use_oop_rasterization_) {
     shared_image_usage_flags =
         shared_image_usage_flags | gpu::SHARED_IMAGE_USAGE_OOP_RASTERIZATION;
@@ -773,10 +773,6 @@ const gpu::Mailbox& CanvasResourceRasterSharedImage::GetOrCreateGpuMailbox(
                                : empty_mailbox_;
 }
 
-bool CanvasResourceRasterSharedImage::HasGpuMailbox() const {
-  return client_shared_image() != nullptr;
-}
-
 const gpu::SyncToken CanvasResourceRasterSharedImage::GetSyncToken() {
   if (is_cross_thread()) {
     // Sync token should be generated at Transfer time, which must always be
@@ -899,9 +895,9 @@ scoped_refptr<StaticBitmapImage> ExternalCanvasResource::Bitmap() {
       base::RetainedRef(this));
 
   return AcceleratedStaticBitmapImage::CreateFromCanvasMailbox(
-      transferable_resource_.mailbox_holder.mailbox, GetSyncToken(),
+      transferable_resource_.mailbox(), GetSyncToken(),
       /*shared_image_texture_id=*/0u, CreateSkImageInfo(),
-      transferable_resource_.mailbox_holder.texture_target, is_origin_top_left_,
+      transferable_resource_.texture_target(), is_origin_top_left_,
       context_provider_wrapper_, owning_thread_ref_, owning_thread_task_runner_,
       std::move(release_callback),
       /*supports_display_compositing=*/true,
@@ -918,21 +914,21 @@ const gpu::Mailbox& ExternalCanvasResource::GetOrCreateGpuMailbox(
     MailboxSyncMode sync_mode) {
   TRACE_EVENT0("blink", "ExternalCanvasResource::GetOrCreateGpuMailbox");
   DCHECK_EQ(sync_mode, kVerifiedSyncToken);
-  return transferable_resource_.mailbox_holder.mailbox;
+  return transferable_resource_.mailbox();
 }
 
 bool ExternalCanvasResource::HasGpuMailbox() const {
-  return !transferable_resource_.mailbox_holder.mailbox.IsZero();
+  return !transferable_resource_.is_empty();
 }
 
 const gpu::SyncToken ExternalCanvasResource::GetSyncToken() {
   GenOrFlushSyncToken();
-  return transferable_resource_.mailbox_holder.sync_token;
+  return transferable_resource_.sync_token();
 }
 
 void ExternalCanvasResource::GenOrFlushSyncToken() {
   TRACE_EVENT0("blink", "ExternalCanvasResource::GenOrFlushSyncToken");
-  auto& sync_token = transferable_resource_.mailbox_holder.sync_token;
+  auto& sync_token = transferable_resource_.mutable_sync_token();
   // This method is expected to be used both in WebGL and WebGPU, that's why it
   // uses InterfaceBase.
   if (!sync_token.HasData()) {
@@ -987,8 +983,7 @@ ExternalCanvasResource::ExternalCanvasResource(
       transferable_resource_(transferable_resource),
       release_callback_(std::move(out_callback)),
       is_origin_top_left_(is_origin_top_left) {
-  DCHECK(!release_callback_ ||
-         transferable_resource_.mailbox_holder.sync_token.HasData());
+  DCHECK(!release_callback_ || transferable_resource_.sync_token().HasData());
 }
 
 // CanvasResourceSwapChain
@@ -1159,11 +1154,8 @@ CanvasResourceSwapChain::CanvasResourceSwapChain(
   // textures by WebGL (via AcceleratedStaticBitmapImage::CopyToTexture()).
   // Hence, GLES2_READ usage is necessary regardless of whether raster is over
   // GLES.
-  // TODO(crbug.com/1518735): Determine whether FRAMEBUFFER_HINT can be
-  // eliminated.
   uint32_t usage = gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
                    gpu::SHARED_IMAGE_USAGE_GLES2_READ |
-                   gpu::SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
                    gpu::SHARED_IMAGE_USAGE_SCANOUT |
                    gpu::SHARED_IMAGE_USAGE_RASTER_READ |
                    gpu::SHARED_IMAGE_USAGE_RASTER_WRITE;

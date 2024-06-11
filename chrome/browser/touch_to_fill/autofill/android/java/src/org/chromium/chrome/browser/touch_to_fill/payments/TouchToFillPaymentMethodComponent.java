@@ -10,6 +10,8 @@ import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.touch_to_fill.common.BottomSheetFocusHelper;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 
+import java.util.List;
+
 /**
  * This component allows to select a payment method to be filled into a form. It acts as a 1-tap
  * surface (bottom sheet) and is meant to be shown while the keyboard is suppressed.
@@ -32,7 +34,14 @@ interface TouchToFillPaymentMethodComponent {
          * @param uniqueId A backend id of the card.
          * @param isVirtual A boolean to identify if the card is a virtual card.
          */
-        void suggestionSelected(String uniqueId, boolean isVirtual);
+        void creditCardSuggestionSelected(String uniqueId, boolean isVirtual);
+
+        /**
+         * Called when the user selects an IBAN.
+         *
+         * @param guid GUID of the IBAN.
+         */
+        void ibanSuggestionSelected(String guid);
     }
 
     /**
@@ -54,10 +63,10 @@ interface TouchToFillPaymentMethodComponent {
             BottomSheetFocusHelper bottomSheetFocusHelper);
 
     /** Displays a new credit card bottom sheet. */
-    void showSheet(PersonalDataManager.CreditCard[] cards, boolean shouldShowScanCreditCard);
+    void showSheet(List<PersonalDataManager.CreditCard> cards, boolean shouldShowScanCreditCard);
 
     /** Displays a new IBAN bottom sheet. */
-    void showSheet(PersonalDataManager.Iban[] ibans);
+    void showSheet(List<PersonalDataManager.Iban> ibans);
 
     /** Hides the bottom sheet if shown. */
     void hideSheet();

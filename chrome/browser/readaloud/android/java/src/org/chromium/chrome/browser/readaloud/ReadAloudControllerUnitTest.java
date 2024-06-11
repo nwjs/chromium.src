@@ -255,6 +255,7 @@ public class ReadAloudControllerUnitTest {
         mClock = new FakeClock();
         ReadAloudController.setClockForTesting(mClock);
 
+        doReturn(false).when(mWebContents).isDestroyed();
         mTab = mTabModelSelector.getCurrentTab();
         mTab.setGurlOverrideForTesting(sTestGURL);
         mTab.setWebContentsOverrideForTesting(mWebContents);
@@ -675,6 +676,21 @@ public class ReadAloudControllerUnitTest {
     }
 
     @Test
+    public void checkReadability_emptyURL() {
+        mController.maybeCheckReadability(sTestGURL);
+
+        verify(mHooksImpl, times(1))
+                .isPageReadable(eq(sTestGURL.getSpec()), mCallbackCaptor.capture());
+        boolean failed = false;
+        try {
+            mCallbackCaptor.getValue().onSuccess("", true, true);
+        } catch (AssertionError e) {
+            failed = true;
+        }
+        assertTrue(failed);
+    }
+
+    @Test
     public void isReadable_languageSupported() {
         mController.maybeCheckReadability(sTestGURL);
 
@@ -834,6 +850,19 @@ public class ReadAloudControllerUnitTest {
         assertEquals("voiceB", voices.get(1).getVoiceId());
         assertEquals("fr", voices.get(2).getLanguage());
         assertEquals("voiceC", voices.get(2).getVoiceId());
+    }
+
+    @Test
+    public void testPlayTab_EmptyUrl() {
+        mFakeTranslateBridge.setCurrentLanguage("en");
+        mTab.setGurlOverrideForTesting(new GURL(""));
+        boolean failed = false;
+        try {
+            mController.playTab(mTab, ReadAloudController.Entrypoint.MAGIC_TOOLBAR);
+        } catch (AssertionError e) {
+            failed = true;
+        }
+        assertTrue(failed);
     }
 
     @Test
@@ -1545,10 +1574,94 @@ public class ReadAloudControllerUnitTest {
     public void testTranslationListenersUnregistered_nullWebContents() {
         assertEquals(1, mFakeTranslateBridge.getObserverCount());
 
-        // If tab has null web contents, we should not try to remove translation observers.
+        // If tab has null web contents, we should still remove the observer from whatever
+        // WebContents it was added to.
         doReturn(null).when(mTab).getWebContents();
         mController.getTabModelTabObserverforTests().onDestroyed(mTab);
-        assertEquals(1, mFakeTranslateBridge.getObserverCount());
+        assertEquals(0, mFakeTranslateBridge.getObserverCount());
+    }
+
+    @Test
+    public void testTranslationListener_tabWebContentsChanged() {
+        // An observer is added during ReadAloudController creation through onTabSelected().
+        assertEquals(1, mFakeTranslateBridge.getObserverCount(mWebContents));
+
+        // Simulate WebContents changing.
+        WebContents otherWebContents = Mockito.mock(WebContents.class);
+        mTab.setWebContentsOverrideForTesting(otherWebContents);
+        mController.getTabModelTabObserverforTests().onContentChanged(mTab);
+
+        // Observer should have been removed from old WebContents and added to the new one.
+        assertEquals(0, mFakeTranslateBridge.getObserverCount(mWebContents));
+        assertEquals(1, mFakeTranslateBridge.getObserverCount(otherWebContents));
+    }
+
+    @Test
+    public void testTranslationListener_unsupportedURLTabSelected() {
+        // An observer is added during ReadAloudController creation through onTabSelected().
+        assertEquals(1, mFakeTranslateBridge.getObserverCount(mWebContents));
+
+        // Select a different tab with an invalid URL.
+        WebContents otherWebContents = Mockito.mock(WebContents.class);
+        MockTab tab = mTabModelSelector.addMockTab();
+        tab.setWebContentsOverrideForTesting(otherWebContents);
+        tab.setUrl(new GURL(""));
+        mController.getTabModelTabObserverforTests().onTabSelected(tab);
+
+        // The observer should have been removed from the original WebContents. No need to observe
+        // translation on the new tab since it's not readable: the observer will be added on
+        // onContentChanged() if the user navigates to a readable page.
+        assertEquals(0, mFakeTranslateBridge.getObserverCount(mWebContents));
+        assertEquals(0, mFakeTranslateBridge.getObserverCount(otherWebContents));
+    }
+
+    @Test
+    public void testTranslationListener_playingTabWebContentsChanged() {
+        // An observer is added during ReadAloudController creation through onTabSelected().
+        assertEquals(1, mFakeTranslateBridge.getObserverCount(mWebContents));
+
+        // Play tab.
+        requestAndStartPlayback();
+        assertEquals(2, mFakeTranslateBridge.getObserverCount(mWebContents));
+
+        // Switching WebContents of playing tab should remove the "playing tab" translation observer
+        // and the "current tab" translation observer since mTab was also the currently selected
+        // tab.
+        WebContents otherWebContents = Mockito.mock(WebContents.class);
+        mTab.setWebContentsOverrideForTesting(otherWebContents);
+        mController.getTabModelTabObserverforTests().onContentChanged(mTab);
+        assertEquals(0, mFakeTranslateBridge.getObserverCount(mWebContents));
+    }
+
+    @Test
+    public void testTranslationListener_onTabSelected() {
+        // An observer is added during ReadAloudController creation through onTabSelected().
+        assertEquals(1, mFakeTranslateBridge.getObserverCount(mWebContents));
+
+        // Select a different tab with a valid URL.
+        WebContents otherWebContents = Mockito.mock(WebContents.class);
+        MockTab tab = mTabModelSelector.addMockTab();
+        tab.setWebContentsOverrideForTesting(otherWebContents);
+        tab.setUrl(new GURL("https://some.cool.website/"));
+        mController.getTabModelTabObserverforTests().onTabSelected(tab);
+
+        // The observer should have been removed from the original WebContents and the new tab's
+        // WebContents should be observed.
+        assertEquals(0, mFakeTranslateBridge.getObserverCount(mWebContents));
+        assertEquals(1, mFakeTranslateBridge.getObserverCount(otherWebContents));
+    }
+
+    @Test
+    public void testTranslationListenersRemovedWhenControllerDestroyed() {
+        // An observer is added during ReadAloudController creation through onTabSelected().
+        assertEquals(1, mFakeTranslateBridge.getObserverCount(mWebContents));
+
+        // Play tab.
+        requestAndStartPlayback();
+        assertEquals(2, mFakeTranslateBridge.getObserverCount(mWebContents));
+
+        mController.destroy();
+        assertEquals(0, mFakeTranslateBridge.getObserverCount(mWebContents));
     }
 
     @Test
@@ -2386,6 +2499,66 @@ public class ReadAloudControllerUnitTest {
         when(mTab.getUrl()).thenReturn(gurl);
         mController.getTabModelTabObserverforTests().didFirstVisuallyNonEmptyPaint(mTab);
         verify(mHooksImpl).isPageReadable(eq(gurl.getPossiblyInvalidSpec()), any());
+    }
+
+    @Test
+    public void testOnTabSelected() {
+        MockTab tab = mTabModelSelector.addMockTab();
+
+        // should do nothing on empty url
+        tab.setUrl(new GURL(""));
+        mController.getTabModelTabObserverforTests().onTabSelected(tab);
+        verify(tab, never()).getUserDataHost();
+
+        // should get user data for actual urls
+        tab.setUrl(new GURL("https://en.wikipedia.org/wiki/Alphabet_Inc."));
+        mController.getTabModelTabObserverforTests().onTabSelected(tab);
+        verify(tab, times(1)).getUserDataHost();
+    }
+
+    @Test
+    public void testTimepointsSupported_emptyUrl() {
+        // if somehow an empty url sneaks into timepoints supported
+        mController.setTimepointsSupportedForTest("", true);
+        when(mTab.getUrl()).thenReturn(new GURL(""));
+        // a tab with an empty url should not be supported
+        assertFalse(mController.timepointsSupported(mTab));
+    }
+
+    @Test
+    public void testEmptyUrlReadability() {
+        // grab the callback
+        mController.maybeCheckReadability(sTestGURL);
+        verify(mHooksImpl, times(1))
+                .isPageReadable(eq(sTestGURL.getSpec()), mCallbackCaptor.capture());
+        // if somehow an empty url sneaks into the readability maps
+        try {
+            mCallbackCaptor.getValue().onSuccess("", true, true);
+        } catch (AssertionError e) {
+
+        }
+        when(mTab.getUrl()).thenReturn(new GURL(""));
+        // empty urls should not be returned as readable
+        assertFalse(mController.isReadable(mTab));
+    }
+
+
+    @Test
+    public void testNoReadabilityUpdateAfterDestroy() {
+        Runnable readabilityObserver = Mockito.mock(Runnable.class);
+        mController.addReadabilityUpdateListener(readabilityObserver);
+
+        // Check readability
+        mController.maybeCheckReadability(sTestGURL);
+        verify(mHooksImpl, times(1))
+                .isPageReadable(eq(sTestGURL.getSpec()), mCallbackCaptor.capture());
+        assertFalse(mController.isReadable(mTab));
+
+        // Simulate response coming back after ReadAloudController being destroyed.
+        mController.destroy();
+        mCallbackCaptor.getValue().onSuccess(sTestGURL.getSpec(), true, false);
+
+        verify(readabilityObserver, never()).run();
     }
 
     private void requestAndStartPlayback() {

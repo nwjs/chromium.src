@@ -289,7 +289,8 @@ bool ChildProcessHostImpl::Send(IPC::Message* message) {
   return channel_->Send(message);
 }
 
-int ChildProcessHostImpl::GenerateChildProcessUniqueId() {
+// static
+int ChildProcessHost::GenerateChildProcessUniqueId() {
   // This function must be threadsafe.
   //
   // Historically, this function returned ids started with 1, so in several
@@ -388,7 +389,7 @@ void ChildProcessHostImpl::OnChannelConnected(int32_t peer_pid) {
   // really no need to get this information from the child process when we
   // already have it.
   //
-  // TODO(crbug.com/616980): Remove the peer_pid argument altogether from
+  // TODO(crbug.com/41256971): Remove the peer_pid argument altogether from
   // IPC::Listener::OnChannelConnected.
   const base::Process& peer_process = GetPeerProcess();
   base::ProcessId pid =

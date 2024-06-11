@@ -959,7 +959,7 @@ int BrowserMainLoop::CreateThreads() {
   io_thread_->RegisterAsBrowserThread();
   BrowserTaskExecutor::InitializeIOThread();
 
-  // TODO(https://crbug.com/863341): Replace with a better API
+  // TODO(crbug.com/40584847): Replace with a better API
   GetContentClient()->browser()->PostAfterStartupTask(
       FROM_HERE, base::SequencedTaskRunner::GetCurrentDefault(),
       base::BindOnce(
@@ -1043,8 +1043,8 @@ int BrowserMainLoop::PreMainMessageLoopRun() {
                     // Enable MessagePumpPhases metrics/tracing on-first-idle,
                     // not before as queuing time is not relevant before first
                     // idle.
-                    // TODO(1329717): Consider supporting the initial run (until
-                    // first idle) as well.
+                    // TODO(crbug.com/40226913): Consider supporting the initial
+                    // run (until first idle) as well.
                     auto enable_message_pump_metrics =
                         base::BindRepeating([](const char* thread_name) {
                           base::CurrentThread::Get()
@@ -1146,7 +1146,7 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
                      &base::PermanentThreadAllowance::AllowBlocking)));
 
   // Also allow waiting to join threads.
-  // TODO(crbug.com/800808): Ideally this (and the above AllowBlocking() would
+  // TODO(crbug.com/40557572): Ideally this (and the above AllowBlocking() would
   // be scoped allowances). That would be one of the first step to ensure no
   // persistent work is being done after ThreadPoolInstance::Shutdown() in order
   // to move towards atomic shutdown.
@@ -1345,7 +1345,7 @@ void BrowserMainLoop::PostCreateThreadsImpl() {
   bool always_uses_gpu = true;
   bool established_gpu_channel = false;
 #if BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/439322): This should be set to |true|.
+  // TODO(crbug.com/40396955): This should be set to |true|.
   established_gpu_channel = false;
   always_uses_gpu = ShouldStartGpuProcessOnBrowserStartup();
   BrowserGpuChannelHostFactory::Initialize(established_gpu_channel);

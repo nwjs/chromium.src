@@ -10,12 +10,15 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cinttypes>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <tuple>
 
 #include "base/check.h"
-#include "base/containers/contains.h"
+#include "base/check_op.h"
 #include "base/dcheck_is_on.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -23,9 +26,11 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
+#include "base/notimplemented.h"
 #include "base/notreached.h"
-#include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
 #include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
@@ -33,13 +38,11 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/trace_event.h"
-#include "base/tracing/protos/chrome_track_event.pbzero.h"
+#include "base/tracing/protos/chrome_track_event.pbzero.h"  // IWYU pragma: keep
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "sql/database_memory_dump_provider.h"
@@ -49,8 +52,12 @@
 #include "sql/sqlite_result_code.h"
 #include "sql/sqlite_result_code_values.h"
 #include "sql/statement.h"
-#include "sql/vfs_wrapper.h"
+#include "sql/statement_id.h"
 #include "third_party/sqlite/sqlite3.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "base/containers/contains.h"
+#endif
 
 namespace sql {
 
@@ -1313,7 +1320,7 @@ bool Database::DetachDatabase(std::string_view attachment_point) {
   return statement.Run();
 }
 
-// TODO(crbug.com/1230443): Change this to execute exactly one statement.
+// TODO(crbug.com/40779018): Change this to execute exactly one statement.
 SqliteResultCode Database::ExecuteAndReturnResultCode(const char* sql) {
   TRACE_EVENT0("sql", "Database::ExecuteAndReturnErrorCode");
 
@@ -1866,7 +1873,7 @@ bool Database::OpenInternal(const std::string& db_file_path) {
   // opened by multiple processes. This needs to happen before WAL mode is
   // enabled.
   //
-  // TODO(crbug.com/1120969): Remove support for non-exclusive mode.
+  // TODO(crbug.com/40146017): Remove support for non-exclusive mode.
   static_assert(
       SQLITE_DEFAULT_LOCKING_MODE == 1,
       "Chrome assumes SQLite is configured to default to EXCLUSIVE locking");
@@ -1980,7 +1987,7 @@ bool Database::OpenInternal(const std::string& db_file_path) {
   //
   // We currently set different values for small vs large files.
   //
-  // TODO(crbug.com/1305778): Replace file size-based heuristic with a
+  // TODO(crbug.com/40827336): Replace file size-based heuristic with a
   // DatabaseOptions member. Use the DatabaseOptions value for temporary
   // databases as well.
   sqlite3_file* file = GetSqliteVfsFile();

@@ -59,18 +59,6 @@ class SafetyHubHandler : public settings::SettingsPageUIHandler,
 
   ~SafetyHubHandler() override;
 
-  struct PermissionsData {
-    PermissionsData();
-    ~PermissionsData();
-    PermissionsData(PermissionsData&&);
-    PermissionsData& operator=(PermissionsData&&);
-
-    url::Origin origin;
-    std::set<ContentSettingsType> permissions;
-    base::Value::Dict chooser_permissions_data;
-    content_settings::ContentSettingConstraints constraints;
-  };
-
   static std::unique_ptr<SafetyHubHandler> GetForProfile(Profile* profile);
 
   // Testing functions to manipulate the handlers CWSInfoService and the
@@ -147,7 +135,7 @@ class SafetyHubHandler : public settings::SettingsPageUIHandler,
 
   // Returns the list of revoked permissions that belongs to origins which
   // haven't been visited recently.
-  // TODO(crbug.com/1443466): Get list of revoked permissions from the unused
+  // TODO(crbug.com/40267370): Get list of revoked permissions from the unused
   // site permission service instead.
   base::Value::List PopulateUnusedSitePermissionsData();
 
@@ -191,20 +179,17 @@ class SafetyHubHandler : public settings::SettingsPageUIHandler,
   // Returns the data for Safe Browsing card.
   void HandleGetSafeBrowsingCardData(const base::Value::List& args);
 
-  // Fetches data for the Safe Browsing card to return data to the UI.
-  base::Value::Dict GetSafeBrowsingCardData();
-
   // Returns the data for the password card.
   void HandleGetPasswordCardData(const base::Value::List& args);
-
-  // Fetches data for the password card to return data to the UI.
-  base::Value::Dict GetPasswordCardData();
 
   // Returns the data for the version card.
   void HandleGetVersionCardData(const base::Value::List& args);
 
   // Fetches data for the version card to return data to the UI.
   base::Value::Dict GetVersionCardData();
+
+  // Returns the data for Safety Hub entry point.
+  void HandleGetSafetyHubEntryPointData(const base::Value::List& args);
 
   // Returns true if Safety Hub has recommendations.
   void HandleGetSafetyHubHasRecommendations(const base::Value::List& args);
@@ -252,6 +237,12 @@ class SafetyHubHandler : public settings::SettingsPageUIHandler,
                               const extensions::Extension* extension,
                               extensions::UninstallReason reason) override;
   void OnShutdown(extensions::ExtensionRegistry* registry) override;
+
+  // Record a visit to the Safety Hub page.
+  void HandleRecordSafetyHubVisit(const base::Value::List& args);
+
+  // Record an interaction with one of the Safety Hub modules.
+  void HandleRecordSafetyHubInteraction(const base::Value::List& args);
 
   // The `extension_sh_result_` contains the needed information about how
   // many extensions should be reviewed by the user.

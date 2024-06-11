@@ -53,6 +53,7 @@ void AndroidBackendWithDoubleDeletion::InitBackend(
 
 void AndroidBackendWithDoubleDeletion::Shutdown(
     base::OnceClosure shutdown_completed) {
+  weak_ptr_factory_.InvalidateWeakPtrs();
   auto shutdown_closure =
       base::BarrierClosure(2, std::move(shutdown_completed));
   built_in_backend_->Shutdown(
@@ -118,13 +119,15 @@ void AndroidBackendWithDoubleDeletion::UpdateLoginAsync(
 }
 
 void AndroidBackendWithDoubleDeletion::RemoveLoginAsync(
+    const base::Location& location,
     const PasswordForm& form,
     PasswordChangesOrErrorReply callback) {
-  android_backend_->RemoveLoginAsync(form, std::move(callback));
-  built_in_backend_->RemoveLoginAsync(form, base::DoNothing());
+  android_backend_->RemoveLoginAsync(location, form, std::move(callback));
+  built_in_backend_->RemoveLoginAsync(location, form, base::DoNothing());
 }
 
 void AndroidBackendWithDoubleDeletion::RemoveLoginsByURLAndTimeAsync(
+    const base::Location& location,
     const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time delete_begin,
     base::Time delete_end,
@@ -135,21 +138,22 @@ void AndroidBackendWithDoubleDeletion::RemoveLoginsByURLAndTimeAsync(
   // later.
   CHECK(!sync_completion);
   android_backend_->RemoveLoginsByURLAndTimeAsync(
-      url_filter, delete_begin, delete_end, base::NullCallback(),
+      location, url_filter, delete_begin, delete_end, base::NullCallback(),
       std::move(callback));
   built_in_backend_->RemoveLoginsByURLAndTimeAsync(
-      url_filter, delete_begin, delete_end, base::NullCallback(),
+      location, url_filter, delete_begin, delete_end, base::NullCallback(),
       base::DoNothing());
 }
 
 void AndroidBackendWithDoubleDeletion::RemoveLoginsCreatedBetweenAsync(
+    const base::Location& location,
     base::Time delete_begin,
     base::Time delete_end,
     PasswordChangesOrErrorReply callback) {
-  android_backend_->RemoveLoginsCreatedBetweenAsync(delete_begin, delete_end,
-                                                    std::move(callback));
-  built_in_backend_->RemoveLoginsCreatedBetweenAsync(delete_begin, delete_end,
-                                                     base::DoNothing());
+  android_backend_->RemoveLoginsCreatedBetweenAsync(
+      location, delete_begin, delete_end, std::move(callback));
+  built_in_backend_->RemoveLoginsCreatedBetweenAsync(
+      location, delete_begin, delete_end, base::DoNothing());
 }
 
 void AndroidBackendWithDoubleDeletion::DisableAutoSignInForOriginsAsync(

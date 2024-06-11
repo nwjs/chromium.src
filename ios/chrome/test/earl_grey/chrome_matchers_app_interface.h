@@ -142,6 +142,9 @@
 // Returns matcher for `text` being a substring of the text in the omnibox.
 + (id<GREYMatcher>)omniboxContainingText:(NSString*)text;
 
+// Returns matcher for `text` being the inline autocomplete text in the omnibox.
++ (id<GREYMatcher>)omniboxContainingAutocompleteText:(NSString*)text;
+
 // Returns matcher for omniboxAutocomplete label in the omnibox.
 + (id<GREYMatcher>)omniboxAutocompleteLabel;
 
@@ -483,6 +486,15 @@
 // Returns the GREYMatcher for the cell at `index` in the tab grid.
 + (id<GREYMatcher>)tabGridCellAtIndex:(unsigned int)index;
 
+// Returns the GREYMatcher for the group cell at `index` in the tab grid.
++ (id<GREYMatcher>)tabGridGroupCellAtIndex:(unsigned int)index;
+
+// Returns the GREYMatcher for the cell at `index` in the tab strip.
++ (id<GREYMatcher>)tabStripCellAtIndex:(unsigned int)index;
+
+// Returns the GREYMatcher for the group cell at `index` in the tab strip.
++ (id<GREYMatcher>)tabStripGroupCellAtIndex:(unsigned int)index;
+
 // Returns the GREYMatcher for the button that closes the tab grid.
 + (id<GREYMatcher>)tabGridDoneButton;
 
@@ -519,6 +531,16 @@
 // Returns the GREYMatcher for the button to go to the other devices panel in
 // the tab grid.
 + (id<GREYMatcher>)tabGridOtherDevicesPanelButton;
+
+// Returns the GREYMatcher for the button to go to the tab groups panel in
+// the tab grid.
++ (id<GREYMatcher>)tabGridTabGroupsPanelButton;
+
+// Returns the GREYMatcher for the button to go to the third panel in
+// the tab grid. If Tab Group Sync is enabled, it's equivalent to
+// `tabGridTabGroupsPanelButton`. Otherwise, it's equivalent to
+// `tabGridOtherDevicesPanelButton`.
++ (id<GREYMatcher>)tabGridThirdPanelButton;
 
 // Returns a matcher that matches tab grid normal mode page control - The
 // PageControl panel always exist only on the tab grid normal mode, So this can

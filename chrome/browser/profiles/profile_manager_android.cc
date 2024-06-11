@@ -4,6 +4,7 @@
 
 #include "chrome/browser/profiles/profile_manager_android.h"
 
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_android.h"
 #include "chrome/browser/profiles/profile_destroyer.h"
@@ -45,6 +46,11 @@ ScopedJavaLocalRef<jobject> JNI_ProfileManager_GetLastUsedRegularProfile(
   }
 
   return profile_android->GetJavaObject();
+}
+
+// static
+std::vector<Profile*> JNI_ProfileManager_GetLoadedProfiles(JNIEnv* env) {
+  return g_browser_process->profile_manager()->GetLoadedProfiles();
 }
 
 // static

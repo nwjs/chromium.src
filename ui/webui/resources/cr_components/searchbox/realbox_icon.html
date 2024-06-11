@@ -1,5 +1,6 @@
 <style>
   :host {
+    --cr-realbox-icon-border-radius: 8px;
     align-items: center;
     display: flex;
     flex-shrink: 0;
@@ -7,10 +8,14 @@
     width: 32px;
   }
 
+  :host([expanded-state-icons-chrome-refresh]:not([in-side-panel_])) {
+    --cr-realbox-icon-border-radius: 4px;
+  }
+
   #container {
     align-items: center;
     aspect-ratio: 1 / 1;
-    border-radius: var(--cr-realbox-icon-border-radius, 8px);
+    border-radius: var(--cr-realbox-icon-border-radius);
     display: flex;
     justify-content: center;
     overflow: hidden;
@@ -18,13 +23,9 @@
     width: 100%;
   }
 
-  :host([expanded-state-icons-chrome-refresh]) #container {
-    border-radius: var(--cr-realbox-icon-border-radius, 4px);
-  }
-
   /* Entities may feature a dominant color background until image loads. */
   :host-context(cr-realbox-match[has-image]):host(:not([is-weather-answer])) #container {
-    background-color: var(--cr-realbox-icon-container-bg-color,
+    background-color: var(--color-realbox-results-icon-container-background,
         var(--container-bg-color));
   }
 
@@ -101,14 +102,23 @@
     background-size: 24px;
   }
 
-  /* All icons in the searchbox should be 20px large. */
   :host([in-searchbox]) #icon {
-    -webkit-mask-size: 20px;
-    background-size: 20px;
+    -webkit-mask-size: var(--cr-realbox-icon-size-in-searchbox);
+    background-size: var(--cr-realbox-icon-size-in-searchbox);
   }
 
   :host([has-icon-container-background]:not([in-searchbox])) #icon {
     background-color: var(--color-realbox-answer-icon-foreground);
+  }
+
+  /* TODO(b/343732131): Switch color token once UX direction is set. */
+  :host(:not([in-searchbox])[in-side-panel_]) #container {
+    background-color: #F1F3F4;
+    border-radius: 4000px;
+  }
+
+  :host-context([dark-mode]):host(:not([in-searchbox])[in-side-panel_]) #container {
+    background-color: #303134;
   }
 
 </style>

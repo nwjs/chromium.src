@@ -2,123 +2,121 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/android/abi.gni")
+import("//build/config/android/copy_ex.gni")
+import("//build/config/clang/clang.gni")
+import("//build/config/sanitizers/sanitizers.gni")
 import("//build_overrides/build.gni")
 
 assert(
     is_android || is_robolectric,
     "current_toolchain=$current_toolchain default_toolchain=$default_toolchain")
 
-if (is_robolectric) {
-  template("create_native_executable_dist") {
-    not_needed(invoker, [ "*" ])
+_sanitizer_runtimes = []
+if (use_cfi_diag || is_ubsan || is_ubsan_security || is_ubsan_vptr) {
+  _sanitizer_runtimes += [ "$clang_base_path/lib/clang/$clang_version/lib/linux/libclang_rt.ubsan_standalone-$sanitizer_arch-android.so" ]
+}
+if (is_asan) {
+  _sanitizer_runtimes += [ "$clang_base_path/lib/clang/$clang_version/lib/linux/libclang_rt.asan-$sanitizer_arch-android.so" ]
+}
+
+# Creates a dist directory for a native executable.
+#
+# Running a native executable on a device requires all the shared library
+# dependencies of that executable. To make it easier to install and run such an
+# executable, this will create a directory containing the native exe and all
+# it's library dependencies.
+#
+# Note: It's usually better to package things as an APK than as a native
+# executable.
+#
+# Variables
+#   dist_dir: Directory for the exe and libraries. Everything in this directory
+#     will be deleted before copying in the exe and libraries.
+#   binary: Path to (stripped) executable.
+#   extra_files: List of extra files to copy in (optional).
+#
+# Example
+#   create_native_executable_dist("foo_dist") {
+#     dist_dir = "$root_build_dir/foo_dist"
+#     binary = "$root_build_dir/foo"
+#     deps = [ ":the_thing_that_makes_foo" ]
+#   }
+template("create_native_executable_dist") {
+  forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
+
+  _libraries_list = "${target_gen_dir}/${target_name}_library_dependencies.list"
+
+  _sanitizer_runtimes_target_name = "${target_name}__sanitizer_runtimes"
+  group(_sanitizer_runtimes_target_name) {
+    metadata = {
+      shared_libraries = _sanitizer_runtimes
+    }
   }
-} else if (enable_java_templates) {
-  import("//build/config/android/abi.gni")
+
+  generated_file("${target_name}__library_list") {
+    forward_variables_from(invoker, [ "deps" ])
+    if (!defined(deps)) {
+      deps = []
+    }
+    deps += [ ":${_sanitizer_runtimes_target_name}" ]
+    output_conversion = "json"
+    outputs = [ _libraries_list ]
+    data_keys = [ "shared_libraries" ]
+    walk_keys = [ "shared_libraries_barrier" ]
+    rebase = root_build_dir
+  }
+
+  copy_ex(target_name) {
+    inputs = [
+      _libraries_list,
+      invoker.binary,
+    ]
+
+    dest = invoker.dist_dir
+    data = [ "${invoker.dist_dir}/" ]
+
+    _rebased_libraries_list = rebase_path(_libraries_list, root_build_dir)
+    _rebased_binaries_list = rebase_path([ invoker.binary ], root_build_dir)
+    args = [
+      "--clear",
+      "--files=@FileArg($_rebased_libraries_list)",
+      "--files=$_rebased_binaries_list",
+    ]
+    if (defined(invoker.extra_files)) {
+      _rebased_extra_files = rebase_path(invoker.extra_files, root_build_dir)
+      args += [ "--files=$_rebased_extra_files" ]
+    }
+
+    _depfile = "$target_gen_dir/$target_name.d"
+    _stamp_file = "$target_gen_dir/$target_name.stamp"
+    outputs = [ _stamp_file ]
+    args += [
+      "--depfile",
+      rebase_path(_depfile, root_build_dir),
+      "--stamp",
+      rebase_path(_stamp_file, root_build_dir),
+    ]
+
+    deps = [ ":${target_name}__library_list" ]
+    if (defined(invoker.deps)) {
+      deps += invoker.deps
+    }
+  }
+}
+
+if (!is_robolectric && enable_java_templates) {
   import("//build/config/android/config.gni")
-  import("//build/config/android/copy_ex.gni")
   import("//build/config/android/internal_rules.gni")
-  import("//build/config/clang/clang.gni")
   import("//build/config/compiler/compiler.gni")
   import("//build/config/coverage/coverage.gni")
   import("//build/config/profiling/profiling.gni")
   import("//build/config/python.gni")
-  import("//build/config/sanitizers/sanitizers.gni")
   import("//build/config/zip.gni")
   import("//build/toolchain/toolchain.gni")
 
   _BUNDLETOOL_JAR_PATH =
       "//third_party/android_build_tools/bundletool/bundletool.jar"
-
-  _sanitizer_runtimes = []
-  if (use_cfi_diag || is_ubsan || is_ubsan_security || is_ubsan_vptr) {
-    _sanitizer_runtimes += [ "$clang_base_path/lib/clang/$clang_version/lib/linux/libclang_rt.ubsan_standalone-$sanitizer_arch-android.so" ]
-  }
-
-  # Creates a dist directory for a native executable.
-  #
-  # Running a native executable on a device requires all the shared library
-  # dependencies of that executable. To make it easier to install and run such an
-  # executable, this will create a directory containing the native exe and all
-  # it's library dependencies.
-  #
-  # Note: It's usually better to package things as an APK than as a native
-  # executable.
-  #
-  # Variables
-  #   dist_dir: Directory for the exe and libraries. Everything in this directory
-  #     will be deleted before copying in the exe and libraries.
-  #   binary: Path to (stripped) executable.
-  #   extra_files: List of extra files to copy in (optional).
-  #
-  # Example
-  #   create_native_executable_dist("foo_dist") {
-  #     dist_dir = "$root_build_dir/foo_dist"
-  #     binary = "$root_build_dir/foo"
-  #     deps = [ ":the_thing_that_makes_foo" ]
-  #   }
-  template("create_native_executable_dist") {
-    forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
-
-    _libraries_list =
-        "${target_gen_dir}/${target_name}_library_dependencies.list"
-
-    _sanitizer_runtimes_target_name = "${target_name}__sanitizer_runtimes"
-    group(_sanitizer_runtimes_target_name) {
-      metadata = {
-        shared_libraries = _sanitizer_runtimes
-      }
-    }
-
-    generated_file("${target_name}__library_list") {
-      forward_variables_from(invoker, [ "deps" ])
-      if (!defined(deps)) {
-        deps = []
-      }
-      deps += [ ":${_sanitizer_runtimes_target_name}" ]
-      output_conversion = "json"
-      outputs = [ _libraries_list ]
-      data_keys = [ "shared_libraries" ]
-      walk_keys = [ "shared_libraries_barrier" ]
-      rebase = root_build_dir
-    }
-
-    copy_ex(target_name) {
-      inputs = [
-        _libraries_list,
-        invoker.binary,
-      ]
-
-      dest = invoker.dist_dir
-      data = [ "${invoker.dist_dir}/" ]
-
-      _rebased_libraries_list = rebase_path(_libraries_list, root_build_dir)
-      _rebased_binaries_list = rebase_path([ invoker.binary ], root_build_dir)
-      args = [
-        "--clear",
-        "--files=@FileArg($_rebased_libraries_list)",
-        "--files=$_rebased_binaries_list",
-      ]
-      if (defined(invoker.extra_files)) {
-        _rebased_extra_files = rebase_path(invoker.extra_files, root_build_dir)
-        args += [ "--files=$_rebased_extra_files" ]
-      }
-
-      _depfile = "$target_gen_dir/$target_name.d"
-      _stamp_file = "$target_gen_dir/$target_name.stamp"
-      outputs = [ _stamp_file ]
-      args += [
-        "--depfile",
-        rebase_path(_depfile, root_build_dir),
-        "--stamp",
-        rebase_path(_stamp_file, root_build_dir),
-      ]
-
-      deps = [ ":${target_name}__library_list" ]
-      if (defined(invoker.deps)) {
-        deps += invoker.deps
-      }
-    }
-  }
 
   # Declare a target for c-preprocessor-generated java files
   #
@@ -718,7 +716,7 @@ if (is_robolectric) {
   #     ]
   #   }
   template("android_resources") {
-    forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
+    forward_variables_from(invoker, [ "testonly" ])
 
     _base_path = "$target_gen_dir/$target_name"
     if (defined(invoker.v14_skip)) {
@@ -1442,7 +1440,7 @@ if (is_robolectric) {
   #     output = "$root_build_dir/MyLibrary.jar"
   #   }
   template("dist_jar") {
-    # TODO(crbug.com/1042017): Remove.
+    # TODO(crbug.com/40114668): Remove.
     not_needed(invoker, [ "no_build_hooks" ])
     forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
     _use_interface_jars =
@@ -2103,6 +2101,9 @@ if (is_robolectric) {
     if (defined(invoker.min_sdk_version)) {
       _min_sdk_version = invoker.min_sdk_version
     }
+    if (is_asan && _min_sdk_version < min_supported_sdk_version) {
+      _min_sdk_version = min_supported_sdk_version
+    }
     if (defined(invoker.target_sdk_version)) {
       _target_sdk_version = invoker.target_sdk_version
     }
@@ -2253,7 +2254,7 @@ if (is_robolectric) {
 
     _uses_static_library = defined(invoker.static_library_provider)
 
-    # TODO(crbug.com/864142): Allow incremental installs of bundle modules.
+    # TODO(crbug.com/40585188): Allow incremental installs of bundle modules.
     _incremental_apk =
         !_is_bundle_module &&
         !(defined(invoker.never_incremental) && invoker.never_incremental) &&
@@ -2580,9 +2581,16 @@ if (is_robolectric) {
     if (defined(invoker.loadable_modules)) {
       _loadable_modules = invoker.loadable_modules
     }
-
-    if (_native_libs_deps != []) {
-      _loadable_modules += _sanitizer_runtimes
+    _sanitizer_loadable_modules = []
+    _sanitizer_deps = []
+    if (_is_base_module && _native_libs_deps != [] && !_uses_static_library) {
+      _sanitizer_loadable_modules += _sanitizer_runtimes
+    }
+    if (is_asan && _is_base_module &&
+        (_uses_static_library || _native_libs_deps != [])) {
+      _sanitizer_loadable_modules +=
+          [ "$root_gen_dir/build/android/generate_wrap_sh/wrap.sh" ]
+      _sanitizer_deps += [ "//build/android:generate_wrap_sh" ]
     }
 
     _assertions_implicitly_enabled = defined(invoker.custom_assertion_handler)
@@ -2731,7 +2739,11 @@ if (is_robolectric) {
             _secondary_abi_shared_library_list_file
       }
 
-      loadable_modules = _loadable_modules
+      if (!defined(deps)) {
+        deps = []
+      }
+      deps += _sanitizer_deps
+      loadable_modules = _loadable_modules + _sanitizer_loadable_modules
 
       if (defined(_allowlist_r_txt_path) && _is_bundle_module) {
         # Used to write the file path to the target's .build_config.json only.
@@ -2940,7 +2952,7 @@ if (is_robolectric) {
 
         # Need full deps rather than _non_java_deps, because loadable_modules
         # may include .so files extracted by __unpack_aar targets.
-        deps = _invoker_deps + [ ":$_build_config_target" ]
+        deps = _invoker_deps + _sanitizer_deps + [ ":$_build_config_target" ]
         if (defined(invoker.asset_deps)) {
           deps += invoker.asset_deps
         }
@@ -2959,15 +2971,19 @@ if (is_robolectric) {
           # should be clearly named/labeled "incremental".
           output_apk_path = _incremental_apk_path
 
+          loadable_modules = _sanitizer_loadable_modules
+
           # All native libraries are side-loaded, so use a placeholder to force
           # the proper bitness for the app.
           _has_native_libs =
-              defined(_native_libs_filearg) || _loadable_modules != []
-          if (_has_native_libs && !defined(native_lib_placeholders)) {
+              defined(_native_libs_filearg) || _loadable_modules != [] ||
+              _sanitizer_loadable_modules != []
+          if (_has_native_libs && loadable_modules == [] &&
+              !defined(native_lib_placeholders)) {
             native_lib_placeholders = [ "libfix.crbug.384638.so" ]
           }
         } else {
-          loadable_modules = _loadable_modules
+          loadable_modules = _loadable_modules + _sanitizer_loadable_modules
           deps += _all_native_libs_deps + [
                     ":$_compile_resources_target",
                     ":$_merge_manifest_target",
@@ -3207,7 +3223,7 @@ if (is_robolectric) {
   #     ]
   #   }
   template("android_apk") {
-    # TODO(crbug.com/1042017): Remove.
+    # TODO(crbug.com/40114668): Remove.
     not_needed(invoker, [ "no_build_hooks" ])
     android_apk_or_module(target_name) {
       forward_variables_from(
@@ -3799,7 +3815,7 @@ if (is_robolectric) {
       testonly = true
       create_apk_script = false
 
-      # TODO(crbug.com/1099849): Figure out why angle tests fail to launch
+      # TODO(crbug.com/40702672): Figure out why angle tests fail to launch
       #     with newer target_sdk_version.
       if (!defined(invoker.target_sdk_version) && _use_native_activity) {
         target_sdk_version = 24
@@ -4494,6 +4510,9 @@ if (is_robolectric) {
     _min_sdk_version = default_min_sdk_version
     if (defined(invoker.min_sdk_version)) {
       _min_sdk_version = invoker.min_sdk_version
+    }
+    if (is_asan && _min_sdk_version < min_supported_sdk_version) {
+      _min_sdk_version = min_supported_sdk_version
     }
 
     _bundle_base_path = "$root_build_dir/apks"

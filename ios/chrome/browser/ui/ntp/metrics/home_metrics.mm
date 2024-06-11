@@ -15,6 +15,26 @@
 
 const char kMagicStackTopModuleImpressionHistogram[] =
     "IOS.MagicStack.Module.TopImpression";
+const char kMagicStackModuleEngagementOnStartHistogram[] =
+    "IOS.MagicStack.Module.Click.OnStart";
+const char kMagicStackModuleEngagementOnNTPHistogram[] =
+    "IOS.MagicStack.Module.Click.OnNTP";
+
+// Maximum index of module.
+const float kMaxModuleImpressionIndex = 50;
+
+namespace {
+std::string TabResumptionHistogramName(bool is_click,
+                                       bool is_start_surface,
+                                       bool is_local) {
+  std::string histogram_name = "IOS.MagicStack.Module";
+  histogram_name += is_click ? ".Click" : ".Impression";
+  histogram_name += ".TabResumption";
+  histogram_name += is_start_surface ? ".OnStart" : ".OnNTP";
+  histogram_name += is_local ? ".Recent" : ".Sync";
+  return histogram_name;
+}
+}  // namespace
 
 void RecordHomeAction(IOSHomeActionType type, bool isStartSurface) {
   if (isStartSurface) {
@@ -22,6 +42,24 @@ void RecordHomeAction(IOSHomeActionType type, bool isStartSurface) {
   } else {
     UMA_HISTOGRAM_ENUMERATION(kActionOnNTPHistogram, type);
   }
+}
+
+void RecordMagicStackClick(ContentSuggestionsModuleType type,
+                           bool isStartSurface) {
+  if (isStartSurface) {
+    UMA_HISTOGRAM_ENUMERATION(kMagicStackModuleEngagementOnStartHistogram,
+                              type);
+  } else {
+    UMA_HISTOGRAM_ENUMERATION(kMagicStackModuleEngagementOnNTPHistogram, type);
+  }
+}
+
+void RecordMagicStackTabResumptionClick(bool isLocal,
+                                        bool isStartSurface,
+                                        NSUInteger index) {
+  base::UmaHistogramExactLinear(
+      TabResumptionHistogramName(/*is_click*/ true, isStartSurface, isLocal),
+      index, kMaxModuleImpressionIndex);
 }
 
 void RecordModuleFreshnessSignal(ContentSuggestionsModuleType module_type) {
@@ -161,4 +199,12 @@ void LogTopModuleImpressionForType(ContentSuggestionsModuleType module_type) {
   }
   UMA_HISTOGRAM_ENUMERATION(kMagicStackTopModuleImpressionHistogram,
                             module_type);
+}
+
+void LogTabResumptionImpression(bool isLocal,
+                                bool isStartSurface,
+                                NSUInteger index) {
+  base::UmaHistogramExactLinear(
+      TabResumptionHistogramName(/*is_click*/ false, isStartSurface, isLocal),
+      index, kMaxModuleImpressionIndex);
 }

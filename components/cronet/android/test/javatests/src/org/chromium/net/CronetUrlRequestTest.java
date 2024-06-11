@@ -1371,6 +1371,124 @@ public class CronetUrlRequestTest {
 
     @Test
     @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.AOSP_PLATFORM},
+            reason = "Platform does not support empty buffers yet.")
+    public void testUploadWithEmptyBuffersShouldFailUpload() throws Exception {
+        TestUrlRequestCallback callback = new TestUrlRequestCallback();
+        UrlRequest.Builder builder =
+                mTestRule
+                        .getTestFramework()
+                        .getEngine()
+                        .newUrlRequestBuilder(
+                                NativeTestServer.getEchoBodyURL(),
+                                callback,
+                                callback.getExecutor());
+
+        TestUploadDataProvider dataProvider =
+                new TestUploadDataProvider(
+                        TestUploadDataProvider.SuccessCallbackMode.SYNC, callback.getExecutor());
+        dataProvider.addRead("test".getBytes());
+        dataProvider.addRead("".getBytes());
+        dataProvider.addRead("test".getBytes());
+        builder.setUploadDataProvider(dataProvider, callback.getExecutor());
+        builder.addHeader("Content-Type", "useless/string");
+        builder.build().start();
+        callback.blockForDone();
+        dataProvider.assertClosed();
+        assertThat(dataProvider.getNumReadCalls()).isEqualTo(2);
+
+        assertThat(callback.mError)
+                .hasMessageThat()
+                .contains("Exception received from UploadDataProvider");
+        assertThat(callback.mError)
+                .hasCauseThat()
+                .hasMessageThat()
+                .contains("Bytes read can't be zero except for last chunk!");
+        assertThat(callback.getResponseInfo()).isNull();
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.AOSP_PLATFORM},
+            reason = "Platform does not support empty buffers yet.")
+    public void testUploadWithEmptyBuffersAsyncShouldFailUpload() throws Exception {
+        TestUrlRequestCallback callback = new TestUrlRequestCallback();
+        UrlRequest.Builder builder =
+                mTestRule
+                        .getTestFramework()
+                        .getEngine()
+                        .newUrlRequestBuilder(
+                                NativeTestServer.getEchoBodyURL(),
+                                callback,
+                                callback.getExecutor());
+
+        TestUploadDataProvider dataProvider =
+                new TestUploadDataProvider(
+                        TestUploadDataProvider.SuccessCallbackMode.ASYNC, callback.getExecutor());
+        dataProvider.addRead("test".getBytes());
+        dataProvider.addRead("".getBytes());
+        dataProvider.addRead("test".getBytes());
+        builder.setUploadDataProvider(dataProvider, callback.getExecutor());
+        builder.addHeader("Content-Type", "useless/string");
+        builder.build().start();
+        callback.blockForDone();
+        dataProvider.assertClosed();
+
+        assertThat(dataProvider.getNumReadCalls()).isEqualTo(2);
+
+        assertThat(callback.mError)
+                .hasMessageThat()
+                .contains("Exception received from UploadDataProvider");
+        assertThat(callback.mError)
+                .hasCauseThat()
+                .hasMessageThat()
+                .contains("Bytes read can't be zero except for last chunk!");
+        assertThat(callback.getResponseInfo()).isNull();
+    }
+
+    @Test
+    @SmallTest
+    @IgnoreFor(
+            implementations = {CronetImplementation.AOSP_PLATFORM},
+            reason = "Platform does not support empty buffers yet.")
+    public void testUploadWithEmptyBuffersAtEndShouldSucceed() throws Exception {
+        TestUrlRequestCallback callback = new TestUrlRequestCallback();
+        UrlRequest.Builder builder =
+                mTestRule
+                        .getTestFramework()
+                        .getEngine()
+                        .newUrlRequestBuilder(
+                                NativeTestServer.getEchoBodyURL(),
+                                callback,
+                                callback.getExecutor());
+
+        TestUploadDataProvider dataProvider =
+                new TestUploadDataProvider(
+                        TestUploadDataProvider.SuccessCallbackMode.SYNC, callback.getExecutor());
+        dataProvider.addRead("test".getBytes());
+        dataProvider.addRead("test".getBytes());
+        dataProvider.addRead("".getBytes());
+        builder.setUploadDataProvider(dataProvider, callback.getExecutor());
+        builder.addHeader("Content-Type", "useless/string");
+        builder.build().start();
+        callback.blockForDone();
+        dataProvider.assertClosed();
+
+        assertThat(dataProvider.getUploadedLength()).isEqualTo(8);
+        // There are only 2 reads because the last read will never be executed
+        // because from the networking stack perspective, we read all the content
+        // after executing the second read.
+        assertThat(dataProvider.getNumReadCalls()).isEqualTo(2);
+        assertThat(dataProvider.getNumRewindCalls()).isEqualTo(0);
+
+        assertThat(callback.getResponseInfoWithChecks()).hasHttpStatusCodeThat().isEqualTo(200);
+        assertThat(callback.mResponseAsString).isEqualTo("testtest");
+    }
+
+    @Test
+    @SmallTest
     public void testUploadSync() throws Exception {
         TestUrlRequestCallback callback = new TestUrlRequestCallback();
         UrlRequest.Builder builder =
@@ -2928,7 +3046,7 @@ public class CronetUrlRequestTest {
             // given a fake networkHandle.
             assertThrows(
                     IllegalArgumentException.class,
-                    () -> builder.bindToNetwork(-150 /* invalid network handle */));
+                    () -> builder.bindToNetwork(-150 /* invalid network handle */).build());
             return;
         }
 
@@ -2967,10 +3085,6 @@ public class CronetUrlRequestTest {
     // object, it is an implicit expectation by our users that we should not break.
     // See b/328442628 for an example regression.
     @Test
-    @IgnoreFor(
-            implementations = {CronetImplementation.AOSP_PLATFORM},
-            reason =
-                    "b/324583507: Unignore when requests in callbacks are == to the user held one.")
     public void testCallbackMethod_onRedirect_receivesSameRequestObject() {
         AtomicReference<UrlRequest> callbackRequest = new AtomicReference<>();
         TestUrlRequestCallback callback =
@@ -2990,10 +3104,6 @@ public class CronetUrlRequestTest {
     // object, it is an implicit expectation by our users that we should not break.
     // See b/328442628 for an example regression.
     @Test
-    @IgnoreFor(
-            implementations = {CronetImplementation.AOSP_PLATFORM},
-            reason =
-                    "b/324583507: Unignore when requests in callbacks are == to the user held one.")
     public void testCallbackMethod_onResponseStarted_receivesSameRequestObject() {
         AtomicReference<UrlRequest> callbackRequest = new AtomicReference<>();
         TestUrlRequestCallback callback =
@@ -3012,10 +3122,6 @@ public class CronetUrlRequestTest {
     // object, it is an implicit expectation by our users that we should not break.
     // See b/328442628 for an example regression.
     @Test
-    @IgnoreFor(
-            implementations = {CronetImplementation.AOSP_PLATFORM},
-            reason =
-                    "b/324583507: Unignore when requests in callbacks are == to the user held one.")
     public void testCallbackMethod_onReadCompleted_receivesSameRequestObject() {
         AtomicReference<UrlRequest> callbackRequest = new AtomicReference<>();
         TestUrlRequestCallback callback =
@@ -3036,10 +3142,6 @@ public class CronetUrlRequestTest {
     // object, it is an implicit expectation by our users that we should not break.
     // See b/328442628 for an example regression.
     @Test
-    @IgnoreFor(
-            implementations = {CronetImplementation.AOSP_PLATFORM},
-            reason =
-                    "b/324583507: Unignore when requests in callbacks are == to the user held one.")
     public void testCallbackMethod_onSucceeded_receivesSameRequestObject() {
         AtomicReference<UrlRequest> callbackRequest = new AtomicReference<>();
         TestUrlRequestCallback callback =
@@ -3058,10 +3160,6 @@ public class CronetUrlRequestTest {
     // object, it is an implicit expectation by our users that we should not break.
     // See b/328442628 for an example regression.
     @Test
-    @IgnoreFor(
-            implementations = {CronetImplementation.AOSP_PLATFORM},
-            reason =
-                    "b/324583507: Unignore when requests in callbacks are == to the user held one.")
     public void testCallbackMethod_onCanceled_receivesSameRequestObject() {
         AtomicReference<UrlRequest> callbackRequest = new AtomicReference<>();
         TestUrlRequestCallback callback =
@@ -3081,10 +3179,6 @@ public class CronetUrlRequestTest {
     // object, it is an implicit expectation by our users that we should not break.
     // See b/328442628 for an example regression.
     @Test
-    @IgnoreFor(
-            implementations = {CronetImplementation.AOSP_PLATFORM},
-            reason =
-                    "b/324583507: Unignore when requests in callbacks are == to the user held one.")
     public void testCallbackMethod_onFailed_receivesSameRequestObject() {
         AtomicReference<UrlRequest> callbackRequest = new AtomicReference<>();
         TestUrlRequestCallback callback =
@@ -3118,10 +3212,6 @@ public class CronetUrlRequestTest {
     }
 
     @Test
-    @IgnoreFor(
-            implementations = {CronetImplementation.AOSP_PLATFORM},
-            reason =
-                    "b/324583507: Unignore when requests in callbacks are == to the user held one.")
     public void testCallback_twoRequestsFromOneBuilder_receivesCorrectRequestObject() {
         AtomicReference<UrlRequest> onResponseStartedRequest = new AtomicReference<>();
         AtomicReference<UrlRequest> onReadCompletedRequest = new AtomicReference<>();

@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -22,7 +23,6 @@
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -2553,9 +2553,7 @@ TEST_F(SiteSettingsHandlerTest,
   base::Value::Dict exception = site_settings::GetExceptionForPage(
       ContentSettingsType::NOTIFICATIONS, /*profile=*/nullptr, pattern,
       ContentSettingsPattern::Wildcard(), pattern.ToString(),
-      CONTENT_SETTING_BLOCK,
-      site_settings::SiteSettingSourceToString(
-          site_settings::SiteSettingSource::kPreference),
+      CONTENT_SETTING_BLOCK, site_settings::SiteSettingSource::kPreference,
       /*expiration=*/base::Time::Now(), /*incognito=*/false);
 
   CHECK(exception.FindString(site_settings::kOrigin));
@@ -3249,7 +3247,7 @@ TEST_F(SiteSettingsHandlerTest, ExcludeWebUISchemesInLists) {
                                              kWebUIOrigins[0].GetURL(),
                                              content_settings_type, &info);
   EXPECT_EQ(CONTENT_SETTING_ALLOW, value.GetInt());
-  EXPECT_EQ(content_settings::SETTING_SOURCE_ALLOWLIST, info.source);
+  EXPECT_EQ(content_settings::SettingSource::kAllowList, info.source);
 
   // Register an ordinary website permission.
   const GURL kWebUrl = GURL("https://example.com");
@@ -4155,7 +4153,7 @@ class SiteSettingsHandlerChooserExceptionTest
   // Iterate through the exception's sites array and return true if a site
   // exception matches |requesting_origin| and |embedding_origin|.
   bool ChooserExceptionContainsSiteException(const base::Value::Dict& exception,
-                                             base::StringPiece origin) {
+                                             std::string_view origin) {
     const base::Value::List* sites = exception.FindList(site_settings::kSites);
     if (!sites)
       return false;
@@ -4176,8 +4174,8 @@ class SiteSettingsHandlerChooserExceptionTest
   // |origin|.
   bool ChooserExceptionContainsSiteException(
       const base::Value::List& exceptions,
-      base::StringPiece display_name,
-      base::StringPiece origin) {
+      std::string_view display_name,
+      std::string_view origin) {
     for (const auto& exception : exceptions) {
       const std::string* exception_display_name =
           exception.GetDict().FindString(site_settings::kDisplayName);
@@ -4629,7 +4627,7 @@ class SiteSettingsHandlerChooserExceptionTest
   }
 
   void TestHandleSetOriginPermissions() {
-    constexpr base::StringPiece kYoutubeOriginStr = "https://youtube.com/";
+    constexpr std::string_view kYoutubeOriginStr = "https://youtube.com/";
     const GURL kYoutubeUrl{kYoutubeOriginStr};
     const auto kYoutubeOrigin = url::Origin::Create(kYoutubeUrl);
 

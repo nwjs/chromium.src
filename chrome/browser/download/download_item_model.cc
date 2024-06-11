@@ -35,7 +35,6 @@
 #include "chrome/browser/download/download_ui_model.h"
 #include "chrome/browser/download/offline_item_utils.h"
 #include "chrome/browser/enterprise/connectors/common.h"
-#include "chrome/browser/enterprise/connectors/connectors_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
@@ -78,6 +77,7 @@
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
 #include "chrome/browser/safe_browsing/download_protection/deep_scanning_request.h"
 #include "chrome/browser/safe_browsing/download_protection/download_feedback_service.h"
+#include "chrome/browser/enterprise/connectors/connectors_manager.h"
 #endif
 
 using DangerUiPattern = DownloadUIModel::DangerUiPattern;
@@ -404,7 +404,8 @@ bool DownloadItemModel::ShouldRemoveFromShelfWhenComplete() const {
 
       // If the download is a trusted extension, temporary, or will be opened
       // automatically, then it should be removed from the shelf on completion.
-      // TODO(crbug.com/1077929): The logic for deciding opening behavior should
+      // TODO(crbug.com/40129365): The logic for deciding opening behavior
+      // should
       //                          be in a central location.
       return (download_crx_util::IsTrustedExtensionDownload(profile(),
                                                             *download_) ||

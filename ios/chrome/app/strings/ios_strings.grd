@@ -820,8 +820,8 @@
       <message name="IDS_IOS_CLEAR_AUTOFILL" desc="Label for the option in settings to clear form data. In titlecase. [Length: 20em] [iOS only]">
         Autofill Data
       </message>
-      <message name="IDS_IOS_CLEAR_BROWSING_DATA_ACTIVITY_MODAL" desc="Message text for the activity indicator modal during clear browsing data.">
-        Clearing browsing data...
+      <message name="IDS_IOS_CLEAR_BROWSING_DATA_ACTIVITY_MODAL" desc="Message text for the activity indicator modal during delete browsing data.">
+        Deleting browsing data...
       </message>
       <message name="IDS_IOS_CLEAR_BROWSING_DATA_FOOTER_ACCOUNT" desc="Footer message in the settings to clear browsing data that informs the user that clearing browsing data will not sign them out of Chrome.">
         You won't be signed out of your Google Account.
@@ -877,14 +877,14 @@ See your search engine’s instructions for deleting your search history, if app
       <message name="IDS_IOS_CLEAR_BROWSING_DATA_TIME_RANGE_SELECTOR_TITLE" desc="Title for the view that allows the user to pick a time range. The selector is used to pick the time period for which to clear the browsing data. In titlecase. [Length: 13em] [iOS only]">
         Time Range
       </message>
-      <message name="IDS_IOS_CLEAR_BROWSING_DATA_TITLE" desc="Title for clear browsing data setting screen [Length: 10em] [iOS only]">
-        Clear Browsing Data
+      <message name="IDS_IOS_CLEAR_BROWSING_DATA_TITLE" desc="Title for delete browsing data setting screen [Length: 10em] [iOS only]">
+        Delete Browsing Data
       </message>
       <message name="IDS_IOS_CLEAR_BROWSING_HISTORY" desc="Label for the option in settings to clear browsing history. In titlecase. [Length: 20em] [iOS only]">
         Browsing History
       </message>
-      <message name="IDS_IOS_CLEAR_BUTTON" desc="Title for the button used to clear data. [Length: 20em] [iOS only]">
-        Clear Browsing Data
+      <message name="IDS_IOS_CLEAR_BUTTON" desc="Title for the button used to delete data. [Length: 20em] [iOS only]">
+        Delete Browsing Data
       </message>
       <message name="IDS_IOS_CLEAR_CACHE" desc="Label for the option in settings to clear the cache. In titlecase. [Length: 20em] [iOS only]">
         Cached Images and Files
@@ -916,8 +916,8 @@ See your search engine’s instructions for deleting your search history, if app
           =1 {{COUNT} Compromised Password}
           other {{COUNT} Compromised Passwords}}
       </message>
-      <message name="IDS_IOS_CONFIRM_CLEAR_BUTTON" desc="Accessibility label for the button used to confirm clearing data. [iOS only]">
-        Confirm Clear Browsing Data
+      <message name="IDS_IOS_CONFIRM_CLEAR_BUTTON" desc="Accessibility label for the button used to confirm deleting data. [iOS only]">
+        Confirm Delete Browsing Data
       </message>
       <message name="IDS_IOS_CONFIRM_CLEAR_BUTTON_TITLE" desc="Title for the UIAlertController indicating browsing data selected will be removed. [Length: 20em] [iOS only]">
         The items you selected will be removed.
@@ -1018,6 +1018,9 @@ See your search engine’s instructions for deleting your search history, if app
       </message>
       <message name="IDS_IOS_CONTENT_CONTEXT_OPENLINKNEWTAB" desc="The iOS menu item for opening a link in another tab. Shorter than the desktop version [iOS only]">
         Open in New Tab
+      </message>
+      <message name="IDS_IOS_CONTENT_CONTEXT_OPENLINKINNEWTABGROUP" desc="The iOS context menu item for opening a link in new tab group. [iOS only]">
+        Open in New Tab Group
       </message>
        <message name="IDS_IOS_CONTENT_CONTEXT_OPENLINKINTABGROUP" desc="The iOS context menu item for opening a link in a tab group. [iOS only]">
         Open in Tab Group
@@ -1288,6 +1291,10 @@ See your search engine’s instructions for deleting your search history, if app
       </message>
       <message name="IDS_IOS_DELETE_ACTION_TITLE" desc="Title of the action used to delete a selected item. Item types include, for example, a Bookmark or an History Entry. [iOS only]">
         Delete
+      </message>
+      <!-- TODO(crbug.com/335387869): Make string translatable once we have the complete UI. -->
+      <message name="IDS_IOS_DELETE_BROWSING_DATA_CANCEL" translateable="false" desc="Label for the option to cancel and dismiss deleting browsing data. [iOS only]">
+        Cancel
       </message>
       <message name="IDS_IOS_DELETE_COMPROMISED_PASSWORD_DESCRIPTION" desc="Message on top of the confirmation alert when the user tapped delete password button. [iOS only]" meaning="Explaining to the user that deleting password locally won't delete account on a website.">
         Deleting this password will not delete your account on <ph name="WEBSITE">$1<ex>twitter.com</ex></ph>. Change your password on <ph name="WEBSITE">$1<ex>twitter.com</ex></ph> to keep it safe from others.
@@ -1879,7 +1886,7 @@ See your search engine’s instructions for deleting your search history, if app
         Help
       </message>
       <message name="IDS_IOS_HISTORY_EMPTY_MESSAGE" desc="Message shown on the History screen when there are no History entries, explaining the purpose of the History screen.">
-          You can see the pages you've visited or clear them from your history
+        You can see the pages you've visited or delete them from your history
       </message>
       <message name="IDS_IOS_HISTORY_EMPTY_TITLE" desc="Title shown on the History screen when there are no History entries.">
           You'll find your history here
@@ -2128,8 +2135,8 @@ See your search engine’s instructions for deleting your search history, if app
       <message name="IDS_IOS_KEYBOARD_BOOKMARKS" desc="Title of the menu listing bookmarks-related keyboard shortcuts." meaning="Used as a menu title in the iPad command menu.">
         Bookmarks
       </message>
-      <message name="IDS_IOS_KEYBOARD_CLEAR_BROWSING_DATA" desc="Title of the keyboard shortcut to clear the browsing data." meaning="Used as a command title in the iPad command menu.">
-        Clear Browsing Data…
+      <message name="IDS_IOS_KEYBOARD_CLEAR_BROWSING_DATA" desc="Title of the keyboard shortcut to delete the browsing data." meaning="Used as a command title in the iPad command menu.">
+        Delete Browsing Data…
       </message>
       <message name="IDS_IOS_KEYBOARD_CLOSE_ALL" desc="Title of the button in the tab grid UI that closes all the tabs in the grid." meaning="Used as a command title in the iPad command menu.">
         Close All
@@ -2521,8 +2528,8 @@ See your search engine’s instructions for deleting your search history, if app
       <message name="IDS_IOS_OFFER_TO_SAVE_PASSWORDS" desc="Title for the switch item in Settings that can be toggled allowing users to be prompted if they want to save their passwords when logging into webpages. [Length: 25em] [iOS only]">
         Offer to Save Passwords
       </message>
-      <message name="IDS_IOS_OMNIBOX_PEDAL_SUBTITLE_CLEAR_BROWSING_DATA" desc="Subtitle for the Clear Browsing Data acceleration pedal in the omnibox that should correspond to the path to the Clear Browsing Data dialog in History">
-       Menu → History → Clear Browsing Data
+      <message name="IDS_IOS_OMNIBOX_PEDAL_SUBTITLE_CLEAR_BROWSING_DATA" desc="Subtitle for the Delete Browsing Data acceleration pedal in the omnibox that should correspond to the path to the Delete Browsing Data dialog in History">
+       Menu → History → Delete Browsing Data
       </message>
       <message name="IDS_IOS_OMNIBOX_PEDAL_SUBTITLE_DEFAULT_BROWSER" desc="Subtitle for the Set Default Browser acceleration pedal in the omnibox that should correspond to the path to the Default Browser dialog in Settings">
        Menu → Settings → Default Browser
@@ -2779,8 +2786,8 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_OVERFLOW_MENU_HIDE_ACTION_ADD_TO_BOOKMARKS" desc="The title for the context menu item to hide Add to Bookmarks. This should match the title of the Add to Bookmarks action in the menu." meaning="[In Title case] [iOS only] [Length: Unlimited]">
         Hide Add to Bookmarks
       </message>
-      <message name="IDS_IOS_OVERFLOW_MENU_HIDE_ACTION_CLEAR_BROWSING_DATA" desc="The title for the context menu item to hide Clear Browsing Data. This should match the title of the Clear Browsing Data action in the menu." meaning="[In Title case] [iOS only] [Length: Unlimited]">
-        Hide Clear Browsing Data
+      <message name="IDS_IOS_OVERFLOW_MENU_HIDE_ACTION_CLEAR_BROWSING_DATA" desc="The title for the context menu item to hide Delete Browsing Data. This should match the title of the Delete Browsing Data action in the menu." meaning="[In Title case] [iOS only] [Length: Unlimited]">
+        Hide Delete Browsing Data
       </message>
       <message name="IDS_IOS_OVERFLOW_MENU_HIDE_ACTION_DESKTOP_SITE" desc="The title for the context menu item to hide Request Desktop Site. This should match the title of the Request Desktop Site action in the menu." meaning="[In Title case] [iOS only] [Length: Unlimited]">
         Hide Request Desktop Site
@@ -4239,7 +4246,7 @@ While in Incognito, sites can't use cookies to see your browsing activity across
             </message>
       <message name="IDS_IOS_SETTINGS_DOWNLOADS_ACCOUNT_SELECTION_HEADER" desc="Header of Google Photos account selection section in Downloads settings. The section contains the list of accounts on the device among which the user can choose to save images to Google Photos. [iOS only]">
         Accounts on this Device
-</message>
+      </message>
       <message name="IDS_IOS_SETTINGS_DOWNLOADS_SAVE_TO_PHOTOS_HEADER" desc="Header of Save to Photos settings section in Downloads settings. This should be the name of the Google branded application Google Photos. [iOS only]">
         Google Photos
       </message>
@@ -4497,6 +4504,9 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_SET_UP_LIST_CONTENT_NOTIFICATION_TITLE" desc="Title for the Set Up List item that encourages the user to enable Chrome content notifications.">
         Get Content Notifications
       </message>
+      <message name="IDS_IOS_SET_UP_LIST_DEFAULT_BROWSER_SHORT_DESCRIPTION" desc="Shortened description for the Set Up List item that encourages the user to set Chrome as their default browser.">
+        Easily open links in other apps.
+      </message>
       <message name="IDS_IOS_SET_UP_LIST_EXPAND" desc="Accessibility label for the button to expand the Set Up List.">
         Expand list
       </message>
@@ -4680,7 +4690,7 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_SIGNIN_SNACKBAR_UNDO" desc="This string is found on a button that signs the user out when the user taps it. It is on a confirmation message that users see when they sign in to Chrome with their Google Account. This text is a verb and is short for the longer phrase 'Undo my sign-in.' The tone should be informative. [Length: 15em] [iOS only]">
         Undo
       </message>
-      <message name="IDS_IOS_SIGNOUT_DIALOG_CLEAR_DATA_BUTTON" desc="This button signs the user out and clear all the data from the user device. The data remain in their Google account. Related to IDS_IOS_SIGNOUT_DIALOG_TITLE [iOS only].">
+      <message name="IDS_IOS_SIGNOUT_DIALOG_CLEAR_DATA_BUTTON" desc="This button signs the user out and delete all the data from the user device. The data remain in their Google account. Related to IDS_IOS_SIGNOUT_DIALOG_TITLE [iOS only].">
         Clear Data
       </message>
       <message name="IDS_IOS_SIGNOUT_DIALOG_KEEP_DATA_BUTTON" desc="This button signs the user out and all its data stays on the device. Related to IDS_IOS_SIGNOUT_DIALOG_TITLE [iOS only].">
@@ -4814,6 +4824,18 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       </message>
       <message name="IDS_IOS_SWIPE_RIGHT_TO_INCOGNITO_IPH_VOICEOVER" desc="The voice over announcement for the full screen in-product help for swipe right to see incognito tabs on regular tabs grid.">
         You can scroll left to browse in Incognito.
+      </message>
+      <message name="IDS_IOS_SWITCH_PROFILE_CURRENT_PROFILE_TITLE" desc="Title for the switch profile developer panel in Settings->Switch Profile [iOS only]">
+        Current profile
+      </message>
+      <message name="IDS_IOS_SWITCH_PROFILE_MANAGEMENT_SETTINGS" desc="Title for the switch profile developer management panel in settings [iOS only]">
+        Switch Profile
+      </message>
+      <message name="IDS_IOS_SWITCH_PROFILE_SWITCH_SUBTITLE" desc="Subtitle for the switch profile developer panel in Settings->Switch Profile giving the list of loaded profiles [iOS only]">
+        This list contains all loaded profiles.
+      </message>
+      <message name="IDS_IOS_SWITCH_PROFILE_SWITCH_TITLE" desc="Title for the switch profile developer panel in Settings->Switch Profile giving the list of loaded profiles [iOS only]">
+        Switch to Another Profile
       </message>
       <message name="IDS_IOS_SYNC_ADDRESSES_DIALOG_CONTINUE" desc="Action of a dialog to enable saving addresses to the Google Account. If the user chose to continue, addresses will start syncing.">
         Continue
@@ -5053,11 +5075,27 @@ While in Incognito, sites can't use cookies to see your browsing activity across
         Your account is managed by your parent.
 <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more<ph name="END_LINK">END_LINK</ph>
       </message>
+      <message name="IDS_IOS_TAB_GRID_TAB_GROUPS_EMPTY_MESSAGE" desc="Message shown underneath a title on the Tab Groups list when there are no tab groups, explaining why to use the Tab Groups list. [iOS only]">
+        Tab groups automatically save and update across all your devices.
+      </message>
+      <message name="IDS_IOS_TAB_GRID_TAB_GROUPS_EMPTY_TITLE" desc="Title shown above a message on the Tab Groups list when there are no tab groups. [iOS only]">
+        You’ll find your tab groups here
+      </message>
+      <message name="IDS_IOS_TAB_GRID_TAB_GROUPS_TITLE" desc="The accessibility label of the Tab Groups page in the tab grid UI. [iOS only]">
+        Tab Groups
+      </message>
+      <message name="IDS_IOS_TAB_GRID_TAB_GROUPS_UNAVAILABLE_MESSAGE" desc="Message shown in the Tab Groups page of the tab grid when the IncognitoModeAvailability enterprise policy is set to forced. [iOS only]">
+        Your organization requires you to browse privately. Tab Groups aren't synced in Incognito mode.
+<ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more<ph name="END_LINK">END_LINK</ph>
+      </message>
+      <message name="IDS_IOS_TAB_GRID_TAB_GROUPS_UNAVAILABLE_TITLE" desc="Title shown above a message in the Tab Group Sync page of the tab grid when the IncognitoModeAvailability enterprise policy is set to forced. [iOS only]">
+        Tab Groups are Unavailable
+      </message>
       <message name="IDS_IOS_TAB_GRID_UNDO_CLOSE_ALL_BUTTON" desc="Title of the button in the tab grid UI that revert the close all action recently taken by the user. [iOS only]">
         Undo
       </message>
-      <message name="IDS_IOS_TAB_GROUP_CREATION_BUTTON" desc="Label of the button to create a tab group. [iOS only]">
-          Create group
+      <message name="IDS_IOS_TAB_GROUP_CREATION_BUTTON" desc="In Title Case: Label of the button to create a tab group. [iOS only]">
+          Create Group
       </message>
       <message name="IDS_IOS_TAB_GROUP_CREATION_DONE" desc="Label of the button to finalize edition of a tab group. [iOS only]">
           Done
@@ -5103,10 +5141,7 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_TAB_STRIP_LEAVE_TAB_SWITCHER" desc="The accessibility label of the tab strip button to leave the tab switcher. The tab switcher is a view showing the opened tabs, and allows users to switch, close, and open new tabs. [iOS only]">
         Leave Tab Switcher
       </message>
-      <message name="IDS_IOS_TAB_STRIP_SWIPE_IPH" desc="The text for the full screen in-product help for side swipe on the tab strip to navigate between tabs. [iOS only]">
-        You can swipe the tab strip to switch between tabs.
-      </message>
-            <message name="IDS_IOS_TAB_STRIP_TAB_CELL_VOICE_OVER_VALUE" desc="Accessibility value to let the user know the position of the currently focused tab compared to the others. Read by Text-to-Speech">
+      <message name="IDS_IOS_TAB_STRIP_TAB_CELL_VOICE_OVER_VALUE" desc="Accessibility value to let the user know the position of the currently focused tab compared to the others. Read by Text-to-Speech">
         Tab. <ph name="TAB_INDEX">$1<ex>3</ex></ph> of <ph name="NUMBER_OF_TABS">$2<ex>27</ex></ph>.
       </message>
       <message name="IDS_IOS_TAB_SWITCHER_CLOSE_TAB" desc="The accessibility label for the closing of a selected tab. [iOS only]">
@@ -5223,6 +5258,9 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_TOOLBAR_SHOW_TAB_GRID" desc="The accessibility label for the toolbar show tab grid button [iOS only].">
         Show Tab Grid
       </message>
+      <message name="IDS_IOS_TOOLBAR_SWIPE_IPH" desc="The text for the full screen in-product help for side swipe on the tab strip to navigate between tabs. [iOS only]">
+        You can swipe the toolbar to switch between tabs.
+      </message>
       <message name="IDS_IOS_TOOLS_MENU" desc="The accessibility label for the iOS tools menu [iOS only]">
         Tools Menu
       </message>
@@ -5235,8 +5273,8 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       <message name="IDS_IOS_TOOLS_MENU_CELL_NEW_FEATURE_BADGE" desc="Title and accessibility label of the badge displayed on a tools menu item when it represents a new feature [Length: 20em]" meaning="A badge with this title is displayed informing the user that this feature that is new to them.">
         New
       </message>
-      <message name="IDS_IOS_TOOLS_MENU_CLEAR_BROWSING_DATA" desc="The iOS menu item to open the Clear Browsing Data screen [iOS only]" meaning="[Length: unlimited]">
-        Clear Browsing Data
+      <message name="IDS_IOS_TOOLS_MENU_CLEAR_BROWSING_DATA" desc="The iOS menu item to open the Delete Browsing Data screen [iOS only]" meaning="[Length: unlimited]">
+        Delete Browsing Data
       </message>
       <message name="IDS_IOS_TOOLS_MENU_CLOSE_ALL_INCOGNITO_TABS" desc="The iOS menu item for closing all Incognito tabs [iOS only]" meaning="[Length: unlimited]">
         Close All Incognito Tabs
@@ -5866,6 +5904,15 @@ While in Incognito, sites can't use cookies to see your browsing activity across
       </message>
       <message name="IDS_SEARCH_ENGINE_CHOICE_DEFAULT_HINT" desc="Announcement for screen reader users. This string is announced when the user interacts with the 'Set as Default' button at the bottom of the 'Choose Your Search Engine' choice screen. The text provides a hint that the user needs to choose a search engine from the list on this screen before they can press this button.">
       Choose a search engine from the list.
+      </message>
+      <message name="IDS_IOS_MANUAL_FALLBACK_THREE_DOT_MENU_BUTTON_ACCESSIBILITY_LABEL" desc="Accessibility label for the 3-dot menu button displayed in the manual fallback entity cells, which allows to take action on the entity (e.g., edit the entity).">
+        More Options
+      </message>
+      <message name="IDS_IOS_MANUAL_FALLBACK_AUTOFILL_FORM_BUTTON_TITLE" desc="Title of the button displayed in the password, payment method and address manual fallback cells, which allows the user to fill the current form with the autofill data. In contrast to all the other buttons on this screen (which fill a field), this button fills the entire form.">
+        Autofill Form
+      </message>
+      <message name="IDS_IOS_SHOW_DETAILS_ACTION_TITLE" desc="Title of the action used to show the details of a selected item. [iOS only]" meaning="Title-cased">
+        Show Details
       </message>
     </messages>
   </release>

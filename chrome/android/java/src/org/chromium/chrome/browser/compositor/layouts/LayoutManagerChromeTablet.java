@@ -9,18 +9,17 @@ import android.view.ViewGroup;
 import android.view.ViewStub;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
-import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
-import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
-import org.chromium.chrome.browser.desktop_windowing.AppHeaderCoordinator;
 import org.chromium.chrome.browser.device.DeviceClassManager;
+import org.chromium.chrome.browser.hub.HubLayout;
 import org.chromium.chrome.browser.hub.HubLayoutDependencyHolder;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -33,9 +32,9 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ControlContainer;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
+import org.chromium.chrome.browser.ui.desktop_windowing.DesktopWindowStateProvider;
 import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
-import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
@@ -43,8 +42,8 @@ import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 import java.util.concurrent.Callable;
 
 /**
- * {@link LayoutManagerChromeTablet} is the specialization of {@link LayoutManagerChrome} for
- * the tablet.
+ * {@link LayoutManagerChromeTablet} is the specialization of {@link LayoutManagerChrome} for the
+ * tablet.
  */
 public class LayoutManagerChromeTablet extends LayoutManagerChrome {
     // Tab Strip
@@ -60,9 +59,6 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
     protected ObservableSupplierImpl<LayerTitleCache> mLayerTitleCacheSupplier =
             new ObservableSupplierImpl<>();
 
-    private ObservableSupplier<Boolean> mDesktopWindowModeSupplier;
-    private Callback<Boolean> mDesktopWindowModeSupplierCallback;
-
     /**
      * Creates an instance of a {@link LayoutManagerChromePhone}.
      *
@@ -72,6 +68,7 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
      *     Start surface refactor is disabled.
      * @param tabSwitcherSupplier Supplier for an interface to talk to the Grid Tab Switcher when
      *     Start surface refactor is enabled.
+     * @param tabModelSelectorSupplier Supplier for an interface to talk to the Tab Model Selector.
      * @param browserControlsStateProvider The {@link BrowserControlsStateProvider} for top
      *     controls.
      * @param tabContentManagerSupplier Supplier of the {@link TabContentManager} instance.
@@ -91,13 +88,14 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
      *     drag and drop.
      * @param tabHoverCardViewStub The {@link ViewStub} representing the strip tab hover card.
      * @param toolbarManager The {@link ToolbarManager} instance.
-     * @param appHeaderCoordinatorSupplier Supplier for the {@link AppHeaderCoordinator} instance.
+     * @param desktopWindowStateProvider The {@link DesktopWindowStateProvider} for the app header.
      */
     public LayoutManagerChromeTablet(
             LayoutManagerHost host,
             ViewGroup contentContainer,
             Supplier<StartSurface> startSurfaceSupplier,
             Supplier<TabSwitcher> tabSwitcherSupplier,
+            Supplier<TabModelSelector> tabModelSelectorSupplier,
             BrowserControlsStateProvider browserControlsStateProvider,
             ObservableSupplier<TabContentManager> tabContentManagerSupplier,
             Supplier<TopUiThemeColorProvider> topUiThemeColorProvider,
@@ -113,12 +111,13 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
             @NonNull ViewStub tabHoverCardViewStub,
             @NonNull WindowAndroid windowAndroid,
             @NonNull ToolbarManager toolbarManager,
-            OneshotSupplier<AppHeaderCoordinator> appHeaderCoordinatorSupplier) {
+            @Nullable DesktopWindowStateProvider desktopWindowStateProvider) {
         super(
                 host,
                 contentContainer,
                 startSurfaceSupplier,
                 tabSwitcherSupplier,
+                tabModelSelectorSupplier,
                 browserControlsStateProvider,
                 tabContentManagerSupplier,
                 topUiThemeColorProvider,
@@ -143,25 +142,10 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
                         browserControlsStateProvider,
                         windowAndroid,
                         toolbarManager,
-                        appHeaderCoordinatorSupplier);
+                        desktopWindowStateProvider);
         addSceneOverlay(mTabStripLayoutHelperManager);
         addObserver(mTabStripLayoutHelperManager.getTabSwitcherObserver());
-
-        mAppHeaderHeightSupplier = new ObservableSupplierImpl<>();
-        appHeaderCoordinatorSupplier.onAvailable(
-                appHeaderCoordinator -> {
-                    mDesktopWindowModeSupplier = appHeaderCoordinator;
-                    mDesktopWindowModeSupplierCallback =
-                            isInDesktopWindow -> {
-                                var tabStripHeight =
-                                        ViewUtils.dpToPx(
-                                                mHost.getContext(),
-                                                mTabStripLayoutHelperManager.getHeight());
-                                var appHeaderHeight = isInDesktopWindow ? tabStripHeight : 0f;
-                                mAppHeaderHeightSupplier.set(appHeaderHeight);
-                            };
-                    mDesktopWindowModeSupplier.addObserver(mDesktopWindowModeSupplierCallback);
-                });
+        mDesktopWindowStateProvider = desktopWindowStateProvider;
 
         setNextLayout(null, true);
     }
@@ -179,10 +163,6 @@ public class LayoutManagerChromeTablet extends LayoutManagerChrome {
             removeObserver(mTabStripLayoutHelperManager.getTabSwitcherObserver());
             mTabStripLayoutHelperManager.destroy();
             mTabStripLayoutHelperManager = null;
-        }
-
-        if (mDesktopWindowModeSupplier != null) {
-            mDesktopWindowModeSupplier.removeObserver(mDesktopWindowModeSupplierCallback);
         }
     }
 

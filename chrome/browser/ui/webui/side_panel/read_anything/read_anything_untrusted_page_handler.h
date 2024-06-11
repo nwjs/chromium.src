@@ -17,14 +17,19 @@
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_model.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_side_panel_controller.h"
+#include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_snapshotter.h"
 #include "chrome/common/accessibility/read_anything.mojom.h"
 #include "components/translate/core/browser/translate_client.h"
-#include "content/public/browser/ax_event_notification_details.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_updates_and_events.h"
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/public/cpp/session/session_observer.h"
+#endif
 
 namespace content {
 class ScopedAccessibilityMode;
@@ -52,7 +57,7 @@ class ReadAnythingWebContentsObserver : public content::WebContentsObserver {
 
   // content::WebContentsObserver:
   void AccessibilityEventReceived(
-      const content::AXEventNotificationDetails& details) override;
+      const ui::AXUpdatesAndEvents& details) override;
   void PrimaryPageChanged(content::Page& page) override;
   void WebContentsDestroyed() override;
 
@@ -75,14 +80,17 @@ class ReadAnythingWebContentsObserver : public content::WebContentsObserver {
 //  This class is created and owned by ReadAnythingUntrustedUI and has the same
 //  lifetime as the Side Panel view.
 //
-class ReadAnythingUntrustedPageHandler
-    : public ui::AXActionHandlerObserver,
-      public read_anything::mojom::UntrustedPageHandler,
-      public ReadAnythingModel::Observer,
-      public ReadAnythingCoordinator::Observer,
-      public ReadAnythingSidePanelController::Observer,
-      public translate::TranslateDriver::LanguageDetectionObserver,
-      public TabStripModelObserver {
+class ReadAnythingUntrustedPageHandler :
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    public ash::SessionObserver,
+#endif
+    public ui::AXActionHandlerObserver,
+    public read_anything::mojom::UntrustedPageHandler,
+    public ReadAnythingModel::Observer,
+    public ReadAnythingCoordinator::Observer,
+    public ReadAnythingSidePanelController::Observer,
+    public translate::TranslateDriver::LanguageDetectionObserver,
+    public TabStripModelObserver {
  public:
   ReadAnythingUntrustedPageHandler(
       mojo::PendingRemote<read_anything::mojom::UntrustedPage> page,
@@ -95,10 +103,19 @@ class ReadAnythingUntrustedPageHandler
       const ReadAnythingUntrustedPageHandler&) = delete;
   ~ReadAnythingUntrustedPageHandler() override;
 
-  void AccessibilityEventReceived(
-      const content::AXEventNotificationDetails& details);
+  void AccessibilityEventReceived(const ui::AXUpdatesAndEvents& details);
   void PrimaryPageChanged();
   void WebContentsDestroyed();
+
+  // read_anything::mojom::UntrustedPageHandler:
+  void OnVoiceChange(const std::string& voice,
+                     const std::string& lang) override;
+  void OnLanguagePrefChange(const std::string& lang, bool enabled) override;
+
+  // ash::SessionObserver
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  void OnLockStateChanged(bool locked) override;
+#endif
 
  private:
   // TranslateDriver::LanguageDetectionObserver:
@@ -110,6 +127,10 @@ class ReadAnythingUntrustedPageHandler
   void TreeRemoved(ui::AXTreeID ax_tree_id) override;
 
   // read_anything::mojom::UntrustedPageHandler:
+  void GetVoicePackInfo(const std::string& language,
+                        GetVoicePackInfoCallback mojo_remote_callback) override;
+  void InstallVoicePack(const std::string& language,
+                        InstallVoicePackCallback mojo_remote_callback) override;
   void OnCopy() override;
   void OnLineSpaceChange(
       read_anything::mojom::LineSpacing line_spacing) override;
@@ -120,8 +141,6 @@ class ReadAnythingUntrustedPageHandler
   void OnLinksEnabledChanged(bool enabled) override;
   void OnColorChange(read_anything::mojom::Colors color) override;
   void OnSpeechRateChange(double rate) override;
-  void OnVoiceChange(const std::string& voice,
-                     const std::string& lang) override;
   void OnHighlightGranularityChanged(
       read_anything::mojom::HighlightGranularity granularity) override;
   void OnLinkClicked(const ui::AXTreeID& target_tree_id,
@@ -134,6 +153,7 @@ class ReadAnythingUntrustedPageHandler
                          ui::AXNodeID focus_node_id,
                          int focus_offset) override;
   void OnCollapseSelection() override;
+  void OnSnapshotRequested() override;
 
   // ReadAnythingModel::Observer:
   void OnReadAnythingThemeChanged(
@@ -213,13 +233,21 @@ class ReadAnythingUntrustedPageHandler
   // contained.
   std::unique_ptr<ReadAnythingWebContentsObserver> pdf_observer_;
 
+  // `web_snapshotter_` is used to capture a screenshot of the main web
+  // contents requested.
+  std::unique_ptr<ReadAnythingSnapshotter> web_snapshotter_;
+
   const mojo::Receiver<read_anything::mojom::UntrustedPageHandler> receiver_;
   const mojo::Remote<read_anything::mojom::UntrustedPage> page_;
 
   // Whether the Read Anything feature is currently active. The feature is
   // active when it is currently shown in the Side Panel.
   bool active_ = true;
+
+  // The default language code to use if the page language isn't determined.
   std::string default_language_code_ = "en-US";
+  // The current language being used in the app.
+  std::string current_language_code_ = "en-US";
 
   // Observes the AXActionHandlerRegistry for AXTree removals.
   base::ScopedObservation<ui::AXActionHandlerRegistry,

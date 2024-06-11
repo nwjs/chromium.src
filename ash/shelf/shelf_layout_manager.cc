@@ -50,6 +50,7 @@
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/screen_pinning_controller.h"
+#include "ash/wm/snap_group/snap_group_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
@@ -1147,8 +1148,11 @@ ShelfBackgroundType ShelfLayoutManager::ComputeShelfBackgroundType() const {
   const bool in_split_view_mode =
       SplitViewController::Get(shelf_widget_->GetNativeWindow())
           ->InSplitViewMode();
+  SnapGroupController* snap_group_controller = SnapGroupController::Get();
+  const bool has_visible_snap_group =
+      snap_group_controller && snap_group_controller->GetTopmostSnapGroup();
   const bool maximized =
-      in_split_view_mode ||
+      in_split_view_mode || has_visible_snap_group ||
       state_.window_state == WorkspaceWindowState::kFullscreen ||
       state_.window_state == WorkspaceWindowState::kMaximized;
   const bool in_overview =
@@ -2025,7 +2029,7 @@ void ShelfLayoutManager::UpdateTargetBoundsForGesture(
   if (hotseat_target_state == HotseatState::kShownHomeLauncher)
     return;
 
-  // TODO(https://crbug.com/1002132): Add tests for the hotseat bounds logic.
+  // TODO(crbug.com/40646496): Add tests for the hotseat bounds logic.
   CHECK_EQ(kDragInProgress, drag_status_);
 
   bool shelf_hidden_at_start = false;
@@ -2205,7 +2209,7 @@ ShelfAutoHideState ShelfLayoutManager::CalculateAutoHideState(
     return state_.auto_hide_state;
 
   // Shelf is not available before login.
-  // TODO(crbug.com/701157): Remove this when the login webui fake-shelf is
+  // TODO(crbug.com/40510582): Remove this when the login webui fake-shelf is
   // replaced with views.
   if (!Shell::Get()->session_controller()->IsActiveUserSessionStarted())
     return SHELF_AUTO_HIDE_HIDDEN;

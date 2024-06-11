@@ -335,16 +335,6 @@ const char kEnableExperimentalWebAssemblyFeatures[] =
 const char kEnableExperimentalWebPlatformFeatures[] =
     "enable-experimental-web-platform-features";
 
-// Forces the V8/blink bindings to call all API entry points that use the
-// [NoAllocDirectCall] extended IDL attribute as if V8 were using the fast call
-// code path.  Using this flag will not make API calls use the true fast path,
-// it will probably even make things a bit slower.  Its purpose is to guarantee
-// test coverage for the blink side of V8 Fast API calls, independently of
-// whether or not V8 actually activates the fast path, which depends on
-// heuristics.  This flag is effective only when DCHECKs are enabled.
-const char kEnableFakeNoAllocDirectCallForTesting[] =
-    "enable-fake-no-alloc-direct-call-for-testing";
-
 // Enables blink runtime enabled features with status:"test" or
 // status:"experimental", which are enabled when running web tests.
 const char kEnableBlinkTestFeatures[] = "enable-blink-test-features";
@@ -704,7 +694,7 @@ const char kRunManualTestsFlag[] = "run-manual";
 const char kSandboxIPCProcess[]             = "sandbox-ipc";
 
 // Enables shared array buffer on desktop, gated by an Enterprise Policy.
-// TODO(crbug.com/1144104) Remove when migration to COOP+COEP is complete.
+// TODO(crbug.com/40155376) Remove when migration to COOP+COEP is complete.
 #if !BUILDFLAG(IS_ANDROID)
 const char kSharedArrayBufferUnrestrictedAccessAllowed[] =
     "shared-array-buffer-unrestricted-access-allowed";
@@ -820,6 +810,13 @@ const char kUseFakeUIForMediaStream[]     = "use-fake-ui-for-media-stream";
 // Texture target for CHROMIUM_image backed video frame textures.
 const char kVideoImageTextureTarget[] = "video-image-texture-target";
 
+#if BUILDFLAG(IS_ANDROID) && BUILDFLAG(INCLUDE_BOTH_V8_SNAPSHOTS)
+// Switch supplied to the renderer if the feature `kUseContextSnapshot` is
+// enabled. A switch is used as at the time the renderer needs this information
+// features have not yet been loaded.
+const char kUseContextSnapshotSwitch[] = "use-context-snapshot";
+#endif
+
 // Set when Chromium should use a mobile user agent.
 const char kUseMobileUserAgent[] = "use-mobile-user-agent";
 
@@ -899,7 +896,7 @@ const char kDisableWebRtcEncryption[]      = "disable-webrtc-encryption";
 // Enables negotiation of encrypted header extensions from RFC 6904 for SRTP
 // in WebRTC.
 // See https://tools.ietf.org/html/rfc6904 for further information.
-// TODO(https://crbug.com/954201): Remove this.
+// TODO(crbug.com/40623740): Remove this.
 const char kEnableWebRtcSrtpEncryptedHeaders[] =
     "enable-webrtc-srtp-encrypted-headers";
 
@@ -999,7 +996,7 @@ const char kPreventResizingContentsForTesting[] =
     "prevent-resizing-contents-for-testing";
 #endif
 
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
 // Allows sending text-to-speech requests to speech-dispatcher, a common

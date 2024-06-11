@@ -6,9 +6,12 @@
 
 #include "base/check.h"
 #include "chrome/browser/ash/login/oobe_screen.h"
+#include "chrome/browser/ash/login/screens/consumer_update_screen.h"
 #include "chrome/browser/ash/login/screens/gaia_info_screen.h"
 #include "chrome/browser/ash/login/screens/osauth/local_data_loss_warning_screen.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
+#include "chrome/browser/ui/webui/ash/login/consumer_update_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/drive_pinning_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gaia_info_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/gesture_navigation_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/mojom/screens_common.mojom.h"
@@ -46,6 +49,26 @@ void OobeScreensHandlerFactory::UnbindScreensHandlerFactory() {
   page_factory_receiver_.reset();
 }
 
+void OobeScreensHandlerFactory::CreateDrivePinningScreenHandler(
+    mojo::PendingRemote<screens_common::mojom::DrivePinningPage> page,
+    mojo::PendingReceiver<screens_common::mojom::DrivePinningPageHandler>
+        receiver) {
+  CHECK(WizardController::default_controller());
+  DrivePinningScreen* drive_pinning =
+      WizardController::default_controller()->GetScreen<DrivePinningScreen>();
+  drive_pinning->BindRemoteAndReceiver(std::move(page), std::move(receiver));
+}
+
+void OobeScreensHandlerFactory::CreateGestureNavigationPageHandler(
+    mojo::PendingReceiver<screens_common::mojom::GestureNavigationPageHandler>
+        receiver) {
+  CHECK(WizardController::default_controller());
+  GestureNavigationScreen* gesture_navigation =
+      WizardController::default_controller()
+          ->GetScreen<GestureNavigationScreen>();
+  gesture_navigation->BindReceiver(std::move(receiver));
+}
+
 void OobeScreensHandlerFactory::CreateGaiaInfoScreenHandler(
     mojo::PendingRemote<screens_common::mojom::GaiaInfoPage> page,
     mojo::PendingReceiver<screens_common::mojom::GaiaInfoPageHandler>
@@ -54,6 +77,16 @@ void OobeScreensHandlerFactory::CreateGaiaInfoScreenHandler(
   GaiaInfoScreen* gaia_info =
       WizardController::default_controller()->GetScreen<GaiaInfoScreen>();
   gaia_info->BindRemoteAndReceiver(std::move(page), std::move(receiver));
+}
+
+void OobeScreensHandlerFactory::CreateConsumerUpdatePageHandler(
+    mojo::PendingRemote<screens_oobe::mojom::ConsumerUpdatePage> page,
+    mojo::PendingReceiver<screens_oobe::mojom::ConsumerUpdatePageHandler>
+        handler) {
+  CHECK(WizardController::default_controller());
+  ConsumerUpdateScreen* consumer_update =
+      WizardController::default_controller()->GetScreen<ConsumerUpdateScreen>();
+  consumer_update->BindRemoteAndReceiver(std::move(page), std::move(handler));
 }
 
 void OobeScreensHandlerFactory::CreatePackagedLicensePageHandler(

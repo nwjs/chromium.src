@@ -1215,7 +1215,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
   EXPECT_NE(popup, web_contents);
 }
 
-// TODO(crbug.com/1021895): Flaky.
+// TODO(crbug.com/40106376): Flaky.
 // Tests that a cross-site iframe runs its beforeunload handler when closing a
 // tab.  See https://crbug.com/853021.
 IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
@@ -1435,14 +1435,14 @@ class ChromeSitePerProcessTestWithVerifiedUserActivation
     feature_list()->Reset();
     feature_list()->InitWithFeatures(
         /*enabled_features=*/{features::kBrowserVerifiedUserActivationMouse},
-        // TODO(crbug.com/1394910): Use HTTPS URLs in tests to avoid having to
+        // TODO(crbug.com/40248833): Use HTTPS URLs in tests to avoid having to
         // disable this feature.
         /*disabled_features=*/{features::kHttpsUpgrades});
   }
 };
 
 // Test mouse down activation notification with browser verification.
-// TODO(crbug.com/1303596): Flaky on Mac.
+// TODO(crbug.com/40826005): Flaky on Mac.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_UserActivationBrowserVerificationSameOriginSite \
   DISABLED_UserActivationBrowserVerificationSameOriginSite

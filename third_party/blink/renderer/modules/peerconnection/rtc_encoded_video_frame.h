@@ -9,6 +9,7 @@
 
 #include <memory>
 
+#include "base/types/expected.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -26,6 +27,7 @@ namespace blink {
 class DOMArrayBuffer;
 class RTCEncodedVideoFrameDelegate;
 class RTCEncodedVideoFrameMetadata;
+class RTCEncodedVideoFrameOptions;
 
 MODULES_EXPORT BASE_DECLARE_FEATURE(
     kAllowRTCEncodedVideoFrameSetMetadataAllFields);
@@ -38,7 +40,7 @@ class MODULES_EXPORT RTCEncodedVideoFrame final : public ScriptWrappable {
                                       ExceptionState& exception_state);
   static RTCEncodedVideoFrame* Create(
       RTCEncodedVideoFrame* original_frame,
-      RTCEncodedVideoFrameMetadata* new_metadata,
+      const RTCEncodedVideoFrameOptions* options_dict,
       ExceptionState& exception_state);
   explicit RTCEncodedVideoFrame(
       std::unique_ptr<webrtc::TransformableVideoFrameInterface> webrtc_frame);
@@ -51,8 +53,8 @@ class MODULES_EXPORT RTCEncodedVideoFrame final : public ScriptWrappable {
   uint32_t timestamp() const;
   DOMArrayBuffer* data() const;
   RTCEncodedVideoFrameMetadata* getMetadata() const;
-  bool SetMetadata(const RTCEncodedVideoFrameMetadata* metadata,
-                   String& error_message);
+  base::expected<void, String> SetMetadata(
+      const RTCEncodedVideoFrameMetadata* metadata);
   void setMetadata(RTCEncodedVideoFrameMetadata* metadata,
                    ExceptionState& exception_state);
   void setData(DOMArrayBuffer*);

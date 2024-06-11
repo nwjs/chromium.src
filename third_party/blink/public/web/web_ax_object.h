@@ -87,6 +87,8 @@ class BLINK_EXPORT WebAXObject {
   static WebAXObject FromWebNode(const WebNode&);
   static WebAXObject FromWebDocument(const WebDocument&);
   static WebAXObject FromWebDocumentByID(const WebDocument&, int);
+  static WebAXObject FromWebDocumentFirstWithRole(const WebDocument&,
+                                                  ax::mojom::Role role);
   static WebAXObject FromWebDocumentFocused(const WebDocument&);
   static bool IsDirty(const WebDocument&);
 
@@ -193,8 +195,8 @@ class BLINK_EXPORT WebAXObject {
 
   WebNode GetNode() const;
   WebDocument GetDocument() const;
-  bool AccessibilityIsIgnored() const;
-  bool AccessibilityIsIncludedInTree() const;
+  bool IsIgnored() const;
+  bool IsIncludedInTree() const;
 
   // Get the verb associated with performing the default action
   // on this object.
@@ -281,7 +283,7 @@ class BLINK_EXPORT WebAXObject {
 
   // Returns a brief description of the object, suitable for debugging. E.g. its
   // role and name.
-  WebString ToString(bool verbose = false) const;
+  WebString ToString(bool verbose = true) const;
 
   void HandleAutofillSuggestionAvailabilityChanged(
       WebAXAutofillSuggestionAvailability suggestion_availability) const;

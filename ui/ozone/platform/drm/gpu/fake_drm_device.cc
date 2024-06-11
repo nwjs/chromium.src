@@ -147,67 +147,46 @@ FakeDrmDevice::PlaneProperties::PlaneProperties(const PlaneProperties&) =
     default;
 FakeDrmDevice::PlaneProperties::~PlaneProperties() = default;
 
-uint32_t FakeDrmDevice::PlaneProperties::type() const {
-  auto prop = GetProp(kTypePropId);
-  CHECK(prop);
-  return prop.value()->value;
+FakeDrmDevice::FakeDrmState::FakeDrmState() = default;
+FakeDrmDevice::FakeDrmState::~FakeDrmState() = default;
+
+void FakeDrmDevice::ResetStateWithNoProperties() {
+  allocated_blobs_.clear();
+  plane_manager_.reset();
+
+  drm_state_.crtc_properties.clear();
+  drm_state_.connector_properties.clear();
+  drm_state_.encoder_properties.clear();
+  drm_state_.plane_properties.clear();
+  drm_state_.property_names.clear();
 }
 
-std::optional<const DrmDevice::Property*>
-FakeDrmDevice::PlaneProperties::GetProp(uint32_t prop_id) const {
-  for (const auto& prop : properties) {
-    if (prop.id == prop_id)
-      return {&prop};
-  }
-  return std::nullopt;
-}
-
-void FakeDrmDevice::PlaneProperties::SetProp(uint32_t prop_id, uint32_t value) {
-  for (auto& prop : properties) {
-    if (prop.id == prop_id) {
-      prop.value = value;
-      return;
-    }
-  }
-  properties.push_back({prop_id, value});
-}
-
-FakeDrmDevice::MockDrmState::MockDrmState() = default;
-FakeDrmDevice::MockDrmState::MockDrmState(const MockDrmState&) = default;
-FakeDrmDevice::MockDrmState::~MockDrmState() = default;
-
-FakeDrmDevice::MockDrmState
-FakeDrmDevice::MockDrmState::CreateStateWithNoProperties() {
-  return MockDrmState();
-}
-
-FakeDrmDevice::MockDrmState
-FakeDrmDevice::MockDrmState::CreateStateWithAllProperties() {
-  MockDrmState state;
-  state.property_names.insert(kCrtcRequiredPropertyNames.begin(),
-                              kCrtcRequiredPropertyNames.end());
-  state.property_names.insert(kConnectorRequiredPropertyNames.begin(),
-                              kConnectorRequiredPropertyNames.end());
-  state.property_names.insert(kPlaneRequiredPropertyNames.begin(),
-                              kPlaneRequiredPropertyNames.end());
+void FakeDrmDevice::ResetStateWithAllProperties() {
+  ResetStateWithNoProperties();
+  drm_state_.property_names.insert(kCrtcRequiredPropertyNames.begin(),
+                                   kCrtcRequiredPropertyNames.end());
+  drm_state_.property_names.insert(kConnectorRequiredPropertyNames.begin(),
+                                   kConnectorRequiredPropertyNames.end());
+  drm_state_.property_names.insert(kPlaneRequiredPropertyNames.begin(),
+                                   kPlaneRequiredPropertyNames.end());
 
   // Separately add optional properties that will be used in some tests, but the
   // tests will append the property to the planes on a case-by-case basis.
-  state.property_names.insert(kCrtcOptionalPropertyNames.begin(),
-                              kCrtcOptionalPropertyNames.end());
-
-  return state;
+  drm_state_.property_names.insert(kCrtcOptionalPropertyNames.begin(),
+                                   kCrtcOptionalPropertyNames.end());
 }
 
-FakeDrmDevice::MockDrmState
-FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
+FakeDrmDevice::FakeDrmState& FakeDrmDevice::ResetStateWithDefaultObjects(
     size_t crtc_count,
     size_t planes_per_crtc,
-    size_t movable_planes) {
-  MockDrmState state = CreateStateWithAllProperties();
+    size_t movable_planes,
+    std::vector<uint32_t> plane_supported_formats,
+    std::vector<drm_format_modifier> plane_supported_format_modifiers) {
+  ResetStateWithAllProperties();
+
   std::vector<uint32_t> crtc_ids;
   for (size_t i = 0; i < crtc_count; ++i) {
-    const auto& props = state.AddCrtcAndConnector();
+    const auto& props = AddCrtcAndConnector();
 
     // Add at least one mode, so the connector is not sterile.
     ConnectorProperties& connector = props.second;
@@ -215,116 +194,133 @@ FakeDrmDevice::MockDrmState::CreateStateWithDefaultObjects(
     connector.modes = std::vector<ResolutionAndRefreshRate>{kStandardMode};
 
     // Add CRTC planes.
-    CrtcProperties& crtc = props.first;
-    crtc_ids.push_back(crtc.id);
+    uint32_t crtc_id = props.first.id;
+    crtc_ids.push_back(crtc_id);
 
-    state.AddPlane(crtc.id, DRM_PLANE_TYPE_PRIMARY);
+    AddPlane(crtc_id, DRM_PLANE_TYPE_PRIMARY, plane_supported_formats,
+             plane_supported_format_modifiers);
     for (size_t j = 0; j < planes_per_crtc - 1; ++j) {
-      state.AddPlane(crtc.id, DRM_PLANE_TYPE_OVERLAY);
+      AddPlane(crtc_id, DRM_PLANE_TYPE_OVERLAY, plane_supported_formats,
+               plane_supported_format_modifiers);
     }
-    state.AddPlane(crtc.id, DRM_PLANE_TYPE_CURSOR);
+    AddPlane(crtc_id, DRM_PLANE_TYPE_CURSOR, plane_supported_formats,
+             plane_supported_format_modifiers);
   }
 
   for (size_t i = 0; i < movable_planes; ++i) {
-    state.AddPlane(crtc_ids, DRM_PLANE_TYPE_OVERLAY);
+    AddPlane(crtc_ids, DRM_PLANE_TYPE_OVERLAY, plane_supported_formats,
+             plane_supported_format_modifiers);
   }
 
-  return state;
+  return drm_state_;
 }
 
-FakeDrmDevice::ConnectorProperties&
-FakeDrmDevice::MockDrmState::AddConnector() {
+FakeDrmDevice::ConnectorProperties& FakeDrmDevice::AddConnector() {
+  DCHECK(!IsInitialized());
   uint32_t next_connector_id =
-      GetNextId(connector_properties, kConnectorIdBase);
-  auto& connector_property = connector_properties.emplace_back();
+      GetNextId(drm_state_.connector_properties, kConnectorIdBase);
+  auto& connector_property = drm_state_.connector_properties.emplace_back();
   connector_property.connection = false;
   connector_property.id = next_connector_id;
   for (const auto& pair : kConnectorRequiredPropertyNames) {
     connector_property.properties.push_back({.id = pair.first, .value = 0});
-    if (!base::Contains(property_names, pair.first))
-      property_names.emplace(pair.first, pair.second);
+    if (!base::Contains(drm_state_.property_names, pair.first)) {
+      drm_state_.property_names.emplace(pair.first, pair.second);
+    }
   }
 
   return {connector_property};
 }
 
-FakeDrmDevice::EncoderProperties& FakeDrmDevice::MockDrmState::AddEncoder() {
-  uint32_t next_encoder_id = GetNextId(encoder_properties, kEncoderIdBase);
-  auto& encoder_property = encoder_properties.emplace_back();
+FakeDrmDevice::EncoderProperties& FakeDrmDevice::AddEncoder() {
+  DCHECK(!IsInitialized());
+  uint32_t next_encoder_id =
+      GetNextId(drm_state_.encoder_properties, kEncoderIdBase);
+  auto& encoder_property = drm_state_.encoder_properties.emplace_back();
   encoder_property.id = next_encoder_id;
 
   return {encoder_property};
 }
 
-FakeDrmDevice::CrtcProperties& FakeDrmDevice::MockDrmState::AddCrtc() {
-  uint32_t next_crtc_id = GetNextId(crtc_properties, kCrtcIdBase);
-  auto& crtc_property = crtc_properties.emplace_back();
+FakeDrmDevice::CrtcProperties& FakeDrmDevice::AddCrtc() {
+  DCHECK(!IsInitialized());
+  uint32_t next_crtc_id = GetNextId(drm_state_.crtc_properties, kCrtcIdBase);
+  auto& crtc_property = drm_state_.crtc_properties.emplace_back();
   crtc_property.id = next_crtc_id;
   for (const auto& pair : kCrtcRequiredPropertyNames) {
     crtc_property.properties.push_back({.id = pair.first, .value = 0});
-    if (!base::Contains(property_names, pair.first))
-      property_names.emplace(pair.first, pair.second);
+    if (!base::Contains(drm_state_.property_names, pair.first)) {
+      drm_state_.property_names.emplace(pair.first, pair.second);
+    }
   }
 
-  return {crtc_property};
+  return crtc_property;
 }
 
 std::pair<FakeDrmDevice::CrtcProperties&, FakeDrmDevice::ConnectorProperties&>
-FakeDrmDevice::MockDrmState::AddCrtcAndConnector() {
+FakeDrmDevice::AddCrtcAndConnector() {
+  DCHECK(!IsInitialized());
   return {AddCrtc(), AddConnector()};
 }
 
-FakeDrmDevice::PlaneProperties& FakeDrmDevice::MockDrmState::AddPlane(
+FakeDrmDevice::PlaneProperties& FakeDrmDevice::AddPlane(
     uint32_t crtc_id,
-    uint32_t type) {
-  return AddPlane(std::vector<uint32_t>{crtc_id}, type);
+    uint32_t type,
+    std::vector<uint32_t> supported_formats,
+    std::vector<drm_format_modifier> supported_format_modifiers) {
+  DCHECK(!IsInitialized());
+  return AddPlane(std::vector<uint32_t>{crtc_id}, type, supported_formats,
+                  supported_format_modifiers);
 }
 
-FakeDrmDevice::PlaneProperties& FakeDrmDevice::MockDrmState::AddPlane(
+FakeDrmDevice::PlaneProperties& FakeDrmDevice::AddPlane(
     const std::vector<uint32_t>& crtc_ids,
-    uint32_t type) {
-  uint32_t next_plane_id = GetNextId(plane_properties, kPlaneOffset);
+    uint32_t type,
+    std::vector<uint32_t> supported_formats,
+    std::vector<drm_format_modifier> supported_format_modifiers) {
+  DCHECK(!IsInitialized());
+  uint32_t next_plane_id = GetNextId(drm_state_.plane_properties, kPlaneOffset);
 
   size_t crtc_mask = 0u;
-  for (size_t i = 0; i < crtc_properties.size(); ++i) {
-    if (base::Contains(crtc_ids, crtc_properties[i].id)) {
+  for (size_t i = 0; i < drm_state_.crtc_properties.size(); ++i) {
+    if (base::Contains(crtc_ids, drm_state_.crtc_properties[i].id)) {
       crtc_mask |= (1 << i);
     }
   }
   CHECK(crtc_mask != 0) << "Unable to create crtc_mask";
 
-  auto& plane = plane_properties.emplace_back();
+  auto& plane = drm_state_.plane_properties.emplace_back();
   plane.id = next_plane_id;
   plane.crtc_mask = crtc_mask;
   for (const auto& pair : kPlaneRequiredPropertyNames) {
     plane.properties.push_back({.id = pair.first, .value = 0});
-    if (!base::Contains(property_names, pair.first))
-      property_names.emplace(pair.first, pair.second);
+    if (!base::Contains(drm_state_.property_names, pair.first)) {
+      drm_state_.property_names.emplace(pair.first, pair.second);
+    }
   }
 
-  plane.SetProp(kTypePropId, type);
-  plane.SetProp(kInFormatsPropId, kInFormatsBlobIdBase);
+  AddProperty(plane.id, {.id = kTypePropId, .value = type});
+
+  auto in_formats_blob =
+      CreateInFormatsBlob(supported_formats, supported_format_modifiers);
+  AddProperty(plane.id,
+              {.id = kInFormatsPropId, .value = in_formats_blob->id()});
 
   return plane;
 }
 
-bool FakeDrmDevice::MockDrmState::HasResources() const {
+bool FakeDrmDevice::FakeDrmState::HasResources() const {
   return !connector_properties.empty() || !crtc_properties.empty() ||
          !encoder_properties.empty();
 }
 
-uint32_t FakeDrmDevice::MockDrmState::AddPlaneOnCrtcAndGetCrtcId(
-    size_t num_of_planes) {
-  const auto& crtc = AddCrtc();
-  for (size_t i = 0; i < num_of_planes; ++i) {
-    AddPlane(crtc.id, DRM_PLANE_TYPE_PRIMARY);
-    for (size_t j = 0; j < num_of_planes - 1; ++j) {
-      AddPlane(crtc.id, DRM_PLANE_TYPE_OVERLAY);
-    }
-    AddPlane(crtc.id, DRM_PLANE_TYPE_CURSOR);
-  }
-
-  return crtc.id;
+FakeDrmDevice::CrtcProperties&
+FakeDrmDevice::AddCrtcWithPrimaryAndCursorPlanes() {
+  DCHECK(!IsInitialized());
+  auto& crtc = AddCrtc();
+  AddPlane(crtc.id, DRM_PLANE_TYPE_PRIMARY);
+  AddPlane(crtc.id, DRM_PLANE_TYPE_CURSOR);
+  return crtc;
 }
 
 FakeDrmDevice::FakeDrmDevice(std::unique_ptr<GbmDevice> gbm_device)
@@ -332,7 +328,6 @@ FakeDrmDevice::FakeDrmDevice(std::unique_ptr<GbmDevice> gbm_device)
                 base::ScopedFD(),
                 true /* is_primary_device */,
                 std::move(gbm_device)) {
-  plane_manager_ = std::make_unique<HardwareDisplayPlaneManagerLegacy>(this);
 }
 
 FakeDrmDevice::FakeDrmDevice(const base::FilePath& path,
@@ -342,7 +337,6 @@ FakeDrmDevice::FakeDrmDevice(const base::FilePath& path,
                 base::ScopedFD(),
                 is_primary_device,
                 std::move(gbm_device)) {
-  plane_manager_ = std::make_unique<HardwareDisplayPlaneManagerLegacy>(this);
 }
 
 FakeDrmDevice::~FakeDrmDevice() {
@@ -351,9 +345,7 @@ FakeDrmDevice::~FakeDrmDevice() {
   }
 }
 
-// static
-ScopedDrmPropertyBlobPtr FakeDrmDevice::AllocateInFormatsBlob(
-    uint32_t id,
+ScopedDrmPropertyBlob FakeDrmDevice::CreateInFormatsBlob(
     const std::vector<uint32_t>& supported_formats,
     const std::vector<drm_format_modifier>& supported_format_modifiers) {
   drm_format_modifier_blob header;
@@ -363,28 +355,25 @@ ScopedDrmPropertyBlobPtr FakeDrmDevice::AllocateInFormatsBlob(
   header.modifiers_offset =
       header.formats_offset + sizeof(uint32_t) * header.count_formats;
 
-  ScopedDrmPropertyBlobPtr blob(DrmAllocator<drmModePropertyBlobRes>());
-  blob->id = id;
-  blob->length = header.modifiers_offset +
-                 sizeof(drm_format_modifier) * header.count_modifiers;
-  blob->data = drmMalloc(blob->length);
-
-  memcpy(blob->data, &header, sizeof(header));
-  memcpy(static_cast<uint8_t*>(blob->data) + header.formats_offset,
-         supported_formats.data(), sizeof(uint32_t) * header.count_formats);
-  memcpy(static_cast<uint8_t*>(blob->data) + header.modifiers_offset,
+  std::vector<uint8_t> data(header.modifiers_offset +
+                            sizeof(drm_format_modifier) *
+                                header.count_modifiers);
+  memcpy(data.data(), &header, sizeof(header));
+  memcpy(data.data() + header.formats_offset, supported_formats.data(),
+         sizeof(uint32_t) * header.count_formats);
+  memcpy(data.data() + header.modifiers_offset,
          supported_format_modifiers.data(),
          sizeof(drm_format_modifier) * header.count_modifiers);
 
-  return blob;
+  return CreatePropertyBlob(data.data(), data.size());
 }
 
-void FakeDrmDevice::InitializeState(MockDrmState& state, bool use_atomic) {
-  CHECK(InitializeStateWithResult(state, use_atomic));
+void FakeDrmDevice::InitializeState(bool use_atomic) {
+  CHECK(InitializeStateWithResult(use_atomic));
 }
 
-bool FakeDrmDevice::InitializeStateWithResult(MockDrmState& state,
-                                              bool use_atomic) {
+bool FakeDrmDevice::InitializeStateWithResult(bool use_atomic) {
+  DCHECK(!plane_manager_);
   if (use_atomic) {
     plane_manager_ = std::make_unique<HardwareDisplayPlaneManagerAtomic>(this);
   } else {
@@ -392,20 +381,10 @@ bool FakeDrmDevice::InitializeStateWithResult(MockDrmState& state,
   }
   SetCapability(DRM_CLIENT_CAP_UNIVERSAL_PLANES, 1);
 
-  UpdateConnectors(state);
-  UpdateStateBesidesPlaneManager(state);
-
-  return plane_manager_->Initialize();
-}
-
-void FakeDrmDevice::UpdateConnectors(MockDrmState& state) {
-  UpdateConnectorsLinkStatus(state);
-  MaybeSetEdidBlobsForConnectors(state);
-}
-
-void FakeDrmDevice::UpdateConnectorsLinkStatus(MockDrmState& state) {
+  // Update the connectors' link statuses to bad if they have no modes (probably
+  // due to unsuccessful link-training.
   for (FakeDrmDevice::ConnectorProperties& connector :
-       state.connector_properties) {
+       drm_state_.connector_properties) {
     if (connector.connection && connector.modes.empty()) {
       DrmWrapper::Property* connector_link_status =
           FindObjectById(kLinkStatusPropId, connector.properties);
@@ -414,34 +393,22 @@ void FakeDrmDevice::UpdateConnectorsLinkStatus(MockDrmState& state) {
       }
     }
   }
-}
 
-void FakeDrmDevice::MaybeSetEdidBlobsForConnectors(MockDrmState& state) {
-  for (auto& mock_connector : state.connector_properties) {
+  // Set EDID blobs as property blobs so they can be fetched when needed via
+  // GetPropertyBlob().
+  for (auto& mock_connector : drm_state_.connector_properties) {
     const std::vector<uint8_t> edid_blob = mock_connector.edid_blob;
     if (edid_blob.empty()) {
       continue;
     }
 
-    DrmWrapper::Property* mock_blob_prop =
-        FindObjectById(kEdidBlobPropId, mock_connector.properties);
-    DCHECK(mock_blob_prop);
-    // Update the mock EDID property's value to the EDID blob's ID.
-    mock_blob_prop->value = GetNextId(state.blobs, kBaseBlobId);
-    state.blobs.push_back(*mock_blob_prop);
-
-    ScopedDrmPropertyBlobPtr drm_prop_blob(
-        DrmAllocator<drmModePropertyBlobRes>());
-    drm_prop_blob->id = mock_blob_prop->value;
-    drm_prop_blob->length = mock_connector.edid_blob.size();
-    drm_prop_blob->data = drmMalloc(drm_prop_blob->length);
-    memcpy(drm_prop_blob->data, edid_blob.data(), edid_blob.size());
-    SetPropertyBlob(std::move(drm_prop_blob));
+    auto edid_property_blob =
+        CreatePropertyBlob(edid_blob.data(), edid_blob.size());
+    UpdateProperty(mock_connector.id, kEdidBlobPropId,
+                   edid_property_blob->id());
   }
-}
 
-void FakeDrmDevice::UpdateStateBesidesPlaneManager(const MockDrmState& state) {
-  drm_state_ = state;
+  return plane_manager_->Initialize();
 }
 
 void FakeDrmDevice::SetModifiersOverhead(
@@ -691,12 +658,48 @@ bool FakeDrmDevice::SetProperty(uint32_t connector_id,
 ScopedDrmPropertyBlob FakeDrmDevice::CreatePropertyBlob(const void* blob,
                                                         size_t size) {
   uint32_t id = GetUniqueNumber();
-  allocated_property_blobs_.insert(id);
+  auto& blob_state = allocated_blobs_[id];
+  DCHECK(blob_state.ref_count == 0);
+  blob_state.ref_count = 1;
+  const uint8_t* blob_uint8 = reinterpret_cast<const uint8_t*>(blob);
+  blob_state.data.assign(blob_uint8, blob_uint8 + size);
   return std::make_unique<DrmPropertyBlobMetadata>(this, id);
 }
 
 void FakeDrmDevice::DestroyPropertyBlob(uint32_t id) {
-  EXPECT_TRUE(allocated_property_blobs_.erase(id));
+  bool did_release = ReleaseBlob(id);
+  // ReleaseBlob will return true if there exists a blob with `id`. It should
+  // never be the case that we are are destroying a blob that does not exist.
+  DCHECK(did_release);
+}
+
+FakeDrmDevice::BlobState::BlobState() = default;
+
+FakeDrmDevice::BlobState::BlobState(const BlobState&) = default;
+
+FakeDrmDevice::BlobState::~BlobState() = default;
+
+bool FakeDrmDevice::RetainBlob(uint32_t id) {
+  auto it = allocated_blobs_.find(id);
+  if (it == allocated_blobs_.end()) {
+    return false;
+  }
+  DCHECK(it->second.ref_count > 0);
+  it->second.ref_count += 1;
+  return true;
+}
+
+bool FakeDrmDevice::ReleaseBlob(uint32_t id) {
+  auto it = allocated_blobs_.find(id);
+  if (it == allocated_blobs_.end()) {
+    return false;
+  }
+  DCHECK(it->second.ref_count > 0);
+  it->second.ref_count -= 1;
+  if (it->second.ref_count == 0) {
+    allocated_blobs_.erase(it);
+  }
+  return true;
 }
 
 bool FakeDrmDevice::GetCapability(uint64_t capability, uint64_t* value) const {
@@ -710,15 +713,16 @@ bool FakeDrmDevice::GetCapability(uint64_t capability, uint64_t* value) const {
 
 ScopedDrmPropertyBlobPtr FakeDrmDevice::GetPropertyBlob(
     uint32_t property_id) const {
-  auto it = blob_property_map_.find(property_id);
-  if (it == blob_property_map_.end())
+  auto it = allocated_blobs_.find(property_id);
+  if (it == allocated_blobs_.end()) {
     return nullptr;
+  }
 
   ScopedDrmPropertyBlobPtr blob(DrmAllocator<drmModePropertyBlobRes>());
   blob->id = property_id;
-  blob->length = it->second->length;
+  blob->length = it->second.data.size();
   blob->data = drmMalloc(blob->length);
-  memcpy(blob->data, it->second->data, blob->length);
+  memcpy(blob->data, it->second.data.data(), blob->length);
 
   return blob;
 }
@@ -750,6 +754,8 @@ bool FakeDrmDevice::SetObjectProperty(uint32_t object_id,
                                       uint32_t object_type,
                                       uint32_t property_id,
                                       uint32_t property_value) {
+  UpdateProperty(object_id, property_id, property_value,
+                 /*add_property_if_needed=*/false);
   set_object_property_count_++;
   return true;
 }
@@ -923,17 +929,36 @@ void FakeDrmDevice::RunCallbacks() {
   }
 }
 
-void FakeDrmDevice::SetPropertyBlob(ScopedDrmPropertyBlobPtr blob) {
-  blob_property_map_[blob->id] = std::move(blob);
+void FakeDrmDevice::AddProperty(uint32_t object_id,
+                                const DrmWrapper::Property& property) {
+  DCHECK(!IsInitialized());
+  UpdateProperty(object_id, property.id, property.value,
+                 /*add_property_if_needed=*/true);
 }
 
-bool FakeDrmDevice::UpdateProperty(
-    uint32_t id,
-    uint64_t value,
-    std::vector<DrmDevice::Property>* properties) {
+bool FakeDrmDevice::UpdateProperty(uint32_t id,
+                                   uint64_t value,
+                                   std::vector<DrmDevice::Property>* properties,
+                                   bool add_property_if_needed) {
   DrmDevice::Property* property = FindObjectById(id, *properties);
-  if (!property)
-    return false;
+  if (!property) {
+    if (!add_property_if_needed) {
+      return false;
+    }
+
+    properties->push_back({.id = id, .value = 0});
+    property = &properties->back();
+  }
+
+  // Retain the blob corresponding to the new value (if one exists). This
+  // ensures that the blob will remain valid even if DestroyPropertyBlob is
+  // subsequently called on it.
+  RetainBlob(value);
+
+  // Release the blob corresponding to the old value (if one exists). This may
+  // trigger the destruction of the blob, if DestroyPropertyBlob has already
+  // been called on it.
+  ReleaseBlob(property->value);
 
   property->value = value;
   return true;
@@ -941,22 +966,27 @@ bool FakeDrmDevice::UpdateProperty(
 
 bool FakeDrmDevice::UpdateProperty(uint32_t object_id,
                                    uint32_t property_id,
-                                   uint64_t value) {
+                                   uint64_t value,
+                                   bool add_property_if_needed) {
   PlaneProperties* plane_properties =
       FindObjectById(object_id, drm_state_.plane_properties);
-  if (plane_properties)
-    return UpdateProperty(property_id, value, &plane_properties->properties);
+  if (plane_properties) {
+    return UpdateProperty(property_id, value, &plane_properties->properties,
+                          add_property_if_needed);
+  }
 
   CrtcProperties* crtc_properties =
       FindObjectById(object_id, drm_state_.crtc_properties);
-  if (crtc_properties)
-    return UpdateProperty(property_id, value, &crtc_properties->properties);
+  if (crtc_properties) {
+    return UpdateProperty(property_id, value, &crtc_properties->properties,
+                          add_property_if_needed);
+  }
 
   ConnectorProperties* connector_properties =
       FindObjectById(object_id, drm_state_.connector_properties);
   if (connector_properties) {
-    return UpdateProperty(property_id, value,
-                          &connector_properties->properties);
+    return UpdateProperty(property_id, value, &connector_properties->properties,
+                          add_property_if_needed);
   }
 
   return false;
@@ -973,7 +1003,7 @@ bool FakeDrmDevice::ValidatePropertyValue(uint32_t id, uint64_t value) {
   std::vector<std::string> blob_properties = {"CTM", "DEGAMMA_LUT", "GAMMA_LUT",
                                               "PLANE_CTM"};
   if (base::Contains(blob_properties, it->second))
-    return base::Contains(allocated_property_blobs_, value);
+    return base::Contains(allocated_blobs_, value);
 
   return true;
 }

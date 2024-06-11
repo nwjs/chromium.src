@@ -17,6 +17,7 @@ import org.chromium.base.supplier.DestroyableObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.download.home.DownloadPage;
 import org.chromium.chrome.browser.bookmarks.BookmarkPage;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsMarginSupplier;
@@ -250,6 +251,7 @@ public class NativePageFactory {
                     new TabShim(tab, mBrowserControlsManager, mTabModelSelector),
                     mSnackbarManagerSupplier.get(),
                     tab.getProfile(),
+                    mBottomSheetController,
                     mCurrentTabSupplier,
                     url);
         }
@@ -398,7 +400,8 @@ public class NativePageFactory {
                 tab.getProfile(),
                 activity,
                 url,
-                pdfInfo);
+                pdfInfo,
+                activity.getString(R.string.pdf_transient_tab_title));
     }
 
     /** Simple implementation of NativePageHost backed by a {@link Tab} */
@@ -433,6 +436,12 @@ public class NativePageFactory {
             }
 
             mTab.loadUrl(urlParams);
+        }
+
+        @Override
+        public void openNewTab(LoadUrlParams urlParams) {
+            mTabModelSelector.openNewTab(
+                    urlParams, TabLaunchType.FROM_LINK, mTab, mTab.isIncognito());
         }
 
         @Override

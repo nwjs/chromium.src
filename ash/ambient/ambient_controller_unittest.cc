@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "ash/ambient/ambient_constants.h"
@@ -1731,31 +1732,6 @@ TEST_F(AmbientControllerTest, ShouldDismissScreenSaverPreviewOnTouch) {
   EXPECT_FALSE(ambient_controller()->ShouldShowAmbientUi());
 }
 
-TEST_F(AmbientControllerTest, InstallsVideoDlcInBackground) {
-  task_environment()->FastForwardBy(kAmbientDlcBackgroundInstallMinDelay * 2);
-  ASSERT_FALSE(ambient_controller()->ShouldShowAmbientUi());
-  base::test::TestFuture<const std::string&, const dlcservice::DlcsWithContent&>
-      future;
-  dlcservice_client_.GetExistingDlcs(future.GetCallback());
-  ASSERT_EQ(future.Get<0>(), dlcservice::kErrorNone);
-  EXPECT_THAT(future.Get<1>().dlc_infos(),
-              testing::Contains(HasVideoDlcPackageId()));
-}
-
-TEST_F(AmbientControllerTest, DoesNotInstallVideoDlcInBackground) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(/*enabled_features=*/{},
-                                       {features::kTimeOfDayDlc});
-  task_environment()->FastForwardBy(kAmbientDlcBackgroundInstallMinDelay * 2);
-  ASSERT_FALSE(ambient_controller()->ShouldShowAmbientUi());
-  base::test::TestFuture<const std::string&, const dlcservice::DlcsWithContent&>
-      future;
-  dlcservice_client_.GetExistingDlcs(future.GetCallback());
-  ASSERT_EQ(future.Get<0>(), dlcservice::kErrorNone);
-  EXPECT_THAT(future.Get<1>().dlc_infos(),
-              testing::Not(testing::Contains(HasVideoDlcPackageId())));
-}
-
 class AmbientControllerForManagedScreensaverTest : public AmbientAshTestBase {
  public:
   AmbientControllerForManagedScreensaverTest() {
@@ -2363,7 +2339,6 @@ class AmbientControllerDurationTest : public AmbientAshTestBase {
   ~AmbientControllerDurationTest() override = default;
 
   void SetUp() override {
-    scoped_feature_list_.InitAndEnableFeature(features::kScreenSaverDuration);
     AmbientAshTestBase::SetUp();
     GetSessionControllerClient()->set_show_lock_screen_views(true);
   }
@@ -2373,8 +2348,6 @@ class AmbientControllerDurationTest : public AmbientAshTestBase {
 };
 
 TEST_F(AmbientControllerDurationTest, SetScreenSaverDuration) {
-  EXPECT_TRUE(ash::features::IsScreenSaverDurationEnabled());
-
   // Duration is default to forever.
   SetAmbientModeEnabled(true);
   EXPECT_EQ(0, GetScreenSaverDuration());

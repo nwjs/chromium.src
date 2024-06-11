@@ -232,7 +232,7 @@ void AggregationServiceStorageSql::SetPublicKeys(const GURL& url,
   CHECK_LE(keyset.keys.size(), PublicKeyset::kMaxNumberKeys,
            base::NotFatalUntil::M128);
 
-  // TODO(crbug.com/1231703): Add an allowlist for helper server urls and
+  // TODO(crbug.com/40190806): Add an allowlist for helper server urls and
   // validate the url.
 
   // Force the creation of the database if it doesn't exist, as we need to
@@ -631,7 +631,7 @@ AggregationServiceStorageSql::GetRequestsReportingOnOrBefore(
   // See https://www.sqlite.org/lang_select.html.
   get_requests_statement.BindInt(1, limit.value_or(-1));
 
-  // TODO(crbug.com/1340046): Limit the total number of results that can be
+  // TODO(crbug.com/40230192): Limit the total number of results that can be
   // returned in one query.
   std::vector<AggregationServiceStorage::RequestAndId> result;
   std::vector<AggregationServiceStorage::RequestId> failures;

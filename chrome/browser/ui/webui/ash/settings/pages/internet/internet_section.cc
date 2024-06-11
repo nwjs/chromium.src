@@ -484,13 +484,17 @@ const std::vector<SearchConcept>& GetInstantTetheringSearchConcepts() {
 
 const std::vector<SearchConcept>& GetInstantTetheringOnSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
-      {IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_OFF,
+      {features::IsInstantHotspotRebrandEnabled()
+           ? IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_OFF
+           : IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_OFF_LEGACY,
        mojom::kMobileDataNetworksSubpagePath,
        mojom::SearchResultIcon::kInstantTethering,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSetting,
        {.setting = mojom::Setting::kInstantTetheringOnOff},
-       {IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_OFF_ALT1,
+       {features::IsInstantHotspotRebrandEnabled()
+            ? IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_OFF_ALT1
+            : IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_OFF_ALT1_LEGACY,
         SearchConcept::kAltTagEnd}},
   });
   return *tags;
@@ -498,13 +502,17 @@ const std::vector<SearchConcept>& GetInstantTetheringOnSearchConcepts() {
 
 const std::vector<SearchConcept>& GetInstantTetheringOffSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
-      {IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_ON,
+      {features::IsInstantHotspotRebrandEnabled()
+           ? IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_ON
+           : IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_ON_LEGACY,
        mojom::kMobileDataNetworksSubpagePath,
        mojom::SearchResultIcon::kInstantTethering,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSetting,
        {.setting = mojom::Setting::kInstantTetheringOnOff},
-       {IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_ON_ALT1,
+       {features::IsInstantHotspotRebrandEnabled()
+            ? IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_ON_ALT1
+            : IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_TURN_ON_ALT1_LEGACY,
         SearchConcept::kAltTagEnd}},
   });
   return *tags;
@@ -512,13 +520,17 @@ const std::vector<SearchConcept>& GetInstantTetheringOffSearchConcepts() {
 
 const std::vector<SearchConcept>& GetInstantTetheringConnectedSearchConcepts() {
   static const base::NoDestructor<std::vector<SearchConcept>> tags({
-      {IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_DISCONNECT,
+      {features::IsInstantHotspotRebrandEnabled()
+           ? IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_DISCONNECT
+           : IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_DISCONNECT_LEGACY,
        mojom::kTetherDetailsSubpagePath,
        mojom::SearchResultIcon::kInstantTethering,
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSetting,
        {.setting = mojom::Setting::kDisconnectTetherNetwork}},
-      {IDS_OS_SETTINGS_TAG_INSTANT_TETHERING,
+      {features::IsInstantHotspotRebrandEnabled()
+           ? IDS_OS_SETTINGS_TAG_INSTANT_TETHERING
+           : IDS_OS_SETTINGS_TAG_INSTANT_TETHERING_LEGACY,
        mojom::kTetherDetailsSubpagePath,
        mojom::SearchResultIcon::kInstantTethering,
        mojom::SearchResultDefaultRank::kMedium,
@@ -1137,8 +1149,6 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
   html_source->AddBoolean(
       "showHiddenToggle",
       base::FeatureList::IsEnabled(::features::kShowHiddenNetworkToggle));
-  html_source->AddBoolean("isSmdsSupportEnabled",
-                          ash::features::IsSmdsSupportEnabled());
   html_source->AddBoolean("isHotspotEnabled",
                           ash::features::IsHotspotEnabled());
   html_source->AddBoolean("isInstantHotspotRebrandEnabled",
@@ -1358,7 +1368,9 @@ void InternetSection::RegisterHierarchy(HierarchyGenerator* generator) const {
   // Instant Tethering. Although this is a multi-device feature, its UI resides
   // in the network section.
   generator->RegisterNestedSubpage(
-      IDS_SETTINGS_INTERNET_INSTANT_TETHERING_DETAILS,
+      features::IsInstantHotspotRebrandEnabled()
+          ? IDS_SETTINGS_INTERNET_INSTANT_TETHERING_DETAILS
+          : IDS_SETTINGS_INTERNET_INSTANT_TETHERING_DETAILS_LEGACY,
       mojom::Subpage::kTetherDetails, mojom::Subpage::kMobileDataNetworks,
       mojom::SearchResultIcon::kInstantTethering,
       mojom::SearchResultDefaultRank::kMedium,

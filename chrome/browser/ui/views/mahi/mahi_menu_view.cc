@@ -16,6 +16,7 @@
 #include "chrome/browser/chromeos/mahi/mahi_browser_util.h"
 #include "chrome/browser/chromeos/mahi/mahi_web_contents_manager.h"
 #include "chrome/browser/ui/views/editor_menu/utils/pre_target_handler.h"
+#include "chrome/browser/ui/views/editor_menu/utils/pre_target_handler_view.h"
 #include "chrome/browser/ui/views/editor_menu/utils/utils.h"
 #include "chrome/browser/ui/views/mahi/mahi_menu_constants.h"
 #include "chromeos/components/mahi/public/cpp/mahi_manager.h"
@@ -149,7 +150,9 @@ class MahiMenuView::MenuTextfieldController
   base::WeakPtr<MahiMenuView> menu_view_;
 };
 
-MahiMenuView::MahiMenuView() {
+MahiMenuView::MahiMenuView()
+    : chromeos::editor_menu::PreTargetHandlerView(
+          chromeos::editor_menu::CardType::kMahiDefaultMenu) {
   SetBackground(views::CreateThemedRoundedRectBackground(
       ui::kColorPrimaryBackground,
       views::LayoutProvider::Get()->GetCornerRadiusMetric(
@@ -239,7 +242,11 @@ MahiMenuView::MahiMenuView() {
   AddChildView(CreateInputContainer());
 }
 
-MahiMenuView::~MahiMenuView() = default;
+MahiMenuView::~MahiMenuView() {
+  // `textfield_` keeps a raw pointer to `textfield_controller_` - reset that
+  // before destroying the controller.
+  textfield_->SetController(nullptr);
+}
 
 // static
 views::UniqueWidgetPtr MahiMenuView::CreateWidget(

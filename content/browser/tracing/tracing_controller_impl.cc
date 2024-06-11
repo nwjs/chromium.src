@@ -171,12 +171,10 @@ std::string GetClockOffsetSinceEpoch() {
 }
 #endif
 
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
 bool IsSpecialCategory(const std::string& name) {
   return name == "__metadata" || name == "tracing_already_shutdown" ||
          name == "tracing_categories_exhausted._must_increase_kMaxCategories";
 }
-#endif
 
 }  // namespace
 
@@ -384,7 +382,7 @@ std::optional<base::Value::Dict> TracingControllerImpl::GenerateMetadataDict() {
       base::UnlocalizedTimeFormatWithPattern(TRACE_TIME_NOW(), "y-M-d H:m:s",
                                              icu::TimeZone::getGMT()));
 
-  // TODO(crbug.com/737049): The central controller doesn't know about
+  // TODO(crbug.com/40527661): The central controller doesn't know about
   // metadata filters, so we temporarily filter here as the controller is
   // what assembles the full trace data.
   base::trace_event::MetadataFilterPredicate metadata_filter;
@@ -412,7 +410,6 @@ TracingControllerImpl* TracingControllerImpl::GetInstance() {
 bool TracingControllerImpl::GetCategories(GetCategoriesDoneCallback callback) {
   std::set<std::string> category_set;
 
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
   using base::perfetto_track_event::internal::kCategoryRegistry;
   for (size_t i = 0; i < kCategoryRegistry.category_count(); ++i) {
     std::string category_name = kCategoryRegistry.GetCategory(i)->name;
@@ -422,9 +419,6 @@ bool TracingControllerImpl::GetCategories(GetCategoriesDoneCallback callback) {
       category_set.insert(category_name);
     }
   }
-#else   // !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
-  tracing::TracedProcessImpl::GetInstance()->GetCategories(&category_set);
-#endif  // !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
 
   std::move(callback).Run(category_set);
   return true;

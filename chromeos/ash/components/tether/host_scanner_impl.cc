@@ -22,9 +22,7 @@
 #include "chromeos/ash/services/secure_channel/public/cpp/client/secure_channel_client.h"
 #include "components/session_manager/core/session_manager.h"
 
-namespace ash {
-
-namespace tether {
+namespace ash::tether {
 
 HostScannerImpl::HostScannerImpl(
     std::unique_ptr<TetherAvailabilityOperationOrchestrator::Factory>
@@ -98,12 +96,16 @@ void HostScannerImpl::StopScan() {
 
 void HostScannerImpl::OnTetherAvailabilityResponse(
     const std::vector<ScannedDeviceInfo>& scanned_device_list_so_far,
-    const multidevice::RemoteDeviceRefList&
+    const std::vector<ScannedDeviceInfo>&
         gms_core_notifications_disabled_devices,
     bool is_final_scan_result) {
   if (scanned_device_list_so_far.empty() && !is_final_scan_result) {
     was_notification_showing_when_current_scan_started_ =
         IsPotentialHotspotNotificationShowing();
+    PA_LOG(VERBOSE) << "Was 'potential hotspot' notification showing when "
+                       "current scan started: ["
+                    << was_notification_showing_when_current_scan_started_
+                    << "]";
   }
 
   // Ensure all results received so far are in the cache (setting entries which
@@ -119,14 +121,15 @@ void HostScannerImpl::OnTetherAvailabilityResponse(
              NotificationPresenter::PotentialHotspotNotificationState::
                  MULTIPLE_HOTSPOTS_NEARBY_SHOWN ||
          is_final_scan_result)) {
-      multidevice::RemoteDeviceRef remote_device =
-          scanned_device_list_so_far.at(0).remote_device;
+      const ScannedDeviceInfo& scanned_device =
+          scanned_device_list_so_far.front();
       int32_t signal_strength;
-      NormalizeDeviceStatus(scanned_device_list_so_far.at(0).device_status,
+      NormalizeDeviceStatus(scanned_device.device_status.value(),
                             nullptr /* carrier */,
                             nullptr /* battery_percentage */, &signal_strength);
-      notification_presenter_->NotifyPotentialHotspotNearby(remote_device,
-                                                            signal_strength);
+      notification_presenter_->NotifyPotentialHotspotNearby(
+          scanned_device.device_id, scanned_device.device_name,
+          signal_strength);
     } else {
       // Note: If a single-device notification was previously displayed, calling
       // NotifyMultiplePotentialHotspotsNearby() will reuse the existing
@@ -162,9 +165,7 @@ void HostScannerImpl::OnSessionStateChanged() {
 
 void HostScannerImpl::SetCacheEntry(
     const ScannedDeviceInfo& scanned_device_info) {
-  const DeviceStatus& status = scanned_device_info.device_status;
-  multidevice::RemoteDeviceRef remote_device =
-      scanned_device_info.remote_device;
+  const DeviceStatus& status = scanned_device_info.device_status.value();
 
   std::string carrier;
   int32_t battery_percentage;
@@ -176,8 +177,8 @@ void HostScannerImpl::SetCacheEntry(
       *HostScanCacheEntry::Builder()
            .SetTetherNetworkGuid(device_id_tether_network_guid_map_
                                      ->GetTetherNetworkGuidForDeviceId(
-                                         remote_device.GetDeviceId()))
-           .SetDeviceName(remote_device.name())
+                                         scanned_device_info.device_id))
+           .SetDeviceName(scanned_device_info.device_name)
            .SetCarrier(carrier)
            .SetBatteryPercentage(battery_percentage)
            .SetSignalStrength(signal_strength)
@@ -187,6 +188,7 @@ void HostScannerImpl::SetCacheEntry(
 
 void HostScannerImpl::OnFinalScanResultReceived(
     const std::vector<ScannedDeviceInfo>& final_scan_results) {
+  PA_LOG(INFO) << __func__;
   // Search through all GUIDs that were in the cache before the scan began. If
   // any of those GUIDs are not present in the final scan results, remove them
   // from the cache.
@@ -195,8 +197,7 @@ void HostScannerImpl::OnFinalScanResultReceived(
 
     for (const auto& scan_result : final_scan_results) {
       if (device_id_tether_network_guid_map_->GetTetherNetworkGuidForDeviceId(
-              scan_result.remote_device.GetDeviceId()) ==
-          tether_guid_in_cache) {
+              scan_result.device_id) == tether_guid_in_cache) {
         is_guid_in_final_scan_results = true;
         break;
       }
@@ -262,11 +263,18 @@ bool HostScannerImpl::CanAvailableHostNotificationBeShown() {
   if (first_network && first_network->IsConnectingOrConnected()) {
     // If a network is connecting or connected, the notification should not be
     // shown.
+    PA_LOG(INFO)
+        << __func__
+        << " Returning false because device is connected/connecting to "
+           "a network";
     return false;
   }
 
   if (!IsPotentialHotspotNotificationShowing() &&
       was_notification_shown_in_current_scan_) {
+    PA_LOG(INFO) << __func__
+                 << " Returning false because notification has been shown in "
+                    "the current scan";
     // If a notification was shown in the current scan but it is no longer
     // showing, it has been removed, either due to NotificationRemover or due to
     // the user closing it. Since a scan only lasts on the order of seconds to
@@ -277,22 +285,17 @@ bool HostScannerImpl::CanAvailableHostNotificationBeShown() {
 
   if (!IsPotentialHotspotNotificationShowing() &&
       was_notification_showing_when_current_scan_started_) {
+    PA_LOG(INFO) << __func__
+                 << " Returning false because notification was showing when "
+                    "scan started";
     // If a notification was showing when the scan started but is no longer
     // showing, it has been removed and should not be re-shown.
     return false;
   }
 
-  if (has_notification_been_shown_in_previous_scan_ &&
-      !was_notification_showing_when_current_scan_started_) {
-    // If a notification was shown in a previous scan but was not visible when
-    // the current scan started, it should not be shown because this could be
-    // considered spammy; see https://crbug.com/759078.
-    return false;
-  }
+  PA_LOG(INFO) << __func__ << " Returning true because all checks passed";
 
   return true;
 }
 
-}  // namespace tether
-
-}  // namespace ash
+}  // namespace ash::tether

@@ -19,6 +19,7 @@
 #include "chrome/common/extensions/api/autofill_private.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/branded_strings.h"
+#include "components/autofill/core/browser/address_data_manager.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
@@ -26,6 +27,7 @@
 #include "components/autofill/core/browser/field_type_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/geo/autofill_country.h"
+#include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/ui/country_combobox_model.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -151,6 +153,10 @@ std::string CardNetworkToIconResourceIdString(const std::string& network) {
     return metadata_icon ? "chrome://theme/IDR_AUTOFILL_METADATA_CC_UNIONPAY"
                          : "chrome://theme/IDR_AUTOFILL_CC_UNIONPAY";
   }
+  if (network == autofill::kVerveCard) {
+    return metadata_icon ? "chrome://theme/IDR_AUTOFILL_METADATA_CC_VERVE"
+                         : "chrome://theme/IDR_AUTOFILL_CC_VERVE";
+  }
   if (network == autofill::kVisaCard) {
     return metadata_icon ? "chrome://theme/IDR_AUTOFILL_METADATA_CC_VISA"
                          : "chrome://theme/IDR_AUTOFILL_CC_VISA";
@@ -227,7 +233,7 @@ CountryEntryList GenerateCountryList(
 CreditCardEntryList GenerateCreditCardList(
     const autofill::PersonalDataManager& personal_data) {
   const std::vector<autofill::CreditCard*>& cards =
-      personal_data.GetCreditCards();
+      personal_data.payments_data_manager().GetCreditCards();
 
   CreditCardEntryList list;
   for (const autofill::CreditCard* card : cards) {
@@ -251,8 +257,9 @@ IbanEntryList GenerateIbanList(
 
 std::optional<api::autofill_private::AccountInfo> GetAccountInfo(
     const autofill::PersonalDataManager& personal_data) {
-  std::optional<CoreAccountInfo> account =
-      personal_data.GetPrimaryAccountInfo();
+  const autofill::AddressDataManager& adm =
+      personal_data.address_data_manager();
+  std::optional<CoreAccountInfo> account = adm.GetPrimaryAccountInfo();
   if (!account.has_value()) {
     return std::nullopt;
   }
@@ -260,14 +267,13 @@ std::optional<api::autofill_private::AccountInfo> GetAccountInfo(
   api::autofill_private::AccountInfo api_account;
   api_account.email = account->email;
   api_account.is_sync_enabled_for_autofill_profiles =
-      personal_data.address_data_manager().IsSyncFeatureEnabledForAutofill();
+      adm.IsSyncFeatureEnabledForAutofill();
   api_account.is_eligible_for_address_account_storage =
-      personal_data.address_data_manager().IsEligibleForAddressAccountStorage();
+      adm.IsEligibleForAddressAccountStorage();
   api_account.is_autofill_sync_toggle_enabled =
-      personal_data.address_data_manager()
-          .IsAutofillUserSelectableTypeEnabled();
+      adm.IsAutofillUserSelectableTypeEnabled();
   api_account.is_autofill_sync_toggle_available =
-      personal_data.address_data_manager().IsAutofillSyncToggleAvailable();
+      adm.IsAutofillSyncToggleAvailable();
   return std::move(api_account);
 }
 
@@ -308,12 +314,14 @@ autofill_private::CreditCardEntry CreditCardToCreditCardEntry(
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillEnableCardArtImage)) {
     card_art_image =
-        personal_data.GetCreditCardArtImageForUrl(credit_card.card_art_url());
+        personal_data.payments_data_manager().GetCreditCardArtImageForUrl(
+            credit_card.card_art_url());
   }
   card.image_src =
       card_art_image ? webui::GetBitmapDataUrl(card_art_image->AsBitmap())
                      : CardNetworkToIconResourceIdString(credit_card.network());
-  if (credit_card.IsCardEligibleForBenefits() &&
+  if (personal_data.payments_data_manager().IsCardEligibleForBenefits(
+          credit_card) &&
       credit_card.product_terms_url().is_valid()) {
     card.product_terms_url = credit_card.product_terms_url().spec();
   }

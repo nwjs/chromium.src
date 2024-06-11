@@ -13,6 +13,7 @@
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
+#include "base/time/time.h"
 #include "base/version.h"
 #include "chromeos/ash/components/demo_mode/utils/dimensions_utils.h"
 #include "chromeos/ash/components/growth/campaigns_manager_client.h"
@@ -78,10 +79,16 @@ int GetMilestone() {
   return version_info::GetMajorVersionNumberAsInt();
 }
 
+bool MatchTimeWindow(const base::Time& start_time,
+                     const base::Time& end_time,
+                     const base::Time& targeted_time) {
+  return start_time <= targeted_time && end_time >= targeted_time;
+}
+
 bool MatchTimeWindow(const TimeWindowTargeting& time_window_targeting,
                      const base::Time& targeted_time) {
-  return time_window_targeting.GetStartTime() <= targeted_time &&
-         time_window_targeting.GetEndTime() >= targeted_time;
+  return MatchTimeWindow(time_window_targeting.GetStartTime(),
+                         time_window_targeting.GetEndTime(), targeted_time);
 }
 
 // Matched if any of the given `scheduling_targetings` is matched.
@@ -144,7 +151,26 @@ CampaignsMatcher::CampaignsMatcher(CampaignsManagerClient* client,
     : client_(client), local_state_(local_state) {}
 CampaignsMatcher::~CampaignsMatcher() = default;
 
-void CampaignsMatcher::SetCampaigns(const CampaignsPerSlot* campaigns) {
+void CampaignsMatcher::FilterAndSetCampaigns(CampaignsPerSlot* campaigns) {
+  // Filter campaigns that doesn't pass pre-match.
+  for (int slot = 0; slot <= static_cast<int>(Slot::kMaxValue); slot++) {
+    auto* targeted_campaigns =
+        GetMutableCampaignsBySlot(campaigns, static_cast<Slot>(slot));
+    if (!targeted_campaigns) {
+      continue;
+    }
+
+    auto campaign_iter = targeted_campaigns->begin();
+    while (campaign_iter != targeted_campaigns->end()) {
+      if (IsCampaignMatched(campaign_iter->GetIfDict(),
+                            /*is_prematch=*/true)) {
+        ++campaign_iter;
+      } else {
+        campaign_iter = targeted_campaigns->erase(campaign_iter);
+      }
+    }
+  }
+
   campaigns_ = campaigns;
 }
 
@@ -160,6 +186,14 @@ void CampaignsMatcher::SetOobeCompleteTime(base::Time time) {
   oobe_compelete_time_ = time;
 }
 
+void CampaignsMatcher::SetIsUserOwner(bool is_user_owner) {
+  is_user_owner_ = is_user_owner;
+}
+
+void CampaignsMatcher::SetTrigger(TriggeringType trigger) {
+  trigger_ = trigger;
+}
+
 void CampaignsMatcher::SetPrefs(PrefService* prefs) {
   prefs_ = prefs;
 }
@@ -172,25 +206,34 @@ const Campaign* CampaignsMatcher::GetCampaignBySlot(Slot slot) const {
 
   for (auto& campaign_value : *targeted_campaigns) {
     const auto* campaign = campaign_value.GetIfDict();
-    if (!campaign || !IsCampaignValid(campaign)) {
-      LOG(ERROR) << "Invalid campaign.";
-      RecordCampaignsManagerError(CampaignsManagerError::kInvalidCampaign);
-      continue;
-    }
-
-    const auto* targetings = GetTargetings(campaign);
-
-    const auto campaign_id = GetCampaignId(campaign);
-    if (!campaign_id) {
-      return nullptr;
-    }
-
-    if (Matched(targetings, campaign_id.value())) {
+    if (IsCampaignMatched(campaign, /*is_prematch=*/false)) {
       return campaign;
     }
   }
 
   return nullptr;
+}
+
+bool CampaignsMatcher::IsCampaignMatched(const Campaign* campaign,
+                                         bool is_prematch) const {
+  if (!campaign || !IsCampaignValid(campaign)) {
+    LOG(ERROR) << "Invalid campaign.";
+    RecordCampaignsManagerError(CampaignsManagerError::kInvalidCampaign);
+    return false;
+  }
+
+  const auto* targetings = GetTargetings(campaign);
+
+  const auto campaign_id = GetCampaignId(campaign);
+  if (!campaign_id) {
+    return false;
+  }
+
+  if (Matched(targetings, campaign_id.value(), is_prematch)) {
+    return true;
+  }
+
+  return false;
 }
 
 bool CampaignsMatcher::MatchDemoModeTier(
@@ -324,6 +367,11 @@ bool CampaignsMatcher::MatchDeviceTargeting(
     return false;
   }
 
+  const auto device_age_in_hours = targeting.GetDeviceAge();
+  if (!MatchDeviceAge(device_age_in_hours)) {
+    return false;
+  }
+
   return MatchMilestone(targeting);
 }
 
@@ -338,6 +386,46 @@ bool CampaignsMatcher::MatchRegisteredTime(
   // TODO: b/333458177 - The `oobe_complete_time_` is not available when testing
   // in x11 emulator. Add support make it testable in x11 emulator.
   return MatchTimeWindow(*registered_time_targeting, oobe_compelete_time_);
+}
+
+bool CampaignsMatcher::MatchDeviceAge(
+    const std::unique_ptr<NumberRangeTargeting>& device_age_in_hours) const {
+  if (!device_age_in_hours) {
+    // Match campaign if there is no device age targeting.
+    return true;
+  }
+
+  // TODO: b/333458177 - The `oobe_complete_time_` is not available when testing
+  // in x11 emulator. Add support make it testable in x11 emulator.
+  auto start_time = base::Time::Min();
+  const auto device_age_start = device_age_in_hours->GetStart();
+  if (device_age_start) {
+    start_time = oobe_compelete_time_ + base::Hours(device_age_start.value());
+  }
+
+  auto end_time = base::Time::Max();
+  const auto device_age_end = device_age_in_hours->GetEnd();
+  if (device_age_end) {
+    end_time = oobe_compelete_time_ + base::Hours(device_age_end.value());
+  }
+
+  return MatchTimeWindow(start_time, end_time,
+                         /*target=*/base::Time::Now());
+}
+
+bool CampaignsMatcher::MatchTriggeringType(
+    const std::vector<TriggeringType>& trigger_targetings) const {
+  if (trigger_targetings.empty()) {
+    // Campaigns matched if `trigger_targetings` is empty.
+    return true;
+  }
+
+  for (const auto& trigger : trigger_targetings) {
+    if (trigger == trigger_) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool CampaignsMatcher::MatchOpenedApp(
@@ -484,6 +572,15 @@ bool CampaignsMatcher::MatchMinorUser(
   return isMinor == minor_user_targeting.value();
 }
 
+bool CampaignsMatcher::MatchOwner(std::optional<bool> is_owner) const {
+  if (!is_owner) {
+    // Campaigns matched if there is no owner targeting.
+    return true;
+  }
+
+  return is_owner.value() == is_user_owner_;
+}
+
 bool CampaignsMatcher::MatchSessionTargeting(
     const SessionTargeting& targeting) const {
   if (!targeting.IsValid()) {
@@ -492,7 +589,8 @@ bool CampaignsMatcher::MatchSessionTargeting(
   }
 
   return MatchExperimentTags(targeting.GetExperimentTags()) &&
-         MatchMinorUser(targeting.GetMinorUser());
+         MatchMinorUser(targeting.GetMinorUser()) &&
+         MatchOwner(targeting.GetIsOwner());
 }
 
 bool CampaignsMatcher::MatchRuntimeTargeting(const RuntimeTargeting& targeting,
@@ -502,21 +600,16 @@ bool CampaignsMatcher::MatchRuntimeTargeting(const RuntimeTargeting& targeting,
     return true;
   }
 
-  return MatchSchedulings(targeting.GetSchedulings()) &&
+  return MatchTriggeringType(targeting.GetTriggers()) &&
+         MatchSchedulings(targeting.GetSchedulings()) &&
          MatchOpenedApp(targeting.GetAppsOpened()) &&
          MatchActiveUrlRegexes(targeting.GetActiveUrlRegexes()) &&
          MatchEvents(targeting.GetEventsConfig(), campaign_id);
 }
 
-bool CampaignsMatcher::Matched(const Targetings* targetings,
-                               int campaign_id) const {
-  if (!targetings || targetings->empty()) {
-    return true;
-  }
-
-  // TODO(b/299334282): Implement AND targeting operator when the list contains
-  // more than one targeting.
-  const auto* targeting = targetings->front().GetIfDict();
+bool CampaignsMatcher::Matched(const Targeting* targeting,
+                               int campaign_id,
+                               bool is_prematch) const {
   if (!targeting) {
     // Targeting is invalid. Skip the current campaign.
     LOG(ERROR) << "Invalid targeting.";
@@ -524,10 +617,29 @@ bool CampaignsMatcher::Matched(const Targetings* targetings,
     return false;
   }
 
+  if (is_prematch) {
+    return MaybeMatchDemoModeTargeting(DemoModeTargeting(targeting)) &&
+           MatchDeviceTargeting(DeviceTargeting(targeting));
+  }
+
   return MatchSessionTargeting(SessionTargeting(targeting)) &&
-         MaybeMatchDemoModeTargeting(DemoModeTargeting(targeting)) &&
-         MatchDeviceTargeting(DeviceTargeting(targeting)) &&
          MatchRuntimeTargeting(RuntimeTargeting(targeting), campaign_id);
+}
+
+bool CampaignsMatcher::Matched(const Targetings* targetings,
+                               int campaign_id,
+                               bool is_prematch) const {
+  if (!targetings || targetings->empty()) {
+    return true;
+  }
+
+  for (const auto& targeting : *targetings) {
+    if (Matched(targeting.GetIfDict(), campaign_id, is_prematch)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 }  // namespace growth

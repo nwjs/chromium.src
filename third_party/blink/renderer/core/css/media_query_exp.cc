@@ -158,24 +158,18 @@ static inline bool FeatureWithValidIdent(const String& media_feature,
     }
   }
 
-  if (RuntimeEnabledFeatures::CSSOverflowMediaFeaturesEnabled()) {
-    if (media_feature == media_feature_names::kOverflowInlineMediaFeature) {
-      return ident == CSSValueID::kNone || ident == CSSValueID::kScroll;
-    }
+  if (media_feature == media_feature_names::kOverflowInlineMediaFeature) {
+    return ident == CSSValueID::kNone || ident == CSSValueID::kScroll;
   }
 
-  if (RuntimeEnabledFeatures::CSSOverflowMediaFeaturesEnabled()) {
-    if (media_feature == media_feature_names::kOverflowBlockMediaFeature) {
-      return ident == CSSValueID::kNone || ident == CSSValueID::kScroll ||
-             ident == CSSValueID::kPaged;
-    }
+  if (media_feature == media_feature_names::kOverflowBlockMediaFeature) {
+    return ident == CSSValueID::kNone || ident == CSSValueID::kScroll ||
+           ident == CSSValueID::kPaged;
   }
 
-  if (RuntimeEnabledFeatures::CSSUpdateMediaFeatureEnabled()) {
-    if (media_feature == media_feature_names::kUpdateMediaFeature) {
-      return ident == CSSValueID::kNone || ident == CSSValueID::kFast ||
-             ident == CSSValueID::kSlow;
-    }
+  if (media_feature == media_feature_names::kUpdateMediaFeature) {
+    return ident == CSSValueID::kNone || ident == CSSValueID::kFast ||
+           ident == CSSValueID::kSlow;
   }
 
   if (RuntimeEnabledFeatures::CSSStickyContainerQueriesEnabled()) {

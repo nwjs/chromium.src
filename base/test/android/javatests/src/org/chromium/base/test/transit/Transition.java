@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** A transition into and/or out of {@link ConditionalState}s. */
-public class Transition {
+public abstract class Transition {
     /**
      * A trigger that will be executed to start the transition after all Conditions are in place and
      * states are set to TRANSITIONING_*.
@@ -22,7 +22,7 @@ public class Transition {
     }
 
     protected final TransitionOptions mOptions;
-    @Nullable private final Trigger mTrigger;
+    @Nullable protected final Trigger mTrigger;
 
     Transition(TransitionOptions options, @Nullable Trigger trigger) {
         mOptions = options;
@@ -35,9 +35,27 @@ public class Transition {
                 mTrigger.triggerTransition();
             } catch (Exception e) {
                 throw TravelException.newTravelException(
-                        "Exception thrown by Transition trigger", e);
+                        "Exception thrown by Transition trigger for " + toDebugString(), e);
             }
         }
+    }
+
+    /**
+     * Factory method for TravelException for an error during a {@link Transition}.
+     *
+     * @param cause the root cause
+     * @return a new TravelException instance
+     */
+    public TravelException newTransitionException(Throwable cause) {
+        return TravelException.newTravelException("Did not complete " + toDebugString(), cause);
+    }
+
+    /** Should return a String representation of the Transition for debugging. */
+    public abstract String toDebugString();
+
+    @Override
+    public String toString() {
+        return toDebugString();
     }
 
     protected List<Condition> getTransitionConditions() {
@@ -73,6 +91,7 @@ public class Transition {
         @Nullable List<Condition> mTransitionConditions;
         long mTimeoutMs;
         int mTries = 1;
+        boolean mPossiblyAlreadyFulfilled;
 
         private TransitionOptions() {}
 
@@ -108,6 +127,12 @@ public class Transition {
              */
             public Builder withRetry() {
                 mTries = 2;
+                return this;
+            }
+
+            /** The Transition's Conditions might already be all fulfilled before the Trigger. */
+            public Builder withPossiblyAlreadyFulfilled() {
+                mPossiblyAlreadyFulfilled = true;
                 return this;
             }
         }

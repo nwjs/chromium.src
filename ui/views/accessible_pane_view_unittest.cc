@@ -241,7 +241,7 @@ TEST_F(AccessiblePaneViewTest, PaneFocusTraversal) {
   widget.reset();
 }
 
-// TODO(crbug.com/1314275): Re-enable this test
+// TODO(crbug.com/40832756): Re-enable this test
 #if defined(ADDRESS_SANITIZER) && defined(LEAK_SANITIZER)
 #define MAYBE_DoesntCrashOnEscapeWithRemovedView \
   DISABLED_DoesntCrashOnEscapeWithRemovedView
@@ -285,7 +285,7 @@ TEST_F(AccessiblePaneViewTest, AccessibleProperties) {
   test_view->SetAccessibleName(u"Name");
   test_view->GetViewAccessibility().SetDescription(u"Description");
   EXPECT_EQ(test_view->GetAccessibleName(), u"Name");
-  EXPECT_EQ(test_view->GetViewAccessibility().GetViewAccessibilityDescription(),
+  EXPECT_EQ(test_view->GetViewAccessibility().GetCachedDescription(),
             u"Description");
   EXPECT_EQ(test_view->GetAccessibleRole(), ax::mojom::Role::kPane);
 

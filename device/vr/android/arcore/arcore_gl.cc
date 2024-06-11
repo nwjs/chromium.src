@@ -45,7 +45,7 @@
 #include "ui/gl/init/gl_factory.h"
 
 namespace {
-// TODO(https://crbug.com/1192867): Some pages can hang if we try to wait for
+// TODO(crbug.com/40757470): Some pages can hang if we try to wait for
 // the compositor to acknowledge receipt of a frame before moving it to the
 // "rendering" state of the state machine. However, not doing so could increase
 // the latency of frames under heavy load as we aren't listening to back
@@ -263,7 +263,7 @@ void ArCoreGl::Initialize(
 
   initialized_callback_ = std::move(callback);
 
-  // TODO(https://crbug.com/953503): start using the list to control the
+  // TODO(crbug.com/41453315): start using the list to control the
   // behavior of local and unbounded spaces & send appropriate data back in
   // GetFrameData().
   enabled_features_ = maybe_initialize_result->enabled_features;
@@ -446,7 +446,7 @@ bool ArCoreGl::InitializeGl(gfx::AcceleratedWidget drawing_widget) {
 
   // ARCore provides the camera image as a native GL texture and doesn't support
   // ANGLE, so disable it.
-  // TODO(crbug.com/1170580): support ANGLE with cardboard?
+  // TODO(crbug.com/40744597): support ANGLE with cardboard?
   gl::init::DisableANGLE();
 
   gl::GLDisplay* display = nullptr;
@@ -1031,7 +1031,7 @@ void ArCoreGl::OnReclaimedGpuFenceAvailable(
   // its usage is now appropriately synchronized; however, we have no way of
   // getting the time that the gpu fence triggered, which we need for the
   // rendered frame stats that drive dynamic viewport scaling.
-  // TODO(https://crbug.com/1188302): It appears as though we are actually
+  // TODO(crbug.com/40754792): It appears as though we are actually
   // placing/waiting on this fence after the frame *after* this current frame.
   frame->render_completion_fence = gl::GLFence::CreateForGpuFence();
 
@@ -1090,7 +1090,7 @@ void ArCoreGl::GetRenderedFrameStats(WebXrFrame* frame) {
   // the WritesDone time reported via OnBeginFrame's timing_data instead, but
   // those aren't guaranteed to be available. See also the GPU load
   // estimate in rendering_time_ratio_ which uses a different calculation.
-  // TODO(https://crbug.com/1382589): revisit this calculation?
+  // TODO(crbug.com/40877379): revisit this calculation?
   base::TimeTicks completion_time = now;
   DCHECK(frame->render_completion_fence);
   completion_time = static_cast<gl::GLFenceAndroidNativeFenceSync*>(

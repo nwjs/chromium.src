@@ -119,7 +119,7 @@ void OpenNTPAndBackgroundAndForegroundApp() {
 // an account without history sync.
 - (void)testHistoryOptInPromoUserSignedIn {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity enableSync:NO];
+  [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity enableHistorySync:NO];
   [SigninEarlGrey
       setCanShowHistorySyncOptInsWithoutMinorModeRestrictions:YES
                                                   forIdentity:fakeIdentity];
@@ -139,7 +139,7 @@ void OpenNTPAndBackgroundAndForegroundApp() {
 
 - (void)testHistoryOptInPromoNotShownWhenAlreadyGranted {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
-  [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity enableSync:YES];
+  [SigninEarlGreyUI signinWithFakeIdentity:fakeIdentity enableHistorySync:YES];
   [SigninEarlGrey
       setCanShowHistorySyncOptInsWithoutMinorModeRestrictions:YES
                                                   forIdentity:fakeIdentity];
@@ -195,7 +195,7 @@ void OpenNTPAndBackgroundAndForegroundApp() {
 
 // Tests sign-in promo behavior in landscape. It should appears if and only if
 // the device is an ipad.
-// TODO(crbug.com/1442297): Need to enable this test.
+// TODO(crbug.com/40266894): Need to enable this test.
 - (void)DISABLED_testNoSignInPromoInLandscapeMode {
   [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
                                 error:nil];

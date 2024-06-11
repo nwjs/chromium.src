@@ -115,7 +115,13 @@ DialogExample::DialogExample()
           ui::SimpleComboboxModel::Item(u"Fake Modeless (non-bubbles)"),
       }) {}
 
-DialogExample::~DialogExample() = default;
+DialogExample::~DialogExample() {
+  title_->set_controller(nullptr);
+  body_->set_controller(nullptr);
+  ok_button_label_->set_controller(nullptr);
+  cancel_button_label_->set_controller(nullptr);
+  extra_button_label_->set_controller(nullptr);
+}
 
 void DialogExample::CreateExampleView(View* container) {
   auto* flex_layout =
@@ -320,7 +326,7 @@ void DialogExample::OtherCheckboxPressed() {
   // Buttons other than show and bubble are pressed. They are all checkboxes.
   // Update the dialog if there is one.
   if (last_dialog_) {
-    // TODO(crbug.com/1261666): This can segfault.
+    // TODO(crbug.com/40799020): This can segfault.
     last_dialog_->DialogModelChanged();
     ResizeDialog();
   }

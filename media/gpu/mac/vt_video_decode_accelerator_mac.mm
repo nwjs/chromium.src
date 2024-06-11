@@ -797,7 +797,7 @@ bool VTVideoDecodeAccelerator::ConfigureDecoder() {
     return false;
   }
 
-  // TODO(crbug.com/1103432): We should use
+  // TODO(crbug.com/40139254): We should use
   // VTDecompressionSessionCanAcceptFormatDescription() on |format| here to
   // avoid the configuration change if possible.
 
@@ -1271,7 +1271,7 @@ void VTVideoDecodeAccelerator::DecodeTaskH264(
       data_size += kNALUHeaderLength + pps_nalu.size;
       first_slice_index += 1;
 
-      // Update the configured SPS/SPSext/PPS in case VT referrence to the wrong
+      // Update the configured SPS/SPSext/PPS in case VT reference to the wrong
       // parameter sets.
       configured_sps_ = active_sps_;
       configured_spsext_ = active_spsext_;
@@ -1710,7 +1710,7 @@ void VTVideoDecodeAccelerator::DecodeTaskHEVC(
       data_size += kNALUHeaderLength + pps_nalu.size;
       first_slice_index += 1;
 
-      // Update the configured VPSs/SPSs/PPSs in case VT referrence to the wrong
+      // Update the configured VPSs/SPSs/PPSs in case VT reference to the wrong
       // parameter sets.
       configured_vpss_[active_vps_id].assign(
           active_vps_.data(), active_vps_.data() + active_vps_.size());
@@ -1832,7 +1832,7 @@ void VTVideoDecodeAccelerator::Output(void* source_frame_refcon,
   //
   // Sometimes, for unknown reasons (http://crbug.com/453050), |image_buffer| is
   // NULL, which causes CFGetTypeID() to crash. While the rest of the code would
-  // smoothly handle NULL as a dropped frame, we choose to fail permanantly here
+  // smoothly handle NULL as a dropped frame, we choose to fail permanently here
   // until the issue is better understood.
   if (!image_buffer || CFGetTypeID(image_buffer) != CVPixelBufferGetTypeID()) {
     DLOG(ERROR) << "Decoded frame is not a CVPixelBuffer";
@@ -1975,11 +1975,6 @@ void VTVideoDecodeAccelerator::AssignPictureBuffers(
     assigned_picture_ids_.insert(picture.id());
     available_picture_ids_.push_back(picture.id());
 
-    // PictureBufferManager::CreatePictureBuffers() never creates
-    // PictureBuffer instances with texture IDs on Apple platforms: it does so
-    // only when requested to allocate GL textures, which is neither supported
-    // nor ever requested on these platforms.
-    CHECK_EQ(picture.service_texture_id(), 0u);
     picture_info_map_.insert(
         std::make_pair(picture.id(), std::make_unique<PictureInfo>()));
   }
@@ -2215,14 +2210,9 @@ bool VTVideoDecodeAccelerator::ProcessFrame(const Frame& frame) {
 
     DVLOG(3) << "ProvidePictureBuffers(" << kNumPictureBuffers
              << frame.image_size.ToString() << ")";
-#if BUILDFLAG(IS_MAC)
-    const GLenum texture_target =
-        gpu::GetMacOSSpecificTextureTargetForCurrentGLImplementation();
-#else
-    const GLenum texture_target = GL_TEXTURE_2D;
-#endif
+
     client_->ProvidePictureBuffers(kNumPictureBuffers, picture_format_,
-                                   frame.image_size, texture_target);
+                                   frame.image_size);
     return false;
   }
   return SendFrame(frame);

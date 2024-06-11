@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include <stddef.h>
 
 #include <limits>
@@ -24,7 +29,7 @@
 
 #include "base/allocator/buildflags.h"
 #include "partition_alloc/partition_alloc.h"
-#if BUILDFLAG(USE_ALLOCATOR_SHIM)
+#if PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
 #include "partition_alloc/shim/allocator_shim.h"
 #endif
 
@@ -164,7 +169,7 @@ TEST_F(StackTraceTest, DebugOutputToStreamWithNullPrefix) {
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID)
 // Since Mac's base::debug::StackTrace().Print() is not malloc-free, skip
 // StackDumpSignalHandlerIsMallocFree if BUILDFLAG(IS_MAC).
-#if BUILDFLAG(USE_ALLOCATOR_SHIM) && !BUILDFLAG(IS_MAC)
+#if PA_BUILDFLAG(USE_ALLOCATOR_SHIM) && !BUILDFLAG(IS_MAC)
 
 namespace {
 
@@ -247,7 +252,7 @@ TEST_F(StackTraceDeathTest, StackDumpSignalHandlerIsMallocFree) {
       }(),
       "\\[end of stack trace\\]\n");
 }
-#endif  // BUILDFLAG(USE_ALLOCATOR_SHIM)
+#endif  // PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
 
 namespace {
 
@@ -413,7 +418,7 @@ TEST_F(StackTraceTest, MAYBE_TraceStackFramePointers) {
 // This is expected because we're walking and reading the stack, and
 // sometimes we read fp / pc from the place that previously held
 // uninitialized value.
-// TODO(crbug.com/1132511): Enable this test on Fuchsia.
+// TODO(crbug.com/40150655): Enable this test on Fuchsia.
 #if defined(MEMORY_SANITIZER) || BUILDFLAG(IS_FUCHSIA)
 #define MAYBE_TraceStackFramePointersFromBuffer \
   DISABLED_TraceStackFramePointersFromBuffer

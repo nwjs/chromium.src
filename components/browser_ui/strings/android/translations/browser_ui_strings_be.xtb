@@ -31,7 +31,6 @@
 <translation id="1620510694547887537">Камера</translation>
 <translation id="1633720957382884102">Звязаныя сайты</translation>
 <translation id="1644574205037202324">Гісторыя</translation>
-<translation id="1647582022260550163">Вы ўпэўненыя, што хочаце скінуць дазволы, выдаліць файлы cookie і іншыя даныя сайта?</translation>
 <translation id="1652197001188145583">Калі гэты параметр уключаны, сайты могуць запытваць дазвол на выкарыстанне прылад NFC. Калі параметр выключаны, сайты не могуць выкарыстоўваць такія прылады.</translation>
 <translation id="1660204651932907780">Дазволіць сайтам прайграваць гук (рэкамендуецца)</translation>
 <translation id="1677097821151855053">Файлы cookie і іншыя даныя сайта выкарыстоўваюцца, каб запомніць вас (напрыклад, калі вы ўваходзіце ва ўліковы запіс) або для персаналізацыі змесціва. Каб кіраваць файламі cookie для ўсіх сайтаў, перайдзіце ў <ph name="BEGIN_LINK" />Налады<ph name="END_LINK" />.</translation>
@@ -69,7 +68,6 @@
 <translation id="2241587408274973373">Карткі старонкі новай укладкі</translation>
 <translation id="2241634353105152135">Толькі адзін раз</translation>
 <translation id="2253414712144136228">Выдаліць: <ph name="NAME_OF_LIST_ITEM" /></translation>
-<translation id="2253989982043948086">{NUM_SELECTED,plural, =1{Файлы cookie заблакіраваны на 1 сайце}one{Файлы cookie заблакіраваны на # сайце}few{Файлы cookie заблакіраваны на # сайтах}many{Файлы cookie заблакіраваны на # сайтах}other{Файлы cookie заблакіраваны на # сайта}}</translation>
 <translation id="228293613124499805">Большасць сайтаў, якія вы наведваеце, хутчэй за ўсё, захоўваюць на вашай прыладзе такія даныя, як звесткі пра параметры, якія вы выбіраеце, або інфармацыя, якую вы абагулілі з сайтам. Часцей за ўсё гэта робіцца, каб вам было зручней працаваць з сайтам. Мы рэкамендуем пакінуць гэту наладу ўключанай.</translation>
 <translation id="2289270750774289114">Пытацца, калі сайт спрабуе выявіць прылады Bluetooth паблізу (рэкамендуецца)</translation>
 <translation id="2315043854645842844">Аперацыйная сістэма не падтрымлівае выбар сертыфіката кліента.</translation>
@@ -123,7 +121,6 @@
 <translation id="3008272652534848354">Скінуць дазволы</translation>
 <translation id="301521992641321250">Заблакіравана аўтаматычна</translation>
 <translation id="3069226013421428034">Дазволіць уваход праз староннія сэрвісы для канкрэтнага сайта.</translation>
-<translation id="3082992102194421695">{COUNT,plural, =1{Тэрмін дзеяння заканчваецца заўтра}one{Тэрмін дзеяння заканчваецца праз # дзень}few{Тэрмін дзеяння заканчваецца праз # дні}many{Тэрмін дзеяння заканчваецца праз # дзён}other{Тэрмін дзеяння заканчваецца праз # дня}}</translation>
 <translation id="310297983047869047">Папярэдні слайд</translation>
 <translation id="3109724472072898302">Згорнута</translation>
 <translation id="3114012059975132928">Відэапрайгравальнік</translation>
@@ -135,6 +132,7 @@
 <translation id="3198916472715691905">Аб'ём захаваных даных: <ph name="STORAGE_AMOUNT" /></translation>
 <translation id="321187648315454507">Каб праграма "<ph name="APP_NAME" />" магла адпраўляць вам апавяшчэнні, таксама ўключыце іх у <ph name="BEGIN_LINK" />Наладах Android<ph name="END_LINK" />.</translation>
 <translation id="3227137524299004712">Мікрафон</translation>
+<translation id="3232293466644486101">Выдаліць даныя пра работу ў браўзеры…</translation>
 <translation id="3242646949159196181">Калі гэты параметр уключаны, сайты могуць прайграваць гук. Калі параметр выключаны, сайты не могуць гэтага рабіць.</translation>
 <translation id="3277252321222022663">Дазволіць сайтам доступ да датчыкаў (рэкамендуецца)</translation>
 <translation id="3285500645985761267">Дазволіць звязаным сайтам доступ да звестак пра вашы дзеянні ў групе</translation>
@@ -198,6 +196,7 @@
 <translation id="4278390842282768270">Дазволена</translation>
 <translation id="429312253194641664">Сайт прайграе мультымедыя</translation>
 <translation id="42981349822642051">Разгарнуць</translation>
+<translation id="4336219115486912529">{COUNT,plural, =1{Тэрмін дзеяння заканчваецца заўтра}one{Тэрмін дзеяння закончыцца праз # дзень}few{Тэрмін дзеяння закончыцца праз # дні}many{Тэрмін дзеяння закончыцца праз # дзён}other{Тэрмін дзеяння закончыцца праз # дня}}</translation>
 <translation id="4336566011000459927">Сягоння Chrome зноў абмяжуе выкарыстанне файлаў cookie</translation>
 <translation id="4336836404251800362"><ph name="RECENCY" /> <ph name="SEPARATOR" /> Ваша апошняя ўкладка</translation>
 <translation id="4338831206024587507">Усе сайты дамена <ph name="DOMAIN" /></translation>
@@ -305,9 +304,11 @@
 <translation id="6015775454662021376">Кіруйце доступам гэтага сайта да вашай прылады</translation>
 <translation id="6040143037577758943">Закрыць</translation>
 <translation id="6042308850641462728">Яшчэ</translation>
+<translation id="6060464773477604108"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> Ваша апошняя ўкладка</translation>
 <translation id="6064125863973209585">Завершаныя спампоўкі</translation>
 <translation id="6071501408666570960">Вы выйдзеце з уліковага запісу на гэтым сайце</translation>
 <translation id="6120483543004435978">Калі гэты параметр уключаны, сайты могуць запытваць звесткі пра тое, калі вы актыўна карыстаецеся прыладай. Калі параметр выключаны, сайты не могуць атрымліваць доступ да такіх звестак.</translation>
+<translation id="6140839633433422817">Сапраўды скінуць дазволы, выдаліць файлы cookie і іншыя даныя сайта?</translation>
 <translation id="6165508094623778733">Даведацца больш</translation>
 <translation id="6171020522141473435">Калі гэты параметр уключаны, сайты могуць запытваць дазвол на выкарыстанне прылад з Bluetooth. Калі параметр выключаны, сайты не могуць выкарыстоўваць такія прылады.</translation>
 <translation id="6177111841848151710">Заблакіравана для бягучай пошукавай сістэмы</translation>
@@ -341,6 +342,7 @@
 <translation id="6545864417968258051">Пошук прылад Bluetooth</translation>
 <translation id="6552800053856095716">{PERMISSIONS_SUMMARY_BLOCKED,plural, =1{Заблакіраваны <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> і яшчэ <ph name="NUM_MORE" />}one{Заблакіраваны <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> і яшчэ <ph name="NUM_MORE" />}few{Заблакіраваны <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> і яшчэ <ph name="NUM_MORE" />}many{Заблакіраваны <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> і яшчэ <ph name="NUM_MORE" />}other{Заблакіраваны <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" /> і яшчэ <ph name="NUM_MORE" />}}</translation>
 <translation id="6554732001434021288">Апошняе наведванне: <ph name="NUM_DAYS" /> сут таму</translation>
+<translation id="656065428026159829">Яшчэ</translation>
 <translation id="6561560012278703671">Забараніць сайтам адцягваць вашу ўвагу запытамі дазволу на паказ апавяшчэнняў. Паказваць замест іх індыкатар блакіроўкі ў адрасным радку</translation>
 <translation id="6593061639179217415">Версія для ПК</translation>
 <translation id="6608650720463149374"><ph name="GIGABYTES" /> ГБ</translation>
@@ -401,7 +403,6 @@
 <translation id="7561196759112975576">Заўсёды</translation>
 <translation id="757524316907819857">Блакіраваць прайграванне абароненага змесціва на сайтах</translation>
 <translation id="7594634374516752650">Вэб-сайт падключаны да прылады з Bluetooth</translation>
-<translation id="7641339528570811325">Выдаліць даныя пра работу ў браўзеры…</translation>
 <translation id="7649070708921625228">Даведка</translation>
 <translation id="7658239707568436148">Скасаваць</translation>
 <translation id="7667547420449112975">Чараўнік краіны Оз</translation>
@@ -425,6 +426,7 @@
 <translation id="7986741934819883144">Выберыце кантакт</translation>
 <translation id="7990211076305263060">Калі гэты параметр уключаны, сайты могуць запытваць дазвол на выкарыстанне мікрафона. Калі параметр выключаны, сайты не могуць выкарыстоўваць мікрафон.</translation>
 <translation id="8007176423574883786">Выключана для гэтай прылады</translation>
+<translation id="8009579582995973057"><ph name="HOST_NAME" /> <ph name="SEPARATOR1" /> <ph name="RECENCY" /> <ph name="SEPARATOR2" /> Крыніца: <ph name="FROM_DEVICE" /></translation>
 <translation id="802154636333426148">Збой спампоўкі</translation>
 <translation id="8042586301629853791">Сартаваць па:</translation>
 <translation id="8067883171444229417">Прайграць відэа</translation>
@@ -479,7 +481,6 @@
 <translation id="8721719390026067591">Калі гэты параметр уключаны, сайты могуць запытваць дазвол на пошук прылад з Bluetooth. Калі параметр выключаны, сайты не могуць шукаць такія прылады.</translation>
 <translation id="8725066075913043281">Паўтарыць спробу</translation>
 <translation id="8730621377337864115">Гатова</translation>
-<translation id="8736193154595564524">{NUM_SELECTED,plural, =1{Файлы cookie дазволены на 1 сайце}one{Файлы cookie дазволены на # сайце}few{Файлы cookie дазволены на # сайтах}many{Файлы cookie дазволены на # сайтах}other{Файлы cookie дазволены на # сайта}}</translation>
 <translation id="8751914237388039244">Выберыце відарыс</translation>
 <translation id="8800034312320686233">Сайт не працуе?</translation>
 <translation id="8801436777607969138">Блакіраванне JavaScript для канкрэтнага сайта.</translation>

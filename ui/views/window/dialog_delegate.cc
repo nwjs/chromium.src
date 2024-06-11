@@ -21,6 +21,7 @@
 #include "ui/gfx/color_palette.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/bubble/bubble_border.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/buildflags.h"
 #include "ui/views/layout/layout_provider.h"
@@ -149,6 +150,15 @@ Widget::InitParams DialogDelegate::GetDialogWidgetInitParams(
   if (dialog && dialog->widget_owns_native_widget_) {
     params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   }
+
+  if (BubbleDialogDelegate* bubble = delegate->AsBubbleDialogDelegate()) {
+    // TODO(crbug.com/41493925): Remove this CHECK once native frame dialogs
+    // support autosize.
+    CHECK(!bubble->is_autosized() || bubble->use_custom_frame())
+        << "Autosizing native frame dialogs is not supported.";
+    params.autosize = bubble->is_autosized();
+  }
+
   return params;
 }
 
@@ -370,7 +380,7 @@ views::View* DialogDelegate::GetFootnoteViewForTesting() const {
   // CreateDialogFrameView above always uses BubbleFrameView. There are
   // subclasses that override CreateDialogFrameView, but none of them override
   // it to create anything other than a BubbleFrameView.
-  // TODO(https://crbug.com/1011446): Make CreateDialogFrameView final, then
+  // TODO(crbug.com/40101916): Make CreateDialogFrameView final, then
   // remove this DCHECK.
   DCHECK(IsViewClass<BubbleFrameView>(frame));
   return static_cast<BubbleFrameView*>(frame)->GetFootnoteView();
@@ -514,7 +524,7 @@ ax::mojom::Role DialogDelegate::GetAccessibleWindowRole() {
 
 int DialogDelegate::GetCornerRadius() const {
 #if BUILDFLAG(IS_MAC)
-  // TODO(crbug.com/1116680): On Mac MODAL_TYPE_WINDOW is implemented using
+  // TODO(crbug.com/40144839): On Mac MODAL_TYPE_WINDOW is implemented using
   // sheets which causes visual artifacts when corner radius is increased for
   // modal types. Remove this after this issue has been addressed.
   if (GetModalType() == ui::MODAL_TYPE_WINDOW)

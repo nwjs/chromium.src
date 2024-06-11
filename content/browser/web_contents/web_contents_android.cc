@@ -5,6 +5,7 @@
 #include "content/browser/web_contents/web_contents_android.h"
 
 #include <stdint.h>
+
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -24,6 +25,7 @@
 #include "content/browser/android/java/gin_java_bridge_dispatcher_host.h"
 #include "content/browser/media/media_web_contents_observer.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
+#include "content/browser/renderer_host/view_transition_opt_in_state.h"
 #include "content/browser/web_contents/view_structure_builder_android.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view_android.h"
@@ -454,14 +456,7 @@ RenderWidgetHostViewAndroid*
 }
 
 jint WebContentsAndroid::GetBackgroundColor(JNIEnv* env) {
-  RenderWidgetHostViewAndroid* rwhva = GetRenderWidgetHostViewAndroid();
-
-  // Return transparent as an indicator that the web content background color
-  // is not specified, and a default background color will be used on the Java
-  // side.
-  if (!rwhva || !rwhva->GetCachedBackgroundColor())
-    return SK_ColorTRANSPARENT;
-  return *rwhva->GetCachedBackgroundColor();
+  return web_contents_->GetBackgroundColor().value_or(SK_ColorTRANSPARENT);
 }
 
 ScopedJavaLocalRef<jobject> WebContentsAndroid::GetLastCommittedURL(
@@ -662,6 +657,14 @@ void WebContentsAndroid::PostMessageToMainFrame(
 jboolean WebContentsAndroid::HasAccessedInitialDocument(JNIEnv* env) {
   return static_cast<WebContentsImpl*>(web_contents_)->
       HasAccessedInitialDocument();
+}
+
+jboolean WebContentsAndroid::HasViewTransitionOptIn(JNIEnv* env) {
+  auto* opt_in_state = ViewTransitionOptInState::GetForCurrentDocument(
+      web_contents_->GetPrimaryMainFrame());
+  return opt_in_state &&
+         opt_in_state->same_origin_opt_in() ==
+             blink::mojom::ViewTransitionSameOriginOptIn::kEnabled;
 }
 
 jint WebContentsAndroid::GetThemeColor(JNIEnv* env) {

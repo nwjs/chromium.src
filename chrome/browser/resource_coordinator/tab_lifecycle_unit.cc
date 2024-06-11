@@ -118,6 +118,8 @@ StateChangeReason DiscardReasonToStateChangeReason(
       return StateChangeReason::SYSTEM_MEMORY_PRESSURE;
     case LifecycleUnitDiscardReason::PROACTIVE:
       return StateChangeReason::BROWSER_INITIATED;
+    case LifecycleUnitDiscardReason::SUGGESTED:
+      return StateChangeReason::BROWSER_INITIATED;
   }
 }
 
@@ -551,7 +553,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
   null_contents->SetWasDiscarded(true);
 
   std::unique_ptr<content::WebContents> old_contents_deleter =
-      tab_strip_model_->ReplaceWebContentsAt(index, std::move(null_contents));
+      tab_strip_model_->DiscardWebContentsAt(index, std::move(null_contents));
   DCHECK_EQ(web_contents(), raw_null_contents);
 
   // Discard the old tab's renderer.

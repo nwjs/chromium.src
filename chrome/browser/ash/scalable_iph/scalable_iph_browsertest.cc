@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chromeos/ash/components/scalable_iph/scalable_iph.h"
+
 #include <string_view>
 
-#include "ash/constants/app_types.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/game_dashboard/game_dashboard_controller.h"
@@ -51,7 +52,6 @@
 #include "chromeos/ash/components/phonehub/fake_feature_status_provider.h"
 #include "chromeos/ash/components/phonehub/feature_status.h"
 #include "chromeos/ash/components/scalable_iph/iph_session.h"
-#include "chromeos/ash/components/scalable_iph/scalable_iph.h"
 #include "chromeos/ash/components/scalable_iph/scalable_iph_constants.h"
 #include "chromeos/ash/components/scalable_iph/scalable_iph_delegate.h"
 #include "chromeos/dbus/power/fake_power_manager_client.h"
@@ -951,7 +951,7 @@ IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTest, OnSuspendDoneWithLockScreen) {
   testing::Mock::VerifyAndClearExpectations(mock_tracker());
 }
 
-// TODO(crbug.com/1491942): This fails with the field trial testing config.
+// TODO(crbug.com/40285326): This fails with the field trial testing config.
 class ScalableIphBrowserTestNoTestingConfig : public ScalableIphBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -1188,7 +1188,7 @@ IN_PROC_BROWSER_TEST_F(ScalableIphBrowserTestPreinstallApps,
       NotifyEvent(scalable_iph::kEventNameAppListItemActivationYouTube));
   app_list_client_impl->ActivateItem(
       /*profile_id=*/0, web_app::kYoutubeAppId, /*event_flags=*/0,
-      ash::AppListLaunchedFrom::kLaunchedFromGrid);
+      ash::AppListLaunchedFrom::kLaunchedFromGrid, /*is_above_the_fold=*/true);
 }
 
 // TODO(crbug.com/328713274): Test is flaky.

@@ -90,7 +90,6 @@ void BrowserAutofillManagerTestDelegateImpl::SetIgnoreBackToBackMessages(
 }
 
 void BrowserAutofillManagerTestDelegateImpl::FireEvent(ObservedUiEvents event) {
-  DCHECK(event_waiter_);
   if (event_waiter_ && (!ignore_back_to_back_event_types_.contains(event) ||
                         last_event_ != event)) {
     event_waiter_->OnEvent(event);
@@ -138,7 +137,7 @@ void AutofillUiTest::SetUpOnMainThread() {
       ChromeAutofillClient::FromWebContentsForTesting(GetWebContents());
 
   // Make autofill popup stay open by ignoring external changes when possible.
-  client->KeepPopupOpenForTesting();
+  client->SetKeepPopupOpenForTesting(true);
 
   // Inject the test delegate into the BrowserAutofillManager of the main frame.
   RenderFrameHostChanged(
@@ -149,7 +148,7 @@ void AutofillUiTest::SetUpOnMainThread() {
   // Refills normally only happen if the form changes within 1 second of the
   // initial fill. On a slow bot, this may lead to flakiness. We hence set a
   // very high limit.
-  test_api(*GetBrowserAutofillManager())
+  test_api(test_api(*GetBrowserAutofillManager()).form_filler())
       .set_limit_before_refill(base::Hours(1));
   autofill_driver_factory_observation_.Observe(
       client->GetAutofillDriverFactory());
@@ -173,7 +172,8 @@ void AutofillUiTest::TearDownOnMainThread() {
   // Make sure to close any showing popups prior to tearing down the UI.
   BrowserAutofillManager* autofill_manager = GetBrowserAutofillManager();
   if (autofill_manager)
-    autofill_manager->client().HideAutofillPopup(PopupHidingReason::kTabGone);
+    autofill_manager->client().HideAutofillSuggestions(
+        SuggestionHidingReason::kTabGone);
   current_main_rfh_ = nullptr;
   InProcessBrowserTest::TearDownOnMainThread();
 }
@@ -324,7 +324,9 @@ void AutofillUiTest::OnContentAutofillDriverCreated(
   // Refills normally only happen if the form changes within 1 second of the
   // initial fill. On a slow bot, this may lead to flakiness. We hence set a
   // very high limit.
-  test_api(static_cast<BrowserAutofillManager&>(driver.GetAutofillManager()))
+  test_api(test_api(static_cast<BrowserAutofillManager&>(
+                        driver.GetAutofillManager()))
+               .form_filler())
       .set_limit_before_refill(base::Hours(1));
 }
 

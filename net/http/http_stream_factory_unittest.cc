@@ -654,6 +654,31 @@ TEST_F(HttpStreamFactoryTest, PreconnectUnsafePort) {
   EXPECT_EQ(-1, transport_conn_pool->last_num_streams());
 }
 
+// Verify that preconnects to invalid GURLs do nothing, and do not CHECK.
+TEST_F(HttpStreamFactoryTest, PreconnectInvalidUrls) {
+  SpdySessionDependencies session_deps(
+      ConfiguredProxyResolutionService::CreateDirect());
+  std::unique_ptr<HttpNetworkSession> session(
+      SpdySessionDependencies::SpdyCreateSession(&session_deps));
+  HttpNetworkSessionPeer peer(session.get());
+  CommonConnectJobParams common_connect_job_params =
+      session->CreateCommonConnectJobParams();
+  std::unique_ptr<CapturePreconnectsTransportSocketPool>
+      owned_transport_conn_pool =
+          std::make_unique<CapturePreconnectsTransportSocketPool>(
+              &common_connect_job_params);
+  CapturePreconnectsTransportSocketPool* transport_conn_pool =
+      owned_transport_conn_pool.get();
+  auto mock_pool_manager = std::make_unique<MockClientSocketPoolManager>();
+  mock_pool_manager->SetSocketPool(ProxyChain::Direct(),
+                                   std::move(owned_transport_conn_pool));
+  peer.SetClientSocketPoolManager(std::move(mock_pool_manager));
+
+  PreconnectHelperForURL(1, GURL(), NetworkAnonymizationKey(),
+                         SecureDnsPolicy::kAllow, session.get());
+  EXPECT_EQ(-1, transport_conn_pool->last_num_streams());
+}
+
 // Verify that preconnects use the specified NetworkAnonymizationKey.
 TEST_F(HttpStreamFactoryTest, PreconnectNetworkIsolationKey) {
   base::test::ScopedFeatureList feature_list;
@@ -2470,7 +2495,7 @@ TEST_P(HttpStreamFactoryBidirectionalQuicTest,
   // QuicTestPacketMaker::MakeRequestHeadersPacket() does not add mock
   // PRIORITY_UPDATE frame, which BidirectionalStreamQuicImpl currently does not
   // send.
-  // TODO(https://crbug.com/1059250): Implement PRIORITY_UPDATE in
+  // TODO(crbug.com/40678380): Implement PRIORITY_UPDATE in
   // BidirectionalStreamQuicImpl.
   spdy::SpdyPriority priority =
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
@@ -2561,7 +2586,7 @@ TEST_P(HttpStreamFactoryBidirectionalQuicTest,
   // QuicTestPacketMaker::MakeRequestHeadersPacket() does not add mock
   // PRIORITY_UPDATE frame, which BidirectionalStreamQuicImpl currently does not
   // send.
-  // TODO(https://crbug.com/1059250): Implement PRIORITY_UPDATE in
+  // TODO(crbug.com/40678380): Implement PRIORITY_UPDATE in
   // BidirectionalStreamQuicImpl.
   spdy::SpdyPriority priority =
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);

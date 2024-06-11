@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <string>
 #include <vector>
 
 #include "third_party/dawn/include/dawn/dawn_proc_table.h"
@@ -181,6 +182,10 @@ using ChromeMLScoreTSFn = std::function<void(const std::vector<float>&)>;
 // thread executing the model.
 using ChromeMLContextSavedFn = std::function<void(int)>;
 
+// Called with the number of tokens after a call to SizeInTokens().
+// This will be called on the internal thread executing the model.
+using ChromeMLSizeInTokensFn = std::function<void(int)>;
+
 // Conveys details regarding a completed model execution.
 struct ChromeMLExecutionResult {
   // If true, all prior output received for this model execution is effectively
@@ -311,7 +316,18 @@ struct ChromeMLAPI {
 
   // Returns the GpuConfig in `config`. Returns true on success, false if there
   // was an error calculating it.
+  // Deprecated: Use QueryGPUAdapter insteed.
   bool (*GetGpuConfig)(GpuConfig& config);
+
+  // Query the GPU adapter used.
+  // Synchronously calls `adapter_callback_fn` with a non-owning pointer to the
+  // adapter. Returns false if there was an error getting an adapter at all; the
+  // callback is not called. It is not safe to save reference to this adapter as
+  // it is allocated in another dll. Use of the adapter must only be scoped to
+  // the duration of `adapter_callback_fn`.
+  bool (*QueryGPUAdapter)(void (*adapter_callback_fn)(WGPUAdapter adapter,
+                                                      void* userdata),
+                          void* userdata);
 
   // Same as SetFatalErrorFn(), but for fatal errors that occur outside of the
   // gpu.
@@ -321,6 +337,11 @@ struct ChromeMLAPI {
   bool (*CreateAdaptation)(ChromeMLModel model,
                            const ChromeMLAdaptationDescriptor* descriptor,
                            uint32_t& id);
+
+  // Get the size of the given text in tokens.
+  void (*SizeInTokens)(ChromeMLModel model,
+                       const std::string& text,
+                       const ChromeMLSizeInTokensFn& fn);
 };
 
 // Signature of the GetChromeMLAPI() function which the shared library exports.

@@ -210,6 +210,12 @@ class CORE_EXPORT ScriptPromiseResolverBase
     return true;
   }
 
+  void OverrideScriptStateToCurrentContext() {
+    v8::Isolate* isolate = script_state_->GetIsolate();
+    CHECK(isolate->InContext());
+    script_state_ = ScriptState::ForCurrentRealm(isolate);
+  }
+
   void NotifyResolveOrReject();
   void ResolveOrRejectImmediately();
   void ScheduleResolveOrReject();
@@ -217,7 +223,7 @@ class CORE_EXPORT ScriptPromiseResolverBase
 
   TraceWrapperV8Reference<v8::Promise::Resolver> resolver_;
   ResolutionState state_;
-  const Member<ScriptState> script_state_;
+  Member<ScriptState> script_state_;
   TraceWrapperV8Reference<v8::Value> value_;
   const ExceptionContext exception_context_;
   String script_url_;
@@ -256,6 +262,18 @@ class ScriptPromiseResolver final : public ScriptPromiseResolverBase {
     ResolveOrReject<IDLResolvedType, BlinkType>(value);
   }
 
+  // This Resolve() variant completely ignores the ScriptState given in the
+  // constructor and resolves in the current context. This is not the default
+  // behavior and should only be used if a WPT needs it.
+  template <typename BlinkType>
+  void ResolveOverridingToCurrentContext(BlinkType value) {
+    if (!PrepareToResolveOrReject<kResolving>()) {
+      return;
+    }
+    OverrideScriptStateToCurrentContext();
+    ResolveOrReject<IDLResolvedType, BlinkType>(value);
+  }
+
   // This Resolve() method allows a Promise expecting to be resolved with a
   // union type to be resolved with any type of that union without the caller
   // needing to explicitly construct a union object.
@@ -280,16 +298,21 @@ class ScriptPromiseResolver final : public ScriptPromiseResolverBase {
         ToV8UndefinedGenerator());
   }
 
-  ScriptPromise<IDLResolvedType> Promise() {
+  // TODO(japhet): Exposing the underlying v8::Promise is a perf workaround
+  // for internal usage only. Ideally we'd use ScriptPromise everywhere.
+  v8::Local<v8::Promise> V8Promise() {
 #if DCHECK_IS_ON()
     is_promise_called_ = true;
 #endif
     // `resolver_` should only be empty if `Detach()` was invoked. The promise
     // should not be accessed after 'Detach()`.
     CHECK(!resolver_.IsEmpty());
-    return ScriptPromise<IDLResolvedType>(
-        script_state_,
-        resolver_.Get(script_state_->GetIsolate())->GetPromise());
+    return resolver_.Get(script_state_->GetIsolate())->GetPromise();
+  }
+
+  ScriptPromise<IDLResolvedType> Promise() {
+    return ScriptPromise<IDLResolvedType>(script_state_->GetIsolate(),
+                                          V8Promise());
   }
 
   // Returns a callback that will run |callback| with the Entry realm

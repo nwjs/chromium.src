@@ -566,7 +566,7 @@ class PolicyTemplateChecker(object):
       return
 
     policy_type_legacy = policy.get('type')
-    # TODO(crbug.com/1310258): Remove this check once 'type' is removed from
+    # TODO(crbug.com/40830265): Remove this check once 'type' is removed from
     # policy_templates.
     if policy_type != policy_type_legacy:
       self._PolicyError(
@@ -881,6 +881,7 @@ class PolicyTemplateChecker(object):
           'default_for_managed_devices_doc_only',
           'default_policy_level',
           'arc_support',
+          'generate_device_proto',
       ):
         self._PolicyError(f'Unknown key: {key}', policy, key)
 
@@ -916,6 +917,9 @@ class PolicyTemplateChecker(object):
     # If 'arc_support' is present, it must be a string.
     self._CheckContains(policy, 'arc_support', str, True)
 
+    # If 'generate_device_proto' is present, it must be a bool.
+    self._CheckContains(policy, 'generate_device_proto', bool, True)
+
     if policy_type == 'group':
       # Each policy group must have a list of policies.
       policies = self._CheckContains(policy, 'policies', list)
@@ -942,7 +946,7 @@ class PolicyTemplateChecker(object):
       self._CheckContains(policy, 'tags', list)
 
       # 'schema' is the new 'type'.
-      # TODO(crbug.com/1310258): remove 'type' from policy_templates and
+      # TODO(crbug.com/40830265): remove 'type' from policy_templates and
       # all supporting files (including this one), and exclusively use 'schema'.
       self._CheckPolicySchema(policy, policy_type, schemas_by_id)
 
@@ -1061,6 +1065,13 @@ class PolicyTemplateChecker(object):
             '"per_profile" attribute is set with device_only=True', policy,
             'features')
 
+      # 'generate_device_proto' can only be present on 'device_only' policies.
+      if (not policy.get('device_only', False)
+          and 'generate_device_proto' in policy):
+        self._PolicyError(
+            'generate_device_proto must only be set on a policy that is '
+            'device_only')
+
       # If 'device only' policy is on, 'default_for_enterprise_users' shouldn't
       # exist.
       if (policy.get('device_only', False) and
@@ -1154,6 +1165,13 @@ class PolicyTemplateChecker(object):
                                           optional=True,
                                           container_name='features')
 
+      # 'user_only' feature must be an optional boolean flag.
+      user_only = self._CheckContains(features,
+                                      'user_only',
+                                      bool,
+                                      optional=True,
+                                      container_name='features')
+
       # 'private' feature must be an optional boolean flag.
       is_unlisted = self._CheckContains(features,
                                         'unlisted',
@@ -1176,6 +1194,14 @@ class PolicyTemplateChecker(object):
         self._PolicyError(
             '"cloud_only" and "platfrom_only" are true at the same time.',
             policy, 'features')
+
+      if user_only and not cloud_only:
+        self._PolicyError('"user_only" is used by non cloud only policy.',
+                          policy, 'features')
+
+      if user_only and not features.get('per_profile', False):
+        self._PolicyError('"user_only" is used by non per_profile policy.',
+                          policy, 'features')
 
       if is_unlisted and not cloud_only:
         self._PolicyError('"unlisted" is used by non cloud only policy.',

@@ -17,7 +17,12 @@
 #include "content/public/browser/federated_identity_api_permission_context_delegate.h"
 #include "content/public/browser/federated_identity_auto_reauthn_permission_context_delegate.h"
 #include "content/public/browser/federated_identity_permission_context_delegate.h"
+#include "net/base/schemeful_site.h"
 #include "url/gurl.h"
+
+namespace url {
+class Origin;
+}
 
 namespace content {
 
@@ -55,9 +60,9 @@ class ShellFederatedPermissionContext
       const url::Origin& relying_party_embedder) override;
   void RemoveEmbargoForAutoReauthn(
       const url::Origin& relying_party_embedder) override;
-  void SetRequiresUserMediation(const GURL& rp_url,
+  void SetRequiresUserMediation(const url::Origin& rp_origin,
                                 bool requires_user_mediation) override;
-  bool RequiresUserMediation(const GURL& rp_url) override;
+  bool RequiresUserMediation(const url::Origin& rp_origin) override;
 
   // FederatedIdentityPermissionContextDelegate
   void AddIdpSigninStatusObserver(IdpSigninStatusObserver* observer) override;
@@ -91,6 +96,8 @@ class ShellFederatedPermissionContext
   void RegisterIdP(const ::GURL&) override;
   void UnregisterIdP(const ::GURL&) override;
   std::vector<GURL> GetRegisteredIdPs() override;
+  void OnSetRequiresUserMediation(const url::Origin& relying_party,
+                                  base::OnceClosure callback) override;
 
   void SetIdpStatusClosureForTesting(base::RepeatingClosure closure) {
     idp_signin_status_closure_ = std::move(closure);
@@ -123,8 +130,8 @@ class ShellFederatedPermissionContext
   // to the set when the user dismisses the FedCM UI.
   std::set<url::Origin> embargoed_origins_;
 
-  // A set of urls that require user mediation.
-  std::set<GURL> require_user_mediation_sites_;
+  // A set of sites that require user mediation.
+  std::set<net::SchemefulSite> require_user_mediation_sites_;
 };
 
 }  // namespace content

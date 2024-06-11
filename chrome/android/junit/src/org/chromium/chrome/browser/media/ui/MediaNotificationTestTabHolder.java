@@ -57,6 +57,8 @@ public class MediaNotificationTestTabHolder {
 
         MediaSessionHelper.sOverriddenMediaSession = mMediaSession;
         mMediaSessionTabHelper = new MediaSessionTabHelper(mTab);
+        mMediaSessionTabHelper.mMediaSessionHelper.mWebContentsObserver.mediaSessionCreated(
+                mMediaSession);
         mMediaSessionTabHelper.mMediaSessionHelper.mLargeIconBridge = new TestLargeIconBridge();
 
         simulateNavigation(url, false);
@@ -125,7 +127,8 @@ public class MediaNotificationTestTabHolder {
                 /* errorCode= */ 0,
                 /* httpStatusCode= */ 200,
                 /* isExternalProtocol= */ false,
-                /* isPdf= */ false);
+                /* isPdf= */ false,
+                /* mimeType= */ "");
         mMediaSessionTabHelper.mMediaSessionHelper.mWebContentsObserver
                 .didFinishNavigationInPrimaryMainFrame(navigation);
     }

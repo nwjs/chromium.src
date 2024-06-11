@@ -81,7 +81,7 @@ BASE_FEATURE(kUseAdHocSigningForWebAppShims,
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+    BUILDFLAG(IS_CHROMEOS)
 // Enables or disables the Autofill survey triggered by opening a prompt to
 // save address info.
 BASE_FEATURE(kAutofillAddressSurvey,
@@ -245,13 +245,6 @@ BASE_FEATURE(kPreinstalledWebAppInstallation,
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-// An experiment for making preinstalled apps open in a window by default.
-BASE_FEATURE(kPreinstalledWebAppWindowExperiment,
-             "PreinstalledWebAppWindowExperiment",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS)
 // If enabled, specified extensions cannot be closed via the task manager.
 BASE_FEATURE(kDesktopTaskManagerEndProcessDisabledForExtension,
              "DesktopTaskManagerEndProcessDisabledForExtension",
@@ -274,12 +267,6 @@ BASE_FEATURE(kControlledFrame,
              "ControlledFrame",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When installing default installed PWAs, we wait for service workers
-// to cache resources.
-BASE_FEATURE(kDesktopPWAsCacheDuringDefaultInstall,
-             "DesktopPWAsCacheDuringDefaultInstall",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Moves the Extensions "puzzle piece" icon from the title bar into the app menu
 // for web app windows.
 BASE_FEATURE(kDesktopPWAsElidedExtensionsMenu,
@@ -290,11 +277,6 @@ BASE_FEATURE(kDesktopPWAsElidedExtensionsMenu,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-
-// Whether to parse and enforce the WebAppSettings policy.
-BASE_FEATURE(kDesktopPWAsEnforceWebAppSettingsPolicy,
-             "DesktopPWAsEnforceWebAppSettingsPolicy",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables Desktop PWAs to be auto-started on OS login.
 BASE_FEATURE(kDesktopPWAsRunOnOsLogin,
@@ -333,13 +315,16 @@ const base::FeatureParam<int> kLinkCapturingIPHGuardrailStorageDuration{
     &kDesktopPWAsLinkCapturing, "link_capturing_guardrail_storage_duration",
     kTotalDaysToStoreLinkCapturingIPHGuardrails};
 
+BASE_FEATURE(kDesktopPWAsLinkCapturingWithScopeExtensions,
+             "DesktopPWAsLinkCapturingWithScopeExtensions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Adds a user settings that allows PWAs to be opened with a tab strip.
 BASE_FEATURE(kDesktopPWAsTabStripSettings,
              "DesktopPWAsTabStripSettings",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_FUCHSIA)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Controls whether Chrome Apps are supported. See https://crbug.com/1221251.
 // If the feature is disabled, Chrome Apps continue to work. If enabled, Chrome
 // Apps will not launch and will be marked in the UI as deprecated.
@@ -349,8 +334,7 @@ BASE_FEATURE(kChromeAppsDeprecation,
 BASE_FEATURE(kShortcutsNotApps,
              "ShortcutsNotApps",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
-        // BUILDFLAG(IS_FUCHSIA)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 // Enables notification permission revocation for origins that may send
 // disruptive notifications.
@@ -403,13 +387,6 @@ BASE_FEATURE(kEnableWebHidOnExtensionServiceWorker,
 BASE_FEATURE(kEnableWebUsbOnExtensionServiceWorker,
              "EnableWebUsbOnExtensionServiceWorker",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// When enabled, resource requests on certain pages will be evaluated against
-// the Fingerprinting Protection blocklist and possibly blocked via a
-// subresource filter.
-BASE_FEATURE(kEnableFingerprintingProtectionBlocklist,
-             "EnableFingerprintingProtectionBlockList",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
 // Lazy initialize IndividualSettings for extensions from enterprise policy
@@ -704,6 +681,11 @@ BASE_FEATURE(kHappinessTrackingSystemArcGames,
 BASE_FEATURE(kHappinessTrackingSystemAudio,
              "HappinessTrackingAudio",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables or disables the Happiness Tracking System for Audio Output
+// Processing.
+BASE_FEATURE(kHappinessTrackingSystemAudioOutputProc,
+             "HappinessTrackingAudioOutputProc",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables or disables the Happiness Tracking System for Bluetooth Audio survey.
 BASE_FEATURE(kHappinessTrackingSystemBluetoothAudio,
              "HappinessTrackingBluetoothAudio",
@@ -827,16 +809,11 @@ BASE_FEATURE(kIncompatibleApplicationsWarning,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-// When enabled, users will see updated UI in Incognito NTP
-BASE_FEATURE(kIncognitoNtpRevamp,
-             "IncognitoNtpRevamp",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 #if BUILDFLAG(IS_CHROMEOS)
 // Enables automatic updates of Isolated Web Apps.
 BASE_FEATURE(kIsolatedWebAppAutomaticUpdates,
              "IsolatedWebAppAutomaticUpdates",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Enables Isolated Web App Developer Mode, which allows developers to
@@ -1065,6 +1042,12 @@ BASE_FEATURE(kPrerenderFallbackToPreconnect,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_CHROMEOS)
+// Enable the ChromeOS print preview to be opened instead of the browser print
+// preview.
+BASE_FEATURE(kPrintPreviewCrosPrimary,
+             "PrintPreviewCrosPrimary",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable improved printer state and error state messaging for Print Preview.
 BASE_FEATURE(kPrintPreviewSetupAssistance,
              "PrintPreviewSetupAssistance",
@@ -1118,6 +1101,11 @@ BASE_FEATURE(kSafetyCheckExtensions,
 BASE_FEATURE(kSafetyHubExtensionsUwSTrigger,
              "SafetyHubExtensionsUwSTrigger",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables extensions that do not display proper privacy practices in the
+// Safety Hub Extension Reivew Panel.
+BASE_FEATURE(kSafetyHubExtensionsNoPrivacyPracticesTrigger,
+             "SafetyHubExtensionsNoPrivacyPracticesTrigger",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables offstore extensions to be shown in the Safety Hub Extension
 // review panel.
 BASE_FEATURE(kSafetyHubExtensionsOffStoreTrigger,
@@ -1126,11 +1114,11 @@ BASE_FEATURE(kSafetyHubExtensionsOffStoreTrigger,
 #endif
 
 // Enables Safety Hub feature.
-BASE_FEATURE(kSafetyHub, "SafetyHub", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSafetyHub, "SafetyHub", base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Time between automated runs of the password check.
 const base::FeatureParam<base::TimeDelta> kBackgroundPasswordCheckInterval{
-    &kSafetyHub, "background-password-check-interval", base::Days(10)};
+    &kSafetyHub, "background-password-check-interval", base::Days(30)};
 
 // When the password check didn't run at its scheduled time (e.g. client was
 // offline) it will be scheduled to run within this time frame. Changing the
@@ -1432,7 +1420,7 @@ const base::FeatureParam<base::TimeDelta>
         &kTrustSafetySentimentSurveyV2, "min-session-time", base::Seconds(30)};
 // The feature area probabilities for each feature area considered as part of
 // the Trust & Safety sentiment survey.
-// TODO(crbug.com/1382134): Calculate initial probabilities and remove 0.0
+// TODO(crbug.com/40245476): Calculate initial probabilities and remove 0.0
 const base::FeatureParam<double>
     kTrustSafetySentimentSurveyV2BrowsingDataProbability{
         &kTrustSafetySentimentSurveyV2, "browsing-data-probability", 0.0};
@@ -1557,10 +1545,6 @@ BASE_FEATURE(kWebAppManifestIconUpdating,
              "WebAppManifestIconUpdating",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebAppManifestImmediateUpdating,
-             "WebAppManifestImmediateUpdating",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kWebAppSyncGeneratedIconBackgroundFix,
              "WebAppSyncGeneratedIconBackgroundFix",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1575,7 +1559,12 @@ BASE_FEATURE(kWebAppSyncGeneratedIconUpdateFix,
 
 BASE_FEATURE(kWebAppUniversalInstall,
              "WebAppUniversalInstall",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_CHROMEOS)
+);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kWebAppManifestPolicyAppIdentityUpdate,
@@ -1595,7 +1584,7 @@ BASE_FEATURE(kWebKioskEnableIwaApis,
 // Allow capturing of WebRTC event logs, and uploading of those logs to Crash.
 // Please note that a Chrome policy must also be set, for this to have effect.
 // Effectively, this is a kill-switch for the feature.
-// TODO(crbug.com/775415): Remove this kill-switch.
+// TODO(crbug.com/40545136): Remove this kill-switch.
 BASE_FEATURE(kWebRtcRemoteEventLog,
              "WebRtcRemoteEventLog",
              base::FEATURE_ENABLED_BY_DEFAULT);

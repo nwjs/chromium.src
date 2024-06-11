@@ -489,7 +489,7 @@ const HttpResponseInfo* HttpCache::Transaction::GetResponseInfo() const {
         << "These must be in sync via SetResponse and SetAuthResponse.";
     return &auth_response_;
   }
-  // TODO(https://crbug.com/1219402): This should check in `response_`
+  // TODO(crbug.com/40772202): This should check in `response_`
   return &response_;
 }
 
@@ -1197,12 +1197,24 @@ int HttpCache::Transaction::DoOpenOrCreateEntry() {
     // Record this as CantConditionalize, but otherwise proceed as we would
     // below --- as we've already dropped the old entry.
     couldnt_conditionalize_request_ = true;
-    validation_cause_ = VALIDATION_CAUSE_ZERO_FRESHNESS;
     UpdateCacheEntryStatus(CacheEntryStatus::ENTRY_CANT_CONDITIONALIZE);
   }
 
   if (!has_opened_or_created_entry) {
     record_entry_open_or_creation_time_ = true;
+  }
+
+  if (base::FeatureList::IsEnabled(features::kAvoidEntryCreationForNoStore)) {
+    // TODO(http://crbug.com/331123686): There is no reason to make partial
+    // requests exempt but for now some tests fail if we don't. Once the bug
+    // is fixed and understood it will be possible to remove this line.
+    if (!partial_) {
+      if (cache_->DidKeyLeadToNoStoreResponse(cache_key_)) {
+        // The request is probably not suitable for caching and is there is
+        // nothing to open.
+        return net::ERR_CACHE_ENTRY_NOT_SUITABLE;
+      }
+    }
   }
 
   // mode_ can be anything but NONE or WRITE at this point (READ, UPDATE, or
@@ -1276,16 +1288,8 @@ int HttpCache::Transaction::DoOpenOrCreateEntryComplete(int result) {
     return OK;
   }
 
-  // No need to explicitly handle ERR_CACHE_ENTRY_NOT_SUITABLE as the
-  // ShouldOpenOnlyMethods() check will handle it.
-
-  if (mode_ & WRITE) {
-    // We were unable to open or create an entry.
-    DLOG(WARNING) << "Unable to open or create cache entry";
-  }
-
-  if (ShouldOpenOnlyMethods()) {
-    // These methods, on failure, should bypass the cache.
+  if (ShouldOpenOnlyMethods() || result == net::ERR_CACHE_ENTRY_NOT_SUITABLE) {
+    // Bypassing the cache.
     mode_ = NONE;
     TransitionToState(STATE_SEND_REQUEST);
     return OK;
@@ -1531,7 +1535,7 @@ int HttpCache::Transaction::DoAddToEntryComplete(int result) {
     return OK;
   }
 
-  // TODO(crbug.com/713354) Access timestamp for histograms only if entry is
+  // TODO(crbug.com/40516423) Access timestamp for histograms only if entry is
   // already written, to avoid data race since cache thread can also access
   // this.
   if (entry_ && !entry_->IsWritingInProgress()) {
@@ -1629,9 +1633,9 @@ int HttpCache::Transaction::DoCacheReadResponseComplete(int result) {
     return OnCacheReadError(result, true);
   }
 
-  // TODO(crbug.com/713354) Only get data size if there is no other transaction
-  // currently writing the response body due to the data race mentioned in the
-  // associated bug.
+  // TODO(crbug.com/40516423) Only get data size if there is no other
+  // transaction currently writing the response body due to the data race
+  // mentioned in the associated bug.
   if (!entry_->IsWritingInProgress()) {
     int current_size = entry_->GetEntry()->GetDataSize(kResponseContentIndex);
     int64_t full_response_length = response_.headers->GetContentLength();
@@ -2073,7 +2077,7 @@ int HttpCache::Transaction::DoUpdateCachedResponse() {
   // Update the data with the new/updated request headers.
   response_.vary_data.Init(*request_, *response_.headers);
 
-  if (ShouldDisableCaching(*response_.headers)) {
+  if (UpdateAndReportCacheability(*response_.headers)) {
     if (!entry_->IsDoomed()) {
       int ret = cache_->DoomEntry(cache_key_, nullptr);
       DCHECK_EQ(OK, ret);
@@ -2289,7 +2293,7 @@ int HttpCache::Transaction::DoHeadersPhaseCannotProceed(int result) {
   new_entry_.reset();
   last_disk_cache_access_start_time_ = TimeTicks();
 
-  // TODO(https://crbug.com/1219402): This should probably clear `response_`,
+  // TODO(crbug.com/40772202): This should probably clear `response_`,
   // too, once things are fixed so it's safe to do so.
 
   // Bypass the cache for timeout scenario.
@@ -2314,7 +2318,7 @@ int HttpCache::Transaction::DoFinishHeaders(int result) {
   // If it was an auth failure, this transaction should continue to be
   // headers_transaction till consumer takes an action, so no need to do
   // anything now.
-  // TODO(crbug.com/740947). See the issue for a suggestion for cleaning the
+  // TODO(crbug.com/40529460). See the issue for a suggestion for cleaning the
   // state machine to be able to remove this condition.
   if (auth_response_.headers.get()) {
     return OK;
@@ -2940,7 +2944,6 @@ ValidationType HttpCache::Transaction::RequiresValidation() {
       !response_.vary_data.MatchesRequest(*request_,
                                           *response_.headers.get())) {
     vary_mismatch_ = true;
-    validation_cause_ = VALIDATION_CAUSE_VARY_MISMATCH;
     return VALIDATION_SYNCHRONOUS;
   }
 
@@ -2979,18 +2982,7 @@ ValidationType HttpCache::Transaction::RequiresValidation() {
   }
 
   if (validate_flag) {
-    validation_cause_ = VALIDATION_CAUSE_VALIDATE_FLAG;
     return VALIDATION_SYNCHRONOUS;
-  }
-
-  if (validation_required_by_headers != VALIDATION_NONE) {
-    HttpResponseHeaders::FreshnessLifetimes lifetimes =
-        response_.headers->GetFreshnessLifetimes(response_.response_time);
-    if (lifetimes.freshness == base::TimeDelta()) {
-      validation_cause_ = VALIDATION_CAUSE_ZERO_FRESHNESS;
-    } else {
-      validation_cause_ = VALIDATION_CAUSE_STALE;
-    }
   }
 
   if (validation_required_by_headers == VALIDATION_ASYNCHRONOUS) {
@@ -3439,7 +3431,7 @@ int HttpCache::Transaction::WriteResponseInfoToEntry(
   // errors) and no SSL blocking page is shown.  An alternative would be to
   // reverse-map the cert status to a net error and replay the net error.
   if (IsCertStatusError(response.ssl_info.cert_status) ||
-      ShouldDisableCaching(*response.headers)) {
+      UpdateAndReportCacheability(*response.headers)) {
     if (partial_) {
       partial_->FixResponseHeaders(response_.headers.get(), true);
     }
@@ -4000,10 +3992,13 @@ void HttpCache::Transaction::TransitionToState(State state) {
   next_state_ = state;
 }
 
-bool HttpCache::Transaction::ShouldDisableCaching(
-    const HttpResponseHeaders& headers) const {
+bool HttpCache::Transaction::UpdateAndReportCacheability(
+    const HttpResponseHeaders& headers) {
   // Do not cache no-store content.
   if (headers.HasHeaderValue("cache-control", "no-store")) {
+    if (base::FeatureList::IsEnabled(features::kAvoidEntryCreationForNoStore)) {
+      cache_->MarkKeyNoStore(cache_key_);
+    }
     return true;
   }
 

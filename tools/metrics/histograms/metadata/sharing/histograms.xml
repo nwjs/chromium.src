@@ -30,7 +30,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="SharedHighlights.AndroidShareSheet.SharedState"
-    enum="LinkGenerationSharedStatus" expires_after="2024-07-28">
+    enum="LinkGenerationSharedStatus" expires_after="2024-10-20">
   <owner>sebsg@chromium.org</owner>
   <owner>jeffreycohen@chromium.org</owner>
   <owner>chrome-shared-highlighting@google.com</owner>
@@ -172,6 +172,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Sharing.AndroidPageSummary.SheetEvents"
+    enum="PageSummarySheetEvents" expires_after="2024-06-30">
+  <owner>salg@google.com</owner>
+  <owner>ssid@google.com</owner>
+  <summary>
+    Records ocurrences of various UI events related to the page summary sharing
+    sheet (open sheet, dismiss sheet, send feedback, etc.). Recorded based on
+    user actions (See enum definitions for more details).
+  </summary>
+</histogram>
+
 <histogram name="Sharing.AnyShareStarted" enum="ShareSourceAndroid"
     expires_after="never">
   <owner>dimich@chromium.org</owner>
@@ -268,7 +279,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sharing.MessageReceivedType" enum="SharingMessageType"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>mvanouwerkerk@chromium.org</owner>
   <owner>peter@chromium.org</owner>
   <summary>
@@ -461,6 +472,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Sharing.SharingHubAndroid.CustomAction"
+    enum="ShareCustomAction" expires_after="2024-10-22">
+  <owner>wenyufu@chromium.org</owner>
+  <owner>src/chrome/browser/share/OWNERS</owner>
+  <summary>
+    Records the custom action when the user clicked one on the share sheet.
+    Recorded for both Chrome's sharing hub and Android's share sheet on U+.
+  </summary>
+</histogram>
+
 <histogram name="Sharing.SharingHubAndroid.Opened" enum="ShareOrigin"
     expires_after="2024-09-29">
   <owner>wenyufu@chromium.org</owner>
@@ -483,6 +504,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Sharing.SharingHubAndroid.TimeToCustomAction" units="ms"
+    expires_after="2024-10-22">
+  <owner>wenyufu@chromium.org</owner>
+  <owner>src/chrome/browser/share/OWNERS</owner>
+  <summary>
+    Records the amount of time taken for the user to select a custom action
+    after initiating a share. Can record multiple times if the custom action
+    redirect the user back to the share sheet, but each time only record the
+    duration between share sheet shown until user click an action. Recorded for
+    both Chrome's sharing hub and Android's share sheet on U+.
+  </summary>
+</histogram>
+
 <histogram name="Sharing.SharingHubAndroid.TimeToShare" units="ms"
     expires_after="2024-09-29">
   <owner>wenyufu@chromium.org</owner>
@@ -495,7 +529,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sharing.SharingHubAndroid.TimeToShowShareSheet" units="ms"
-    expires_after="2024-07-08">
+    expires_after="2024-10-20">
   <owner>wenyufu@chromium.org</owner>
   <owner>sophey@chromium.org</owner>
   <owner>src/chrome/browser/share/OWNERS</owner>

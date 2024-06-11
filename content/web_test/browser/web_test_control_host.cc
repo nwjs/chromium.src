@@ -597,7 +597,7 @@ void WebTestControlHost::PrepareForWebTest(const TestInfo& test_info) {
     // This forces SetSize() not to early return which would otherwise happen
     // when we set the size to |window_size| which is the same as its current
     // size. See http://crbug.com/1011191 for more details.
-    // TODO(crbug.com/309760): This resize to half-size could go away if
+    // TODO(crbug.com/41067256): This resize to half-size could go away if
     // testRunner.useUnfortunateSynchronousResizeMode() goes away.
     main_window_->web_contents()->GetRenderWidgetHostView()->DisableAutoResize(
         gfx::Size());
@@ -1022,7 +1022,7 @@ bool WebTestControlHost::IsMainWindow(WebContents* web_contents) const {
 std::unique_ptr<BluetoothChooser> WebTestControlHost::RunBluetoothChooser(
     RenderFrameHost* frame,
     const BluetoothChooser::EventHandler& event_handler) {
-  // TODO(https://crbug.com/509038): Remove |bluetooth_chooser_factory_| once
+  // TODO(crbug.com/40426301): Remove |bluetooth_chooser_factory_| once
   // all of the Web Bluetooth tests are migrated to external/wpt/.
   if (bluetooth_chooser_factory_) {
     return bluetooth_chooser_factory_->RunBluetoothChooser(frame,
@@ -1686,9 +1686,11 @@ void WebTestControlHost::ClearAllDatabases() {
   scoped_refptr<storage::DatabaseTracker> db_tracker =
       base::WrapRefCounted(storage_partition->GetDatabaseTracker());
 
-  base::SequencedTaskRunner* task_runner = db_tracker->task_runner();
-  task_runner->PostTask(FROM_HERE, base::BindOnce(run_on_database_sequence,
-                                                  std::move(db_tracker)));
+  if (db_tracker) {
+    base::SequencedTaskRunner* task_runner = db_tracker->task_runner();
+    task_runner->PostTask(FROM_HERE, base::BindOnce(run_on_database_sequence,
+                                                    std::move(db_tracker)));
+  }
 }
 
 void WebTestControlHost::SimulateWebNotificationClick(

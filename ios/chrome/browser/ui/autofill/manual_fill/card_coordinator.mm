@@ -7,6 +7,7 @@
 #import "base/memory/raw_ptr.h"
 #import "base/memory/ref_counted.h"
 #import "components/autofill/core/browser/data_model/credit_card.h"
+#import "components/autofill/core/browser/payments_data_manager.h"
 #import "components/autofill/core/browser/personal_data_manager.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/personal_data_manager_observer_bridge.h"
@@ -20,8 +21,6 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_navigation_controller.h"
-#import "ios/chrome/browser/ui/autofill/bottom_sheet/bottom_sheet_link_coordinator.h"
-#import "ios/chrome/browser/ui/autofill/bottom_sheet/bottom_sheet_link_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/card_list_delegate.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/card_view_controller.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_card_mediator.h"
@@ -85,7 +84,7 @@
     _personalDataManager->AddObserver(_personalDataManagerObserver.get());
 
     std::vector<autofill::CreditCard*> cards =
-        _personalDataManager->GetCreditCards();
+        _personalDataManager->payments_data_manager().GetCreditCards();
 
     _cardMediator = [[ManualFillCardMediator alloc] initWithCards:cards];
     _cardMediator.navigationDelegate = self;
@@ -161,7 +160,7 @@
 
 - (void)onPersonalDataChanged {
   std::vector<autofill::CreditCard*> cards =
-      _personalDataManager->GetCreditCardsToSuggest();
+      _personalDataManager->payments_data_manager().GetCreditCardsToSuggest();
 
   [self.cardMediator reloadWithCards:cards];
 }

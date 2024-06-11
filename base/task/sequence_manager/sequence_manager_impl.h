@@ -171,7 +171,9 @@ class BASE_EXPORT SequenceManagerImpl
   void AttachToMessagePump();
 #endif
   bool IsIdleForTesting() override;
-  void EnableMessagePumpTimeKeeperMetrics(const char* thread_name);
+  void EnableMessagePumpTimeKeeperMetrics(
+      const char* thread_name,
+      bool wall_time_based_metrics_enabled_for_testing = false);
 
   // Requests that a task to process work is scheduled.
   void ScheduleWork();
@@ -185,7 +187,7 @@ class BASE_EXPORT SequenceManagerImpl
   void UnregisterTaskQueueImpl(
       std::unique_ptr<internal::TaskQueueImpl> task_queue);
 
-  scoped_refptr<const AssociatedThreadId> associated_thread() const {
+  scoped_refptr<AssociatedThreadId> associated_thread() const {
     return associated_thread_;
   }
 
@@ -308,8 +310,7 @@ class BASE_EXPORT SequenceManagerImpl
 
     internal::TaskQueueSelector selector;
     ObserverList<TaskObserver>::UncheckedAndDanglingUntriaged task_observers;
-    ObserverList<TaskTimeObserver>::UncheckedAndDanglingUntriaged
-        task_time_observers;
+    ObserverList<TaskTimeObserver> task_time_observers;
     const raw_ptr<const base::TickClock> default_clock;
     raw_ptr<TimeDomain> time_domain = nullptr;
 

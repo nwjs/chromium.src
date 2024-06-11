@@ -58,14 +58,7 @@ const base::FeatureParam<bool> kUseLowPower{
 
 const base::FeatureParam<bool> kAllowFp16{
     &optimization_guide::features::kOptimizationGuideOnDeviceModel,
-    "on_device_model_allow_fp16",
-// TODO(b/333406033): Fix Linux fp16 issues.
-#if BUILDFLAG(IS_LINUX)
-    false
-#else
-    true
-#endif
-};
+    "on_device_model_allow_fp16", true};
 
 // Helper to bind object methods as weak task-posting callback functions.
 template <typename R, typename C, typename... Args>
@@ -353,6 +346,27 @@ class SessionImpl : public on_device_model::OnDeviceModel::Session {
 
   void ClearContext() override { clear_context_ = true; }
 
+  DISABLE_CFI_DLSYM
+  void SizeInTokens(const std::string& text,
+                    base::OnceCallback<void(uint32_t)> callback) override {
+    if (!chrome_ml_->api().SizeInTokens) {
+      std::move(callback).Run(0);
+      return;
+    }
+
+    auto shared_callback = std::make_shared<base::OnceCallback<void(uint32_t)>>(
+        std::move(callback));
+    auto fn = [shared_callback = shared_callback,
+               task_runner =
+                   base::SequencedTaskRunner::GetCurrentDefault()](int result) {
+      if (!shared_callback->is_null()) {
+        task_runner->PostTask(
+            FROM_HERE, base::BindOnce(std::move(*shared_callback), result));
+      }
+    };
+    chrome_ml_->api().SizeInTokens(model_, text, fn);
+  }
+
  private:
   void RemoveContext(ContextHolder* context) {
     std::erase_if(context_holders_, base::MatchesUniquePtr(context));
@@ -461,17 +475,9 @@ base::expected<uint32_t, LoadModelResult> OnDeviceModelExecutor::LoadAdaptation(
   }
 
   on_device_model::AdaptationAssets assets = std::move(params->assets);
-  auto model_proto = std::make_unique<base::MemoryMappedFile>();
-  if (!assets.model.IsValid() ||
-      !model_proto->Initialize(std::move(assets.model))) {
-    LOG(ERROR) << "Unable to load model";
-    return base::unexpected(LoadModelResult::kFailedToLoadLibrary);
-  }
 
   uint32_t id;
-  const ChromeMLModelData data = {
-      .model_proto_data = model_proto->data(),
-      .model_proto_size = model_proto->length(),
+  ChromeMLModelData data = {
       .weights_file = assets.weights.TakePlatformFile(),
   };
   ChromeMLAdaptationDescriptor descriptor = {
@@ -480,7 +486,6 @@ base::expected<uint32_t, LoadModelResult> OnDeviceModelExecutor::LoadAdaptation(
   if (!chrome_ml_->api().CreateAdaptation(model_, &descriptor, id)) {
     return base::unexpected(LoadModelResult::kFailedToLoadLibrary);
   }
-  adaptation_data_.push_back(std::move(model_proto));
   return base::ok(id);
 }
 
@@ -491,21 +496,6 @@ LoadModelResult OnDeviceModelExecutor::Init(
     return LoadModelResult::kGpuBlocked;
   }
   on_device_model::ModelAssets assets = std::move(params->assets);
-  if (assets.sp_model.IsValid()) {
-    sentencepiece_model_proto_ = std::make_unique<base::MemoryMappedFile>();
-    if (!sentencepiece_model_proto_->Initialize(std::move(assets.sp_model))) {
-      LOG(ERROR) << "Unable to load sentencepiece model";
-      return LoadModelResult::kFailedToLoadLibrary;
-    }
-  }
-
-  if (assets.model.IsValid()) {
-    model_proto_ = std::make_unique<base::MemoryMappedFile>();
-    if (!model_proto_->Initialize(std::move(assets.model))) {
-      LOG(ERROR) << "Unable to load model";
-      return LoadModelResult::kFailedToLoadLibrary;
-    }
-  }
 
   if (assets.ts_data.IsValid()) {
     if (!ts_data_.Initialize(std::move(assets.ts_data)) ||
@@ -527,18 +517,9 @@ LoadModelResult OnDeviceModelExecutor::Init(
 
   max_tokens_ = std::max(params->max_tokens, kReserveTokensForSafety);
 
-  auto model_proto_dispose =
-      CreateWeakCallbackFn(&OnDeviceModelExecutor::DisposeModelProto, this);
   ChromeMLModelData data = {
       .weights_file = assets.weights.TakePlatformFile(),
   };
-  if (model_proto_) {
-    data.model_proto_data = model_proto_->data();
-    data.model_proto_size = model_proto_->length();
-    data.model_proto_dispose = &model_proto_dispose;
-  }
-  auto sentencepiece_model_proto_dispose =
-      CreateWeakCallbackFn(&OnDeviceModelExecutor::DisposeSentencepiece, this);
   ChromeMLModelDescriptor descriptor = {
       .model_data = &data,
       .max_tokens = max_tokens_,
@@ -552,14 +533,6 @@ LoadModelResult OnDeviceModelExecutor::Init(
       .use_low_power = kUseLowPower.Get(),
       .allow_fp16 = kAllowFp16.Get(),
   };
-  if (sentencepiece_model_proto_) {
-    descriptor.sentencepiece_model_proto_data =
-        sentencepiece_model_proto_->data();
-    descriptor.sentencepiece_model_proto_size =
-        sentencepiece_model_proto_->length();
-    descriptor.sentencepiece_model_proto_dispose =
-        &sentencepiece_model_proto_dispose;
-  }
   if (ts_data_.IsValid()) {
     CHECK(ts_sp_model_.IsValid());
     descriptor.ts_data = ts_data_.data();
@@ -572,14 +545,6 @@ LoadModelResult OnDeviceModelExecutor::Init(
                                          OnDeviceModelExecutor::Schedule);
   return (model_ != 0) ? LoadModelResult::kSuccess
                        : LoadModelResult::kFailedToLoadLibrary;
-}
-
-void OnDeviceModelExecutor::DisposeSentencepiece() {
-  sentencepiece_model_proto_ = nullptr;
-}
-
-void OnDeviceModelExecutor::DisposeModelProto() {
-  model_proto_ = nullptr;
 }
 
 // static

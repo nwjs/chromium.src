@@ -32,6 +32,7 @@
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/messaging_layer/upload/record_upload_request_builder.h"
+#include "chrome/browser/policy/messaging_layer/util/upload_declarations.h"
 #include "chrome/browser/policy/messaging_layer/util/upload_response_parser.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
@@ -49,6 +50,10 @@ namespace reporting {
 
 namespace {
 
+// UMA that reflects whether events were processed by the server (true/false).
+constexpr char kUmaRecordProcessedByServer[] =
+    "Browser.ERP.RecordProcessedByServer";
+
 // UMA that reflects events upload count: samples number of times a single event
 // is sent to the server. Per-event count is incremented every time an event is
 // sent, and the metrics sample is recorded once the event is confirmed by the
@@ -57,6 +62,16 @@ namespace {
 // since it may be reset in rare cases uploader memory usage reaches its limit -
 // tracked by Browser.ERP.UploadMemoryUsagePercent metrics.
 constexpr char kEventsUploadCount[] = "Browser.ERP.EventsUploadCount";
+
+// UMA that reflects cached events count: samples number of times a single event
+// is received and placed in cache. Per-event count is incremented every time an
+// event is added/replaced in the cache, and the metrics sample is recorded once
+// the event is confirmed by the server (and thus won't be accepted for upload
+// anymore). Expected to be 1 for the majority of the events, although small
+// number of re-uploads is allowed. This counter is inexact, since it may be
+// reset in rare cases uploader memory usage reaches its limit - tracked by
+// Browser.ERP.UploadMemoryUsagePercent metrics.
+constexpr char kCachedEventsCount[] = "Browser.ERP.CachedEventsCount";
 
 // Returns `true` if HTTP response code indicates an irrecoverable error.
 bool IsIrrecoverableError(int response_code) {
@@ -164,8 +179,14 @@ struct UploadState {
   // UMA is expected to see counter of 1 for the majority of events.
   base::flat_map<int64_t /*sequence_id*/, size_t> upload_counters;
 
+  // Cached events counters per sequence id. Incremented every time an event is
+  // received for upload and added to cache; sampled in UMA and removed from map
+  // once the event is confirmed or if the state is reset.
+  // UMA is expected to see counter of 1 for the majority of events.
+  base::flat_map<int64_t /*sequence_id*/, size_t> cached_counters;
+
   // Highest sequence id that has been successfully sent to server
-  // (but not confirmed, so it remains in `cached_records_`). Events until
+  // (but not confirmed, so it remains in `cached_records`). Events until
   // `last_sequence_id` (inclusive) are not sent to the server.
   // `last_sequence_id` is reset upon upload job completion (if successful,
   // to the last confirmed event, otherwise to -1.
@@ -213,10 +234,23 @@ void RemoveConfirmedEventsFromCache(UploadState* state) {
     if (const auto it =
             state->upload_counters.find(state->cached_records.begin()->first);
         it != state->upload_counters.end()) {
-      base::UmaHistogramCustomCounts(kEventsUploadCount, /*sample=*/it->second,
+      const auto event_upload_count = it->second;
+      base::UmaHistogramCustomCounts(kEventsUploadCount,
+                                     /*sample=*/event_upload_count,
                                      /*min=*/1, /*exclusive_max=*/20,
                                      /*buckets=*/20);
       state->upload_counters.erase(it);
+    }
+    // Sample incoming counter.
+    if (const auto it =
+            state->cached_counters.find(state->cached_records.begin()->first);
+        it != state->cached_counters.end()) {
+      const auto event_cached_count = it->second;
+      base::UmaHistogramCustomCounts(kCachedEventsCount,
+                                     /*sample=*/event_cached_count,
+                                     /*min=*/1, /*exclusive_max=*/20,
+                                     /*buckets=*/20);
+      state->cached_counters.erase(it);
     }
     // Remove record from cache.
     state->cached_records.erase(state->cached_records.begin());
@@ -227,6 +261,26 @@ void RemoveConfirmedEventsFromCache(UploadState* state) {
     records_memory += record.ByteSizeLong();
   }
   state->scoped_reservation.Reduce(records_memory);
+}
+
+// Posts upload records count UMA.
+void LogNumRecordsInUpload(uint64_t num_records) {
+#if BUILDFLAG(IS_CHROMEOS)
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (policy::ManagementServiceFactory::GetForPlatform()
+          ->HasManagementAuthority(
+              policy::EnterpriseManagementAuthority::CLOUD_DOMAIN)) {
+    // This is a managed device, so log the upload as such.
+    base::UmaHistogramCounts1000(
+        "Browser.ERP.RecordsPerUploadFromManagedDevice", num_records);
+  } else {
+    base::UmaHistogramCounts1000(
+        "Browser.ERP.RecordsPerUploadFromUnmanagedDevice", num_records);
+  }
+#else
+  base::UmaHistogramCounts1000(
+      "Browser.ERP.RecordsPerUploadFromNonChromeosDevice", num_records);
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 // Builds uploading payload.
@@ -273,6 +327,11 @@ void BuildPayload(
   // Assign random UUID as the request id for server side log correlation
   const auto request_id = base::Token::CreateRandom().ToString();
   request_builder.SetRequestId(request_id);
+  // Log size of non-empty upload. Key-request uploads have no records.
+  if (events_to_send > 0u) {
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, base::BindOnce(&LogNumRecordsInUpload, events_to_send));
+  }
   // Build payload and create job.
   std::move(create_job_cb)
       .Run(request_builder.Build(), std::move(scoped_reservation),
@@ -432,13 +491,14 @@ void EncryptedReportingClient::UploadReport(
     int config_file_version,
     std::vector<EncryptedRecord> records,
     ScopedReservation scoped_reservation,
+    UploadEnqueuedCallback enqueued_cb,
     ResponseCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   Priority priority = Priority::UNDEFINED_PRIORITY;
   int64_t generation_id = -1L;
   if (!records.empty()) {
-    const auto& last_sequence_info = records.crbegin()->sequence_information();
+    const auto& last_sequence_info = records.front().sequence_information();
     priority = last_sequence_info.priority();
     generation_id = last_sequence_info.generation_id();
   }
@@ -453,14 +513,26 @@ void EncryptedReportingClient::UploadReport(
       record.Clear();
       continue;
     }
-    if (record.sequence_information().sequencing_id() <=
-        state->last_sequence_id) {
+    const int64_t seq_id = record.sequence_information().sequencing_id();
+    if (seq_id <= state->last_sequence_id) {
       // Record has already been uploaded.
       record.Clear();
       continue;
     }
-    const auto [it, success] = state->cached_records.insert(std::make_pair(
-        record.sequence_information().sequencing_id(), std::move(record)));
+    // Insert new record or replace the one cached before, either replacing the
+    // event with identical one, or with a gap record (in rare cases when the
+    // record triggered a permanent error by server). Since the gap replacement
+    // is rare, we do not account for the possible memory decrease.
+    const auto [it, success] =
+        state->cached_records.insert_or_assign(seq_id, std::move(record));
+    // Set or increment cached counter of the event.
+    {
+      const auto [counter_it, counter_inserted] =
+          state->cached_counters.try_emplace(seq_id, 1u);
+      if (!counter_inserted) {
+        ++(counter_it->second);
+      }
+    }
     if (!success) {
       // `record` is already in cache, skip it.
       continue;
@@ -475,6 +547,13 @@ void EncryptedReportingClient::UploadReport(
     // Something has been added to cache.
     state->scoped_reservation.HandOver(scoped_reservation);
   }
+
+  // Notify about cache state.
+  std::list<int64_t> cached_records_seq_ids;
+  for (const auto& [seq_id, _] : state->cached_records) {
+    cached_records_seq_ids.push_back(seq_id);
+  }
+  std::move(enqueued_cb).Run(std::move(cached_records_seq_ids));
 
   // Determine whether we can upload or need a delay, based on the cached state.
   const base::TimeDelta delay = WhenIsAllowedToProceed(priority, generation_id);
@@ -511,7 +590,10 @@ void EncryptedReportingClient::MaybePerformUpload(bool need_encryption_key,
       weak_ptr_factory_.GetWeakPtr(), priority, generation_id,
       base::BindOnce(&EncryptedReportingClient::AccountForUploadResponse,
                      priority, generation_id),
-      std::move(callback)));
+      Scoped<StatusOr<UploadResponseParser>>(
+          std::move(callback),
+          base::unexpected(
+              Status(error::UNAVAILABLE, "Client has been destructed")))));
   base::ThreadPool::PostTask(
       FROM_HERE,
       base::BindOnce(&BuildPayload, GenerationGuidIsRequired(),
@@ -521,9 +603,7 @@ void EncryptedReportingClient::MaybePerformUpload(bool need_encryption_key,
                      std::move(create_job_cb)));
 }
 
-// static
 void EncryptedReportingClient::CreateUploadJob(
-    base::WeakPtr<EncryptedReportingClient> self,
     Priority priority,
     int64_t generation_id,
     policy::EncryptedReportingJobConfiguration::UploadResponseCallback
@@ -533,23 +613,17 @@ void EncryptedReportingClient::CreateUploadJob(
     ScopedReservation scoped_reservation,
     int64_t last_sequence_id,
     uint64_t events_to_send) {
-  if (!self) {
-    std::move(callback).Run(base::unexpected(
-        Status(error::UNAVAILABLE, "Client has been destructed")));
-    return;
-  }
-
   if (!payload_result.has_value()) {
     std::move(callback).Run(base::unexpected(
         Status(error::FAILED_PRECONDITION, "Failure to build request")));
     return;
   }
 
-  DCHECK_CALLED_ON_VALID_SEQUENCE(self->sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Accept upload.
-  self->AccountForAllowedJob(priority, generation_id, last_sequence_id);
+  AccountForAllowedJob(priority, generation_id, last_sequence_id);
 
-  if (!self->delegate_->device_management_service()) {
+  if (!delegate_->device_management_service()) {
     std::move(callback).Run(base::unexpected(
         Status(error::NOT_FOUND,
                "Device management service required, but not found")));
@@ -561,7 +635,7 @@ void EncryptedReportingClient::CreateUploadJob(
     request_payload_size = GetPayloadSize(payload_result.value());
   }
 
-  if (self->context_.empty()) {
+  if (context_.empty()) {
     std::move(callback).Run(base::unexpected(
         Status(error::FAILED_PRECONDITION, "Upload context not preset")));
     return;
@@ -569,23 +643,27 @@ void EncryptedReportingClient::CreateUploadJob(
 
   auto config = std::make_unique<policy::EncryptedReportingJobConfiguration>(
       g_browser_process->shared_url_loader_factory(),
-      self->delegate_->device_management_service()
+      delegate_->device_management_service()
           ->configuration()
           ->GetEncryptedReportingServerUrl(),
-      std::move(payload_result.value()), self->dm_token_, self->client_id_,
+      std::move(payload_result.value()), dm_token_, client_id_,
       std::move(response_cb),
-      base::BindOnce(&EncryptedReportingClient::OnReportUploadCompleted, self,
-                     priority, generation_id, std::move(scoped_reservation),
-                     request_payload_size,
-                     self->payload_size_per_hour_uma_reporter_.GetWeakPtr(),
-                     std::move(callback)));
+      base::BindOnce(
+          &EncryptedReportingClient::OnReportUploadCompleted,
+          weak_ptr_factory_.GetWeakPtr(), priority, generation_id,
+          std::move(scoped_reservation), request_payload_size,
+          payload_size_per_hour_uma_reporter_.GetWeakPtr(),
+          Scoped<StatusOr<UploadResponseParser>>(
+              std::move(callback),
+              base::unexpected(
+                  Status(error::UNAVAILABLE, "Client has been destructed")))));
 
-  config->UpdateContext(self->context_.Clone());
+  config->UpdateContext(context_.Clone());
 
   // Create and track the new upload job.
   auto* const state = GetState(priority, generation_id);
-  state->job = self->delegate_->device_management_service()->CreateJob(
-      std::move(config));
+  state->job =
+      delegate_->device_management_service()->CreateJob(std::move(config));
   state->job_timer = std::make_unique<base::OneShotTimer>();
   state->job_timer->Start(FROM_HERE, kReportingUploadDeadline,
                           base::BindOnce(
@@ -611,9 +689,7 @@ void EncryptedReportingClient::CreateUploadJob(
   }
 }
 
-// static
 void EncryptedReportingClient::OnReportUploadCompleted(
-    base::WeakPtr<EncryptedReportingClient> self,
     Priority priority,
     int64_t generation_id,
     ScopedReservation scoped_reservation,
@@ -625,13 +701,7 @@ void EncryptedReportingClient::OnReportUploadCompleted(
     policy::DeviceManagementStatus status,
     int response_code,
     std::optional<base::Value::Dict> response) {
-  if (!self) {
-    std::move(callback).Run(base::unexpected(
-        Status(error::UNAVAILABLE, "Client has been destructed")));
-    return;
-  }
-
-  DCHECK_CALLED_ON_VALID_SEQUENCE(self->sequence_checker_);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   auto* const state = GetState(priority, generation_id);
   // Make sure the job is destruct by the end of this method.
@@ -692,6 +762,7 @@ void EncryptedReportingClient::OnReportUploadCompleted(
   if (const auto last_sequence_info =
           response_parser.last_successfully_uploaded_record_sequence_info();
       last_sequence_info.has_value()) {
+    base::UmaHistogramBoolean(kUmaRecordProcessedByServer, true);
     const int64_t last_sequence_id = last_sequence_info.value().sequencing_id();
     if (state->last_sequence_id < last_sequence_id ||
         response_parser.force_confirm_flag()) {
@@ -699,6 +770,48 @@ void EncryptedReportingClient::OnReportUploadCompleted(
     }
     RemoveConfirmedEventsFromCache(state);
   }
+
+  // Check if a record was unprocessable on the server.
+  StatusOr<EncryptedRecord> failed_uploaded_record =
+      response_parser.gap_record_for_permanent_failure();
+  if (failed_uploaded_record.has_value()) {
+    // The record we uploaded previously was unprocessable by the server.
+    // Unless confirmation is flagged as `force`, upload the gap record.
+    // Returns a gap record if it is necessary. Expects the contents of the
+    // failedUploadedRecord field in the response:
+    // {
+    //   "sequencingId": 1234
+    //   "generationId": 4321
+    //   "priority": 3
+    //   "generationGuid": "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"
+    // }
+    // Gap record consists of an EncryptedRecord with just SequenceInformation.
+    // The server will report success for the gap record and
+    // `last_successfully_uploaded_record_sequence_info` will be updated in the
+    // next response. In the future there may be recoverable `failureStatus`,
+    // but for now all the device can do is skip the record.
+    base::UmaHistogramBoolean(kUmaRecordProcessedByServer, false);
+    const int64_t seq_id =
+        failed_uploaded_record.value().sequence_information().sequencing_id();
+    // If record is still cached, replace it by gap record.
+    if (auto it = state->cached_records.find(seq_id);
+        it != state->cached_records.end()) {
+      // Replace by gap.
+      it->second = std::move(failed_uploaded_record.value());
+      // Reduce reserved memory.
+      uint64_t records_memory = 0u;
+      for (const auto& [_, record] : state->cached_records) {
+        records_memory += record.ByteSizeLong();
+      }
+      state->scoped_reservation.Reduce(records_memory);
+    }
+  }
+
+  // If failed upload is returned but is not parseable or does not match the
+  // successfully uploaded part, just log an error.
+  LOG_IF(ERROR, failed_uploaded_record.error().code() != error::NOT_FOUND)
+      << failed_uploaded_record.error();
+
   // Forward results to the pending callback.
   std::move(callback).Run(std::move(response_parser));
 }

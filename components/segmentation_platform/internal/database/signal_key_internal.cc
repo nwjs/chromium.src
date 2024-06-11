@@ -11,10 +11,10 @@
 #include <string>
 #include <utility>
 
-#include "base/big_endian.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/span.h"
+#include "base/containers/span_reader.h"
 #include "base/containers/span_writer.h"
 #include "base/logging.h"
 
@@ -63,23 +63,13 @@ bool SignalKeyInternalFromBinary(const std::string& input,
     ClearKey(output);
     return false;
   }
-  auto reader = base::BigEndianReader::FromStringPiece(input);
-  reader.ReadChar(&output->prefix.kind);
+  auto reader = base::SpanReader(base::as_byte_span(input));
+  reader.ReadChar(output->prefix.kind);
   reader.Skip(sizeof(SignalKeyInternal::Prefix::padding));
-  reader.ReadU64(&output->prefix.name_hash);
-
-  uint64_t unsigned_val;
-  reader.ReadU64(&unsigned_val);
-  // SAFETY: The big endian encoding holds the bit representation of a signed
-  // value, as seen in SignalKeyInternalToBinary(), so we want to convert large
-  // unsigned values back to negative values which static_cast will do.
-  output->time_range_end_sec = static_cast<int64_t>(unsigned_val);
-  reader.ReadU64(&unsigned_val);
-  // SAFETY: The big endian encoding holds the bit representation of a signed
-  // value, as seen in SignalKeyInternalToBinary(), so we want to convert large
-  // unsigned values back to negative values which static_cast will do.
-  output->time_range_start_sec = static_cast<int64_t>(unsigned_val);
-  CHECK(reader.remaining_bytes().empty());
+  reader.ReadU64BigEndian(output->prefix.name_hash);
+  reader.ReadI64BigEndian(output->time_range_end_sec);
+  reader.ReadI64BigEndian(output->time_range_start_sec);
+  CHECK_EQ(reader.remaining(), 0u);
   return true;
 }
 
@@ -107,11 +97,11 @@ bool SignalKeyInternalPrefixFromBinary(const std::string& input,
     ClearKeyPrefix(output);
     return false;
   }
-  auto reader = base::BigEndianReader::FromStringPiece(input);
-  reader.ReadChar(&output->kind);
+  auto reader = base::SpanReader(base::as_byte_span(input));
+  reader.ReadChar(output->kind);
   reader.Skip(sizeof(SignalKeyInternal::Prefix::padding));
-  reader.ReadU64(&output->name_hash);
-  CHECK_EQ(0UL, reader.remaining());
+  reader.ReadU64BigEndian(output->name_hash);
+  CHECK_EQ(reader.remaining(), 0u);
   return true;
 }
 

@@ -685,4 +685,65 @@ suite('SettingsSectionTest', function() {
 
     assertFalse(!!changePasswordManagerPinRow);
   });
+
+  test('After successful PIN Change toast is shown', async function() {
+    passwordManager.data.isPasswordManagerPinAvailable = true;
+
+    const section = document.createElement('settings-section');
+    document.body.appendChild(section);
+    await flushTasks();
+
+    const changePasswordManagerPinRow =
+        section.shadowRoot!.querySelector<HTMLElement>(
+            '#changePasswordManagerPinRow');
+
+    assertTrue(!!changePasswordManagerPinRow);
+
+    changePasswordManagerPinRow.click();
+
+    await passwordManager.whenCalled('changePasswordManagerPin');
+    assertFalse(section.$.toast.open);
+
+    passwordManager.data.changePasswordManagerPinSuccesful = false;
+    changePasswordManagerPinRow.click();
+
+    await passwordManager.whenCalled('changePasswordManagerPin');
+    assertFalse(section.$.toast.open);
+
+    passwordManager.data.changePasswordManagerPinSuccesful = true;
+    changePasswordManagerPinRow.click();
+
+    await passwordManager.whenCalled('changePasswordManagerPin');
+    assertTrue(section.$.toast.open);
+    assertEquals(
+        loadTimeData.getString('passwordManagerPinChanged'),
+        section.$.toast.textContent!.trim());
+  });
+
+  test('Disconnect Cloud Authenticator is available', async function() {
+    passwordManager.data.isConnectedToCloudAuthenticator = true;
+    passwordManager.data.disconnectCloudAuthenticatorSuccessful = true;
+
+    const section = document.createElement('settings-section');
+    document.body.appendChild(section);
+    await flushTasks();
+
+    const disconnectCloudAuthenticatorRow =
+        section.shadowRoot!.querySelector<HTMLElement>(
+            '#disconnectCloudAuthenticatorRow');
+
+    assertTrue(!!disconnectCloudAuthenticatorRow);
+
+    const disconnectButton =
+        disconnectCloudAuthenticatorRow.querySelector<HTMLElement>(
+            '#disconnectCloudAuthenticatorButton');
+    assertTrue(!!disconnectButton);
+    disconnectButton.click();
+    await passwordManager.whenCalled('disconnectCloudAuthenticator');
+
+    assertTrue(section.$.toast.open);
+    assertEquals(
+        loadTimeData.getString('disconnectCloudAuthenticatorToastMessage'),
+        section.$.toast.textContent!.trim());
+  });
 });

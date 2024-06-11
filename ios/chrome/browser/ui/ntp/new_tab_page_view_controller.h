@@ -50,7 +50,7 @@
     MagicStackCollectionViewController* magicStackCollectionView;
 
 // Feed metrics recorder.
-@property(nonatomic, strong) FeedMetricsRecorder* feedMetricsRecorder;
+@property(nonatomic, weak) FeedMetricsRecorder* feedMetricsRecorder;
 
 // Whether or not the feed is visible.
 @property(nonatomic, assign, getter=isFeedVisible) BOOL feedVisible;
@@ -84,6 +84,9 @@
 
 // Layout guide for NTP modules.
 @property(nonatomic, readonly) UILayoutGuide* moduleLayoutGuide;
+
+// `YES` if the NTP is currently visible.
+@property(nonatomic, assign) BOOL NTPVisible;
 
 // Initializes the new tab page view controller.
 - (instancetype)init NS_DESIGNATED_INITIALIZER;

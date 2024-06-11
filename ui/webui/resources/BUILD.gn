@@ -91,12 +91,14 @@ generate_grd("build_grd") {
 
     if (!is_android) {
       public_deps += [
+        "cr_components/history:build_grdp",
         "cr_components/history_clusters:build_grdp",
         "cr_components/history_embeddings:build_grdp",
         "cr_components/searchbox:build_grdp",
         "cr_components/searchbox/icons:build_grdp",
       ]
       grdp_files += [
+        "$target_gen_dir/cr_components/history/resources.grdp",
         "$target_gen_dir/cr_components/history_clusters/resources.grdp",
         "$target_gen_dir/cr_components/history_embeddings/resources.grdp",
         "$target_gen_dir/cr_components/searchbox/resources.grdp",
@@ -113,7 +115,7 @@ generate_grd("build_grd") {
 
   if (is_chromeos_ash) {
     # NOTE: Do not add any new Ash-only grdp files below.
-    # TODO(crbug.com/1347740): Move remaining Ash-only shared resources to
+    # TODO(crbug.com/40233082): Move remaining Ash-only shared resources to
     # ash/webui/common/resources:build_grd
     public_deps += [ ":build_cros_styles_grdp" ]
     grdp_files += [ "$target_gen_dir/cros_styles_resources.grdp" ]

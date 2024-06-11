@@ -25,6 +25,7 @@
 #import "url/gurl.h"
 
 using base::test::ios::kWaitForActionTimeout;
+using chrome_test_util::ButtonWithAccessibilityLabelId;
 using chrome_test_util::CancelButton;
 using chrome_test_util::ManualFallbackAddPaymentMethodMatcher;
 using chrome_test_util::ManualFallbackCreditCardIconMatcher;
@@ -42,6 +43,8 @@ namespace {
 
 const char kFormElementName[] = "CCName";
 const char kFormElementCardNumber[] = "CCNo";
+const char kFormElementCardExpirationMonth[] = "CCExpiresMonth";
+const char kFormElementCardExpirationYear[] = "CCExpiresYear";
 
 NSString* kLocalCardNumber = @"4111111111111111";
 NSString* kLocalCardHolder = @"Test User";
@@ -124,6 +127,35 @@ id<GREYMatcher> CreditCardManualFillViewTab() {
       grey_ancestor(
           grey_accessibilityID(manual_fill::kExpandedManualFillHeaderViewID)),
       nil);
+}
+
+// Matcher for the overflow menu button shown in the payment method cells.
+id<GREYMatcher> OverflowMenuButton() {
+  return grey_allOf(
+      chrome_test_util::ButtonWithAccessibilityLabelId(
+          IDS_IOS_MANUAL_FALLBACK_THREE_DOT_MENU_BUTTON_ACCESSIBILITY_LABEL),
+      grey_interactable(), nullptr);
+}
+
+// Matcher for the "Edit" action made available by the overflow menu button.
+id<GREYMatcher> OverflowMenuEditAction() {
+  return grey_allOf(ButtonWithAccessibilityLabelId(IDS_IOS_EDIT_ACTION_TITLE),
+                    grey_interactable(), nullptr);
+}
+
+// Matcher for the "Show Details" action made available by the overflow menu
+// button.
+id<GREYMatcher> OverflowMenuShowDetailsAction() {
+  return grey_allOf(
+      ButtonWithAccessibilityLabelId(IDS_IOS_SHOW_DETAILS_ACTION_TITLE),
+      grey_interactable(), nullptr);
+}
+
+// Matcher for the "Autofill Form" button shown in the payment method cells.
+id<GREYMatcher> AutofillFormButton() {
+  return grey_allOf(ButtonWithAccessibilityLabelId(
+                        IDS_IOS_MANUAL_FALLBACK_AUTOFILL_FORM_BUTTON_TITLE),
+                    grey_interactable(), nullptr);
 }
 
 // Opens the payment method manual fill view when there are no saved payment
@@ -625,7 +657,7 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
 
 // Tests that the credit card View Controller is dismissed when tapping the
 // keyboard.
-// TODO(crbug.com/1400980): reenable this flaky test.
+// TODO(crbug.com/40250530): reenable this flaky test.
 - (void)DISABLED_testTappingKeyboardDismissCreditCardControllerPopOver {
   if (![ChromeEarlGrey isIPadIdiom]) {
     return;
@@ -711,7 +743,7 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
 }
 
 // Tests that credit card number (for local card) is injected.
-// TODO(crbug.com/845472): maybe figure a way to test successfull injection
+// TODO(crbug.com/40577448): maybe figure a way to test successfull injection
 // when page is https, but right now if we use the https embedded server,
 // there's a warning page that stops the flow because of a
 // NET::ERR_CERT_AUTHORITY_INVALID.
@@ -761,7 +793,7 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
 }
 
 // Tests that masked credit card offer CVC input.
-// TODO(crbug.com/909748) can't test this one until https tests are possible.
+// TODO(crbug.com/41428751) can't test this one until https tests are possible.
 - (void)DISABLED_testCreditCardServerNumberRequiresCVC {
   [AutofillAppInterface saveMaskedCreditCard];
 
@@ -783,8 +815,123 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
   [[EarlGrey selectElementWithMatcher:grey_text(@"Confirm Card")]
       assertWithMatcher:grey_notNil()];
 
-  // TODO(crbug.com/845472): maybe figure a way to enter CVC and get the
+  // TODO(crbug.com/40577448): maybe figure a way to enter CVC and get the
   // unlocked card result.
+}
+
+// Tests that the overflow menu button is only visible when the Keyboard
+// Accessory Upgrade feature is enabled.
+- (void)testOverflowMenuVisibility {
+  // Save a card.
+  [AutofillAppInterface saveLocalCreditCard];
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  if ([AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    [[EarlGrey selectElementWithMatcher:OverflowMenuButton()]
+        assertWithMatcher:grey_sufficientlyVisible()];
+  } else {
+    [[EarlGrey selectElementWithMatcher:OverflowMenuButton()]
+        assertWithMatcher:grey_notVisible()];
+  }
+}
+
+// Tests the "Edit" action of the overflow menu button displays the card's
+// details in edit mode.
+- (void)testEditCardFromOverflowMenu {
+  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    EARL_GREY_TEST_DISABLED(@"This test is not relevant when the Keyboard "
+                            @"Accessory Upgrade feature is disabled.")
+  }
+
+  // Save a card.
+  [AutofillAppInterface saveLocalCreditCard];
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  // Tap the overflow menu button and select the "Edit" action.
+  [[EarlGrey selectElementWithMatcher:OverflowMenuButton()]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:OverflowMenuEditAction()]
+      performAction:grey_tap()];
+
+  // TODO(crbug.com/326413453): Check that the card details opened.
+}
+
+// Tests the "Show Details" action of the overflow menu button displays the
+// card's details in edit mode.
+- (void)testShowCardDetailsFromOverflowMenu {
+  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    EARL_GREY_TEST_DISABLED(@"This test is not relevant when the Keyboard "
+                            @"Accessory Upgrade feature is disabled.")
+  }
+
+  // Save a card.
+  [AutofillAppInterface saveLocalCreditCard];
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  // Tap the overflow menu button and select the "Show Details" action.
+  [[EarlGrey selectElementWithMatcher:OverflowMenuButton()]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:OverflowMenuShowDetailsAction()]
+      performAction:grey_tap()];
+
+  // TODO(crbug.com/326413453): Check that the card details opened.
+}
+
+// Tests that tapping the "Autofill Form" button fills the payment form with
+// the right data.
+- (void)testAutofillFormButtonFillsForm {
+  if (![AutofillAppInterface isKeyboardAccessoryUpgradeEnabled]) {
+    EARL_GREY_TEST_DISABLED(@"This test is not relevant when the Keyboard "
+                            @"Accessory Upgrade feature is disabled.")
+  }
+
+  [AutofillAppInterface setUpMockReauthenticationModule];
+  [AutofillAppInterface mockReauthenticationModuleCanAttempt:YES];
+  [AutofillAppInterface mockReauthenticationModuleExpectedResult:
+                            ReauthenticationResult::kSuccess];
+
+  // Save a card.
+  [AutofillAppInterface saveLocalCreditCard];
+
+  // Bring up the keyboard
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:TapWebElementWithId(kFormElementName)];
+  GREYAssertTrue([EarlGrey isKeyboardShownWithError:nil],
+                 @"Keyboard Should be Shown");
+
+  // Open the payment method manual fill view.
+  OpenPaymentMethodManualFillView();
+
+  // Tap the "Autofill Form" button.
+  [[EarlGrey selectElementWithMatcher:AutofillFormButton()]
+      performAction:grey_tap()];
+
+  // Verify that the page is filled properly.
+  [self verifyCreditCardInfosHaveBeenFilled:autofill::test::GetCreditCard()];
 }
 
 #pragma mark - Private
@@ -812,6 +959,43 @@ void OpenPaymentMethodManualFillViewWithNoSavedPaymentMethods() {
       stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
                        kFormElementName, result];
   [ChromeEarlGrey waitForJavaScriptCondition:javaScriptCondition];
+}
+
+// Verify credit card infos are filled.
+- (void)verifyCreditCardInfosHaveBeenFilled:(autofill::CreditCard)card {
+  std::string locale = l10n_util::GetLocaleOverride();
+
+  // Credit card name.
+  NSString* name = base::SysUTF16ToNSString(
+      card.GetInfo(autofill::CREDIT_CARD_NAME_FULL, locale));
+  NSString* condition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementName, name];
+  [ChromeEarlGrey waitForJavaScriptCondition:condition];
+
+  // Credit card number.
+  NSString* number = base::SysUTF16ToNSString(
+      card.GetInfo(autofill::CREDIT_CARD_NUMBER, locale));
+  condition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementCardNumber, number];
+  [ChromeEarlGrey waitForJavaScriptCondition:condition];
+
+  // Credit card expiration month.
+  NSString* expMonth = base::SysUTF16ToNSString(
+      card.GetInfo(autofill::CREDIT_CARD_EXP_MONTH, locale));
+  condition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementCardExpirationMonth, expMonth];
+  [ChromeEarlGrey waitForJavaScriptCondition:condition];
+
+  // Credit card expiration year.
+  NSString* expYear = base::SysUTF16ToNSString(
+      card.GetInfo(autofill::CREDIT_CARD_EXP_4_DIGIT_YEAR, locale));
+  condition = [NSString
+      stringWithFormat:@"window.document.getElementById('%s').value === '%@'",
+                       kFormElementCardExpirationYear, expYear];
+  [ChromeEarlGrey waitForJavaScriptCondition:condition];
 }
 
 @end

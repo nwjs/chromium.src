@@ -13,9 +13,9 @@
 #include "build/build_config.h"
 #include "chrome/updater/device_management/dm_cached_policy_info.h"
 #include "chrome/updater/protos/omaha_settings.pb.h"
-#include "chrome/updater/test_scope.h"
+#include "chrome/updater/test/test_scope.h"
+#include "chrome/updater/test/unit_test_util.h"
 #include "chrome/updater/updater_scope.h"
-#include "chrome/updater/util/unit_test_util.h"
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -133,10 +133,8 @@ TEST(DMStorage, LoadEnrollmentToken) {
       legacy_key.Create(HKEY_LOCAL_MACHINE, kRegKeyCompanyLegacyCloudManagement,
                         Wow6432(KEY_WRITE)),
       ERROR_SUCCESS);
-  constexpr char kLegacyEnrollmentToken[] = "legacy_test_enrollment_token";
-  EXPECT_EQ(legacy_key.WriteValue(
-                kRegValueCloudManagementEnrollmentToken, kLegacyEnrollmentToken,
-                sizeof(kLegacyEnrollmentToken) - 1, REG_BINARY),
+  EXPECT_EQ(legacy_key.WriteValue(kRegValueCloudManagementEnrollmentToken,
+                                  L"legacy_test_enrollment_token"),
             ERROR_SUCCESS);
   EXPECT_EQ(storage->GetEnrollmentToken(), "legacy_test_enrollment_token");
 
@@ -144,9 +142,7 @@ TEST(DMStorage, LoadEnrollmentToken) {
   EXPECT_EQ(key.Create(HKEY_LOCAL_MACHINE, kRegKeyCompanyCloudManagement,
                        Wow6432(KEY_WRITE)),
             ERROR_SUCCESS);
-  constexpr char kEnrollmentToken[] = "test_enrollment_token";
-  EXPECT_EQ(key.WriteValue(kRegValueEnrollmentToken, kEnrollmentToken,
-                           sizeof(kEnrollmentToken) - 1, REG_BINARY),
+  EXPECT_EQ(key.WriteValue(kRegValueEnrollmentToken, L"test_enrollment_token"),
             ERROR_SUCCESS);
   EXPECT_EQ(storage->GetEnrollmentToken(), "test_enrollment_token");
 }

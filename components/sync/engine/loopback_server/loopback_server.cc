@@ -8,6 +8,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <string_view>
 #include <utility>
 
 #include "base/files/file_util.h"
@@ -82,7 +83,7 @@ class ProgressMarkerToken {
 
   static ProgressMarkerToken FromString(const std::string& s) {
     DCHECK(!s.empty());
-    const vector<base::StringPiece> splits = base::SplitStringPiece(
+    const vector<std::string_view> splits = base::SplitStringPiece(
         s, "/", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
     if (splits.size() != 2) {
       ProgressMarkerToken token;
@@ -263,7 +264,7 @@ void LoopbackServer::Init() {
 
 std::vector<uint8_t> LoopbackServer::GenerateNewKeystoreKey() const {
   std::vector<uint8_t> generated_key(kKeystoreKeyLength);
-  base::RandBytes(generated_key.data(), generated_key.size());
+  base::RandBytes(generated_key);
   return generated_key;
 }
 
@@ -692,6 +693,10 @@ bool LoopbackServer::HandleCommitRequest(
         observer_for_tests_->OnHistoryCommit(
             specifics.redirect_entries(specifics.redirect_entries_size() - 1)
                 .url());
+      }
+      if (client_entity.deleted() && client_entity.has_deletion_origin()) {
+        observer_for_tests_->OnCommittedDeletionOrigin(
+            iter->second->GetModelType(), client_entity.deletion_origin());
       }
     }
   }

@@ -159,7 +159,7 @@ bool IsCredentialNotInAccountStore(const CredentialUIEntry& credential) {
   [self.consumer setSignedInAccount:base::SysUTF8ToNSString(
                                         _syncService->GetAccountInfo().email)];
 
-  // TODO(crbug.com/1082827): In addition to setting this value here, we should
+  // TODO(crbug.com/40131118): In addition to setting this value here, we should
   // observe for changes (i.e., if policy changes while the screen is open) and
   // push that to the consumer.
   [self.consumer setManagedByPolicy:_prefService->IsManagedPreference(
@@ -178,7 +178,7 @@ bool IsCredentialNotInAccountStore(const CredentialUIEntry& credential) {
   _syncService->TriggerLocalDataMigration(
       syncer::ModelTypeSet{syncer::ModelType::PASSWORDS});
 
-  // TODO(crbug.com/1482293): Remove this histogram enumeration when using
+  // TODO(crbug.com/40281800): Remove this histogram enumeration when using
   // `MoveCredentialsToAccount`.
   base::UmaHistogramEnumeration(
       "PasswordManager.AccountStorage.MoveToAccountStoreFlowAccepted2",

@@ -4,6 +4,7 @@
 
 #include "components/permissions/object_permission_context_base.h"
 
+#include <string_view>
 #include <utility>
 
 #include "base/containers/contains.h"
@@ -16,7 +17,6 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/permissions/features.h"
-#include "net/base/schemeful_site.h"
 #include "url/origin.h"
 
 namespace permissions {
@@ -99,7 +99,7 @@ bool ObjectPermissionContextBase::CanRequestObjectPermission(
 
 std::unique_ptr<ObjectPermissionContextBase::Object>
 ObjectPermissionContextBase::GetGrantedObject(const url::Origin& origin,
-                                              const base::StringPiece key) {
+                                              const std::string_view key) {
   if (!CanRequestObjectPermission(origin))
     return nullptr;
 
@@ -127,25 +127,6 @@ ObjectPermissionContextBase::GetGrantedObjects(const url::Origin& origin) {
   std::vector<std::unique_ptr<Object>> results;
   for (const auto& object : origin_objects_it->second)
     results.push_back(object.second->Clone());
-
-  return results;
-}
-
-std::vector<std::unique_ptr<ObjectPermissionContextBase::Object>>
-ObjectPermissionContextBase::GetGrantedObjects(const net::SchemefulSite& site) {
-  std::vector<std::unique_ptr<Object>> results;
-  for (const auto& pair : objects()) {
-    if (!CanRequestObjectPermission(pair.first)) {
-      continue;
-    }
-    if (net::SchemefulSite(pair.first) != site) {
-      continue;
-    }
-
-    for (const auto& key_value : pair.second) {
-      results.push_back(key_value.second->Clone());
-    }
-  }
 
   return results;
 }
@@ -185,8 +166,7 @@ void ObjectPermissionContextBase::GrantObjectPermission(
   const std::string key = GetKeyForObject(object);
 
   objects()[origin][key] = std::make_unique<Object>(
-      origin, std::move(object),
-      content_settings::SettingSource::SETTING_SOURCE_USER,
+      origin, std::move(object), content_settings::SettingSource::kUser,
       host_content_settings_map_->IsOffTheRecord());
 
   ScheduleSaveWebsiteSetting(origin);
@@ -225,7 +205,7 @@ void ObjectPermissionContextBase::RevokeObjectPermission(
 
 void ObjectPermissionContextBase::RevokeObjectPermission(
     const url::Origin& origin,
-    const base::StringPiece key) {
+    const std::string_view key) {
   auto origin_objects_it = objects().find(origin);
   if (origin_objects_it == objects().end()) {
     return;

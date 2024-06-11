@@ -143,7 +143,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   [ChromeEarlGrey clearBrowsingHistory];
   // Prevent failure due to clear browsing data spinner. Should be called
   // before [super tearDown] which calls sign-out.
-  // TODO(crbug.com/1451733): Remove this when ChromeTestCase will always wait
+  // TODO(crbug.com/40065405): Remove this when ChromeTestCase will always wait
   // for sign-out completion.
   [ChromeEarlGrey signOutAndClearIdentitiesAndWaitForCompletion];
   [ChromeEarlGrey waitForSyncEngineInitialized:NO
@@ -699,7 +699,7 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
   [[EarlGrey selectElementWithMatcher:ReadingListMarkAsReadButton()]
       performAction:grey_tap()];
   // Wait one second since the reading list items may update multiple times.
-  // TODO(crbug.com/1445875): Check if this delay can be replaced by the use of
+  // TODO(crbug.com/40268339): Check if this delay can be replaced by the use of
   // waitForUIElementToAppearWithMatcher instead.
   base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(1));
   // Verify that the unread and the read sections headers are visible.

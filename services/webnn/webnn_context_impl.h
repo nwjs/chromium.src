@@ -7,6 +7,7 @@
 
 #include "base/component_export.h"
 #include "base/containers/flat_set.h"
+#include "base/types/optional_ref.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -39,16 +40,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   void DisconnectAndDestroyWebNNBufferImpl(
       const base::UnguessableToken& handle);
 
-  // This method will be called by `WebNNBuffer::ReadBuffer()` to validate the
-  // buffer to be read from then execute the read buffer operation.
-  void ReadBuffer(const WebNNBufferImpl& src_buffer,
-                  mojom::WebNNBuffer::ReadBufferCallback callback);
-
-  // This method will be called by `WebNNBuffer::WriteBuffer()` to validate the
-  // buffer to be written to then execute the write buffer operation.
-  void WriteBuffer(const WebNNBufferImpl& dst_buffer,
-                   mojo_base::BigBuffer src_buffer);
-
   // This method will be called once `WebNNGraph::CreateGraph()` completes
   // initialization to associate the `WebNNGraph` instance and receiver to
   // this context. Once called, the `WebNNGraph` instance can safely access the
@@ -56,6 +47,11 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
   void OnWebNNGraphImplCreated(
       mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
       std::unique_ptr<WebNNGraphImpl> graph_impl);
+
+  // Retrieves a `WebNNBufferImpl` instance created from this context.
+  // Emits a bad message if a buffer with the given handle does not exist.
+  base::optional_ref<WebNNBufferImpl> GetWebNNBufferImpl(
+      const base::UnguessableToken& handle);
 
  protected:
   void OnConnectionError();
@@ -83,19 +79,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
       mojom::BufferInfoPtr buffer_info,
       const base::UnguessableToken& buffer_handle) = 0;
 
-  // This method will be called by `ReadBuffer()` after the read info is
-  // validated. A backend subclass should implement this method to read data
-  // from a platform specific buffer.
-  virtual void ReadBufferImpl(
-      const WebNNBufferImpl& src_buffer,
-      mojom::WebNNBuffer::ReadBufferCallback callback) = 0;
-
-  // This method will be called by `WriteBuffer()` after the write info is
-  // validated. A backend subclass should implement this method to write data
-  // to a platform specific buffer.
-  virtual void WriteBufferImpl(const WebNNBufferImpl& dst_buffer,
-                               mojo_base::BigBuffer src_buffer) = 0;
-
   mojo::Receiver<mojom::WebNNContext> receiver_;
 
   // Owns this object.
@@ -110,10 +93,6 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
       buffer_impls_;
 
  private:
-  // Determines if a WebNNBuffer is still connected with this context so WebNN
-  // operations can use it.
-  bool IsWebNNBufferValid(const base::UnguessableToken& handle) const;
-
   // GraphsImpls which are stored on the context to allow graph
   // operations to use this context safely via a raw_ptr.
   mojo::UniqueAssociatedReceiverSet<mojom::WebNNGraph> graph_impls_;

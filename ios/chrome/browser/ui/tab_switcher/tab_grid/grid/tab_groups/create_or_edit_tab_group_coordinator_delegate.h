@@ -7,12 +7,13 @@
 
 @class CreateTabGroupCoordinator;
 
-// Delegate protocol for `CreateOrEditTabGroupCoordinator`.
+// Delegate protocol for `CreateTabGroupCoordinator`.
 @protocol CreateOrEditTabGroupCoordinatorDelegate
 
-// Called when the user dismissed the `CreateOrEditTabGroupCoordinator`.
+// Called when the user dismissed the `CreateTabGroupCoordinator`.
 - (void)createOrEditTabGroupCoordinatorDidDismiss:
-    (CreateTabGroupCoordinator*)coordinator;
+            (CreateTabGroupCoordinator*)coordinator
+                                         animated:(BOOL)animated;
 
 @end
 

@@ -64,8 +64,10 @@
 #include "third_party/blink/renderer/core/css/parser/css_parser_idioms.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_local_context.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_mode.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_save_point.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_range.h"
+#include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_variable_parser.h"
 #include "third_party/blink/renderer/core/css/properties/css_color_function_parser.h"
 #include "third_party/blink/renderer/core/css/properties/css_parsing_utils.h"
@@ -204,8 +206,8 @@ CSSValue* ConsumeLinear(CSSParserTokenRange& range,
                         const CSSParserContext& context) {
   // https://w3c.github.io/csswg-drafts/css-easing/#linear-easing-function-parsing
   DCHECK_EQ(range.Peek().FunctionId(), CSSValueID::kLinear);
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
   Vector<cssvalue::CSSLinearStop> stop_list{};
   std::optional<cssvalue::CSSLinearStop> linear_stop;
   do {
@@ -286,7 +288,7 @@ CSSValue* ConsumeLinear(CSSParserTokenRange& range,
                             (upper_index - (i - 1));
     }
   }
-  range = range_copy;
+  savepoint.Release();
   // 6. Return function.
   return MakeGarbageCollected<cssvalue::CSSLinearTimingFunctionValue>(
       std::move(points));
@@ -295,8 +297,8 @@ CSSValue* ConsumeLinear(CSSParserTokenRange& range,
 CSSValue* ConsumeSteps(CSSParserTokenRange& range,
                        const CSSParserContext& context) {
   DCHECK_EQ(range.Peek().FunctionId(), CSSValueID::kSteps);
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
 
   CSSPrimitiveValue* steps = ConsumePositiveInteger(args, context);
   if (!steps) {
@@ -346,7 +348,7 @@ CSSValue* ConsumeSteps(CSSParserTokenRange& range,
     return nullptr;
   }
 
-  range = range_copy;
+  savepoint.Release();
   return MakeGarbageCollected<cssvalue::CSSStepsTimingFunctionValue>(
       steps->GetIntValue(), position);
 }
@@ -354,8 +356,8 @@ CSSValue* ConsumeSteps(CSSParserTokenRange& range,
 CSSValue* ConsumeCubicBezier(CSSParserTokenRange& range,
                              const CSSParserContext& context) {
   DCHECK_EQ(range.Peek().FunctionId(), CSSValueID::kCubicBezier);
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
 
   double x1, y1, x2, y2;
   if (ConsumeNumberRaw(args, context, x1) && x1 >= 0 && x1 <= 1 &&
@@ -365,7 +367,7 @@ CSSValue* ConsumeCubicBezier(CSSParserTokenRange& range,
       ConsumeNumberRaw(args, context, x2) && x2 >= 0 && x2 <= 1 &&
       ConsumeCommaIncludingWhitespace(args) &&
       ConsumeNumberRaw(args, context, y2) && args.AtEnd()) {
-    range = range_copy;
+    savepoint.Release();
     return MakeGarbageCollected<cssvalue::CSSCubicBezierTimingFunctionValue>(
         x1, y1, x2, y2);
   }
@@ -382,6 +384,16 @@ CSSIdentifierValue* ConsumeBorderImageRepeatKeyword(
 bool ConsumeCSSValueId(CSSParserTokenRange& range, CSSValueID& value) {
   CSSIdentifierValue* keyword = ConsumeIdent(range);
   if (!keyword || !range.AtEnd()) {
+    return false;
+  }
+  value = keyword->GetValueID();
+  return true;
+}
+
+[[maybe_unused]]
+bool ConsumeCSSValueId(CSSParserTokenStream& stream, CSSValueID& value) {
+  CSSIdentifierValue* keyword = ConsumeIdent(stream);
+  if (!keyword || !stream.AtEnd()) {
     return false;
   }
   value = keyword->GetValueID();
@@ -481,10 +493,12 @@ cssvalue::CSSBasicShapePolygonValue* ConsumeBasicShapePolygon(
   return shape;
 }
 
-template <typename T>
-bool ConsumeBorderRadiusCommon(CSSParserTokenRange& args,
+template <typename T, typename U>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+bool ConsumeBorderRadiusCommon(T& args,
                                const CSSParserContext& context,
-                               T* shape) {
+                               U* shape) {
   if (ConsumeIdent<CSSValueID::kRound>(args)) {
     CSSValue* horizontal_radii[4] = {nullptr};
     CSSValue* vertical_radii[4] = {nullptr};
@@ -807,15 +821,20 @@ CSSFunctionValue* ConsumeFilterFunction(CSSParserTokenRange& range,
   return filter_value;
 }
 
-template <typename Func>
+template <class T, typename Func>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 CSSLightDarkValuePair* ConsumeLightDark(Func consume_value,
-                                        CSSParserTokenRange& range,
+                                        T& range,
                                         const CSSParserContext& context) {
   if (range.Peek().FunctionId() != CSSValueID::kLightDark) {
     return nullptr;
   }
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange arg_range = ConsumeFunction(range_copy);
+  if (!IsUASheetBehavior(context.Mode())) {
+    context.Count(WebFeature::kCSSLightDark);
+  }
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange arg_range = ConsumeFunction(range);
   CSSValue* light_value = consume_value(arg_range, context);
   if (!light_value || !ConsumeCommaIncludingWhitespace(arg_range)) {
     return nullptr;
@@ -824,19 +843,22 @@ CSSLightDarkValuePair* ConsumeLightDark(Func consume_value,
   if (!dark_value || !arg_range.AtEnd()) {
     return nullptr;
   }
-  range = range_copy;
+  savepoint.Release();
   return MakeGarbageCollected<CSSLightDarkValuePair>(light_value, dark_value);
 }
 
+template <class T = CSSParserTokenRange>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 CSSAppearanceAutoBaseSelectValuePair* ConsumeAppearanceAutoBaseSelectColor(
-    CSSParserTokenRange& range,
+    T& range,
     const CSSParserContext& context) {
   if (range.Peek().FunctionId() !=
       CSSValueID::kInternalAppearanceAutoBaseSelect) {
     return nullptr;
   }
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange arg_range = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange arg_range = ConsumeFunction(range);
   CSSValue* auto_value = ConsumeColor(arg_range, context);
   if (!auto_value || !ConsumeCommaIncludingWhitespace(arg_range)) {
     return nullptr;
@@ -845,7 +867,7 @@ CSSAppearanceAutoBaseSelectValuePair* ConsumeAppearanceAutoBaseSelectColor(
   if (!base_select_value || !arg_range.AtEnd()) {
     return nullptr;
   }
-  range = range_copy;
+  savepoint.Release();
   return MakeGarbageCollected<CSSAppearanceAutoBaseSelectValuePair>(
       auto_value, base_select_value);
 }
@@ -917,6 +939,15 @@ bool ConsumeCommaIncludingWhitespace(CSSParserTokenRange& range) {
   return true;
 }
 
+bool ConsumeCommaIncludingWhitespace(CSSParserTokenStream& stream) {
+  CSSParserToken value = stream.Peek();
+  if (value.GetType() != kCommaToken) {
+    return false;
+  }
+  stream.ConsumeIncludingWhitespace();
+  return true;
+}
+
 bool ConsumeSlashIncludingWhitespace(CSSParserTokenRange& range) {
   CSSParserToken value = range.Peek();
   if (value.GetType() != kDelimiterToken || value.Delimiter() != '/') {
@@ -926,10 +957,31 @@ bool ConsumeSlashIncludingWhitespace(CSSParserTokenRange& range) {
   return true;
 }
 
+bool ConsumeSlashIncludingWhitespace(CSSParserTokenStream& stream) {
+  CSSParserToken value = stream.Peek();
+  if (value.GetType() != kDelimiterToken || value.Delimiter() != '/') {
+    return false;
+  }
+  stream.ConsumeIncludingWhitespace();
+  return true;
+}
+
 CSSParserTokenRange ConsumeFunction(CSSParserTokenRange& range) {
   DCHECK_EQ(range.Peek().GetType(), kFunctionToken);
   CSSParserTokenRange contents = range.ConsumeBlock();
   range.ConsumeWhitespace();
+  contents.ConsumeWhitespace();
+  return contents;
+}
+
+CSSParserTokenRange ConsumeFunction(CSSParserTokenStream& stream) {
+  DCHECK_EQ(stream.Peek().GetType(), kFunctionToken);
+  CSSParserTokenRange contents({});
+  {
+    CSSParserTokenStream::BlockGuard guard(stream);
+    contents = stream.ConsumeUntilPeekedTypeIs<>();
+  }
+  stream.ConsumeWhitespace();
   contents.ConsumeWhitespace();
   return contents;
 }
@@ -954,8 +1006,17 @@ bool ConsumeAnyValue(CSSParserTokenRange& range) {
   return result;
 }
 
+// MathFunctionParser is a helper for parsing something that _might_ be a
+// function. In particular, it helps rewinding the parser to the point where it
+// started if what was to be parsed was not a function (or an invalid function).
+// This rewinding happens in the destructor, unless Consume*() was called _and_
+// returned success. In effect, this gives us a multi-token peek for functions.
+//
 // TODO(rwlbuis): consider pulling in the parsing logic from
 // css_math_expression_node.cc.
+template <class T = CSSParserTokenRange>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 class MathFunctionParser {
   STACK_ALLOCATED();
 
@@ -964,20 +1025,31 @@ class MathFunctionParser {
   using Flags = CSSMathExpressionNode::Flags;
 
   MathFunctionParser(
-      CSSParserTokenRange& range,
+      T& stream,
       const CSSParserContext& context,
       CSSPrimitiveValue::ValueRange value_range,
       const Flags parsing_flags = Flags({Flag::AllowPercent}),
       CSSAnchorQueryTypes allowed_anchor_queries = kCSSAnchorQueryTypesNone,
       HashMap<CSSValueID, double> color_channel_keyword_values = {})
-      : source_range_(range), range_(range) {
-    const CSSParserToken& token = range.Peek();
+      : stream_(&stream), savepoint_(Save(stream)) {
+    const CSSParserToken token = stream.Peek();
     if (token.GetType() == kFunctionToken) {
       calc_value_ = CSSMathFunctionValue::Create(
           CSSMathExpressionNode::ParseMathFunction(
-              token.FunctionId(), ConsumeFunction(range_), context,
+              token.FunctionId(), ConsumeFunction(*stream_), context,
               parsing_flags, allowed_anchor_queries),
           value_range);
+    }
+  }
+
+  ~MathFunctionParser() {
+    if (!has_consumed_) {
+      // Rewind the parser.
+      if constexpr (std::is_same_v<T, CSSParserTokenRange>) {
+        *stream_ = savepoint_;
+      } else {
+        stream_->Restore(savepoint_);
+      }
     }
   }
 
@@ -986,7 +1058,8 @@ class MathFunctionParser {
     if (!calc_value_) {
       return nullptr;
     }
-    source_range_ = range_;
+    DCHECK(!has_consumed_);  // Cannot consume twice.
+    has_consumed_ = true;
     CSSMathFunctionValue* result = calc_value_;
     calc_value_ = nullptr;
     return result;
@@ -996,22 +1069,39 @@ class MathFunctionParser {
     if (!calc_value_ || calc_value_->Category() != kCalcNumber) {
       return false;
     }
-    source_range_ = range_;
+    DCHECK(!has_consumed_);  // Cannot consume twice.
+    has_consumed_ = true;
     result = calc_value_->GetDoubleValue();
     return true;
   }
 
  private:
-  CSSParserTokenRange& source_range_;
-  CSSParserTokenRange range_;
+  bool has_consumed_ = false;
+  T* stream_;
+  // For rewinding.
+  std::conditional_t<std::is_same_v<T, CSSParserTokenStream>,
+                     CSSParserTokenStream::State,
+                     CSSParserTokenRange>
+      savepoint_;
   CSSMathFunctionValue* calc_value_ = nullptr;
+
+  decltype(savepoint_) Save(T& stream) {
+    if constexpr (std::is_same_v<T, CSSParserTokenRange>) {
+      return stream;
+    } else {
+      return stream.Save();
+    }
+  }
 };
 
-CSSPrimitiveValue* ConsumeInteger(CSSParserTokenRange& range,
-                                  const CSSParserContext& context,
-                                  double minimum_value,
-                                  const bool is_percentage_allowed) {
-  const CSSParserToken& token = range.Peek();
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSPrimitiveValue* ConsumeIntegerInternal(T& range,
+                                          const CSSParserContext& context,
+                                          double minimum_value,
+                                          const bool is_percentage_allowed) {
+  const CSSParserToken token = range.Peek();
   if (token.GetType() == kNumberToken) {
     if (token.GetNumericValueType() == kNumberValueType ||
         token.NumericValue() < minimum_value) {
@@ -1041,7 +1131,7 @@ CSSPrimitiveValue* ConsumeInteger(CSSParserTokenRange& range,
     parsing_flags.Put(AllowPercent);
   }
 
-  MathFunctionParser math_parser(range, context, value_range, parsing_flags);
+  MathFunctionParser<T> math_parser(range, context, value_range, parsing_flags);
   if (const CSSMathFunctionValue* math_value = math_parser.Value()) {
     if (math_value->Category() != kCalcNumber) {
       return nullptr;
@@ -1049,6 +1139,22 @@ CSSPrimitiveValue* ConsumeInteger(CSSParserTokenRange& range,
     return math_parser.ConsumeValue();
   }
   return nullptr;
+}
+
+CSSPrimitiveValue* ConsumeInteger(CSSParserTokenRange& range,
+                                  const CSSParserContext& context,
+                                  double minimum_value,
+                                  const bool is_percentage_allowed) {
+  return ConsumeIntegerInternal(range, context, minimum_value,
+                                is_percentage_allowed);
+}
+
+CSSPrimitiveValue* ConsumeInteger(CSSParserTokenStream& stream,
+                                  const CSSParserContext& context,
+                                  double minimum_value,
+                                  const bool is_percentage_allowed) {
+  return ConsumeIntegerInternal(stream, context, minimum_value,
+                                is_percentage_allowed);
 }
 
 // This implements the behavior defined in [1], where calc() expressions
@@ -1104,6 +1210,11 @@ CSSPrimitiveValue* ConsumePositiveInteger(CSSParserTokenRange& range,
   return ConsumeInteger(range, context, 1);
 }
 
+CSSPrimitiveValue* ConsumePositiveInteger(CSSParserTokenStream& stream,
+                                          const CSSParserContext& context) {
+  return ConsumeInteger(stream, context, 1);
+}
+
 bool ConsumeNumberRaw(CSSParserTokenRange& range,
                       const CSSParserContext& context,
                       double& result) {
@@ -1112,6 +1223,18 @@ bool ConsumeNumberRaw(CSSParserTokenRange& range,
     return true;
   }
   MathFunctionParser math_parser(range, context,
+                                 CSSPrimitiveValue::ValueRange::kAll);
+  return math_parser.ConsumeNumberRaw(result);
+}
+
+bool ConsumeNumberRaw(CSSParserTokenStream& stream,
+                      const CSSParserContext& context,
+                      double& result) {
+  if (stream.Peek().GetType() == kNumberToken) {
+    result = stream.ConsumeIncludingWhitespace().NumericValue();
+    return true;
+  }
+  MathFunctionParser math_parser(stream, context,
                                  CSSPrimitiveValue::ValueRange::kAll);
   return math_parser.ConsumeNumberRaw(result);
 }
@@ -1139,6 +1262,29 @@ CSSPrimitiveValue* ConsumeNumber(CSSParserTokenRange& range,
   return nullptr;
 }
 
+CSSPrimitiveValue* ConsumeNumber(CSSParserTokenStream& stream,
+                                 const CSSParserContext& context,
+                                 CSSPrimitiveValue::ValueRange value_range) {
+  const CSSParserToken token = stream.Peek();
+  if (token.GetType() == kNumberToken) {
+    if (value_range == CSSPrimitiveValue::ValueRange::kNonNegative &&
+        token.NumericValue() < 0) {
+      return nullptr;
+    }
+    return CSSNumericLiteralValue::Create(
+        stream.ConsumeIncludingWhitespace().NumericValue(),
+        token.GetUnitType());
+  }
+  MathFunctionParser math_parser(stream, context, value_range);
+  if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
+    if (calculation->Category() != kCalcNumber) {
+      return nullptr;
+    }
+    return math_parser.ConsumeValue();
+  }
+  return nullptr;
+}
+
 inline bool ShouldAcceptUnitlessLength(double value,
                                        CSSParserMode css_parser_mode,
                                        UnitlessQuirk unitless) {
@@ -1147,11 +1293,15 @@ inline bool ShouldAcceptUnitlessLength(double value,
           unitless == UnitlessQuirk::kAllow);
 }
 
-CSSPrimitiveValue* ConsumeLength(CSSParserTokenRange& range,
-                                 const CSSParserContext& context,
-                                 CSSPrimitiveValue::ValueRange value_range,
-                                 UnitlessQuirk unitless) {
-  const CSSParserToken& token = range.Peek();
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSPrimitiveValue* ConsumeLengthInternal(
+    T& range,
+    const CSSParserContext& context,
+    CSSPrimitiveValue::ValueRange value_range,
+    UnitlessQuirk unitless) {
+  const CSSParserToken token = range.Peek();
   if (token.GetType() == kDimensionToken) {
     switch (token.GetUnitType()) {
       case CSSPrimitiveValue::UnitType::kQuirkyEms:
@@ -1250,10 +1400,28 @@ CSSPrimitiveValue* ConsumeLength(CSSParserTokenRange& range,
   return nullptr;
 }
 
-CSSPrimitiveValue* ConsumePercent(CSSParserTokenRange& range,
-                                  const CSSParserContext& context,
-                                  CSSPrimitiveValue::ValueRange value_range) {
-  const CSSParserToken& token = range.Peek();
+CSSPrimitiveValue* ConsumeLength(CSSParserTokenRange& range,
+                                 const CSSParserContext& context,
+                                 CSSPrimitiveValue::ValueRange value_range,
+                                 UnitlessQuirk unitless) {
+  return ConsumeLengthInternal(range, context, value_range, unitless);
+}
+
+CSSPrimitiveValue* ConsumeLength(CSSParserTokenStream& stream,
+                                 const CSSParserContext& context,
+                                 CSSPrimitiveValue::ValueRange value_range,
+                                 UnitlessQuirk unitless) {
+  return ConsumeLengthInternal(stream, context, value_range, unitless);
+}
+
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSPrimitiveValue* ConsumePercentInternal(
+    T& range,
+    const CSSParserContext& context,
+    CSSPrimitiveValue::ValueRange value_range) {
+  const CSSParserToken token = range.Peek();
   if (token.GetType() == kPercentageToken) {
     if (value_range == CSSPrimitiveValue::ValueRange::kNonNegative &&
         token.NumericValue() < 0) {
@@ -1270,6 +1438,18 @@ CSSPrimitiveValue* ConsumePercent(CSSParserTokenRange& range,
     }
   }
   return nullptr;
+}
+
+CSSPrimitiveValue* ConsumePercent(CSSParserTokenRange& range,
+                                  const CSSParserContext& context,
+                                  CSSPrimitiveValue::ValueRange value_range) {
+  return ConsumePercentInternal(range, context, value_range);
+}
+
+CSSPrimitiveValue* ConsumePercent(CSSParserTokenStream& stream,
+                                  const CSSParserContext& context,
+                                  CSSPrimitiveValue::ValueRange value_range) {
+  return ConsumePercentInternal(stream, context, value_range);
 }
 
 CSSPrimitiveValue* ConsumeNumberOrPercent(
@@ -1299,8 +1479,11 @@ bool CanConsumeCalcValue(CalculationResultCategory category,
          (css_parser_mode == kSVGAttributeMode && category == kCalcNumber);
 }
 
-CSSPrimitiveValue* ConsumeLengthOrPercent(
-    CSSParserTokenRange& range,
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSPrimitiveValue* ConsumeLengthOrPercentInternal(
+    T& range,
     const CSSParserContext& context,
     CSSPrimitiveValue::ValueRange value_range,
     UnitlessQuirk unitless,
@@ -1335,6 +1518,30 @@ CSSPrimitiveValue* ConsumeLengthOrPercent(
     }
   }
   return nullptr;
+}
+
+CSSPrimitiveValue* ConsumeLengthOrPercent(
+    CSSParserTokenRange& range,
+    const CSSParserContext& context,
+    CSSPrimitiveValue::ValueRange value_range,
+    UnitlessQuirk unitless,
+    CSSAnchorQueryTypes allowed_anchor_queries,
+    AllowCalcSize allow_calc_size) {
+  return ConsumeLengthOrPercentInternal(range, context, value_range, unitless,
+                                        allowed_anchor_queries,
+                                        allow_calc_size);
+}
+
+CSSPrimitiveValue* ConsumeLengthOrPercent(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    CSSPrimitiveValue::ValueRange value_range,
+    UnitlessQuirk unitless,
+    CSSAnchorQueryTypes allowed_anchor_queries,
+    AllowCalcSize allow_calc_size) {
+  return ConsumeLengthOrPercentInternal(stream, context, value_range, unitless,
+                                        allowed_anchor_queries,
+                                        allow_calc_size);
 }
 
 namespace {
@@ -1375,11 +1582,14 @@ CSSPrimitiveValue* ConsumeGradientLengthOrPercent(
   return ConsumeLengthOrPercent(range, context, value_range, unitless);
 }
 
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 static CSSPrimitiveValue* ConsumeNumericLiteralAngle(
-    CSSParserTokenRange& range,
+    T& range,
     const CSSParserContext& context,
     std::optional<WebFeature> unitless_zero_feature) {
-  const CSSParserToken& token = range.Peek();
+  const CSSParserToken token = range.Peek();
   if (token.GetType() == kDimensionToken) {
     switch (token.GetUnitType()) {
       case CSSPrimitiveValue::UnitType::kDegrees:
@@ -1403,8 +1613,11 @@ static CSSPrimitiveValue* ConsumeNumericLiteralAngle(
   return nullptr;
 }
 
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 static CSSPrimitiveValue* ConsumeMathFunctionAngle(
-    CSSParserTokenRange& range,
+    T& range,
     const CSSParserContext& context,
     double minimum_value,
     double maximum_value) {
@@ -1429,17 +1642,34 @@ static CSSPrimitiveValue* ConsumeMathFunctionAngle(
   return nullptr;
 }
 
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 static CSSPrimitiveValue* ConsumeMathFunctionAngle(
-    CSSParserTokenRange& range,
+    T& range,
     const CSSParserContext& context) {
-  MathFunctionParser math_parser(range, context,
-                                 CSSPrimitiveValue::ValueRange::kAll);
+  MathFunctionParser<T> math_parser(range, context,
+                                    CSSPrimitiveValue::ValueRange::kAll);
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     if (calculation->Category() != kCalcAngle) {
       return nullptr;
     }
   }
   return math_parser.ConsumeValue();
+}
+
+CSSPrimitiveValue* ConsumeAngle(CSSParserTokenStream& stream,
+                                const CSSParserContext& context,
+                                std::optional<WebFeature> unitless_zero_feature,
+                                double minimum_value,
+                                double maximum_value) {
+  if (auto* result =
+          ConsumeNumericLiteralAngle(stream, context, unitless_zero_feature)) {
+    return result;
+  }
+
+  return ConsumeMathFunctionAngle(stream, context, minimum_value,
+                                  maximum_value);
 }
 
 CSSPrimitiveValue* ConsumeAngle(CSSParserTokenRange& range,
@@ -1467,10 +1697,25 @@ CSSPrimitiveValue* ConsumeAngle(
   return ConsumeMathFunctionAngle(range, context);
 }
 
-CSSPrimitiveValue* ConsumeTime(CSSParserTokenRange& range,
+CSSPrimitiveValue* ConsumeAngle(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    std::optional<WebFeature> unitless_zero_feature) {
+  if (auto* result =
+          ConsumeNumericLiteralAngle(stream, context, unitless_zero_feature)) {
+    return result;
+  }
+
+  return ConsumeMathFunctionAngle(stream, context);
+}
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSPrimitiveValue* ConsumeTime(T& stream,
                                const CSSParserContext& context,
                                CSSPrimitiveValue::ValueRange value_range) {
-  const CSSParserToken& token = range.Peek();
+  const CSSParserToken token = stream.Peek();
   if (token.GetType() == kDimensionToken) {
     if (value_range == CSSPrimitiveValue::ValueRange::kNonNegative &&
         token.NumericValue() < 0) {
@@ -1480,12 +1725,12 @@ CSSPrimitiveValue* ConsumeTime(CSSParserTokenRange& range,
     if (unit == CSSPrimitiveValue::UnitType::kMilliseconds ||
         unit == CSSPrimitiveValue::UnitType::kSeconds) {
       return CSSNumericLiteralValue::Create(
-          range.ConsumeIncludingWhitespace().NumericValue(),
+          stream.ConsumeIncludingWhitespace().NumericValue(),
           token.GetUnitType());
     }
     return nullptr;
   }
-  MathFunctionParser math_parser(range, context, value_range);
+  MathFunctionParser math_parser(stream, context, value_range);
   if (const CSSMathFunctionValue* calculation = math_parser.Value()) {
     if (calculation->Category() == kCalcTime) {
       return math_parser.ConsumeValue();
@@ -1493,6 +1738,11 @@ CSSPrimitiveValue* ConsumeTime(CSSParserTokenRange& range,
   }
   return nullptr;
 }
+
+template CSSPrimitiveValue* ConsumeTime(
+    CSSParserTokenRange& stream,
+    const CSSParserContext& context,
+    CSSPrimitiveValue::ValueRange value_range);
 
 CSSPrimitiveValue* ConsumeResolution(CSSParserTokenRange& range,
                                      const CSSParserContext& context) {
@@ -1526,6 +1776,8 @@ CSSPrimitiveValue* ConsumeResolution(CSSParserTokenRange& range,
 // <ratio> = <number [0,+inf]> [ / <number [0,+inf]> ]?
 CSSValue* ConsumeRatio(CSSParserTokenRange& range,
                        const CSSParserContext& context) {
+  CSSParserSavePoint savepoint(range);
+
   CSSPrimitiveValue* first = ConsumeNumber(
       range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
   if (!first) {
@@ -1545,6 +1797,7 @@ CSSValue* ConsumeRatio(CSSParserTokenRange& range,
         1, CSSPrimitiveValue::UnitType::kInteger);
   }
 
+  savepoint.Release();
   return MakeGarbageCollected<cssvalue::CSSRatioValue>(*first, *second);
 }
 
@@ -1555,6 +1808,13 @@ CSSIdentifierValue* ConsumeIdent(CSSParserTokenRange& range) {
   return CSSIdentifierValue::Create(range.ConsumeIncludingWhitespace().Id());
 }
 
+CSSIdentifierValue* ConsumeIdent(CSSParserTokenStream& stream) {
+  if (stream.Peek().GetType() != kIdentToken) {
+    return nullptr;
+  }
+  return CSSIdentifierValue::Create(stream.ConsumeIncludingWhitespace().Id());
+}
+
 CSSIdentifierValue* ConsumeIdentRange(CSSParserTokenRange& range,
                                       CSSValueID lower,
                                       CSSValueID upper) {
@@ -1562,6 +1822,15 @@ CSSIdentifierValue* ConsumeIdentRange(CSSParserTokenRange& range,
     return nullptr;
   }
   return ConsumeIdent(range);
+}
+
+CSSIdentifierValue* ConsumeIdentRange(CSSParserTokenStream& stream,
+                                      CSSValueID lower,
+                                      CSSValueID upper) {
+  if (stream.Peek().Id() < lower || stream.Peek().Id() > upper) {
+    return nullptr;
+  }
+  return ConsumeIdent(stream);
 }
 
 CSSCustomIdentValue* ConsumeCustomIdent(CSSParserTokenRange& range,
@@ -1575,6 +1844,17 @@ CSSCustomIdentValue* ConsumeCustomIdent(CSSParserTokenRange& range,
       range.ConsumeIncludingWhitespace().Value().ToAtomicString());
 }
 
+CSSCustomIdentValue* ConsumeCustomIdent(CSSParserTokenStream& stream,
+                                        const CSSParserContext& context) {
+  if (stream.Peek().GetType() != kIdentToken ||
+      IsCSSWideKeyword(stream.Peek().Id()) ||
+      stream.Peek().Id() == CSSValueID::kDefault) {
+    return nullptr;
+  }
+  return MakeGarbageCollected<CSSCustomIdentValue>(
+      stream.ConsumeIncludingWhitespace().Value().ToAtomicString());
+}
+
 CSSCustomIdentValue* ConsumeDashedIdent(CSSParserTokenRange& range,
                                         const CSSParserContext& context) {
   if (range.Peek().GetType() != kIdentToken) {
@@ -1585,6 +1865,18 @@ CSSCustomIdentValue* ConsumeDashedIdent(CSSParserTokenRange& range,
   }
 
   return ConsumeCustomIdent(range, context);
+}
+
+CSSCustomIdentValue* ConsumeDashedIdent(CSSParserTokenStream& stream,
+                                        const CSSParserContext& context) {
+  if (stream.Peek().GetType() != kIdentToken) {
+    return nullptr;
+  }
+  if (!stream.Peek().Value().ToString().StartsWith(kTwoDashes)) {
+    return nullptr;
+  }
+
+  return ConsumeCustomIdent(stream, context);
 }
 
 CSSStringValue* ConsumeString(CSSParserTokenRange& range) {
@@ -1601,6 +1893,14 @@ StringView ConsumeStringAsStringView(CSSParserTokenRange& range) {
   }
 
   return range.ConsumeIncludingWhitespace().Value();
+}
+
+StringView ConsumeStringAsStringView(CSSParserTokenStream& stream) {
+  if (stream.Peek().GetType() != CSSParserTokenType::kStringToken) {
+    return StringView();
+  }
+
+  return stream.ConsumeIncludingWhitespace().Value();
 }
 
 namespace {
@@ -1633,6 +1933,7 @@ CSSUrlData CollectUrlData(const StringView& url,
 
 }  // namespace
 
+// NOTE: Keep in sync with the other ConsumeUrlAsStringView.
 StringView ConsumeUrlAsStringView(CSSParserTokenRange& range,
                                   const CSSParserContext& context) {
   StringView url;
@@ -1655,14 +1956,53 @@ StringView ConsumeUrlAsStringView(CSSParserTokenRange& range,
   return ApplyFetchRestrictions(url, context);
 }
 
-cssvalue::CSSURIValue* ConsumeUrl(CSSParserTokenRange& range,
+StringView ConsumeUrlAsStringView(CSSParserTokenStream& stream,
                                   const CSSParserContext& context) {
+  StringView url;
+  const CSSParserToken token = stream.Peek();
+  if (token.GetType() == kUrlToken) {
+    stream.ConsumeIncludingWhitespace();
+    url = token.Value();
+  } else if (token.FunctionId() == CSSValueID::kUrl) {
+    CSSParserSavePoint savepoint(stream);
+    CSSParserTokenRange url_args{{}};
+    {
+      CSSParserTokenStream::BlockGuard guard(stream);
+      url_args = stream.ConsumeUntilPeekedTypeIs<>();
+    }
+    const CSSParserToken& next = url_args.ConsumeIncludingWhitespace();
+    if (next.GetType() == kBadStringToken || !url_args.AtEnd()) {
+      return StringView();
+    }
+    savepoint.Release();
+    DCHECK_EQ(next.GetType(), kStringToken);
+    stream.ConsumeWhitespace();
+    url = next.Value();
+  }
+  return ApplyFetchRestrictions(url, context);
+}
+
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+cssvalue::CSSURIValue* ConsumeUrlInternal(T& range,
+                                          const CSSParserContext& context) {
   StringView url = ConsumeUrlAsStringView(range, context);
   if (url.IsNull()) {
     return nullptr;
   }
   return MakeGarbageCollected<cssvalue::CSSURIValue>(
       CollectUrlData(url, context));
+}
+
+cssvalue::CSSURIValue* ConsumeUrl(CSSParserTokenRange& range,
+                                  const CSSParserContext& context) {
+  return ConsumeUrlInternal(range, context);
+}
+
+cssvalue::CSSURIValue* ConsumeUrl(CSSParserTokenStream& stream,
+                                  const CSSParserContext& context) {
+  return ConsumeUrlInternal(stream, context);
 }
 
 static bool ConsumeColorInterpolationSpace(
@@ -1738,14 +2078,27 @@ static bool ConsumeColorInterpolationSpace(
   return false;
 }
 
+namespace {
+
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeColorInternal(T&,
+                               const CSSParserContext&,
+                               bool accept_quirky_colors,
+                               AllowedColors);
+
+}  // namespace
+
 // https://www.w3.org/TR/css-color-5/#color-mix
 static CSSValue* ConsumeColorMixFunction(CSSParserTokenRange& range,
-                                         const CSSParserContext& context) {
+                                         const CSSParserContext& context,
+                                         AllowedColors allowed_colors) {
   DCHECK(range.Peek().FunctionId() == CSSValueID::kColorMix);
   context.Count(WebFeature::kCSSColorMixFunction);
 
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
   // First argument is the colorspace
   Color::ColorSpace color_space;
   Color::HueInterpolationMethod hue_interpolation_method =
@@ -1759,12 +2112,16 @@ static CSSValue* ConsumeColorMixFunction(CSSParserTokenRange& range,
     return nullptr;
   }
 
-  CSSValue* color1 = ConsumeColor(args, context);
+  const bool no_quirky_colors = false;
+
+  CSSValue* color1 =
+      ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
   CSSPrimitiveValue* p1 =
       ConsumePercent(args, context, CSSPrimitiveValue::ValueRange::kAll);
   // Color can come after the percentage
   if (!color1) {
-    color1 = ConsumeColor(args, context);
+    color1 =
+        ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
     if (!color1) {
       return nullptr;
     }
@@ -1779,12 +2136,14 @@ static CSSValue* ConsumeColorMixFunction(CSSParserTokenRange& range,
     return nullptr;
   }
 
-  CSSValue* color2 = ConsumeColor(args, context);
+  CSSValue* color2 =
+      ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
   CSSPrimitiveValue* p2 =
       ConsumePercent(args, context, CSSPrimitiveValue::ValueRange::kAll);
   // Color can come after the percentage
   if (!color2) {
-    color2 = ConsumeColor(args, context);
+    color2 =
+        ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
     if (!color2) {
       return nullptr;
     }
@@ -1805,7 +2164,7 @@ static CSSValue* ConsumeColorMixFunction(CSSParserTokenRange& range,
     return nullptr;
   }
 
-  range = range_copy;
+  savepoint.Release();
 
   cssvalue::CSSColorMixValue* result =
       MakeGarbageCollected<cssvalue::CSSColorMixValue>(
@@ -1813,9 +2172,99 @@ static CSSValue* ConsumeColorMixFunction(CSSParserTokenRange& range,
   return result;
 }
 
-static bool ParseHexColor(CSSParserTokenRange& range,
-                          Color& result,
-                          bool accept_quirky_colors) {
+[[maybe_unused]]
+static CSSValue* ConsumeColorMixFunction(CSSParserTokenStream& stream,
+                                         const CSSParserContext& context,
+                                         AllowedColors allowed_colors) {
+  DCHECK(stream.Peek().FunctionId() == CSSValueID::kColorMix);
+  context.Count(WebFeature::kCSSColorMixFunction);
+
+  CSSParserTokenStream::State savepoint = stream.Save();
+  CSSParserTokenRange args = ConsumeFunction(stream);
+  // First argument is the colorspace
+  Color::ColorSpace color_space;
+  Color::HueInterpolationMethod hue_interpolation_method =
+      Color::HueInterpolationMethod::kShorter;
+  if (!ConsumeColorInterpolationSpace(args, color_space,
+                                      hue_interpolation_method)) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  if (!ConsumeCommaIncludingWhitespace(args)) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  const bool no_quirky_colors = false;
+
+  CSSValue* color1 =
+      ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
+  CSSPrimitiveValue* p1 =
+      ConsumePercent(args, context, CSSPrimitiveValue::ValueRange::kAll);
+  // Color can come after the percentage
+  if (!color1) {
+    color1 =
+        ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
+    if (!color1) {
+      stream.Restore(savepoint);
+      return nullptr;
+    }
+  }
+  // Reject negative values and values > 100%, but not calc() values.
+  if (p1 && p1->IsNumericLiteralValue() &&
+      (p1->GetDoubleValue() < 0.0 || p1->GetDoubleValue() > 100.0)) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  if (!ConsumeCommaIncludingWhitespace(args)) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  CSSValue* color2 =
+      ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
+  CSSPrimitiveValue* p2 =
+      ConsumePercent(args, context, CSSPrimitiveValue::ValueRange::kAll);
+  // Color can come after the percentage
+  if (!color2) {
+    color2 =
+        ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
+    if (!color2) {
+      stream.Restore(savepoint);
+      return nullptr;
+    }
+  }
+  // Reject negative values and values > 100%, but not calc() values.
+  if (p2 && p2->IsNumericLiteralValue() &&
+      (p2->GetDoubleValue() < 0.0 || p2->GetDoubleValue() > 100.0)) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  // If both values are literally zero (and not calc()) reject at parse time
+  if (p1 && p2 && p1->IsNumericLiteralValue() && p1->GetDoubleValue() == 0.0f &&
+      p2->IsNumericLiteralValue() && p2->GetDoubleValue() == 0.0) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  if (!args.AtEnd()) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  cssvalue::CSSColorMixValue* result =
+      MakeGarbageCollected<cssvalue::CSSColorMixValue>(
+          color1, color2, p1, p2, color_space, hue_interpolation_method);
+  return result;
+}
+
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+static bool ParseHexColor(T& range, Color& result, bool accept_quirky_colors) {
   const CSSParserToken& token = range.Peek();
   if (token.GetType() == kHashToken) {
     if (!Color::ParseHexColor(token.Value(), result)) {
@@ -1878,13 +2327,17 @@ Color ResolveColor(CSSValue* value, const ui::ColorProvider* color_provider) {
 }  // namespace
 
 CSSValue* ConsumeColorContrast(CSSParserTokenRange& range,
-                               const CSSParserContext& context) {
+                               const CSSParserContext& context,
+                               AllowedColors allowed_colors) {
   DCHECK_EQ(range.Peek().FunctionId(), CSSValueID::kColorContrast);
 
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
 
-  CSSValue* background_color = ConsumeColor(args, context);
+  const bool no_quirky_colors = false;
+
+  CSSValue* background_color =
+      ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
   if (!background_color) {
     return nullptr;
   }
@@ -1895,7 +2348,8 @@ CSSValue* ConsumeColorContrast(CSSParserTokenRange& range,
 
   VectorOf<CSSValue> colors_to_compare_against;
   do {
-    CSSValue* color = ConsumeColor(args, context);
+    CSSValue* color =
+        ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
     if (!color) {
       return nullptr;
     }
@@ -1958,7 +2412,115 @@ CSSValue* ConsumeColorContrast(CSSParserTokenRange& range,
     }
   }
 
-  range = range_copy;
+  savepoint.Release();
+
+  if (highest_contrast_index < 0) {
+    // If an explicit target contrast was set and no provided colors have enough
+    // contrast, then return white or black depending on which has the most
+    // contrast.
+    return color_utils::GetContrastRatio(resolved_background_color,
+                                         SkColors::kWhite) >
+                   color_utils::GetContrastRatio(resolved_background_color,
+                                                 SkColors::kBlack)
+               ? MakeGarbageCollected<cssvalue::CSSColor>(Color::kWhite)
+               : MakeGarbageCollected<cssvalue::CSSColor>(Color::kBlack);
+  }
+
+  return MakeGarbageCollected<cssvalue::CSSColor>(ResolveColor(
+      colors_to_compare_against[highest_contrast_index], color_provider));
+}
+
+CSSValue* ConsumeColorContrast(CSSParserTokenStream& stream,
+                               const CSSParserContext& context,
+                               AllowedColors allowed_colors) {
+  DCHECK_EQ(stream.Peek().FunctionId(), CSSValueID::kColorContrast);
+
+  CSSParserTokenStream::State savepoint = stream.Save();
+  CSSParserTokenRange args = ConsumeFunction(stream);
+
+  const bool no_quirky_colors = false;
+
+  CSSValue* background_color =
+      ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
+  if (!background_color) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  if (!ConsumeIdent<CSSValueID::kVs>(args)) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  VectorOf<CSSValue> colors_to_compare_against;
+  do {
+    CSSValue* color =
+        ConsumeColorInternal(args, context, no_quirky_colors, allowed_colors);
+    if (!color) {
+      stream.Restore(savepoint);
+      return nullptr;
+    }
+    colors_to_compare_against.push_back(color);
+  } while (ConsumeCommaIncludingWhitespace(args));
+
+  if (colors_to_compare_against.size() < 2) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  std::optional<double> target_contrast;
+  if (ConsumeIdent<CSSValueID::kTo>(args)) {
+    double target_contrast_temp;
+    if (ConsumeIdent<CSSValueID::kAA>(args)) {
+      target_contrast = 4.5;
+    } else if (ConsumeIdent<CSSValueID::kAALarge>(args)) {
+      target_contrast = 3;
+    } else if (ConsumeIdent<CSSValueID::kAAA>(args)) {
+      target_contrast = 7;
+    } else if (ConsumeIdent<CSSValueID::kAAALarge>(args)) {
+      target_contrast = 4.5;
+    } else if (ConsumeNumberRaw(args, context, target_contrast_temp)) {
+      target_contrast = target_contrast_temp;
+    } else {
+      stream.Restore(savepoint);
+      return nullptr;
+    }
+  }
+
+  // Bail out if there is any trailing stuff after we parse everything
+  if (!args.AtEnd()) {
+    stream.Restore(savepoint);
+    return nullptr;
+  }
+
+  // TODO(crbug.com/929098) Need to pass an appropriate color scheme here.
+  const ui::ColorProvider* color_provider =
+      context.GetDocument()->GetColorProviderForPainting(
+          mojom::blink::ColorScheme::kLight);
+  // TODO(crbug.com/1111385): Represent |background_color| and
+  // |colors_to_compare_against| in ComputedStyle and evaluate with currentColor
+  // and other variables at used-value time instead of doing it at parse time
+  // below.
+  SkColor4f resolved_background_color =
+      ResolveColor(background_color, color_provider).toSkColor4f();
+  int highest_contrast_index = -1;
+  float highest_contrast_ratio = 0;
+  for (unsigned i = 0; i < colors_to_compare_against.size(); i++) {
+    float contrast_ratio = color_utils::GetContrastRatio(
+        resolved_background_color,
+        ResolveColor(colors_to_compare_against[i], color_provider)
+            .toSkColor4f());
+    if (target_contrast.has_value()) {
+      if (contrast_ratio >= target_contrast.value()) {
+        highest_contrast_ratio = contrast_ratio;
+        highest_contrast_index = i;
+        break;
+      }
+    } else if (contrast_ratio > highest_contrast_ratio) {
+      highest_contrast_ratio = contrast_ratio;
+      highest_contrast_index = i;
+    }
+  }
 
   if (highest_contrast_index < 0) {
     // If an explicit target contrast was set and no provided colors have enough
@@ -1985,7 +2547,7 @@ bool SystemAccentColorAllowed(const CSSParserContext& context) {
 
   if (RuntimeEnabledFeatures::PreventReadingSystemAccentColorEnabled()) {
     if (const auto* document = context.GetDocument()) {
-      if (document->GetPage()->GetChromeClient().IsSVGImageChromeClient()) {
+      if (document->GetPage()->GetChromeClient().IsIsolatedSVGChromeClient()) {
         return false;
       }
     }
@@ -1994,17 +2556,20 @@ bool SystemAccentColorAllowed(const CSSParserContext& context) {
   return true;
 }
 
-CSSValue* ConsumeColorInternal(CSSParserTokenRange& range,
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeColorInternal(T& range,
                                const CSSParserContext& context,
                                bool accept_quirky_colors,
-                               AllowedColorKeywords allowed_keywords) {
+                               AllowedColors allowed_colors) {
   if (RuntimeEnabledFeatures::CSSColorContrastEnabled() &&
       range.Peek().FunctionId() == CSSValueID::kColorContrast) {
-    return ConsumeColorContrast(range, context);
+    return ConsumeColorContrast(range, context, allowed_colors);
   }
 
   if (range.Peek().FunctionId() == CSSValueID::kColorMix) {
-    CSSValue* color = ConsumeColorMixFunction(range, context);
+    CSSValue* color = ConsumeColorMixFunction(range, context, allowed_colors);
     return color;
   }
 
@@ -2017,8 +2582,9 @@ CSSValue* ConsumeColorInternal(CSSParserTokenRange& range,
     if (!isValueAllowedInMode(id, context.Mode())) {
       return nullptr;
     }
-    if (allowed_keywords != AllowedColorKeywords::kAllowSystemColor &&
-        (StyleColor::IsSystemColorIncludingDeprecated(id) ||
+    if (allowed_colors == AllowedColors::kAbsolute &&
+        (id == CSSValueID::kCurrentcolor ||
+         StyleColor::IsSystemColorIncludingDeprecated(id) ||
          StyleColor::IsSystemColor(id))) {
       return nullptr;
     }
@@ -2046,9 +2612,10 @@ CSSValue* ConsumeColorInternal(CSSParserTokenRange& range,
     }
   }
 
-  if (IsUASheetBehavior(context.Mode()) ||
-      RuntimeEnabledFeatures::CSSLightDarkColorsEnabled()) {
-    return ConsumeLightDark(ConsumeColor, range, context);
+  if ((IsUASheetBehavior(context.Mode()) ||
+       RuntimeEnabledFeatures::CSSLightDarkColorsEnabled()) &&
+      allowed_colors == AllowedColors::kAll) {
+    return ConsumeLightDark(ConsumeColor<CSSParserTokenRange>, range, context);
   }
   return nullptr;
 }
@@ -2059,19 +2626,24 @@ CSSValue* ConsumeColorMaybeQuirky(CSSParserTokenRange& range,
                                   const CSSParserContext& context) {
   return ConsumeColorInternal(range, context,
                               IsQuirksModeBehavior(context.Mode()),
-                              AllowedColorKeywords::kAllowSystemColor);
+                              AllowedColors::kAll);
 }
 
-CSSValue* ConsumeColor(CSSParserTokenRange& range,
-                       const CSSParserContext& context) {
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeColor(T& range, const CSSParserContext& context) {
   return ConsumeColorInternal(range, context, false /* accept_quirky_colors */,
-                              AllowedColorKeywords::kAllowSystemColor);
+                              AllowedColors::kAll);
 }
+
+template CSSValue* ConsumeColor(CSSParserTokenRange& range,
+                                const CSSParserContext& context);
 
 CSSValue* ConsumeAbsoluteColor(CSSParserTokenRange& range,
                                const CSSParserContext& context) {
   return ConsumeColorInternal(range, context, false /* accept_quirky_colors */,
-                              AllowedColorKeywords::kNoSystemColor);
+                              AllowedColors::kAbsolute);
 }
 
 CSSValue* ConsumeLineWidth(CSSParserTokenRange& range,
@@ -2086,17 +2658,32 @@ CSSValue* ConsumeLineWidth(CSSParserTokenRange& range,
                        CSSPrimitiveValue::ValueRange::kNonNegative, unitless);
 }
 
-static CSSValue* ConsumePositionComponent(CSSParserTokenRange& range,
+CSSValue* ConsumeLineWidth(CSSParserTokenStream& stream,
+                           const CSSParserContext& context,
+                           UnitlessQuirk unitless) {
+  CSSValueID id = stream.Peek().Id();
+  if (id == CSSValueID::kThin || id == CSSValueID::kMedium ||
+      id == CSSValueID::kThick) {
+    return ConsumeIdent(stream);
+  }
+  return ConsumeLength(stream, context,
+                       CSSPrimitiveValue::ValueRange::kNonNegative, unitless);
+}
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+static CSSValue* ConsumePositionComponent(T& stream,
                                           const CSSParserContext& context,
                                           UnitlessQuirk unitless,
                                           bool& horizontal_edge,
                                           bool& vertical_edge) {
-  if (range.Peek().GetType() != kIdentToken) {
+  if (stream.Peek().GetType() != kIdentToken) {
     return ConsumeLengthOrPercent(
-        range, context, CSSPrimitiveValue::ValueRange::kAll, unitless);
+        stream, context, CSSPrimitiveValue::ValueRange::kAll, unitless);
   }
 
-  CSSValueID id = range.Peek().Id();
+  CSSValueID id = stream.Peek().Id();
   if (id == CSSValueID::kLeft || id == CSSValueID::kRight) {
     if (horizontal_edge) {
       return nullptr;
@@ -2110,7 +2697,7 @@ static CSSValue* ConsumePositionComponent(CSSParserTokenRange& range,
   } else if (id != CSSValueID::kCenter) {
     return nullptr;
   }
-  return ConsumeIdent(range);
+  return ConsumeIdent(stream);
 }
 
 static bool IsHorizontalPositionKeywordOnly(const CSSValue& value) {
@@ -2271,6 +2858,91 @@ bool ConsumePosition(CSSParserTokenRange& range,
         return true;
       }
       range = range_after_second_consume;
+      PositionFromTwoValues(value1, value2, result_x, result_y);
+      return true;
+    }
+    DCHECK_EQ(*three_value_position,
+              WebFeature::kThreeValuedPositionBackground);
+    context.Count(*three_value_position);
+  }
+
+  CSSValue* values[5];
+  values[0] = value1;
+  values[1] = value2;
+  values[2] = value3;
+  values[3] = value4;
+  values[4] = nullptr;
+  PositionFromThreeOrFourValues(values, result_x, result_y);
+  return true;
+}
+
+bool ConsumePosition(CSSParserTokenStream& stream,
+                     const CSSParserContext& context,
+                     UnitlessQuirk unitless,
+                     std::optional<WebFeature> three_value_position,
+                     CSSValue*& result_x,
+                     CSSValue*& result_y) {
+  bool horizontal_edge = false;
+  bool vertical_edge = false;
+  CSSValue* value1 = ConsumePositionComponent(stream, context, unitless,
+                                              horizontal_edge, vertical_edge);
+  if (!value1) {
+    return false;
+  }
+  if (!value1->IsIdentifierValue()) {
+    horizontal_edge = true;
+  }
+
+  CSSParserTokenStream::State savepoint_after_first_consume = stream.Save();
+  CSSValue* value2 = ConsumePositionComponent(stream, context, unitless,
+                                              horizontal_edge, vertical_edge);
+  if (!value2) {
+    PositionFromOneValue(value1, result_x, result_y);
+    return true;
+  }
+
+  CSSParserTokenStream::State savepoint_after_second_consume = stream.Save();
+  CSSValue* value3 = nullptr;
+  auto* identifier_value1 = DynamicTo<CSSIdentifierValue>(value1);
+  auto* identifier_value2 = DynamicTo<CSSIdentifierValue>(value2);
+  // TODO(crbug.com/940442): Fix the strange comparison of a
+  // CSSIdentifierValue instance against a specific "stream peek" type check.
+  if (identifier_value1 &&
+      !!identifier_value2 != (stream.Peek().GetType() == kIdentToken) &&
+      (identifier_value2
+           ? identifier_value2->GetValueID()
+           : identifier_value1->GetValueID()) != CSSValueID::kCenter) {
+    value3 = ConsumePositionComponent(stream, context, unitless,
+                                      horizontal_edge, vertical_edge);
+  }
+  if (!value3) {
+    if (vertical_edge && !value2->IsIdentifierValue()) {
+      stream.Restore(savepoint_after_first_consume);
+      PositionFromOneValue(value1, result_x, result_y);
+      return true;
+    }
+    PositionFromTwoValues(value1, value2, result_x, result_y);
+    return true;
+  }
+
+  CSSValue* value4 = nullptr;
+  auto* identifier_value3 = DynamicTo<CSSIdentifierValue>(value3);
+  if (identifier_value3 &&
+      identifier_value3->GetValueID() != CSSValueID::kCenter &&
+      stream.Peek().GetType() != kIdentToken) {
+    value4 = ConsumePositionComponent(stream, context, unitless,
+                                      horizontal_edge, vertical_edge);
+  }
+
+  if (!value4) {
+    if (!three_value_position) {
+      // [top | bottom] <length-percentage> is not permitted
+      if (vertical_edge && !value2->IsIdentifierValue()) {
+        stream.Restore(savepoint_after_first_consume);
+        PositionFromOneValue(value1, result_x, result_y);
+        return true;
+      }
+      stream.Restore(savepoint_after_second_consume);
       PositionFromTwoValues(value1, value2, result_x, result_y);
       return true;
     }
@@ -2904,12 +3576,14 @@ static CSSValue* ConsumeConicGradient(CSSParserTokenRange& args,
              : nullptr;
 }
 
-CSSValue* ConsumeImageOrNone(CSSParserTokenRange& range,
-                             const CSSParserContext& context) {
-  if (range.Peek().Id() == CSSValueID::kNone) {
-    return ConsumeIdent(range);
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeImageOrNone(T& stream, const CSSParserContext& context) {
+  if (stream.Peek().Id() == CSSValueID::kNone) {
+    return ConsumeIdent(stream);
   }
-  return ConsumeImage(range, context);
+  return ConsumeImage(stream, context);
 }
 
 CSSValue* ConsumeAxis(CSSParserTokenRange& range,
@@ -3096,15 +3770,18 @@ static CSSValue* ConsumePaint(CSSParserTokenRange& args,
   return MakeGarbageCollected<CSSPaintValue>(name, variable_data);
 }
 
-static CSSValue* ConsumeGeneratedImage(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+static CSSValue* ConsumeGeneratedImage(T& stream,
                                        const CSSParserContext& context) {
-  CSSValueID id = range.Peek().FunctionId();
+  CSSValueID id = stream.Peek().FunctionId();
   if (!IsGeneratedImage(id)) {
     return nullptr;
   }
 
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(stream);
+  CSSParserTokenRange args = ConsumeFunction(stream);
   CSSValue* result = nullptr;
   if (id == CSSValueID::kRadialGradient) {
     result = ConsumeRadialGradient(args, context, cssvalue::kNonRepeating);
@@ -3161,7 +3838,7 @@ static CSSValue* ConsumeGeneratedImage(CSSParserTokenRange& range,
   }
   context.Count(feature);
 
-  range = range_copy;
+  savepoint.Release();
   return result;
 }
 
@@ -3181,15 +3858,15 @@ static CSSImageSetTypeValue* ConsumeImageSetType(CSSParserTokenRange& range) {
     return nullptr;
   }
 
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
 
   auto type = ConsumeStringAsStringView(args);
   if (type.IsNull() || !args.AtEnd()) {
     return nullptr;
   }
 
-  range = range_copy;
+  savepoint.Release();
   return MakeGarbageCollected<CSSImageSetTypeValue>(type.ToString());
 }
 
@@ -3214,13 +3891,17 @@ static CSSImageSetOptionValue* ConsumeImageSetOption(
   return MakeGarbageCollected<CSSImageSetOptionValue>(image, resolution, type);
 }
 
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 static CSSValue* ConsumeImageSet(
-    CSSParserTokenRange& range,
+    T& stream,
     const CSSParserContext& context,
     ConsumeGeneratedImagePolicy generated_image_policy =
         ConsumeGeneratedImagePolicy::kAllow) {
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSValueID function_id = stream.Peek().FunctionId();
+  CSSParserSavePoint savepoint(stream);
+  CSSParserTokenRange args = ConsumeFunction(stream);
 
   auto* image_set = MakeGarbageCollected<CSSImageSetValue>();
   do {
@@ -3237,7 +3918,7 @@ static CSSValue* ConsumeImageSet(
     return nullptr;
   }
 
-  switch (range.Peek().FunctionId()) {
+  switch (function_id) {
     case CSSValueID::kWebkitImageSet:
       context.Count(WebFeature::kWebkitImageSet);
       break;
@@ -3251,13 +3932,16 @@ static CSSValue* ConsumeImageSet(
       break;
   }
 
-  range = range_copy;
+  savepoint.Release();
 
   return image_set;
 }
 
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 CSSValue* ConsumeImage(
-    CSSParserTokenRange& range,
+    T& range,
     const CSSParserContext& context,
     const ConsumeGeneratedImagePolicy generated_image_policy,
     const ConsumeStringUrlImagePolicy string_url_image_policy,
@@ -3284,7 +3968,8 @@ CSSValue* ConsumeImage(
       return ConsumeGeneratedImage(range, context);
     }
     if (IsUASheetBehavior(context.Mode())) {
-      return ConsumeLightDark(ConsumeImageOrNone, range, context);
+      return ConsumeLightDark(ConsumeImageOrNone<CSSParserTokenRange>, range,
+                              context);
     }
   }
   return nullptr;
@@ -3303,10 +3988,21 @@ CSSIdentifierValue* ConsumeVisualBox(CSSParserTokenRange& range) {
 }
 
 // https://drafts.csswg.org/css-box-4/#typedef-coord-box
-CSSIdentifierValue* ConsumeCoordBox(CSSParserTokenRange& range) {
+template <class T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSIdentifierValue* ConsumeCoordBoxInternal(T& range) {
   return ConsumeIdent<CSSValueID::kContentBox, CSSValueID::kPaddingBox,
                       CSSValueID::kBorderBox, CSSValueID::kFillBox,
                       CSSValueID::kStrokeBox, CSSValueID::kViewBox>(range);
+}
+
+CSSIdentifierValue* ConsumeCoordBox(CSSParserTokenRange& range) {
+  return ConsumeCoordBoxInternal(range);
+}
+
+CSSIdentifierValue* ConsumeCoordBox(CSSParserTokenStream& stream) {
+  return ConsumeCoordBoxInternal(stream);
 }
 
 // https://drafts.fxtf.org/css-masking/#typedef-geometry-box
@@ -3315,6 +4011,13 @@ CSSIdentifierValue* ConsumeGeometryBox(CSSParserTokenRange& range) {
                       CSSValueID::kContentBox, CSSValueID::kMarginBox,
                       CSSValueID::kFillBox, CSSValueID::kStrokeBox,
                       CSSValueID::kViewBox>(range);
+}
+
+CSSIdentifierValue* ConsumeGeometryBox(CSSParserTokenStream& stream) {
+  return ConsumeIdent<CSSValueID::kBorderBox, CSSValueID::kPaddingBox,
+                      CSSValueID::kContentBox, CSSValueID::kMarginBox,
+                      CSSValueID::kFillBox, CSSValueID::kStrokeBox,
+                      CSSValueID::kViewBox>(stream);
 }
 
 void AddProperty(CSSPropertyID resolved_property,
@@ -3364,15 +4067,20 @@ CSSValue* ConsumeFilterFunctionList(CSSParserTokenRange& range,
 
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
   do {
+    CSSParserSavePoint savepoint(range);
     CSSValue* filter_value = ConsumeUrl(range, context);
     if (!filter_value) {
       filter_value = ConsumeFilterFunction(range, context);
       if (!filter_value) {
-        return nullptr;
+        break;
       }
     }
+    savepoint.Release();
     list->Append(*filter_value);
   } while (!range.AtEnd());
+  if (list->length() == 0) {
+    return nullptr;
+  }
   return list;
 }
 
@@ -3389,10 +4097,6 @@ void CountKeywordOnlyPropertyUsage(CSSPropertyID property,
       if ((RuntimeEnabledFeatures::
                NonStandardAppearanceValuesHighUsageEnabled() &&
            CSSParserFastPaths::IsNonStandardAppearanceValuesHighUsage(
-               value_id)) ||
-          (RuntimeEnabledFeatures::
-               NonStandardAppearanceValuesLowUsageEnabled() &&
-           CSSParserFastPaths::IsNonStandardAppearanceValuesLowUsage(
                value_id))) {
         if (const auto* document = context.GetDocument()) {
           document->AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
@@ -3439,14 +4143,6 @@ void CountKeywordOnlyPropertyUsage(CSSPropertyID property,
           feature = WebFeature::kCSSValueAppearanceCheckbox;
         } else if (value_id == CSSValueID::kInnerSpinButton) {
           feature = WebFeature::kCSSValueAppearanceInnerSpinButton;
-        } else if (value_id == CSSValueID::kMediaSlider) {
-          feature = WebFeature::kCSSValueAppearanceMediaSlider;
-        } else if (value_id == CSSValueID::kMediaSliderthumb) {
-          feature = WebFeature::kCSSValueAppearanceMediaSliderthumb;
-        } else if (value_id == CSSValueID::kMediaVolumeSlider) {
-          feature = WebFeature::kCSSValueAppearanceMediaVolumeSlider;
-        } else if (value_id == CSSValueID::kMediaVolumeSliderthumb) {
-          feature = WebFeature::kCSSValueAppearanceMediaVolumeSliderthumb;
         } else if (value_id == CSSValueID::kMenulist) {
           feature = WebFeature::kCSSValueAppearanceMenulist;
         } else if (value_id == CSSValueID::kMenulistButton) {
@@ -3471,10 +4167,6 @@ void CountKeywordOnlyPropertyUsage(CSSPropertyID property,
           feature = WebFeature::kCSSValueAppearanceSliderHorizontal;
         } else if (value_id == CSSValueID::kSliderVertical) {
           feature = WebFeature::kCSSValueAppearanceSliderVertical;
-        } else if (value_id == CSSValueID::kSliderthumbHorizontal) {
-          feature = WebFeature::kCSSValueAppearanceSliderthumbHorizontal;
-        } else if (value_id == CSSValueID::kSliderthumbVertical) {
-          feature = WebFeature::kCSSValueAppearanceSliderthumbVertical;
         } else if (value_id == CSSValueID::kTextarea) {
           feature = WebFeature::kCSSValueAppearanceTextarea;
         } else if (value_id == CSSValueID::kTextfield) {
@@ -3535,10 +4227,6 @@ void WarnInvalidKeywordPropertyUsage(CSSPropertyID property,
            CSSParserFastPaths::IsNonStandardAppearanceValuesHighUsage(
                value_id)) ||
           (!RuntimeEnabledFeatures::
-               NonStandardAppearanceValuesLowUsageEnabled() &&
-           CSSParserFastPaths::IsNonStandardAppearanceValuesLowUsage(
-               value_id)) ||
-          (!RuntimeEnabledFeatures::
                NonStandardAppearanceValueSliderVerticalEnabled() &&
            value_id == CSSValueID::kSliderVertical)) {
         if (const auto* document = context.GetDocument()) {
@@ -3582,8 +4270,9 @@ const CSSValue* ParseLonghand(CSSPropertyID unresolved_property,
           .WithAliasParsing(IsPropertyAlias(unresolved_property))
           .WithCurrentShorthand(current_shorthand);
 
-  const CSSValue* result = To<Longhand>(CSSProperty::Get(property_id))
-                               .ParseSingleValue(range, context, local_context);
+  const CSSValue* result =
+      To<Longhand>(CSSProperty::Get(property_id))
+          .ParseSingleValueFromRange(range, context, local_context);
   return result;
 }
 
@@ -3618,7 +4307,7 @@ bool ConsumeShorthandVia2Longhands(
   AddProperty(longhands[1]->PropertyID(), shorthand.id(), *end, important,
               IsImplicitProperty::kNotImplicit, properties);
 
-  return range.AtEnd();
+  return true;
 }
 
 bool ConsumeShorthandVia4Longhands(
@@ -3669,7 +4358,7 @@ bool ConsumeShorthandVia4Longhands(
   AddProperty(longhands[3]->PropertyID(), shorthand.id(), *left, important,
               IsImplicitProperty::kNotImplicit, properties);
 
-  return range.AtEnd();
+  return true;
 }
 
 bool ConsumeShorthandGreedilyViaLonghands(
@@ -3684,9 +4373,11 @@ bool ConsumeShorthandGreedilyViaLonghands(
   const CSSValue* longhands[6] = {nullptr, nullptr, nullptr,
                                   nullptr, nullptr, nullptr};
   const CSSProperty** shorthand_properties = shorthand.properties();
+  bool found_any = false;
+  bool found_longhand;
   do {
-    bool found_longhand = false;
-    for (size_t i = 0; !found_longhand && i < shorthand.length(); ++i) {
+    found_longhand = false;
+    for (size_t i = 0; i < shorthand.length(); ++i) {
       if (longhands[i]) {
         continue;
       }
@@ -3695,12 +4386,15 @@ bool ConsumeShorthandGreedilyViaLonghands(
 
       if (longhands[i]) {
         found_longhand = true;
+        found_any = true;
+        break;
       }
     }
-    if (!found_longhand) {
-      return false;
-    }
-  } while (!range.AtEnd());
+  } while (found_longhand && !range.AtEnd());
+
+  if (!found_any) {
+    return false;
+  }
 
   for (size_t i = 0; i < shorthand.length(); ++i) {
     if (longhands[i]) {
@@ -3824,6 +4518,27 @@ CSSValue* ConsumeCSSWideKeyword(CSSParserTokenRange& range) {
   }
 }
 
+CSSValue* ConsumeCSSWideKeyword(CSSParserTokenStream& stream) {
+  if (!IsCSSWideKeyword(stream.Peek().Id())) {
+    return nullptr;
+  }
+  switch (stream.ConsumeIncludingWhitespace().Id()) {
+    case CSSValueID::kInitial:
+      return CSSInitialValue::Create();
+    case CSSValueID::kInherit:
+      return CSSInheritedValue::Create();
+    case CSSValueID::kUnset:
+      return cssvalue::CSSUnsetValue::Create();
+    case CSSValueID::kRevert:
+      return cssvalue::CSSRevertValue::Create();
+    case CSSValueID::kRevertLayer:
+      return cssvalue::CSSRevertLayerValue::Create();
+    default:
+      NOTREACHED();
+      return nullptr;
+  }
+}
+
 bool IsTimelineName(const CSSParserToken& token) {
   if (token.GetType() == kStringToken) {
     return true;
@@ -3880,10 +4595,12 @@ CSSValue* ConsumeContentDistributionOverflowPosition(
         CSSValueID::kInvalid);
   }
 
+  CSSParserSavePoint savepoint(range);
   CSSValueID overflow = IsOverflowKeyword(id)
                             ? range.ConsumeIncludingWhitespace().Id()
                             : CSSValueID::kInvalid;
   if (is_position_keyword(range.Peek().Id())) {
+    savepoint.Release();
     return MakeGarbageCollected<cssvalue::CSSContentDistributionValue>(
         CSSValueID::kInvalid, range.ConsumeIncludingWhitespace().Id(),
         overflow);
@@ -4039,8 +4756,7 @@ CSSValue* ConsumeAnimationTimingFunction(CSSParserTokenRange& range,
   }
 
   CSSValueID function = range.Peek().FunctionId();
-  if (function == CSSValueID::kLinear &&
-      RuntimeEnabledFeatures::CSSLinearTimingFunctionEnabled()) {
+  if (function == CSSValueID::kLinear) {
     return ConsumeLinear(range, context);
   }
   if (function == CSSValueID::kSteps) {
@@ -4063,22 +4779,31 @@ CSSValue* ConsumeAnimationDuration(CSSParserTokenRange& range,
                      CSSPrimitiveValue::ValueRange::kNonNegative);
 }
 
+CSSValue* ConsumeTimelineRangeName(CSSParserTokenStream& stream) {
+  return ConsumeIdent<CSSValueID::kContain, CSSValueID::kCover,
+                      CSSValueID::kEntry, CSSValueID::kEntryCrossing,
+                      CSSValueID::kExit, CSSValueID::kExitCrossing>(stream);
+}
+
 CSSValue* ConsumeTimelineRangeName(CSSParserTokenRange& range) {
   return ConsumeIdent<CSSValueID::kContain, CSSValueID::kCover,
                       CSSValueID::kEntry, CSSValueID::kEntryCrossing,
                       CSSValueID::kExit, CSSValueID::kExitCrossing>(range);
 }
 
-CSSValue* ConsumeTimelineRangeNameAndPercent(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeTimelineRangeNameAndPercent(T& stream,
                                              const CSSParserContext& context) {
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  CSSValue* range_name = ConsumeTimelineRangeName(range);
+  CSSValue* range_name = ConsumeTimelineRangeName(stream);
   if (!range_name) {
     return nullptr;
   }
   list->Append(*range_name);
   CSSValue* percentage =
-      ConsumePercent(range, context, CSSPrimitiveValue::ValueRange::kAll);
+      ConsumePercent(stream, context, CSSPrimitiveValue::ValueRange::kAll);
   if (!percentage) {
     return nullptr;
   }
@@ -4086,9 +4811,12 @@ CSSValue* ConsumeTimelineRangeNameAndPercent(CSSParserTokenRange& range,
   return list;
 }
 
+template CSSValue* ConsumeTimelineRangeNameAndPercent(
+    CSSParserTokenRange& stream,
+    const CSSParserContext& context);
+
 CSSValue* ConsumeAnimationDelay(CSSParserTokenRange& range,
                                 const CSSParserContext& context) {
-  DCHECK(RuntimeEnabledFeatures::CSSAnimationDelayStartEndEnabled());
   return ConsumeTime(range, context, CSSPrimitiveValue::ValueRange::kAll);
 }
 
@@ -4134,6 +4862,7 @@ bool ConsumeAnimationShorthand(
 
   do {
     bool parsed_longhand[kMaxNumAnimationLonghands] = {false};
+    bool found_any = false;
     do {
       bool found_property = false;
       for (unsigned i = 0; i < longhand_count; ++i) {
@@ -4147,14 +4876,19 @@ bool ConsumeAnimationShorthand(
         if (value) {
           parsed_longhand[i] = true;
           found_property = true;
+          found_any = true;
           longhands[i]->Append(*value);
           break;
         }
       }
       if (!found_property) {
-        return false;
+        break;
       }
     } while (!range.AtEnd() && range.Peek().GetType() != kCommaToken);
+
+    if (!found_any) {
+      return false;
+    }
 
     for (unsigned i = 0; i < longhand_count; ++i) {
       const Longhand& longhand = *To<Longhand>(shorthand.properties()[i]);
@@ -4204,30 +4938,41 @@ CSSValue* ConsumeSingleTimelineName(CSSParserTokenRange& range,
 
 namespace {
 
-CSSValue* ConsumeSingleTimelineInsetSide(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeSingleTimelineInsetSide(T& stream,
                                          const CSSParserContext& context) {
-  if (CSSValue* ident = ConsumeIdent<CSSValueID::kAuto>(range)) {
+  if (CSSValue* ident = ConsumeIdent<CSSValueID::kAuto>(stream)) {
     return ident;
   }
-  return ConsumeLengthOrPercent(range, context,
+  return ConsumeLengthOrPercent(stream, context,
                                 CSSPrimitiveValue::ValueRange::kAll);
 }
 
 }  // namespace
 
-CSSValue* ConsumeSingleTimelineInset(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeSingleTimelineInset(T& stream,
                                      const CSSParserContext& context) {
-  CSSValue* start = ConsumeSingleTimelineInsetSide(range, context);
+  CSSValue* start = ConsumeSingleTimelineInsetSide(stream, context);
   if (!start) {
     return nullptr;
   }
-  CSSValue* end = ConsumeSingleTimelineInsetSide(range, context);
+  CSSValue* end = ConsumeSingleTimelineInsetSide(stream, context);
   if (!end) {
     end = start;
   }
   return MakeGarbageCollected<CSSValuePair>(start, end,
                                             CSSValuePair::kDropIdenticalValues);
 }
+
+template CSSValue* ConsumeSingleTimelineInset(CSSParserTokenRange& stream,
+                                              const CSSParserContext& context);
+template CSSValue* ConsumeSingleTimelineInset(CSSParserTokenStream& stream,
+                                              const CSSParserContext& context);
 
 const CSSValue* GetSingleValueOrMakeList(
     CSSValue::ValueListSeparator list_separator,
@@ -4289,31 +5034,47 @@ CSSPrimitiveValue* ConsumeLengthOrPercentCountNegative(
   return result;
 }
 
-CSSValue* ConsumeBackgroundSize(CSSParserTokenRange& range,
+CSSPrimitiveValue* ConsumeLengthOrPercentCountNegative(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    std::optional<WebFeature> negative_size) {
+  CSSPrimitiveValue* result = ConsumeLengthOrPercent(
+      stream, context, CSSPrimitiveValue::ValueRange::kNonNegative,
+      UnitlessQuirk::kForbid);
+  if (!result && negative_size) {
+    context.Count(*negative_size);
+  }
+  return result;
+}
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeBackgroundSize(T& stream,
                                 const CSSParserContext& context,
                                 std::optional<WebFeature> negative_size,
                                 ParsingStyle parsing_style) {
   if (IdentMatches<CSSValueID::kContain, CSSValueID::kCover>(
-          range.Peek().Id())) {
-    return ConsumeIdent(range);
+          stream.Peek().Id())) {
+    return ConsumeIdent(stream);
   }
 
-  CSSValue* horizontal = ConsumeIdent<CSSValueID::kAuto>(range);
+  CSSValue* horizontal = ConsumeIdent<CSSValueID::kAuto>(stream);
   if (!horizontal) {
     horizontal =
-        ConsumeLengthOrPercentCountNegative(range, context, negative_size);
+        ConsumeLengthOrPercentCountNegative(stream, context, negative_size);
   }
   if (!horizontal) {
     return nullptr;
   }
 
   CSSValue* vertical = nullptr;
-  if (!range.AtEnd()) {
-    if (range.Peek().Id() == CSSValueID::kAuto) {  // `auto' is the default
-      range.ConsumeIncludingWhitespace();
+  if (!stream.AtEnd()) {
+    if (stream.Peek().Id() == CSSValueID::kAuto) {  // `auto' is the default
+      stream.ConsumeIncludingWhitespace();
     } else {
       vertical =
-          ConsumeLengthOrPercentCountNegative(range, context, negative_size);
+          ConsumeLengthOrPercentCountNegative(stream, context, negative_size);
     }
   } else if (parsing_style == ParsingStyle::kLegacy) {
     // Legacy syntax: "-webkit-background-size: 10px" is equivalent to
@@ -4333,7 +5094,10 @@ static void SetAllowsNegativePercentageReference(CSSValue* value) {
   }
 }
 
-bool ConsumeBackgroundPosition(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+bool ConsumeBackgroundPosition(T& stream,
                                const CSSParserContext& context,
                                UnitlessQuirk unitless,
                                std::optional<WebFeature> three_value_position,
@@ -4345,7 +5109,7 @@ bool ConsumeBackgroundPosition(CSSParserTokenRange& range,
   do {
     CSSValue* position_x = nullptr;
     CSSValue* position_y = nullptr;
-    if (!ConsumePosition(range, context, unitless, three_value_position,
+    if (!ConsumePosition(stream, context, unitless, three_value_position,
                          position_x, position_y)) {
       return false;
     }
@@ -4357,7 +5121,7 @@ bool ConsumeBackgroundPosition(CSSParserTokenRange& range,
     SetAllowsNegativePercentageReference(position_y);
     values_x.push_back(position_x);
     values_y.push_back(position_y);
-  } while (ConsumeCommaIncludingWhitespace(range));
+  } while (ConsumeCommaIncludingWhitespace(stream));
 
   // To conserve memory we don't wrap single values in lists.
   result_x =
@@ -4367,6 +5131,22 @@ bool ConsumeBackgroundPosition(CSSParserTokenRange& range,
 
   return true;
 }
+
+template bool ConsumeBackgroundPosition(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    UnitlessQuirk unitless,
+    std::optional<WebFeature> three_value_position,
+    const CSSValue*& result_x,
+    const CSSValue*& result_y);
+
+template bool ConsumeBackgroundPosition(
+    CSSParserTokenRange& range,
+    const CSSParserContext& context,
+    UnitlessQuirk unitless,
+    std::optional<WebFeature> three_value_position,
+    const CSSValue*& result_x,
+    const CSSValue*& result_y);
 
 CSSValue* ConsumePrefixedBackgroundBox(CSSParserTokenRange& range,
                                        AllowTextValue allow_text_value) {
@@ -4399,7 +5179,7 @@ CSSValue* ParseBackgroundSize(CSSParserTokenRange& range,
                               const CSSParserLocalContext& local_context,
                               std::optional<WebFeature> negative_size) {
   return ConsumeCommaSeparatedList(
-      ConsumeBackgroundSize, range, context, negative_size,
+      ConsumeBackgroundSize<CSSParserTokenRange>, range, context, negative_size,
       local_context.UseAliasParsing() ? ParsingStyle::kLegacy
                                       : ParsingStyle::kNotLegacy);
 }
@@ -4408,8 +5188,9 @@ CSSValue* ParseMaskSize(CSSParserTokenRange& range,
                         const CSSParserContext& context,
                         const CSSParserLocalContext& local_context,
                         std::optional<WebFeature> negative_size) {
-  return ConsumeCommaSeparatedList(ConsumeBackgroundSize, range, context,
-                                   negative_size, ParsingStyle::kNotLegacy);
+  return ConsumeCommaSeparatedList(ConsumeBackgroundSize<CSSParserTokenRange>,
+                                   range, context, negative_size,
+                                   ParsingStyle::kNotLegacy);
 }
 
 CSSValue* ConsumeCoordBoxOrNoClip(CSSParserTokenRange& range) {
@@ -4504,11 +5285,14 @@ bool ParseBackgroundOrMask(bool important,
   CHECK_LE(longhand_count, 10u);
 
   bool implicit = false;
+  bool previous_layer_had_background_color = false;
   do {
     bool parsed_longhand[10] = {false};
     CSSValue* origin_value = nullptr;
+    bool found_property;
+    bool found_any = false;
     do {
-      bool found_property = false;
+      found_property = false;
       bool bg_position_parsed_in_current_layer = false;
       for (unsigned i = 0; i < longhand_count; ++i) {
         if (parsed_longhand[i]) {
@@ -4557,6 +5341,7 @@ bool ParseBackgroundOrMask(bool important,
           }
           parsed_longhand[i] = true;
           found_property = true;
+          found_any = true;
           longhands[i].push_back(value);
           if (value_y) {
             parsed_longhand[i + 1] = true;
@@ -4564,23 +5349,28 @@ bool ParseBackgroundOrMask(bool important,
           }
         }
       }
-      if (!found_property) {
-        return false;
-      }
-    } while (!range.AtEnd() && range.Peek().GetType() != kCommaToken);
+    } while (found_property && !range.AtEnd() &&
+             range.Peek().GetType() != kCommaToken);
+
+    if (!found_any) {
+      return false;
+    }
+    if (previous_layer_had_background_color) {
+      // Colors are only allowed in the last layer; previous layer had
+      // a background color and we now know for sure it was not the last one,
+      // so return parse failure.
+      return false;
+    }
 
     // TODO(timloh): This will make invalid longhands, see crbug.com/386459
     for (unsigned i = 0; i < longhand_count; ++i) {
       const CSSProperty& property = *shorthand.properties()[i];
 
-      if (property.IDEquals(CSSPropertyID::kBackgroundColor) &&
-          !range.AtEnd()) {
+      if (property.IDEquals(CSSPropertyID::kBackgroundColor)) {
         if (parsed_longhand[i]) {
-          return false;  // Colors are only allowed in the last layer.
+          previous_layer_had_background_color = true;
         }
-        continue;
       }
-
       if (!parsed_longhand[i]) {
         if ((property.IDEquals(CSSPropertyID::kBackgroundClip) ||
              property.IDEquals(CSSPropertyID::kMaskClip)) &&
@@ -4597,16 +5387,21 @@ bool ParseBackgroundOrMask(bool important,
       }
     }
   } while (ConsumeCommaIncludingWhitespace(range));
-  if (!range.AtEnd()) {
-    return false;
-  }
 
   for (unsigned i = 0; i < longhand_count; ++i) {
     const CSSProperty& property = *shorthand.properties()[i];
 
-    // To conserve memory we don't wrap a single value in a list.
-    const CSSValue* longhand = GetSingleValueOrMakeList(
-        CSSValue::kCommaSeparator, std::move(longhands[i]));
+    const CSSValue* longhand;
+    if (property.IDEquals(CSSPropertyID::kBackgroundColor)) {
+      // There can only be one background-color (we've verified this earlier,
+      // by means of previous_layer_had_background_color), so pick out only
+      // the last one (any others will just be “initial” over and over again).
+      longhand = longhands[i].back().Get();
+    } else {
+      // To conserve memory we don't wrap a single value in a list.
+      longhand = GetSingleValueOrMakeList(CSSValue::kCommaSeparator,
+                                          std::move(longhands[i]));
+    }
 
     AddProperty(property.PropertyID(), shorthand.id(), *longhand, important,
                 implicit ? IsImplicitProperty::kImplicit
@@ -4616,12 +5411,18 @@ bool ParseBackgroundOrMask(bool important,
   return true;
 }
 
-CSSIdentifierValue* ConsumeRepeatStyleIdent(CSSParserTokenRange& range) {
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSIdentifierValue* ConsumeRepeatStyleIdent(T& stream) {
   return ConsumeIdent<CSSValueID::kRepeat, CSSValueID::kNoRepeat,
-                      CSSValueID::kRound, CSSValueID::kSpace>(range);
+                      CSSValueID::kRound, CSSValueID::kSpace>(stream);
 }
 
-CSSRepeatStyleValue* ConsumeRepeatStyleValue(CSSParserTokenRange& range) {
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSRepeatStyleValue* ConsumeRepeatStyleValue(T& range) {
   if (auto* id = ConsumeIdent<CSSValueID::kRepeatX>(range)) {
     return MakeGarbageCollected<CSSRepeatStyleValue>(id);
   }
@@ -4642,7 +5443,8 @@ CSSRepeatStyleValue* ConsumeRepeatStyleValue(CSSParserTokenRange& range) {
 }
 
 CSSValueList* ParseRepeatStyle(CSSParserTokenRange& range) {
-  return ConsumeCommaSeparatedList(ConsumeRepeatStyleValue, range);
+  return ConsumeCommaSeparatedList(ConsumeRepeatStyleValue<CSSParserTokenRange>,
+                                   range);
 }
 
 CSSValue* ConsumeWebkitBorderImage(CSSParserTokenRange& range,
@@ -4681,6 +5483,7 @@ bool ConsumeBorderImageComponents(CSSParserTokenRange& range,
       }
     }
     if (!slice) {
+      CSSParserSavePoint savepoint(range);
       slice = ConsumeBorderImageSlice(range, context, default_fill);
       if (slice) {
         DCHECK(!width);
@@ -4690,19 +5493,23 @@ bool ConsumeBorderImageComponents(CSSParserTokenRange& range,
           if (ConsumeSlashIncludingWhitespace(range)) {
             outset = ConsumeBorderImageOutset(range, context);
             if (!outset) {
-              return false;
+              break;
             }
           } else if (!width) {
-            return false;
+            break;
           }
         }
       } else {
-        return false;
+        break;
       }
+      savepoint.Release();
     } else {
-      return false;
+      break;
     }
   } while (!range.AtEnd());
+  if (!source && !repeat && !slice) {
+    return false;
+  }
   return true;
 }
 
@@ -4851,8 +5658,8 @@ const CSSValue* ParseBorderStyleSide(CSSParserTokenRange& range,
       IsUASheetBehavior(context.Mode()) &&
       range.Peek().FunctionId() ==
           CSSValueID::kInternalAppearanceAutoBaseSelect) {
-    CSSParserTokenRange range_copy = range;
-    CSSParserTokenRange arg_range = ConsumeFunction(range_copy);
+    CSSParserSavePoint savepoint(range);
+    CSSParserTokenRange arg_range = ConsumeFunction(range);
     CSSValue* auto_value = ConsumeIdent(arg_range);
     if (!auto_value || !ConsumeCommaIncludingWhitespace(arg_range)) {
       return nullptr;
@@ -4861,7 +5668,7 @@ const CSSValue* ParseBorderStyleSide(CSSParserTokenRange& range,
     if (!base_select_value || !arg_range.AtEnd()) {
       return nullptr;
     }
-    range = range_copy;
+    savepoint.Release();
     return MakeGarbageCollected<CSSAppearanceAutoBaseSelectValuePair>(
         auto_value, base_select_value);
   }
@@ -5005,7 +5812,7 @@ CSSValue* ConsumeCounter(CSSParserTokenRange& range,
   do {
     CSSCustomIdentValue* counter_name = ConsumeCustomIdent(range, context);
     if (!counter_name) {
-      return nullptr;
+      break;
     }
     int value = default_value;
     if (CSSPrimitiveValue* counter_value = ConsumeInteger(range, context)) {
@@ -5017,6 +5824,9 @@ CSSValue* ConsumeCounter(CSSParserTokenRange& range,
                                        CSSPrimitiveValue::UnitType::kInteger),
         CSSValuePair::kDropIdenticalValues));
   } while (!range.AtEnd());
+  if (list->length() == 0) {
+    return nullptr;
+  }
   return list;
 }
 
@@ -5087,8 +5897,8 @@ CSSValue* ConsumePaletteMixFunction(CSSParserTokenRange& range,
     return nullptr;
   }
 
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
   Color::ColorSpace color_space;
   Color::HueInterpolationMethod hue_interpolation_method =
       Color::HueInterpolationMethod::kShorter;
@@ -5147,7 +5957,7 @@ CSSValue* ConsumePaletteMixFunction(CSSParserTokenRange& range,
     return nullptr;
   }
 
-  range = range_copy;
+  savepoint.Release();
 
   return MakeGarbageCollected<cssvalue::CSSPaletteMixValue>(
       palette1, palette2, percentage1, percentage2, color_space,
@@ -5188,6 +5998,24 @@ CSSValueList* ConsumeFontFamily(CSSParserTokenRange& range) {
   return list;
 }
 
+CSSValueList* ConsumeFontFamily(CSSParserTokenStream& stream) {
+  CSSValueList* list = CSSValueList::CreateCommaSeparated();
+  do {
+    CSSValue* parsed_value = ConsumeGenericFamily(stream);
+    if (parsed_value) {
+      list->Append(*parsed_value);
+    } else {
+      parsed_value = ConsumeFamilyName(stream);
+      if (parsed_value) {
+        list->Append(*parsed_value);
+      } else {
+        return nullptr;
+      }
+    }
+  } while (ConsumeCommaIncludingWhitespace(stream));
+  return list;
+}
+
 CSSValueList* ConsumeNonGenericFamilyNameList(CSSParserTokenRange& range) {
   CSSValueList* list = CSSValueList::CreateCommaSeparated();
   do {
@@ -5211,7 +6039,14 @@ CSSValue* ConsumeGenericFamily(CSSParserTokenRange& range) {
   return ConsumeIdentRange(range, CSSValueID::kSerif, CSSValueID::kMath);
 }
 
-CSSValue* ConsumeFamilyName(CSSParserTokenRange& range) {
+CSSValue* ConsumeGenericFamily(CSSParserTokenStream& stream) {
+  return ConsumeIdentRange(stream, CSSValueID::kSerif, CSSValueID::kMath);
+}
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeFamilyName(T& range) {
   if (range.Peek().GetType() == kStringToken) {
     return CSSFontFamilyValue::Create(
         range.ConsumeIncludingWhitespace().Value().ToAtomicString());
@@ -5226,10 +6061,13 @@ CSSValue* ConsumeFamilyName(CSSParserTokenRange& range) {
   return CSSFontFamilyValue::Create(AtomicString(family_name));
 }
 
-String ConcatenateFamilyName(CSSParserTokenRange& range) {
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+String ConcatenateFamilyName(T& range) {
   StringBuilder builder;
   bool added_space = false;
-  const CSSParserToken& first_token = range.Peek();
+  const CSSParserToken first_token = range.Peek();
   while (range.Peek().GetType() == kIdentToken) {
     if (!builder.empty()) {
       builder.Append(' ');
@@ -5263,27 +6101,29 @@ bool IsAngleWithinLimits(CSSPrimitiveValue* angle) {
          angle->GetFloatValue() <= kMaxAngle;
 }
 
-CSSValue* ConsumeFontStyle(CSSParserTokenRange& range,
-                           const CSSParserContext& context) {
-  if (range.Peek().Id() == CSSValueID::kNormal ||
-      range.Peek().Id() == CSSValueID::kItalic) {
-    return ConsumeIdent(range);
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeFontStyle(T& stream, const CSSParserContext& context) {
+  if (stream.Peek().Id() == CSSValueID::kNormal ||
+      stream.Peek().Id() == CSSValueID::kItalic) {
+    return ConsumeIdent(stream);
   }
 
-  if (range.Peek().Id() == CSSValueID::kAuto &&
+  if (stream.Peek().Id() == CSSValueID::kAuto &&
       context.Mode() == kCSSFontFaceRuleMode) {
-    return ConsumeIdent(range);
+    return ConsumeIdent(stream);
   }
 
-  if (range.Peek().Id() != CSSValueID::kOblique) {
+  if (stream.Peek().Id() != CSSValueID::kOblique) {
     return nullptr;
   }
 
   CSSIdentifierValue* oblique_identifier =
-      ConsumeIdent<CSSValueID::kOblique>(range);
+      ConsumeIdent<CSSValueID::kOblique>(stream);
 
   CSSPrimitiveValue* start_angle = ConsumeAngle(
-      range, context, std::nullopt, kMinObliqueValue, kMaxObliqueValue);
+      stream, context, std::nullopt, kMinObliqueValue, kMaxObliqueValue);
   if (!start_angle) {
     return oblique_identifier;
   }
@@ -5291,7 +6131,7 @@ CSSValue* ConsumeFontStyle(CSSParserTokenRange& range,
     return nullptr;
   }
 
-  if (context.Mode() != kCSSFontFaceRuleMode || range.AtEnd()) {
+  if (context.Mode() != kCSSFontFaceRuleMode || stream.AtEnd()) {
     CSSValueList* value_list = CSSValueList::CreateSpaceSeparated();
     value_list->Append(*start_angle);
     return MakeGarbageCollected<cssvalue::CSSFontStyleRangeValue>(
@@ -5299,7 +6139,7 @@ CSSValue* ConsumeFontStyle(CSSParserTokenRange& range,
   }
 
   CSSPrimitiveValue* end_angle = ConsumeAngle(
-      range, context, std::nullopt, kMinObliqueValue, kMaxObliqueValue);
+      stream, context, std::nullopt, kMinObliqueValue, kMaxObliqueValue);
   if (!end_angle || !IsAngleWithinLimits(end_angle)) {
     return nullptr;
   }
@@ -5312,43 +6152,60 @@ CSSValue* ConsumeFontStyle(CSSParserTokenRange& range,
       *oblique_identifier, *range_list);
 }
 
+template CSSValue* ConsumeFontStyle(CSSParserTokenStream& stream,
+                                    const CSSParserContext& context);
+template CSSValue* ConsumeFontStyle(CSSParserTokenRange& stream,
+                                    const CSSParserContext& context);
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 CSSIdentifierValue* ConsumeFontStretchKeywordOnly(
-    CSSParserTokenRange& range,
+    T& stream,
     const CSSParserContext& context) {
-  const CSSParserToken& token = range.Peek();
+  const CSSParserToken& token = stream.Peek();
   if (token.Id() == CSSValueID::kNormal ||
       (token.Id() >= CSSValueID::kUltraCondensed &&
        token.Id() <= CSSValueID::kUltraExpanded)) {
-    return ConsumeIdent(range);
+    return ConsumeIdent(stream);
   }
   if (token.Id() == CSSValueID::kAuto &&
       context.Mode() == kCSSFontFaceRuleMode) {
-    return ConsumeIdent(range);
+    return ConsumeIdent(stream);
   }
   return nullptr;
 }
 
-CSSValue* ConsumeFontStretch(CSSParserTokenRange& range,
-                             const CSSParserContext& context) {
+template CSSIdentifierValue* ConsumeFontStretchKeywordOnly(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context);
+template CSSIdentifierValue* ConsumeFontStretchKeywordOnly(
+    CSSParserTokenRange& stream,
+    const CSSParserContext& context);
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeFontStretch(T& stream, const CSSParserContext& context) {
   CSSIdentifierValue* parsed_keyword =
-      ConsumeFontStretchKeywordOnly(range, context);
+      ConsumeFontStretchKeywordOnly(stream, context);
   if (parsed_keyword) {
     return parsed_keyword;
   }
 
   CSSPrimitiveValue* start_percent = ConsumePercent(
-      range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+      stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
   if (!start_percent) {
     return nullptr;
   }
 
   // In a non-font-face context, more than one percentage is not allowed.
-  if (context.Mode() != kCSSFontFaceRuleMode || range.AtEnd()) {
+  if (context.Mode() != kCSSFontFaceRuleMode || stream.AtEnd()) {
     return start_percent;
   }
 
   CSSPrimitiveValue* end_percent = ConsumePercent(
-      range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+      stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
   if (!end_percent) {
     return nullptr;
   }
@@ -5356,18 +6213,25 @@ CSSValue* ConsumeFontStretch(CSSParserTokenRange& range,
   return CombineToRangeList(start_percent, end_percent);
 }
 
-CSSValue* ConsumeFontWeight(CSSParserTokenRange& range,
-                            const CSSParserContext& context) {
-  const CSSParserToken& token = range.Peek();
+template CSSValue* ConsumeFontStretch(CSSParserTokenRange& stream,
+                                      const CSSParserContext& context);
+template CSSValue* ConsumeFontStretch(CSSParserTokenStream& stream,
+                                      const CSSParserContext& context);
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeFontWeight(T& stream, const CSSParserContext& context) {
+  const CSSParserToken& token = stream.Peek();
   if (context.Mode() != kCSSFontFaceRuleMode) {
     if (token.Id() >= CSSValueID::kNormal &&
         token.Id() <= CSSValueID::kLighter) {
-      return ConsumeIdent(range);
+      return ConsumeIdent(stream);
     }
   } else {
     if (token.Id() == CSSValueID::kNormal || token.Id() == CSSValueID::kBold ||
         token.Id() == CSSValueID::kAuto) {
-      return ConsumeIdent(range);
+      return ConsumeIdent(stream);
     }
   }
 
@@ -5384,7 +6248,7 @@ CSSValue* ConsumeFontWeight(CSSParserTokenRange& range,
   }
 
   CSSPrimitiveValue* start_weight = ConsumeNumber(
-      range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+      stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
   if (!start_weight || start_weight->GetFloatValue() < 1 ||
       start_weight->GetFloatValue() > 1000) {
     return nullptr;
@@ -5393,12 +6257,12 @@ CSSValue* ConsumeFontWeight(CSSParserTokenRange& range,
   // In a non-font-face context, more than one number is not allowed. Return
   // what we have. If there is trailing garbage, the AtEnd() check in
   // CSSPropertyParser::ParseValueStart will catch that.
-  if (context.Mode() != kCSSFontFaceRuleMode || range.AtEnd()) {
+  if (context.Mode() != kCSSFontFaceRuleMode || stream.AtEnd()) {
     return start_weight;
   }
 
   CSSPrimitiveValue* end_weight = ConsumeNumber(
-      range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+      stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
   if (!end_weight || end_weight->GetFloatValue() < 1 ||
       end_weight->GetFloatValue() > 1000) {
     return nullptr;
@@ -5407,29 +6271,45 @@ CSSValue* ConsumeFontWeight(CSSParserTokenRange& range,
   return CombineToRangeList(start_weight, end_weight);
 }
 
-CSSValue* ConsumeFontFeatureSettings(CSSParserTokenRange& range,
+template CSSValue* ConsumeFontWeight(CSSParserTokenStream& stream,
+                                     const CSSParserContext& context);
+template CSSValue* ConsumeFontWeight(CSSParserTokenRange& stream,
+                                     const CSSParserContext& context);
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeFontFeatureSettings(T& stream,
                                      const CSSParserContext& context) {
-  if (range.Peek().Id() == CSSValueID::kNormal) {
-    return ConsumeIdent(range);
+  if (stream.Peek().Id() == CSSValueID::kNormal) {
+    return ConsumeIdent(stream);
   }
   CSSValueList* settings = CSSValueList::CreateCommaSeparated();
   do {
     CSSFontFeatureValue* font_feature_value =
-        ConsumeFontFeatureTag(range, context);
+        ConsumeFontFeatureTag(stream, context);
     if (!font_feature_value) {
       return nullptr;
     }
     settings->Append(*font_feature_value);
-  } while (ConsumeCommaIncludingWhitespace(range));
+  } while (ConsumeCommaIncludingWhitespace(stream));
   return settings;
 }
 
-CSSFontFeatureValue* ConsumeFontFeatureTag(CSSParserTokenRange& range,
+template CSSValue* ConsumeFontFeatureSettings(CSSParserTokenRange& stream,
+                                              const CSSParserContext& context);
+template CSSValue* ConsumeFontFeatureSettings(CSSParserTokenStream& stream,
+                                              const CSSParserContext& context);
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSFontFeatureValue* ConsumeFontFeatureTag(T& stream,
                                            const CSSParserContext& context) {
   // Feature tag name consists of 4-letter characters.
   const unsigned kTagNameLength = 4;
 
-  const CSSParserToken& token = range.ConsumeIncludingWhitespace();
+  const CSSParserToken& token = stream.ConsumeIncludingWhitespace();
   // Feature tag name comes first
   if (token.GetType() != kStringToken) {
     return nullptr;
@@ -5449,34 +6329,53 @@ CSSFontFeatureValue* ConsumeFontFeatureTag(CSSParserTokenRange& range,
 
   int tag_value = 1;
   // Feature tag values could follow: <integer> | on | off
-  if (CSSPrimitiveValue* value = ConsumeInteger(range, context, 0)) {
+  if (CSSPrimitiveValue* value = ConsumeInteger(stream, context, 0)) {
     tag_value = ClampTo<int>(value->GetDoubleValue());
-  } else if (range.Peek().Id() == CSSValueID::kOn ||
-             range.Peek().Id() == CSSValueID::kOff) {
-    tag_value = range.ConsumeIncludingWhitespace().Id() == CSSValueID::kOn;
+  } else if (stream.Peek().Id() == CSSValueID::kOn ||
+             stream.Peek().Id() == CSSValueID::kOff) {
+    tag_value = stream.ConsumeIncludingWhitespace().Id() == CSSValueID::kOn;
   }
   return MakeGarbageCollected<CSSFontFeatureValue>(tag, tag_value);
 }
 
-CSSIdentifierValue* ConsumeFontVariantCSS21(CSSParserTokenRange& range) {
-  return ConsumeIdent<CSSValueID::kNormal, CSSValueID::kSmallCaps>(range);
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSIdentifierValue* ConsumeFontVariantCSS21(T& stream) {
+  return ConsumeIdent<CSSValueID::kNormal, CSSValueID::kSmallCaps>(stream);
 }
 
-CSSIdentifierValue* ConsumeFontTechIdent(CSSParserTokenRange& range) {
+template CSSIdentifierValue* ConsumeFontVariantCSS21(
+    CSSParserTokenRange& stream);
+template CSSIdentifierValue* ConsumeFontVariantCSS21(
+    CSSParserTokenStream& stream);
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSIdentifierValue* ConsumeFontTechIdent(T& stream) {
   return ConsumeIdent<CSSValueID::kFeaturesOpentype, CSSValueID::kFeaturesAat,
                       CSSValueID::kFeaturesGraphite, CSSValueID::kColorCOLRv0,
                       CSSValueID::kColorCOLRv1, CSSValueID::kColorSVG,
                       CSSValueID::kColorSbix, CSSValueID::kColorCBDT,
                       CSSValueID::kVariations, CSSValueID::kPalettes,
-                      CSSValueID::kIncremental>(range);
+                      CSSValueID::kIncremental>(stream);
 }
 
-CSSIdentifierValue* ConsumeFontFormatIdent(CSSParserTokenRange& range) {
+template CSSIdentifierValue* ConsumeFontTechIdent(CSSParserTokenRange& stream);
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSIdentifierValue* ConsumeFontFormatIdent(T& stream) {
   return ConsumeIdent<CSSValueID::kCollection, CSSValueID::kEmbeddedOpentype,
                       CSSValueID::kOpentype, CSSValueID::kTruetype,
                       CSSValueID::kSVG, CSSValueID::kWoff, CSSValueID::kWoff2>(
-      range);
+      stream);
 }
+
+template CSSIdentifierValue* ConsumeFontFormatIdent(
+    CSSParserTokenRange& stream);
 
 CSSValueID FontFormatToId(String font_format) {
   CSSValueID converted_id = CssValueKeywordID(font_format);
@@ -5569,8 +6468,10 @@ Vector<String> ParseGridTemplateAreasColumnNames(const String& grid_row_names) {
   return column_names;
 }
 
-CSSValue* ConsumeGridBreadth(CSSParserTokenRange& range,
-                             const CSSParserContext& context) {
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeGridBreadth(T& range, const CSSParserContext& context) {
   const CSSParserToken& token = range.Peek();
   if (IdentMatches<CSSValueID::kAuto, CSSValueID::kMinContent,
                    CSSValueID::kMaxContent>(token.Id())) {
@@ -5590,17 +6491,19 @@ CSSValue* ConsumeGridBreadth(CSSParserTokenRange& range,
                                 UnitlessQuirk::kForbid);
 }
 
-CSSValue* ConsumeFitContent(CSSParserTokenRange& range,
-                            const CSSParserContext& context) {
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeFitContent(T& stream, const CSSParserContext& context) {
+  CSSParserSavePoint savepoint(stream);
+  CSSParserTokenRange args = ConsumeFunction(stream);
   CSSPrimitiveValue* length = ConsumeLengthOrPercent(
       args, context, CSSPrimitiveValue::ValueRange::kNonNegative,
       UnitlessQuirk::kAllow);
   if (!length || !args.AtEnd()) {
     return nullptr;
   }
-  range = range_copy;
+  savepoint.Release();
   auto* result =
       MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kFitContent);
   result->Append(*length);
@@ -5639,13 +6542,15 @@ bool IsGridTrackFixedSized(const CSSValue& value) {
          IsGridBreadthFixedSized(max_value);
 }
 
-CSSValue* ConsumeGridTrackSize(CSSParserTokenRange& range,
-                               const CSSParserContext& context) {
-  const auto& token_id = range.Peek().FunctionId();
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeGridTrackSize(T& stream, const CSSParserContext& context) {
+  const auto& token_id = stream.Peek().FunctionId();
 
   if (token_id == CSSValueID::kMinmax) {
-    CSSParserTokenRange range_copy = range;
-    CSSParserTokenRange args = ConsumeFunction(range_copy);
+    CSSParserSavePoint savepoint(stream);
+    CSSParserTokenRange args = ConsumeFunction(stream);
     CSSValue* min_track_breadth = ConsumeGridBreadth(args, context);
     auto* min_track_breadth_primitive_value =
         DynamicTo<CSSPrimitiveValue>(min_track_breadth);
@@ -5659,7 +6564,7 @@ CSSValue* ConsumeGridTrackSize(CSSParserTokenRange& range,
     if (!max_track_breadth || !args.AtEnd()) {
       return nullptr;
     }
-    range = range_copy;
+    savepoint.Release();
     auto* result = MakeGarbageCollected<CSSFunctionValue>(CSSValueID::kMinmax);
     result->Append(*min_track_breadth);
     result->Append(*max_track_breadth);
@@ -5667,29 +6572,35 @@ CSSValue* ConsumeGridTrackSize(CSSParserTokenRange& range,
   }
 
   return (token_id == CSSValueID::kFitContent)
-             ? ConsumeFitContent(range, context)
-             : ConsumeGridBreadth(range, context);
+             ? ConsumeFitContent(stream, context)
+             : ConsumeGridBreadth(stream, context);
 }
 
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 CSSCustomIdentValue* ConsumeCustomIdentForGridLine(
-    CSSParserTokenRange& range,
+    T& stream,
     const CSSParserContext& context) {
-  if (range.Peek().Id() == CSSValueID::kAuto ||
-      range.Peek().Id() == CSSValueID::kSpan) {
+  if (stream.Peek().Id() == CSSValueID::kAuto ||
+      stream.Peek().Id() == CSSValueID::kSpan) {
     return nullptr;
   }
-  return ConsumeCustomIdent(range, context);
+  return ConsumeCustomIdent(stream, context);
 }
 
 // Appends to the passed in CSSBracketedValueList if any, otherwise creates a
 // new one. Returns nullptr if an empty list is consumed.
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 CSSBracketedValueList* ConsumeGridLineNames(
-    CSSParserTokenRange& range,
+    T& stream,
     const CSSParserContext& context,
     bool is_subgrid_track_list,
     CSSBracketedValueList* line_names = nullptr) {
-  CSSParserTokenRange range_copy = range;
-  if (range_copy.ConsumeIncludingWhitespace().GetType() != kLeftBracketToken) {
+  CSSParserSavePoint savepoint(stream);
+  if (stream.ConsumeIncludingWhitespace().GetType() != kLeftBracketToken) {
     return nullptr;
   }
 
@@ -5698,14 +6609,14 @@ CSSBracketedValueList* ConsumeGridLineNames(
   }
 
   while (CSSCustomIdentValue* line_name =
-             ConsumeCustomIdentForGridLine(range_copy, context)) {
+             ConsumeCustomIdentForGridLine(stream, context)) {
     line_names->Append(*line_name);
   }
 
-  if (range_copy.ConsumeIncludingWhitespace().GetType() != kRightBracketToken) {
+  if (stream.ConsumeIncludingWhitespace().GetType() != kRightBracketToken) {
     return nullptr;
   }
-  range = range_copy;
+  savepoint.Release();
 
   if (!is_subgrid_track_list && line_names->length() == 0U) {
     return nullptr;
@@ -5714,25 +6625,66 @@ CSSBracketedValueList* ConsumeGridLineNames(
   return line_names;
 }
 
-bool AppendLineNames(CSSParserTokenRange& range,
+template <>
+CSSBracketedValueList* ConsumeGridLineNames<CSSParserTokenStream>(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context,
+    bool is_subgrid_track_list,
+    CSSBracketedValueList* line_names) {
+  if (stream.Peek().GetType() != kLeftBracketToken) {
+    return nullptr;
+  }
+  {
+    CSSParserTokenStream::RestoringBlockGuard savepoint(stream, stream.Save());
+    stream.ConsumeWhitespace();
+
+    if (!line_names) {
+      line_names = MakeGarbageCollected<CSSBracketedValueList>();
+    }
+
+    while (CSSCustomIdentValue* line_name =
+               ConsumeCustomIdentForGridLine(stream, context)) {
+      line_names->Append(*line_name);
+    }
+
+    if (!savepoint.Release()) {
+      return nullptr;
+    }
+  }
+  stream.ConsumeWhitespace();
+
+  if (!is_subgrid_track_list && line_names->length() == 0U) {
+    return nullptr;
+  }
+
+  return line_names;
+}
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+bool AppendLineNames(T& stream,
                      const CSSParserContext& context,
                      bool is_subgrid_track_list,
                      CSSValueList* values) {
   if (CSSBracketedValueList* line_names =
-          ConsumeGridLineNames(range, context, is_subgrid_track_list)) {
+          ConsumeGridLineNames(stream, context, is_subgrid_track_list)) {
     values->Append(*line_names);
     return true;
   }
   return false;
 }
 
-bool ConsumeGridTrackRepeatFunction(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+bool ConsumeGridTrackRepeatFunction(T& stream,
                                     const CSSParserContext& context,
                                     bool is_subgrid_track_list,
                                     CSSValueList& list,
                                     bool& is_auto_repeat,
                                     bool& all_tracks_are_fixed_sized) {
-  CSSParserTokenRange args = ConsumeFunction(range);
+  CSSParserTokenRange args = ConsumeFunction(stream);
 
   // <name-repeat> syntax for subgrids only supports `auto-fill`.
   if (is_subgrid_track_list &&
@@ -5838,6 +6790,8 @@ bool ConsumeGridTemplateRowsAndAreasAndColumns(
   // consecutive <line-names> values
   CSSBracketedValueList* line_names = nullptr;
 
+  // See comment in Grid::ParseShorthand() about the use of AtEnd.
+
   do {
     // Handle leading <custom-ident>*.
     bool has_previous_line_names = line_names;
@@ -5864,15 +6818,16 @@ bool ConsumeGridTemplateRowsAndAreasAndColumns(
     template_rows_value_list->Append(*value);
 
     // This will handle the trailing/leading <custom-ident>* in the grammar.
-    line_names =
-        ConsumeGridLineNames(range, context, /* is_subgrid_track_list */ false);
+    line_names = ConsumeGridLineNames(range, context,
+                                      /* is_subgrid_track_list */ false);
     if (line_names) {
       template_rows_value_list->Append(*line_names);
     }
   } while (!range.AtEnd() && !(range.Peek().GetType() == kDelimiterToken &&
-                               range.Peek().Delimiter() == '/'));
+                               (range.Peek().Delimiter() == '/' ||
+                                range.Peek().Delimiter() == '!')));
 
-  if (!range.AtEnd()) {
+  if (!range.AtEnd() && range.Peek().Delimiter() != '!') {
     if (!ConsumeSlashIncludingWhitespace(range)) {
       return false;
     }
@@ -5958,11 +6913,14 @@ CSSValue* ConsumeGridLine(CSSParserTokenRange& range,
   return values;
 }
 
-CSSValue* ConsumeGridTrackList(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeGridTrackList(T& stream,
                                const CSSParserContext& context,
                                TrackListType track_list_type) {
   bool allow_grid_line_names = track_list_type != TrackListType::kGridAuto;
-  if (!allow_grid_line_names && range.Peek().GetType() == kLeftBracketToken) {
+  if (!allow_grid_line_names && stream.Peek().GetType() == kLeftBracketToken) {
     return nullptr;
   }
 
@@ -5971,32 +6929,32 @@ CSSValue* ConsumeGridTrackList(CSSParserTokenRange& range,
 
   CSSValueList* values = CSSValueList::CreateSpaceSeparated();
   if (is_subgrid_track_list) {
-    if (IdentMatches<CSSValueID::kSubgrid>(range.Peek().Id())) {
-      values->Append(*ConsumeIdent(range));
+    if (IdentMatches<CSSValueID::kSubgrid>(stream.Peek().Id())) {
+      values->Append(*ConsumeIdent(stream));
     } else {
       return nullptr;
     }
   }
 
-  AppendLineNames(range, context, is_subgrid_track_list, values);
+  AppendLineNames(stream, context, is_subgrid_track_list, values);
 
   bool allow_repeat =
       is_subgrid_track_list || track_list_type == TrackListType::kGridTemplate;
   bool seen_auto_repeat = false;
   bool all_tracks_are_fixed_sized = true;
-  auto IsRangeAtEnd = [](CSSParserTokenRange& range) -> bool {
-    return range.AtEnd() || range.Peek().GetType() == kDelimiterToken;
+  auto IsRangeAtEnd = [](T& stream) -> bool {
+    return stream.AtEnd() || stream.Peek().GetType() == kDelimiterToken;
   };
 
   do {
     bool is_auto_repeat;
-    if (range.Peek().FunctionId() == CSSValueID::kRepeat) {
+    if (stream.Peek().FunctionId() == CSSValueID::kRepeat) {
       if (!allow_repeat) {
         return nullptr;
       }
-      if (!ConsumeGridTrackRepeatFunction(range, context, is_subgrid_track_list,
-                                          *values, is_auto_repeat,
-                                          all_tracks_are_fixed_sized)) {
+      if (!ConsumeGridTrackRepeatFunction(
+              stream, context, is_subgrid_track_list, *values, is_auto_repeat,
+              all_tracks_are_fixed_sized)) {
         return nullptr;
       }
       if (is_auto_repeat && seen_auto_repeat) {
@@ -6004,7 +6962,7 @@ CSSValue* ConsumeGridTrackList(CSSParserTokenRange& range,
       }
 
       seen_auto_repeat = seen_auto_repeat || is_auto_repeat;
-    } else if (CSSValue* value = ConsumeGridTrackSize(range, context)) {
+    } else if (CSSValue* value = ConsumeGridTrackSize(stream, context)) {
       // If we find a <track-size> in a subgrid track list, then it isn't a
       // valid <line-name-list>.
       if (is_subgrid_track_list) {
@@ -6022,20 +6980,25 @@ CSSValue* ConsumeGridTrackList(CSSParserTokenRange& range,
     if (seen_auto_repeat && !all_tracks_are_fixed_sized) {
       return nullptr;
     }
-    if (!allow_grid_line_names && range.Peek().GetType() == kLeftBracketToken) {
+    if (!allow_grid_line_names &&
+        stream.Peek().GetType() == kLeftBracketToken) {
       return nullptr;
     }
 
     bool did_append_line_names =
-        AppendLineNames(range, context, is_subgrid_track_list, values);
+        AppendLineNames(stream, context, is_subgrid_track_list, values);
     if (is_subgrid_track_list && !did_append_line_names &&
-        range.Peek().FunctionId() != CSSValueID::kRepeat) {
-      return IsRangeAtEnd(range) ? values : nullptr;
+        stream.Peek().FunctionId() != CSSValueID::kRepeat) {
+      return IsRangeAtEnd(stream) ? values : nullptr;
     }
-  } while (!IsRangeAtEnd(range));
+  } while (!IsRangeAtEnd(stream));
 
   return values;
 }
+
+template CSSValue* ConsumeGridTrackList(CSSParserTokenStream& stream,
+                                        const CSSParserContext& context,
+                                        TrackListType track_list_type);
 
 bool ParseGridTemplateAreasRow(const String& grid_row_names,
                                NamedGridAreaMap& grid_area_map,
@@ -6112,18 +7075,30 @@ bool ParseGridTemplateAreasRow(const String& grid_row_names,
   return true;
 }
 
-CSSValue* ConsumeGridTemplatesRowsOrColumns(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeGridTemplatesRowsOrColumns(T& stream,
                                             const CSSParserContext& context) {
-  switch (range.Peek().Id()) {
+  switch (stream.Peek().Id()) {
     case CSSValueID::kNone:
-      return ConsumeIdent(range);
+      return ConsumeIdent(stream);
     case CSSValueID::kSubgrid:
-      return ConsumeGridTrackList(range, context,
+      return ConsumeGridTrackList(stream, context,
                                   TrackListType::kGridTemplateSubgrid);
     default:
-      return ConsumeGridTrackList(range, context, TrackListType::kGridTemplate);
+      return ConsumeGridTrackList(stream, context,
+                                  TrackListType::kGridTemplate);
   }
 }
+
+template CSSValue* ConsumeGridTemplatesRowsOrColumns(
+    CSSParserTokenRange& stream,
+    const CSSParserContext& context);
+
+template CSSValue* ConsumeGridTemplatesRowsOrColumns(
+    CSSParserTokenStream& stream,
+    const CSSParserContext& context);
 
 bool ConsumeGridItemPositionShorthand(bool important,
                                       CSSParserTokenRange& range,
@@ -6150,7 +7125,7 @@ bool ConsumeGridItemPositionShorthand(bool important,
                     : CSSIdentifierValue::Create(CSSValueID::kAuto);
   }
 
-  return range.AtEnd();
+  return true;
 }
 
 bool ConsumeGridTemplateShorthand(bool important,
@@ -6165,41 +7140,51 @@ bool ConsumeGridTemplateShorthand(bool important,
 
   DCHECK_EQ(gridTemplateShorthand().length(), 3u);
 
-  CSSParserTokenRange range_copy = range;
-  template_rows = ConsumeIdent<CSSValueID::kNone>(range);
+  {
+    // 1- <grid-template-rows> / <grid-template-columns>
+    CSSParserSavePoint savepoint(range);
+    template_rows = ConsumeIdent<CSSValueID::kNone>(range);
+    if (!template_rows) {
+      template_rows = ConsumeGridTemplatesRowsOrColumns(range, context);
+    }
 
-  // 1- 'none' case.
-  if (template_rows && range.AtEnd()) {
+    if (template_rows && ConsumeSlashIncludingWhitespace(range)) {
+      template_columns = ConsumeGridTemplatesRowsOrColumns(range, context);
+      if (template_columns) {
+        template_areas = CSSIdentifierValue::Create(CSSValueID::kNone);
+        savepoint.Release();
+        return true;
+      }
+    }
+
+    template_rows = nullptr;
+    template_columns = nullptr;
+    template_areas = nullptr;
+  }
+
+  {
+    // 2- [ <line-names>? <string> <track-size>? <line-names>? ]+
+    // [ / <track-list> ]?
+    CSSParserSavePoint savepoint(range);
+    if (ConsumeGridTemplateRowsAndAreasAndColumns(
+            important, range, context, template_rows, template_columns,
+            template_areas)) {
+      savepoint.Release();
+      return true;
+    }
+  }
+
+  // 3- 'none' alone case. This must come after the others, since “none“
+  // could also be the start of case 1.
+  template_rows = ConsumeIdent<CSSValueID::kNone>(range);
+  if (template_rows) {
     template_rows = CSSIdentifierValue::Create(CSSValueID::kNone);
     template_columns = CSSIdentifierValue::Create(CSSValueID::kNone);
     template_areas = CSSIdentifierValue::Create(CSSValueID::kNone);
     return true;
   }
 
-  // 2- <grid-template-rows> / <grid-template-columns>
-  if (!template_rows) {
-    template_rows = ConsumeGridTemplatesRowsOrColumns(range, context);
-  }
-
-  if (template_rows) {
-    if (!ConsumeSlashIncludingWhitespace(range)) {
-      return false;
-    }
-    template_columns = ConsumeGridTemplatesRowsOrColumns(range, context);
-    if (!template_columns || !range.AtEnd()) {
-      return false;
-    }
-
-    template_areas = CSSIdentifierValue::Create(CSSValueID::kNone);
-    return true;
-  }
-
-  // 3- [ <line-names>? <string> <track-size>? <line-names>? ]+
-  // [ / <track-list> ]?
-  range = range_copy;
-  return ConsumeGridTemplateRowsAndAreasAndColumns(
-      important, range, context, template_rows, template_columns,
-      template_areas);
+  return false;
 }
 
 CSSValue* ConsumeHyphenateLimitChars(CSSParserTokenRange& range,
@@ -6216,7 +7201,7 @@ CSSValue* ConsumeHyphenateLimitChars(CSSParserTokenRange& range,
       list->Append(*ident);
       continue;
     }
-    return nullptr;
+    break;
   }
   if (list->length()) {
     return list;
@@ -6611,25 +7596,39 @@ CSSValue* ConsumeInitialLetter(CSSParserTokenRange& range,
   return nullptr;
 }
 
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
 bool ConsumeRadii(CSSValue* horizontal_radii[4],
                   CSSValue* vertical_radii[4],
-                  CSSParserTokenRange& range,
+                  T& stream,
                   const CSSParserContext& context,
                   bool use_legacy_parsing) {
   unsigned horizontal_value_count = 0;
-  for (; horizontal_value_count < 4 && !range.AtEnd() &&
-         range.Peek().GetType() != kDelimiterToken;
+  for (;
+       horizontal_value_count < 4 && stream.Peek().GetType() != kDelimiterToken;
        ++horizontal_value_count) {
     horizontal_radii[horizontal_value_count] = ConsumeLengthOrPercent(
-        range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+        stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
     if (!horizontal_radii[horizontal_value_count]) {
-      return false;
+      break;
     }
   }
   if (!horizontal_radii[0]) {
     return false;
   }
-  if (range.AtEnd()) {
+  if (ConsumeSlashIncludingWhitespace(stream)) {
+    for (unsigned i = 0; i < 4; ++i) {
+      vertical_radii[i] = ConsumeLengthOrPercent(
+          stream, context, CSSPrimitiveValue::ValueRange::kNonNegative);
+      if (!vertical_radii[i]) {
+        break;
+      }
+    }
+    if (!vertical_radii[0]) {
+      return false;
+    }
+  } else {
     // Legacy syntax: -webkit-border-radius: l1 l2; is equivalent to
     // border-radius: l1 / l2;
     if (use_legacy_parsing && horizontal_value_count == 2) {
@@ -6642,38 +7641,33 @@ bool ConsumeRadii(CSSValue* horizontal_radii[4],
       }
       return true;
     }
-  } else {
-    if (!ConsumeSlashIncludingWhitespace(range)) {
-      return false;
-    }
-    for (unsigned i = 0; i < 4 && !range.AtEnd(); ++i) {
-      vertical_radii[i] = ConsumeLengthOrPercent(
-          range, context, CSSPrimitiveValue::ValueRange::kNonNegative);
-      if (!vertical_radii[i]) {
-        return false;
-      }
-    }
-    if (!vertical_radii[0] || !range.AtEnd()) {
-      return false;
-    }
   }
   Complete4Sides(horizontal_radii);
   Complete4Sides(vertical_radii);
   return true;
 }
 
-CSSValue* ConsumeBasicShape(CSSParserTokenRange& range,
-                            const CSSParserContext& context,
-                            AllowPathValue allow_path,
-                            AllowBasicShapeRectValue allow_rect,
-                            AllowBasicShapeXYWHValue allow_xywh) {
+template bool ConsumeRadii(CSSValue* horizontal_radii[4],
+                           CSSValue* vertical_radii[4],
+                           CSSParserTokenStream& stream,
+                           const CSSParserContext& context,
+                           bool use_legacy_parsing);
+
+template <class T = CSSParserTokenRange>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeBasicShapeInternal(T& range,
+                                    const CSSParserContext& context,
+                                    AllowPathValue allow_path,
+                                    AllowBasicShapeRectValue allow_rect,
+                                    AllowBasicShapeXYWHValue allow_xywh) {
   CSSValue* shape = nullptr;
   if (range.Peek().GetType() != kFunctionToken) {
     return nullptr;
   }
   CSSValueID id = range.Peek().FunctionId();
-  CSSParserTokenRange range_copy = range;
-  CSSParserTokenRange args = ConsumeFunction(range_copy);
+  CSSParserSavePoint savepoint(range);
+  CSSParserTokenRange args = ConsumeFunction(range);
   if (id == CSSValueID::kCircle) {
     shape = ConsumeBasicShapeCircle(args, context);
   } else if (id == CSSValueID::kEllipse) {
@@ -6696,8 +7690,26 @@ CSSValue* ConsumeBasicShape(CSSParserTokenRange& range,
   }
 
   context.Count(WebFeature::kCSSBasicShape);
-  range = range_copy;
+  savepoint.Release();
   return shape;
+}
+
+CSSValue* ConsumeBasicShape(CSSParserTokenRange& range,
+                            const CSSParserContext& context,
+                            AllowPathValue allow_path,
+                            AllowBasicShapeRectValue allow_rect,
+                            AllowBasicShapeXYWHValue allow_xywh) {
+  return ConsumeBasicShapeInternal(range, context, allow_path, allow_rect,
+                                   allow_xywh);
+}
+
+CSSValue* ConsumeBasicShape(CSSParserTokenStream& stream,
+                            const CSSParserContext& context,
+                            AllowPathValue allow_path,
+                            AllowBasicShapeRectValue allow_rect,
+                            AllowBasicShapeXYWHValue allow_xywh) {
+  return ConsumeBasicShapeInternal(stream, context, allow_path, allow_rect,
+                                   allow_xywh);
 }
 
 // none | [ underline || overline || line-through || blink ] | spelling-error |
@@ -6759,7 +7771,7 @@ CSSValue* ConsumeTextDecorationLine(CSSParserTokenRange& range) {
 // Consume the `text-box-edge` production.
 CSSValue* ConsumeTextBoxEdge(CSSParserTokenRange& range) {
   if (CSSIdentifierValue* leading = ConsumeIdent<CSSValueID::kLeading>(range)) {
-    return range.AtEnd() ? leading : nullptr;
+    return leading;
   }
   CSSIdentifierValue* over_type =
       ConsumeIdent<CSSValueID::kText, CSSValueID::kCap, CSSValueID::kEx>(range);
@@ -6773,7 +7785,7 @@ CSSValue* ConsumeTextBoxEdge(CSSParserTokenRange& range) {
   }
   if (CSSIdentifierValue* under_type =
           ConsumeIdent<CSSValueID::kText, CSSValueID::kAlphabetic>(range);
-      under_type && range.AtEnd()) {
+      under_type) {
     // Align with the CSS specification: "If only one value is specified,
     // both edges are assigned that same keyword if possible; else 'text' is
     // assumed as the missing value.".
@@ -6819,6 +7831,7 @@ CSSValue* ConsumeTransformValue(CSSParserTokenRange& range,
   if (!IsValidCSSValueID(function_id)) {
     return nullptr;
   }
+  CSSParserSavePoint savepoint(range);
   CSSParserTokenRange args = ConsumeFunction(range);
   if (args.AtEnd()) {
     return nullptr;
@@ -6932,6 +7945,7 @@ CSSValue* ConsumeTransformValue(CSSParserTokenRange& range,
   if (!args.AtEnd()) {
     return nullptr;
   }
+  savepoint.Release();
   return transform_value;
 }
 
@@ -6947,10 +7961,14 @@ CSSValue* ConsumeTransformList(CSSParserTokenRange& range,
     CSSValue* parsed_transform_value =
         ConsumeTransformValue(range, context, local_context.UseAliasParsing());
     if (!parsed_transform_value) {
-      return nullptr;
+      break;
     }
     list->Append(*parsed_transform_value);
   } while (!range.AtEnd());
+
+  if (list->length() == 0) {
+    return nullptr;
+  }
 
   return list;
 }
@@ -7030,7 +8048,7 @@ CSSValue* ConsumeBorderColorSide(CSSParserTokenRange& range,
     return ConsumeAppearanceAutoBaseSelectColor(range, context);
   }
   return ConsumeColorInternal(range, context, allow_quirky_colors,
-                              AllowedColorKeywords::kAllowSystemColor);
+                              AllowedColors::kAll);
 }
 
 CSSValue* ConsumeBorderWidth(CSSParserTokenRange& range,
@@ -7040,8 +8058,8 @@ CSSValue* ConsumeBorderWidth(CSSParserTokenRange& range,
       IsUASheetBehavior(context.Mode()) &&
       range.Peek().FunctionId() ==
           CSSValueID::kInternalAppearanceAutoBaseSelect) {
-    CSSParserTokenRange range_copy = range;
-    CSSParserTokenRange arg_range = ConsumeFunction(range_copy);
+    CSSParserSavePoint savepoint(range);
+    CSSParserTokenRange arg_range = ConsumeFunction(range);
     CSSValue* auto_value = ConsumeLineWidth(arg_range, context, unitless);
     if (!auto_value || !ConsumeCommaIncludingWhitespace(arg_range)) {
       return nullptr;
@@ -7051,7 +8069,7 @@ CSSValue* ConsumeBorderWidth(CSSParserTokenRange& range,
     if (!base_select_value || !arg_range.AtEnd()) {
       return nullptr;
     }
-    range = range_copy;
+    savepoint.Release();
     return MakeGarbageCollected<CSSAppearanceAutoBaseSelectValuePair>(
         auto_value, base_select_value);
   }
@@ -7068,25 +8086,31 @@ CSSValue* ParseSpacing(CSSParserTokenRange& range,
                        UnitlessQuirk::kAllow);
 }
 
-CSSValue* ConsumeSingleContainerName(CSSParserTokenRange& range,
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+CSSValue* ConsumeSingleContainerName(T& stream,
                                      const CSSParserContext& context) {
-  if (range.Peek().GetType() != kIdentToken) {
+  if (stream.Peek().GetType() != kIdentToken) {
     return nullptr;
   }
-  if (range.Peek().Id() == CSSValueID::kNone) {
+  if (stream.Peek().Id() == CSSValueID::kNone) {
     return nullptr;
   }
-  if (EqualIgnoringASCIICase(range.Peek().Value(), "not")) {
+  if (EqualIgnoringASCIICase(stream.Peek().Value(), "not")) {
     return nullptr;
   }
-  if (EqualIgnoringASCIICase(range.Peek().Value(), "and")) {
+  if (EqualIgnoringASCIICase(stream.Peek().Value(), "and")) {
     return nullptr;
   }
-  if (EqualIgnoringASCIICase(range.Peek().Value(), "or")) {
+  if (EqualIgnoringASCIICase(stream.Peek().Value(), "or")) {
     return nullptr;
   }
-  return ConsumeCustomIdent(range, context);
+  return ConsumeCustomIdent(stream, context);
 }
+
+template CSSValue* ConsumeSingleContainerName(CSSParserTokenRange& stream,
+                                              const CSSParserContext& context);
 
 CSSValue* ConsumeContainerName(CSSParserTokenRange& range,
                                const CSSParserContext& context) {
@@ -7127,7 +8151,7 @@ CSSValue* ConsumeContainerType(CSSParserTokenRange& range) {
         continue;
       }
     }
-    return nullptr;
+    break;
   } while (!range.AtEnd());
 
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
@@ -7136,6 +8160,9 @@ CSSValue* ConsumeContainerType(CSSParserTokenRange& range) {
   }
   if (scroll_state_value) {
     list->Append(*scroll_state_value);
+  }
+  if (list->length() == 0) {
+    return nullptr;
   }
   return list;
 }
@@ -7599,6 +8626,40 @@ bool IsRepeatedInsetAreaValue(CSSValueID value_id) {
       return false;
   }
 }
+
+template <typename T>
+  requires std::is_same_v<T, CSSParserTokenStream> ||
+           std::is_same_v<T, CSSParserTokenRange>
+bool MaybeConsumeImportant(T& stream, bool allow_important_annotation) {
+  stream.ConsumeWhitespace();
+  if (stream.AtEnd() || !allow_important_annotation) {
+    return false;
+  }
+
+  CSSParserSavePoint savepoint(stream);
+
+  // !
+  if (stream.Peek().GetType() != kDelimiterToken ||
+      stream.Peek().Delimiter() != '!') {
+    return false;
+  }
+  stream.ConsumeIncludingWhitespace();
+
+  // important
+  if (stream.Peek().GetType() != kIdentToken ||
+      !EqualIgnoringASCIICase(stream.Peek().Value(), "important")) {
+    return false;
+  }
+  stream.ConsumeIncludingWhitespace();
+
+  savepoint.Release();
+  return true;
+}
+
+template bool MaybeConsumeImportant(CSSParserTokenStream& stream,
+                                    bool allow_important_annotation);
+template bool MaybeConsumeImportant(CSSParserTokenRange& stream,
+                                    bool allow_important_annotation);
 
 }  // namespace css_parsing_utils
 }  // namespace blink

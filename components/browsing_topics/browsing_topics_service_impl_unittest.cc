@@ -131,7 +131,7 @@ class TesterBrowsingTopicsService : public BrowsingTopicsServiceImpl {
       Annotator* annotator,
       const base::circular_deque<EpochTopics>& epochs,
       bool is_manually_triggered,
-      bool is_timeout_retry,
+      int previous_timeout_count,
       base::Time session_start_time,
       BrowsingTopicsCalculator::CalculateCompletedCallback callback) override {
     DCHECK(!mock_calculator_results_.empty());
@@ -143,7 +143,7 @@ class TesterBrowsingTopicsService : public BrowsingTopicsServiceImpl {
 
     return std::make_unique<TesterBrowsingTopicsCalculator>(
         privacy_sandbox_settings, history_service, site_data_manager, annotator,
-        is_timeout_retry, session_start_time, std::move(callback),
+        previous_timeout_count, session_start_time, std::move(callback),
         std::move(next_epoch), calculator_finish_delay_);
   }
 
@@ -209,7 +209,7 @@ class BrowsingTopicsServiceImplTest
         /*restore_session=*/false, /*should_record_metrics=*/false);
     tracking_protection_settings_ =
         std::make_unique<privacy_sandbox::TrackingProtectionSettings>(
-            &prefs_,
+            &prefs_, host_content_settings_map_.get(),
             /*onboarding_service=*/nullptr, /*is_incognito=*/false);
     cookie_settings_ = base::MakeRefCounted<content_settings::CookieSettings>(
         host_content_settings_map_.get(), &prefs_,
@@ -1014,7 +1014,8 @@ TEST_F(BrowsingTopicsServiceImplTest, TimeoutRetry_TimeoutAgain) {
   EXPECT_EQ(browsing_topics_service_->started_calculations_count(), 2u);
 
   // Forward the time right before the second timeout retry.
-  task_environment()->FastForwardBy(kEpoch - base::Microseconds(1));
+  task_environment()->FastForwardBy(kFirstTimeoutRetryDelay * 2 -
+                                    base::Microseconds(1));
   EXPECT_EQ(browsing_topics_service_->started_calculations_count(), 2u);
 
   // Forward the time to the second timeout retry.
@@ -1031,7 +1032,43 @@ TEST_F(BrowsingTopicsServiceImplTest, TimeoutRetry_TimeoutAgain) {
             CalculatorResultStatus::kSuccess);
   EXPECT_EQ(
       browsing_topics_state().next_scheduled_calculation_time(),
-      start_time + 3 * kCalculatorDelay + kFirstTimeoutRetryDelay + 2 * kEpoch);
+      start_time + 3 * kCalculatorDelay + kFirstTimeoutRetryDelay * 3 + kEpoch);
+}
+
+TEST_F(BrowsingTopicsServiceImplTest, TimeoutRetry_SuccessiveTimeout) {
+  base::queue<EpochTopics> mock_calculator_results;
+  for (int i = 0; i < 7; ++i) {
+    mock_calculator_results.emplace(EpochTopics(
+        kTime1, CalculatorResultStatus::kHangingAfterModelRequested));
+  }
+
+  InitializeBrowsingTopicsService(std::move(mock_calculator_results));
+
+  // Finish file loading.
+  task_environment()->RunUntilIdle();
+
+  base::TimeDelta total_duration_after_max_exp_backoff;
+  for (int i = 0; i < 5; ++i) {
+    total_duration_after_max_exp_backoff +=
+        kCalculatorDelay + kFirstTimeoutRetryDelay * (1 << i);
+  }
+
+  // Verify that a calculation occurs at the expected time, and verify
+  // `started_calculations_count`.
+  task_environment()->FastForwardBy(total_duration_after_max_exp_backoff -
+                                    base::Microseconds(1));
+  EXPECT_EQ(browsing_topics_service_->started_calculations_count(), 5u);
+  task_environment()->FastForwardBy(base::Microseconds(1));
+  EXPECT_EQ(browsing_topics_service_->started_calculations_count(), 6u);
+
+  // Finish the calculation.
+  task_environment()->FastForwardBy(kCalculatorDelay);
+
+  // Verify that the next calculation occurs with kEpoch backoff delay.
+  task_environment()->FastForwardBy(kEpoch - base::Microseconds(1));
+  EXPECT_EQ(browsing_topics_service_->started_calculations_count(), 6u);
+  task_environment()->FastForwardBy(base::Microseconds(1));
+  EXPECT_EQ(browsing_topics_service_->started_calculations_count(), 7u);
 }
 
 TEST_F(BrowsingTopicsServiceImplTest,
@@ -2812,6 +2849,48 @@ TEST_F(BrowsingTopicsServiceImplTest, ClearTopicsDataForOrigin) {
             HashMainFrameHostForStorage("d.com"));
   EXPECT_EQ(api_usage_contexts[0].hashed_context_domain,
             GetHashedDomain("c.com"));
+}
+
+TEST_F(BrowsingTopicsServiceImplTest, MethodsFailGracefullyAfterShutdown) {
+  base::queue<EpochTopics> mock_calculator_results;
+  mock_calculator_results.emplace(CreateTestEpochTopics({{Topic(1), {}},
+                                                         {Topic(2), {}},
+                                                         {Topic(3), {}},
+                                                         {Topic(4), {}},
+                                                         {Topic(5), {}}},
+                                                        kTime1));
+
+  InitializeBrowsingTopicsService(std::move(mock_calculator_results));
+
+  // Finish file loading.
+  task_environment()->RunUntilIdle();
+
+  browsing_topics_service_->Shutdown();
+
+  std::vector<blink::mojom::EpochTopicPtr> result;
+  EXPECT_FALSE(browsing_topics_service_->HandleTopicsWebApi(
+      /*context_origin=*/url::Origin::Create(GURL("https://www.bar.com")),
+      web_contents()->GetPrimaryMainFrame(), ApiCallerSource::kJavaScript,
+      /*get_topics=*/true,
+      /*observe=*/true, result));
+  EXPECT_TRUE(result.empty());
+
+  base::test::TestFuture<mojom::WebUIGetBrowsingTopicsStateResultPtr> future1;
+  browsing_topics_service_->GetBrowsingTopicsStateForWebUi(
+      /*calculate_now=*/false, future1.GetCallback());
+  EXPECT_TRUE(future1.IsReady());
+  EXPECT_EQ(future1.Take()->get_override_status_message(),
+            "BrowsingTopicsService is shutting down.");
+
+  EXPECT_TRUE(browsing_topics_service_->GetTopTopicsForDisplay().empty());
+
+  browsing_topics_service_->ClearTopic(
+      privacy_sandbox::CanonicalTopic(Topic(7), /*taxonomy_version=*/1));
+
+  browsing_topics_service_->ClearTopicsDataForOrigin(
+      url::Origin::Create(GURL("https://b.com")));
+
+  browsing_topics_service_->ClearAllTopicsData();
 }
 
 }  // namespace browsing_topics

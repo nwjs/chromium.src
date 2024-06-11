@@ -36,9 +36,11 @@
 #include "components/sync/base/sync_util.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/engine/nigori/key_derivation_params.h"
+#include "components/sync/engine/sync_status.h"
 #include "components/sync/service/data_type_manager_impl.h"
 #include "components/sync/service/sync_service_observer.h"
 #include "components/sync/service/sync_token_status.h"
+#include "components/sync/service/trusted_vault_synthetic_field_trial.h"
 #include "components/sync/test/fake_model_type_controller.h"
 #include "components/sync/test/fake_sync_api_component_factory.h"
 #include "components/sync/test/fake_sync_engine.h"
@@ -59,17 +61,22 @@ using testing::Invoke;
 using testing::IsEmpty;
 using testing::IsNull;
 using testing::Not;
+using testing::NotNull;
 using testing::Return;
 
 namespace syncer {
 
 namespace {
 
+constexpr char kTestUser[] = "test_user@gmail.com";
+
 MATCHER_P(ContainsDataType, type, "") {
   return arg.Has(type);
 }
 
-constexpr char kTestUser[] = "test_user@gmail.com";
+MATCHER_P(IsValidFieldTrialGroupWithName, expected_name, "") {
+  return arg.is_valid() && arg.name() == expected_name;
+}
 
 SyncCycleSnapshot MakeDefaultSyncCycleSnapshot() {
   // It doesn't matter what exactly we set here, it's only relevant that the
@@ -687,7 +694,9 @@ TEST_F(
 
   // Sign-in.
   SignInWithoutSyncConsent();
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   ASSERT_TRUE(prefs()->GetBoolean(::prefs::kExplicitBrowserSignin));
+#endif
 
   // Registering CONTACT_INFO which includes addresses.
   InitializeService({{CONTACT_INFO, true}});
@@ -1320,8 +1329,6 @@ TEST_F(SyncServiceImplTest,
 }
 
 TEST_F(SyncServiceImplTest, DisableSyncOnClientClearsPassphrasePrefForAccount) {
-  base::test::ScopedFeatureList enable_keep_account_passphrase(
-      kSyncRememberCustomPassphraseAfterSignout);
   const PassphraseType kPassphraseType = PassphraseType::kCustomPassphrase;
 
   SignInWithoutSyncConsent();
@@ -1356,8 +1363,6 @@ TEST_F(SyncServiceImplTest, DisableSyncOnClientClearsPassphrasePrefForAccount) {
 
 TEST_F(SyncServiceImplTest,
        DisableSyncOnClientClearsPassphrasePrefForSyncingAccount) {
-  base::test::ScopedFeatureList enable_keep_account_passphrase(
-      kSyncRememberCustomPassphraseAfterSignout);
   const PassphraseType kPassphraseType = PassphraseType::kCustomPassphrase;
 
   PopulatePrefsForInitialSyncFeatureSetupComplete();
@@ -1392,8 +1397,6 @@ TEST_F(SyncServiceImplTest,
 }
 
 TEST_F(SyncServiceImplTest, EncryptionObsoleteClearsPassphrasePrefForAccount) {
-  base::test::ScopedFeatureList enable_keep_account_passphrase(
-      kSyncRememberCustomPassphraseAfterSignout);
   const PassphraseType kPassphraseType = PassphraseType::kCustomPassphrase;
 
   SignInWithoutSyncConsent();
@@ -2004,16 +2007,6 @@ TEST_F(
 
   SignInWithoutSyncConsent();
 
-  ASSERT_EQ(SyncService::TransportState::START_DEFERRED,
-            service()->GetTransportState());
-
-  // START_DEFERRED is very short-lived upon sign-in, so it doesn't matter
-  // much what the API returns (added here for documentation purposes).
-  EXPECT_EQ(ModelTypeSet(),
-            service()->GetTypesWithPendingDownloadForInitialSync());
-
-  base::RunLoop().RunUntilIdle();
-
   ASSERT_EQ(SyncService::TransportState::INITIALIZING,
             service()->GetTransportState());
 
@@ -2023,7 +2016,9 @@ TEST_F(
             service()->GetTypesWithPendingDownloadForInitialSync());
 
   // Once fully initialized, it is delegated to DataTypeManager.
+  base::RunLoop().RunUntilIdle();
   engine()->TriggerInitializationCompletion(/*success=*/true);
+
   ASSERT_EQ(SyncService::TransportState::ACTIVE,
             service()->GetTransportState());
   EXPECT_EQ(ModelTypeSet(),
@@ -2040,16 +2035,6 @@ TEST_F(SyncServiceImplTest,
   service()->GetUserSettings()->SetInitialSyncFeatureSetupComplete(
       syncer::SyncFirstSetupCompleteSource::BASIC_FLOW);
 
-  ASSERT_EQ(SyncService::TransportState::START_DEFERRED,
-            service()->GetTransportState());
-
-  // START_DEFERRED is very short-lived upon sign-in, so it doesn't matter
-  // much what the API returns (added here for documentation purposes).
-  EXPECT_EQ(ModelTypeSet(),
-            service()->GetTypesWithPendingDownloadForInitialSync());
-
-  base::RunLoop().RunUntilIdle();
-
   ASSERT_EQ(SyncService::TransportState::INITIALIZING,
             service()->GetTransportState());
 
@@ -2059,7 +2044,9 @@ TEST_F(SyncServiceImplTest,
             service()->GetTypesWithPendingDownloadForInitialSync());
 
   // Once fully initialized, it is delegated to DataTypeManager.
+  base::RunLoop().RunUntilIdle();
   engine()->TriggerInitializationCompletion(/*success=*/true);
+
   ASSERT_EQ(SyncService::TransportState::ACTIVE,
             service()->GetTransportState());
   EXPECT_EQ(ModelTypeSet(),
@@ -2335,6 +2322,94 @@ TEST_F(SyncServiceImplTest, ShouldNotifyOnManagedPrefDisabled) {
   prefs()->SetManagedPref(prefs::internal::kSyncManaged, base::Value(false));
 
   service()->RemoveObserver(&mock_sync_service_observer);
+}
+
+TEST_F(SyncServiceImplTest, ShouldCacheTrustedVaultAutoUpgradeDebugInfo) {
+  const int kTestCohort1 = 11;
+  const int kTestCohort2 = 22;
+
+  component_factory()->AllowFakeEngineInitCompletion(false);
+  InitializeService();
+  base::RunLoop().RunUntilIdle();
+  SignInWithSyncConsent();
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  ASSERT_TRUE(
+      service()->GetUserSettings()->IsInitialSyncFeatureSetupComplete());
+#else   // BUILDFLAG(IS_CHROMEOS_ASH)
+  service()->GetUserSettings()->SetInitialSyncFeatureSetupComplete(
+      syncer::SyncFirstSetupCompleteSource::BASIC_FLOW);
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+  base::RunLoop().RunUntilIdle();
+
+  ASSERT_EQ(SyncService::TransportState::INITIALIZING,
+            service()->GetTransportState());
+  ASSERT_THAT(engine(), NotNull());
+
+  {
+    SyncStatus sync_status;
+    sync_status.trusted_vault_debug_info
+        .mutable_auto_upgrade_experiment_group()
+        ->set_cohort(kTestCohort1);
+    sync_status.trusted_vault_debug_info
+        .mutable_auto_upgrade_experiment_group()
+        ->set_type(sync_pb::TrustedVaultAutoUpgradeExperimentGroup::CONTROL);
+    engine()->SetDetailedStatus(sync_status);
+  }
+
+  // Completing initialization should exercise SyncClient's field trial
+  // registration.
+  EXPECT_CALL(*sync_client(),
+              RegisterTrustedVaultAutoUpgradeSyntheticFieldTrial(
+                  IsValidFieldTrialGroupWithName("Cohort11_Control")));
+
+  base::RunLoop().RunUntilIdle();
+  engine()->TriggerInitializationCompletion(/*success=*/true);
+
+  ASSERT_EQ(SyncService::TransportState::ACTIVE,
+            service()->GetTransportState());
+
+  testing::Mock::VerifyAndClearExpectations(sync_client());
+
+  // Verify that the debug info has been cached in prefs.
+  SyncPrefs sync_prefs(prefs());
+  EXPECT_TRUE(
+      sync_prefs.GetCachedTrustedVaultAutoUpgradeExperimentGroup().has_value());
+  EXPECT_EQ(kTestCohort1,
+            sync_prefs.GetCachedTrustedVaultAutoUpgradeExperimentGroup()
+                .value_or(sync_pb::TrustedVaultAutoUpgradeExperimentGroup())
+                .cohort());
+  EXPECT_EQ(sync_pb::TrustedVaultAutoUpgradeExperimentGroup::CONTROL,
+            sync_prefs.GetCachedTrustedVaultAutoUpgradeExperimentGroup()
+                .value_or(sync_pb::TrustedVaultAutoUpgradeExperimentGroup())
+                .type());
+  EXPECT_EQ(0, sync_prefs.GetCachedTrustedVaultAutoUpgradeExperimentGroup()
+                   .value_or(sync_pb::TrustedVaultAutoUpgradeExperimentGroup())
+                   .type_index());
+
+  // The SyncClient API should not be invoked for the second time.
+  EXPECT_CALL(*sync_client(),
+              RegisterTrustedVaultAutoUpgradeSyntheticFieldTrial)
+      .Times(0);
+
+  // Mimic another sync cycle that mutates the experiment group.
+  {
+    SyncStatus sync_status;
+    sync_status.trusted_vault_debug_info
+        .mutable_auto_upgrade_experiment_group()
+        ->set_cohort(kTestCohort2);
+    sync_status.trusted_vault_debug_info
+        .mutable_auto_upgrade_experiment_group()
+        ->set_type(sync_pb::TrustedVaultAutoUpgradeExperimentGroup::CONTROL);
+    engine()->SetDetailedStatus(sync_status);
+    service()->OnSyncCycleCompleted(MakeDefaultSyncCycleSnapshot());
+  }
+
+  EXPECT_EQ(kTestCohort2,
+            sync_prefs.GetCachedTrustedVaultAutoUpgradeExperimentGroup()
+                .value_or(sync_pb::TrustedVaultAutoUpgradeExperimentGroup())
+                .cohort());
 }
 
 }  // namespace

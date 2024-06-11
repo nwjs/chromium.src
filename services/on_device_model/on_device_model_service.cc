@@ -23,8 +23,7 @@ namespace {
 
 class ModelWrapper;
 
-class SessionWrapper : public mojom::Session,
-                       public base::SupportsWeakPtr<SessionWrapper> {
+class SessionWrapper final : public mojom::Session {
  public:
   SessionWrapper(base::WeakPtr<ModelWrapper> model,
                  mojo::PendingReceiver<mojom::Session> receiver,
@@ -42,6 +41,8 @@ class SessionWrapper : public mojom::Session,
   void Execute(
       mojom::InputOptionsPtr input,
       mojo::PendingRemote<mojom::StreamingResponder> response) override;
+  void GetSizeInTokens(const std::string& text,
+                       GetSizeInTokensCallback callback) override;
 
   mojo::Receiver<mojom::Session>& receiver() { return receiver_; }
 
@@ -62,6 +63,13 @@ class SessionWrapper : public mojom::Session,
                       std::move(on_complete));
   }
 
+  void GetSizeInTokensInternal(const std::string& text,
+                               GetSizeInTokensCallback callback,
+                               base::OnceClosure on_complete) {
+    session_->SizeInTokens(text,
+                           std::move(callback).Then(std::move(on_complete)));
+  }
+
   void AddPreviousContext(mojom::InputOptionsPtr input) {
     previous_contexts_.push_back(std::move(input));
   }
@@ -70,10 +78,10 @@ class SessionWrapper : public mojom::Session,
   mojo::Receiver<mojom::Session> receiver_;
   std::unique_ptr<OnDeviceModel::Session> session_;
   std::vector<mojom::InputOptionsPtr> previous_contexts_;
+  base::WeakPtrFactory<SessionWrapper> weak_ptr_factory_{this};
 };
 
-class ModelWrapper : public mojom::OnDeviceModel,
-                     public base::SupportsWeakPtr<ModelWrapper> {
+class ModelWrapper final : public mojom::OnDeviceModel {
  public:
   explicit ModelWrapper(
       bool support_multiple_sessions,
@@ -84,8 +92,8 @@ class ModelWrapper : public mojom::OnDeviceModel,
         model_(std::move(model)),
         on_delete_(std::move(on_delete)) {
     receivers_.Add(this, std::move(receiver), std::nullopt);
-    receivers_.set_disconnect_handler(
-        base::BindRepeating(&ModelWrapper::ModelDisconnected, AsWeakPtr()));
+    receivers_.set_disconnect_handler(base::BindRepeating(
+        &ModelWrapper::ModelDisconnected, weak_ptr_factory_.GetWeakPtr()));
   }
   ~ModelWrapper() override = default;
 
@@ -98,8 +106,8 @@ class ModelWrapper : public mojom::OnDeviceModel,
       base::OnceCallback<void(base::OnceClosure finish_callback)> task,
       base::WeakPtr<SessionWrapper> session = nullptr) {
     if (support_multiple_sessions_) {
-      base::ScopedClosureRunner task_finished(
-          base::BindOnce(&ModelWrapper::TaskFinished, AsWeakPtr()));
+      base::ScopedClosureRunner task_finished(base::BindOnce(
+          &ModelWrapper::TaskFinished, weak_ptr_factory_.GetWeakPtr()));
       pending_tasks_.push(PendingTask{
           .session = session,
           .task = base::BindOnce(
@@ -115,7 +123,7 @@ class ModelWrapper : public mojom::OnDeviceModel,
 
   void StartSession(mojo::PendingReceiver<mojom::Session> session) override {
     auto current_session = std::make_unique<SessionWrapper>(
-        AsWeakPtr(), std::move(session),
+        weak_ptr_factory_.GetWeakPtr(), std::move(session),
         model_->CreateSession(receivers_.current_context()));
     SessionWrapper* current_session_ptr = current_session.get();
 
@@ -147,8 +155,8 @@ class ModelWrapper : public mojom::OnDeviceModel,
     }
 
     auto load_adaptation = base::BindOnce(
-        &ModelWrapper::LoadAdaptationInternal, AsWeakPtr(), std::move(params),
-        std::move(model), std::move(callback));
+        &ModelWrapper::LoadAdaptationInternal, weak_ptr_factory_.GetWeakPtr(),
+        std::move(params), std::move(model), std::move(callback));
     AddAndRunPendingTask(
         base::IgnoreArgs<base::OnceClosure>(std::move(load_adaptation)));
   }
@@ -168,7 +176,7 @@ class ModelWrapper : public mojom::OnDeviceModel,
 
   void ModelDisconnected() {
     if (receivers_.empty()) {
-      std::move(on_delete_).Run(AsWeakPtr());
+      std::move(on_delete_).Run(weak_ptr_factory_.GetWeakPtr());
     }
   }
 
@@ -226,6 +234,7 @@ class ModelWrapper : public mojom::OnDeviceModel,
   base::WeakPtr<SessionWrapper> running_session_;
   // Last session a task was executed in.
   base::WeakPtr<SessionWrapper> last_session_;
+  base::WeakPtrFactory<ModelWrapper> weak_ptr_factory_{this};
 };
 
 void SessionWrapper::AddContext(
@@ -237,13 +246,14 @@ void SessionWrapper::AddContext(
 
   base::OnceClosure save_context = base::DoNothing();
   if (model_->support_multiple_sessions()) {
-    save_context = base::BindOnce(&SessionWrapper::AddPreviousContext,
-                                  AsWeakPtr(), input.Clone());
+    save_context =
+        base::BindOnce(&SessionWrapper::AddPreviousContext,
+                       weak_ptr_factory_.GetWeakPtr(), input.Clone());
   }
 
-  auto add_context_internal =
-      base::BindOnce(&SessionWrapper::AddContextInternal, AsWeakPtr(),
-                     std::move(input), std::move(client));
+  auto add_context_internal = base::BindOnce(
+      &SessionWrapper::AddContextInternal, weak_ptr_factory_.GetWeakPtr(),
+      std::move(input), std::move(client));
 
   auto add_context = base::BindOnce(
       [](decltype(add_context_internal) add_context_internal,
@@ -253,7 +263,8 @@ void SessionWrapper::AddContext(
       },
       std::move(add_context_internal), std::move(save_context));
 
-  model_->AddAndRunPendingTask(std::move(add_context), AsWeakPtr());
+  model_->AddAndRunPendingTask(std::move(add_context),
+                               weak_ptr_factory_.GetWeakPtr());
 }
 
 void SessionWrapper::Execute(
@@ -263,11 +274,26 @@ void SessionWrapper::Execute(
     return;
   }
 
-  auto execute_internal =
-      base::BindOnce(&SessionWrapper::ExecuteInternal, AsWeakPtr(),
-                     std::move(input), std::move(response));
+  auto execute_internal = base::BindOnce(&SessionWrapper::ExecuteInternal,
+                                         weak_ptr_factory_.GetWeakPtr(),
+                                         std::move(input), std::move(response));
 
-  model_->AddAndRunPendingTask(std::move(execute_internal), AsWeakPtr());
+  model_->AddAndRunPendingTask(std::move(execute_internal),
+                               weak_ptr_factory_.GetWeakPtr());
+}
+
+void SessionWrapper::GetSizeInTokens(const std::string& text,
+                                     GetSizeInTokensCallback callback) {
+  if (!model_) {
+    return;
+  }
+
+  auto size_in_tokens_internal =
+      base::BindOnce(&SessionWrapper::GetSizeInTokensInternal,
+                     weak_ptr_factory_.GetWeakPtr(), text, std::move(callback));
+
+  model_->AddAndRunPendingTask(std::move(size_in_tokens_internal),
+                               weak_ptr_factory_.GetWeakPtr());
 }
 
 void SessionWrapper::ReplayPreviousContext() {

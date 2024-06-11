@@ -31,7 +31,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/media_feature_overrides.h"
-#include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css/vision_deficiency.h"
@@ -88,7 +87,9 @@
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme_overlay_mobile.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
+#include "third_party/blink/renderer/core/svg/graphics/isolated_svg_document_host.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image_chrome_client.h"
+#include "third_party/blink/renderer/core/svg/svg_resource_document_cache.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -253,6 +254,12 @@ Page::Page(base::PassKey<Page>,
                                !color_provider_colors->IsEmpty()
                            ? *color_provider_colors
                            : ColorProviderColorMaps::CreateDefault());
+  if (is_ordinary_) {
+    // TODO(crbug.com/336382906): We will revisit where we'll be doing this in
+    // production.
+    IsolatedSVGDocumentHostInitializer::Get()
+        ->MaybePrepareIsolatedSVGDocumentHost();
+  }
 }
 
 Page::~Page() {
@@ -460,6 +467,15 @@ SpatialNavigationController& Page::GetSpatialNavigationController() {
   return *spatial_navigation_controller_;
 }
 
+SVGResourceDocumentCache& Page::GetSVGResourceDocumentCache() {
+  if (!svg_resource_document_cache_) {
+    svg_resource_document_cache_ =
+        MakeGarbageCollected<SVGResourceDocumentCache>(
+            GetPageScheduler()->GetAgentGroupScheduler().DefaultTaskRunner());
+  }
+  return *svg_resource_document_cache_;
+}
+
 void Page::UsesOverlayScrollbarsChanged() {
   for (Page* page : AllPages()) {
     for (Frame* frame = page->MainFrame(); frame;
@@ -610,8 +626,9 @@ void Page::ResetPluginData() {
 static void RestoreSVGImageAnimations() {
   for (const Page* page : AllPages()) {
     if (auto* svg_image_chrome_client =
-            DynamicTo<SVGImageChromeClient>(page->GetChromeClient()))
+            DynamicTo<IsolatedSVGChromeClient>(page->GetChromeClient())) {
       svg_image_chrome_client->RestoreAnimationIfNeeded();
+    }
   }
 }
 
@@ -1152,6 +1169,7 @@ void Page::Trace(Visitor* visitor) const {
   visitor->Trace(visual_viewport_);
   visitor->Trace(link_highlight_);
   visitor->Trace(spatial_navigation_controller_);
+  visitor->Trace(svg_resource_document_cache_);
   visitor->Trace(main_frame_);
   visitor->Trace(previous_main_frame_for_local_swap_);
   visitor->Trace(plugin_data_);
@@ -1210,6 +1228,10 @@ void Page::WillBeDestroyed() {
     next_related_page_ = nullptr;
   }
 
+  if (svg_resource_document_cache_) {
+    svg_resource_document_cache_->WillBeDestroyed();
+  }
+
   if (scrolling_coordinator_)
     scrolling_coordinator_->WillBeDestroyed();
 
@@ -1228,6 +1250,12 @@ void Page::WillBeDestroyed() {
   if (close_task_handler_) {
     close_task_handler_->SetPage(nullptr);
     close_task_handler_ = nullptr;
+  }
+
+  // Clear speculatively created resources for SVGImage when there are no
+  // ordinary pages. This is desirable to shutdown renderer gracefully.
+  if (is_ordinary_ && OrdinaryPages().empty()) {
+    IsolatedSVGDocumentHostInitializer::Get()->Clear();
   }
 }
 
@@ -1433,6 +1461,9 @@ void Page::PrepareForLeakDetection() {
     // the page becomes interactive. Give it a chance to clean up.
     page->v8_compile_hints_producer_->ClearData();
   }
+
+  // Clear speculatively created resources for SVGImage.
+  IsolatedSVGDocumentHostInitializer::Get()->Clear();
 }
 
 // Ensure the 10 bits reserved for connected frame count in NodeRareData are

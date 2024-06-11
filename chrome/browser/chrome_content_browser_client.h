@@ -11,6 +11,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/containers/flat_map.h"
@@ -18,7 +19,6 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/strings/string_piece.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -38,6 +38,7 @@
 #include "media/media_buildflags.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "services/device/public/cpp/geolocation/buildflags.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/video_effects/public/mojom/video_effects_processor.mojom-forward.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
@@ -145,7 +146,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   ~ChromeContentBrowserClient() override;
 
-  // TODO(https://crbug.com/787567): This file is about calls from content/ out
+  // TODO(crbug.com/41356866): This file is about calls from content/ out
   // to chrome/ to get values or notify about events, but both of these
   // functions are from chrome/ to chrome/ and don't involve content/ at all.
   // That suggests they belong somewhere else at the chrome/ layer.
@@ -189,11 +190,11 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                                        const GURL& effective_site_url) override;
   bool DoesWebUIUrlRequireProcessLock(const GURL& url) override;
   bool ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
-      base::StringPiece scheme,
+      std::string_view scheme,
       bool is_embedded_origin_secure) override;
   bool IsNWOrigin(const url::Origin& origin, content::BrowserContext* context) override;
   bool ShouldIgnoreSameSiteCookieRestrictionsWhenTopLevel(
-      base::StringPiece scheme,
+      std::string_view scheme,
       bool is_embedded_origin_secure) override;
   std::string GetSiteDisplayNameForCdmProcess(
       content::BrowserContext* browser_context,
@@ -363,16 +364,19 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::RenderFrameHost* rfh,
       const url::Origin& top_frame_origin,
       const url::Origin& accessing_origin,
-      std::string* out_debug_message = nullptr) override;
+      std::string* out_debug_message = nullptr,
+      bool* out_block_is_site_setting_specific = nullptr) override;
   bool IsSharedStorageSelectURLAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
       const url::Origin& accessing_origin,
-      std::string* out_debug_message = nullptr) override;
+      std::string* out_debug_message = nullptr,
+      bool* out_block_is_site_setting_specific = nullptr) override;
   bool IsPrivateAggregationAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
-      const url::Origin& reporting_origin) override;
+      const url::Origin& reporting_origin,
+      bool* out_block_is_site_setting_specific = nullptr) override;
   bool IsPrivateAggregationDebugModeAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
@@ -398,7 +402,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   network::mojom::NetworkContext* GetSystemNetworkContext() override;
   std::string GetGeolocationApiKey() override;
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
   device::GeolocationSystemPermissionManager*
   GetGeolocationSystemPermissionManager() override;
 #endif
@@ -869,6 +873,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const GURL& url) override;
   bool ShouldServiceWorkerInheritPolicyContainerFromCreator(
       const GURL& url) override;
+  void GrantAdditionalRequestPrivilegesToWorkerProcess(
+      int child_id,
+      const GURL& script_url) override;
   PrivateNetworkRequestPolicyOverride ShouldOverridePrivateNetworkRequestPolicy(
       content::BrowserContext* browser_context,
       const url::Origin& origin) override;
@@ -902,6 +909,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   void ShowDigitalIdentityInterstitialIfNeeded(
       content::WebContents& web_contents,
       const url::Origin& origin,
+      bool is_only_requesting_age,
       DigitalIdentityInterstitialCallback callback) override;
 #endif
 
@@ -947,6 +955,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   void OnSharedStorageWorkletHostCreated(
       content::RenderFrameHost* rfh) override;
+
+  void OnSharedStorageSelectURLCalled(
+      content::RenderFrameHost* main_rfh) override;
 
   bool ShouldSendOutermostOriginToRenderer(
       const url::Origin& outermost_origin) override;

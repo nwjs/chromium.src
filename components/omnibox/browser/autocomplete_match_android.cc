@@ -56,6 +56,16 @@ ScopedJavaLocalRef<jobject> AutocompleteMatch::GetOrCreateJavaObject(
   base::android::ScopedJavaLocalRef<jobject> janswer;
   if (answer)
     janswer = answer->CreateJavaObject();
+
+  ScopedJavaLocalRef<jbyteArray> j_answer_template;
+  if (answer_template) {
+    std::string str_answer_template;
+    if (answer_template->SerializeToString(&str_answer_template)) {
+      j_answer_template =
+          base::android::ToJavaByteArray(env, str_answer_template);
+    }
+  }
+
   ScopedJavaLocalRef<jstring> j_image_dominant_color;
   ScopedJavaLocalRef<jstring> j_post_content_type;
   ScopedJavaLocalRef<jbyteArray> j_post_content;
@@ -94,13 +104,16 @@ ScopedJavaLocalRef<jobject> AutocompleteMatch::GetOrCreateJavaObject(
           ConvertUTF16ToJavaString(env, description),
           ToJavaIntArray(env, description_class_offsets),
           ToJavaIntArray(env, description_class_styles), janswer,
-          ConvertUTF16ToJavaString(env, fill_into_edit),
+          j_answer_template, ConvertUTF16ToJavaString(env, fill_into_edit),
           url::GURLAndroid::FromNativeGURL(env, destination_url),
           url::GURLAndroid::FromNativeGURL(env, image_url),
           j_image_dominant_color, SupportsDeletion(), j_post_content_type,
           j_post_content, suggestion_group_id.value_or(omnibox::GROUP_INVALID),
           ToJavaByteArray(env, clipboard_image_data),
-          has_tab_match.value_or(false), actions_list));
+          has_tab_match.value_or(false), actions_list,
+          allowed_to_be_default_match,
+          ConvertUTF16ToJavaString(env, inline_autocompletion),
+          ConvertUTF16ToJavaString(env, additional_text)));
 
   return ScopedJavaLocalRef<jobject>(*java_match_);
 }

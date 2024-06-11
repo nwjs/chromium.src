@@ -57,6 +57,12 @@ class OsIntegrationTestOverrideImpl;
 // integration (disk folders, windows registry changes, etc) have been removed.
 //
 // `test_override()` can be used to view or modify the OS state.
+//
+// Note: This override does not apply if there is a
+// OsIntegrationManager::ScopedSuppressForTesting is created. This often happens
+// in unit tests, which use a FakeWebAppProvider by default. To reset that
+// object held by the FakeOsIntegrationManager, call
+// FakeWebAppProvider::UseRealOsIntegrationManager() on test setup.
 class OsIntegrationTestOverrideBlockingRegistration {
  public:
   OsIntegrationTestOverrideBlockingRegistration();
@@ -168,7 +174,8 @@ class OsIntegrationTestOverrideImpl : public OsIntegrationTestOverride {
 
   // Looks into the current shortcut paths to determine if a shortcut has
   // been created or not. This should only be run on Windows, Mac and Linux.
-  // TODO(crbug.com/1425967): Add PList parsing logic for Mac shortcut checking.
+  // TODO(crbug.com/40261124): Add PList parsing logic for Mac shortcut
+  // checking.
   bool IsShortcutCreated(Profile* profile,
                          const webapps::AppId& app_id,
                          const std::string& app_name);

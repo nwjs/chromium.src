@@ -118,6 +118,10 @@
 #include "url/gurl.h"
 #include "v8/include/v8.h"
 
+#if BUILDFLAG(ENABLE_PDF_INK2)
+#include "pdf/ink_module.h"
+#endif
+
 namespace chrome_pdf {
 
 namespace {
@@ -161,7 +165,7 @@ enum class PinchPhase {
 // Initialization performed per renderer process. Initialization may be
 // triggered from multiple plugin instances, but should only execute once.
 //
-// TODO(crbug.com/1123621): We may be able to simplify this once we've figured
+// TODO(crbug.com/40147027): We may be able to simplify this once we've figured
 // out exactly which processes need to initialize and shutdown PDFium.
 class PerProcessInitializer final {
  public:
@@ -205,7 +209,7 @@ class PerProcessInitializer final {
  private:
   int init_count_ GUARDED_BY_CONTEXT(thread_checker_) = 0;
 
-  // TODO(crbug.com/1123731): Assuming PDFium is thread-hostile for now, and
+  // TODO(crbug.com/40147080): Assuming PDFium is thread-hostile for now, and
   // must use one thread exclusively.
   THREAD_CHECKER(thread_checker_);
 };
@@ -263,6 +267,15 @@ bool IsSaveDataSizeValid(size_t size) {
   return size > 0 && size <= PdfViewWebPlugin::kMaximumSavedFileSize;
 }
 
+#if BUILDFLAG(ENABLE_PDF_INK2)
+std::unique_ptr<InkModule> MaybeCreateInkModule() {
+  if (!base::FeatureList::IsEnabled(features::kPdfInk2)) {
+    return nullptr;
+  }
+  return std::make_unique<InkModule>();
+}
+#endif
+
 }  // namespace
 
 std::unique_ptr<PDFiumEngine> PdfViewWebPlugin::Client::CreateEngine(
@@ -285,6 +298,9 @@ PdfViewWebPlugin::PdfViewWebPlugin(
     const blink::WebPluginParams& params)
     : client_(std::move(client)),
       pdf_host_(std::move(pdf_host)),
+#if BUILDFLAG(ENABLE_PDF_INK2)
+      ink_module_(MaybeCreateInkModule()),
+#endif
       initial_params_(params) {
   DCHECK(pdf_host_);
   pdf_host_->SetListener(listener_receiver_.BindNewPipeAndPassRemote());
@@ -331,7 +347,7 @@ bool PdfViewWebPlugin::InitializeCommon() {
   // plugin process, the active URL changes frequently within a renderer process
   // (see crbug.com/1266050 for details).
   //
-  // TODO(crbug.com/1266087): If multiple PDF plugin instances share the same
+  // TODO(crbug.com/40801869): If multiple PDF plugin instances share the same
   // renderer process, the crash key will be overwritten by the newest value.
   static base::debug::CrashKeyString* subresource_url =
       base::debug::AllocateCrashKeyString("subresource_url",
@@ -422,7 +438,7 @@ blink::WebPluginContainer* PdfViewWebPlugin::Container() const {
 v8::Local<v8::Object> PdfViewWebPlugin::V8ScriptableObject(
     v8::Isolate* isolate) {
   if (scriptable_receiver_.IsEmpty()) {
-    // TODO(crbug.com/1123731): Messages should not be handled on the renderer
+    // TODO(crbug.com/40147080): Messages should not be handled on the renderer
     // main thread.
     scriptable_receiver_.Reset(
         isolate, PostMessageReceiver::Create(
@@ -471,6 +487,14 @@ void PdfViewWebPlugin::Paint(cc::PaintCanvas* canvas, const gfx::Rect& rect) {
     canvas->scale(snapshot_scale_, snapshot_scale_);
 
   canvas->drawImage(snapshot_, 0, 0);
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  if (ink_module_) {
+    // TODO(crbug.com/335524380): Use a real canvas.
+    SkCanvas placeholder_canvas(rect.width(), rect.height());
+    ink_module_->Draw(placeholder_canvas);
+  }
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
 }
 
 void PdfViewWebPlugin::UpdateGeometry(const gfx::Rect& window_rect,
@@ -1010,7 +1034,7 @@ void PdfViewWebPlugin::SubmitForm(const std::string& url,
                                   const void* data,
                                   int length) {
   // `url` might be a relative URL. Resolve it against the document's URL.
-  // TODO(crbug.com/1322928): Probably redundant with `Client::CompleteURL()`.
+  // TODO(crbug.com/40224475): Probably redundant with `Client::CompleteURL()`.
   GURL resolved_url = GURL(url_).Resolve(url);
   if (!resolved_url.is_valid())
     return;
@@ -1026,7 +1050,7 @@ void PdfViewWebPlugin::SubmitForm(const std::string& url,
 }
 
 void PdfViewWebPlugin::DidFormOpen(int32_t result) {
-  // TODO(crbug.com/719344): Process response.
+  // TODO(crbug.com/41317525): Process response.
   LOG_IF(ERROR, result != kSuccess) << "DidFormOpen failed: " << result;
   form_loader_.reset();
 }
@@ -1298,6 +1322,12 @@ PdfViewWebPlugin::CreateAssociatedURLLoader(
 }
 
 void PdfViewWebPlugin::OnMessage(const base::Value::Dict& message) {
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  if (ink_module_ && ink_module_->OnMessage(message)) {
+    return;
+  }
+#endif
+
   using MessageHandler = void (PdfViewWebPlugin::*)(const base::Value::Dict&);
 
   static constexpr auto kMessageHandlers =
@@ -1518,7 +1548,7 @@ void PdfViewWebPlugin::HandleViewportMessage(const base::Value::Dict& message) {
 
     ui_direction_ = layout_options.direction();
 
-    // TODO(crbug.com/1013800): Eliminate need to get document size from here.
+    // TODO(crbug.com/40652841): Eliminate need to get document size from here.
     document_size_ = engine_->ApplyDocumentLayout(layout_options);
 
     OnGeometryChanged(zoom_, device_scale_);
@@ -1697,7 +1727,7 @@ gfx::PointF PdfViewWebPlugin::GetScrollPositionFromOffset(
     const gfx::Vector2dF& scroll_offset) const {
   gfx::PointF scroll_origin;
 
-  // TODO(crbug.com/1140374): Right-to-left scrolling currently is not
+  // TODO(crbug.com/40726602): Right-to-left scrolling currently is not
   // compatible with the PDF viewer's sticky "scroller" element.
   if (ui_direction_ == base::i18n::RIGHT_TO_LEFT && IsPrintPreview()) {
     scroll_origin.set_x(
@@ -1776,7 +1806,7 @@ void PdfViewWebPlugin::DoPaint(const std::vector<gfx::Rect>& paint_rects,
 
   engine_->PostPaint();
 
-  // TODO(crbug.com/1263614): Write pixels directly to the `SkSurface` in
+  // TODO(crbug.com/40203030): Write pixels directly to the `SkSurface` in
   // `PaintManager`, rather than using an intermediate `SkBitmap` and `SkImage`.
   sk_sp<SkImage> painted_image = image_data_.asImage();
   for (const gfx::Rect& ready_rect : ready_rects)
@@ -1971,7 +2001,7 @@ void PdfViewWebPlugin::OnViewportChanged(
   device_scale_ = new_device_scale;
   plugin_rect_ = new_plugin_rect_in_css_pixel;
 
-  // TODO(crbug.com/1250173): We should try to avoid the downscaling in this
+  // TODO(crbug.com/40791703): We should try to avoid the downscaling in this
   // calculation, perhaps by migrating off `plugin_dip_size_`.
   plugin_dip_size_ = gfx::ScaleToEnclosingRect(new_plugin_rect_in_css_pixel,
                                                1.0f / new_device_scale)
@@ -2048,6 +2078,12 @@ bool PdfViewWebPlugin::HandleWebInputEvent(const blink::WebInputEvent& event) {
 
   const blink::WebInputEvent& event_to_handle =
       transformed_event ? *transformed_event : event;
+
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  if (ink_module_ && ink_module_->HandleInputEvent(event_to_handle)) {
+    return true;
+  }
+#endif
 
   if (engine_->HandleInputEvent(event_to_handle))
     return true;
@@ -2233,7 +2269,7 @@ void PdfViewWebPlugin::HandleResetPrintPreviewModeMessage(
                                weak_factory_.GetWeakPtr()));
   preview_engine_.reset();
 
-  // TODO(crbug.com/1237952): Figure out a more consistent way to preserve
+  // TODO(crbug.com/40193305): Figure out a more consistent way to preserve
   // engine settings across a Print Preview reset.
   engine_ = client_->CreateEngine(
       this, PDFiumFormFiller::ScriptOption::kNoJavaScript);
@@ -2361,7 +2397,7 @@ void PdfViewWebPlugin::SendThumbnail(base::Value::Dict reply,
 
 gfx::Point PdfViewWebPlugin::FrameToPdfCoordinates(
     const gfx::PointF& frame_coordinates) const {
-  // TODO(crbug.com/1288847): Use methods on `blink::WebPluginContainer`.
+  // TODO(crbug.com/40817151): Use methods on `blink::WebPluginContainer`.
   return gfx::ToFlooredPoint(
              gfx::ScalePoint(frame_coordinates, device_scale_)) -
          gfx::Vector2d(available_area_.x(), 0);
@@ -2430,6 +2466,9 @@ void PdfViewWebPlugin::LoadAccessibility() {
   next_accessibility_page_index_ = 0;
   pdf_accessibility_data_handler_->SetAccessibilityDocInfo(
       GetAccessibilityDocInfo());
+
+  // Record whether the PDF is tagged when opened by an accessibility user.
+  metrics_handler_->RecordAccessibilityIsDocTagged(engine_->IsPDFDocTagged());
 
   // If the document contents isn't accessible, don't send anything more.
   if (!(engine_->HasPermission(DocumentPermission::kCopy) ||

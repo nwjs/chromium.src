@@ -17,6 +17,8 @@ enum class PickerSearchSource {
   kDrive,
   kMath,
   kClipboard,
+  kEditorWrite,
+  kEditorRewrite,
 };
 }
 

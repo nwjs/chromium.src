@@ -182,11 +182,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kHttpCacheKeyingExperimentControlGroup);
 // servers.
 NET_EXPORT BASE_DECLARE_FEATURE(kTLS13KeyUpdate);
 
-// Enables permuting TLS extensions in the ClientHello, to reduce the risk of
-// non-compliant servers ossifying parts of the ClientHello and interfering with
-// deployment of future security improvements.
-NET_EXPORT BASE_DECLARE_FEATURE(kPermuteTLSExtensions);
-
 // Enables Kyber-based post-quantum key-agreements in TLS 1.3 connections.
 NET_EXPORT BASE_DECLARE_FEATURE(kPostQuantumKyber);
 
@@ -208,15 +203,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kShortLaxAllowUnsafeThreshold);
 // methods will not be allowed at all for top-level cross-site navigations.
 // This only has an effect if the cookie defaults to SameSite=Lax.
 NET_EXPORT BASE_DECLARE_FEATURE(kSameSiteDefaultChecksMethodRigorously);
-
-// When enabled, bssl::TrustStore implementations will use TRUSTED_LEAF,
-// TRUSTED_ANCHOR_OR_LEAF, and TRUSTED_ANCHOR as appropriate. When disabled,
-// bssl::TrustStore implementation will only use TRUSTED_ANCHOR.
-// TODO(https://crbug.com/1403034): remove this a few milestones after the
-// trusted leaf support has been launched on all relevant platforms.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(USE_NSS_CERTS) || BUILDFLAG(IS_WIN)
-NET_EXPORT BASE_DECLARE_FEATURE(kTrustStoreTrustedLeafSupport);
-#endif
 
 // Turns off streaming media caching to disk when on battery power.
 NET_EXPORT BASE_DECLARE_FEATURE(kTurnOffStreamingMediaCachingOnBattery);
@@ -266,15 +252,6 @@ NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
 // the new Document Reporting spec.
 NET_EXPORT BASE_DECLARE_FEATURE(kDocumentReporting);
 #endif  // BUILDFLAG(ENABLE_REPORTING)
-
-#if BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
-// When enabled, UDPSocketPosix increments the global counter of bytes received
-// every time bytes are received, instead of using a timer to batch updates.
-// This should reduce the number of wake ups and improve battery consumption.
-// TODO(https://crbug.com/1189805): Cleanup the feature after verifying that it
-// doesn't negatively affect performance.
-NET_EXPORT BASE_DECLARE_FEATURE(kUdpSocketPosixAlwaysUpdateBytesReceived);
-#endif  // BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
 
 // When this feature is enabled, redirected requests will be considered
 // cross-site for the purpose of SameSite cookies if any redirect hop was
@@ -337,21 +314,20 @@ NET_EXPORT BASE_DECLARE_FEATURE(kCaseInsensitiveCookiePrefix);
 
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableWebsocketsOverHttp3);
 
-// Whether to do IPv4 to IPv6 address translation for IPv4 literals.
-NET_EXPORT BASE_DECLARE_FEATURE(kUseNAT64ForIPv4Literal);
-
-// Whether to block newly added forbidden headers (https://crbug.com/1362331).
-NET_EXPORT BASE_DECLARE_FEATURE(kBlockNewForbiddenHeaders);
-
 #if BUILDFLAG(IS_WIN)
-// Whether to probe for SHA-256 on some legacy platform keys, before assuming
-// the key requires SHA-1. See SSLPlatformKeyWin for details.
-NET_EXPORT BASE_DECLARE_FEATURE(kPlatformKeyProbeSHA256);
-
 // Whether or not to use the GetNetworkConnectivityHint API on modern Windows
 // versions for the Network Change Notifier.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableGetNetworkConnectivityHintAPI);
+
+// Whether or not to enable TCP port randomization via SO_RANDOMIZE_PORT on
+// Windows 20H1+.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnableTcpPortRandomization);
 #endif
+
+// Avoid creating cache entries for transactions that are most likely no-store.
+NET_EXPORT BASE_DECLARE_FEATURE(kAvoidEntryCreationForNoStore);
+NET_EXPORT extern const base::FeatureParam<int>
+    kAvoidEntryCreationForNoStoreCacheSize;
 
 // Prefetch to follow normal semantics instead of 5-minute rule
 // https://crbug.com/1345207
@@ -421,10 +397,6 @@ NET_EXPORT extern const base::FeatureParam<std::string>
 // connections that _would_ have been proxied, but were not.
 NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyDirectOnly;
 
-// The PSK added to connections to proxyB with `Proxy-Authorization: Preshared
-// $PSK`.
-NET_EXPORT extern const base::FeatureParam<std::string> kIpPrivacyProxyBPsk;
-
 // If true, pass OAuth token to Phosphor in GetProxyConfig API for IP
 // Protection.
 NET_EXPORT extern const base::FeatureParam<bool>
@@ -466,6 +438,10 @@ NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyUseSingleProxy;
 // functionality.
 NET_EXPORT extern const base::FeatureParam<std::string> kIpPrivacyAlwaysProxy;
 
+// Fallback to direct when connections to IP protection proxies fail. This
+// defaults to true and is intended for development of the QUIC functionality.
+NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyFallbackToDirect;
+
 // Whether QuicParams::migrate_sessions_on_network_change_v2 defaults to true or
 // false. This is needed as a workaround to set this value to true on Android
 // but not on WebView (until crbug.com/1430082 has been fixed).
@@ -478,7 +454,7 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDisableBlackholeOnNoNewNetwork);
 #if BUILDFLAG(IS_LINUX)
 // AddressTrackerLinux will not run inside the network service in this
 // configuration, which will improve the Linux network service sandbox.
-// TODO(crbug.com/1312226): remove this.
+// TODO(crbug.com/40220507): remove this.
 NET_EXPORT BASE_DECLARE_FEATURE(kAddressTrackerLinuxIsProxied);
 #endif  // BUILDFLAG(IS_LINUX)
 
@@ -519,8 +495,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kPriorityHeader);
 // Enables a more efficient implementation of SpdyHeadersToHttpResponse().
 NET_EXPORT BASE_DECLARE_FEATURE(kSpdyHeadersToHttpResponseUseBuilder);
 
-// Enables receiving ECN bit by sockets in Chrome.
-NET_EXPORT BASE_DECLARE_FEATURE(kReceiveEcn);
+// Enables receiving ECN bit by UDP sockets in Chrome, and reporting the counts
+// to QUIC servers via ACK frames.
+NET_EXPORT BASE_DECLARE_FEATURE(kReportEcn);
 
 // Enables using the new ALPS codepoint to negotiate application settings for
 // HTTP2.
@@ -532,7 +509,7 @@ NET_EXPORT BASE_DECLARE_FEATURE(kUseNewAlpsCodepointQUIC);
 
 // Treat HTTP header `Expires: "0"` as expired value according section 5.3 on
 // RFC 9111.
-// TODO(https://crbug.com/853508): Remove after the bug fix will go well for a
+// TODO(crbug.com/41395025): Remove after the bug fix will go well for a
 // while on stable channels.
 NET_EXPORT BASE_DECLARE_FEATURE(kTreatHTTPExpiresHeaderValueZeroAsExpired);
 
@@ -548,6 +525,10 @@ NET_EXPORT BASE_DECLARE_FEATURE(kReduceIPAddressChangeNotification);
 // This feature will enable the Device Bound Session Credentials protocol to let
 // the server assert sessions (and cookies) are bound to a specific device.
 NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessions);
+
+// Enables storing connection subtype in NetworkChangeNotifierDelegateAndroid to
+// save the cost of the JNI call for future access.
+NET_EXPORT BASE_DECLARE_FEATURE(kStoreConnectionSubtype);
 
 }  // namespace net::features
 

@@ -26,6 +26,7 @@ class MockMahiManager : public chromeos::MahiManager {
               (override));
   MOCK_METHOD(gfx::ImageSkia, GetContentIcon, (), (override));
   MOCK_METHOD(std::u16string, GetContentTitle, (), (override));
+  MOCK_METHOD(GURL, GetContentUrl, (), (override));
   MOCK_METHOD(void, GetOutlines, (MahiOutlinesCallback), (override));
   MOCK_METHOD(void,
               GetSuggestedQuestion,
@@ -38,7 +39,6 @@ class MockMahiManager : public chromeos::MahiManager {
               (crosapi::mojom::MahiContextMenuRequestPtr),
               (override));
   MOCK_METHOD(void, OpenFeedbackDialog, (), (override));
-  MOCK_METHOD(void, OpenMahiPanel, (int64_t), (override));
   MOCK_METHOD(void,
               SetCurrentFocusedPageInfo,
               (crosapi::mojom::MahiPageInfoPtr),

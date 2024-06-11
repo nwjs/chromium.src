@@ -59,9 +59,7 @@ bool IsSignedExchangeHandlingEnabled(BrowserContext* context) {
 }
 
 bool IsSignedExchangeReportingForDistributorsEnabled() {
-  return base::FeatureList::IsEnabled(network::features::kReporting) &&
-         base::FeatureList::IsEnabled(
-             features::kSignedExchangeReportingForDistributors);
+  return base::FeatureList::IsEnabled(network::features::kReporting);
 }
 
 bool ShouldHandleAsSignedHTTPExchange(
@@ -69,7 +67,7 @@ bool ShouldHandleAsSignedHTTPExchange(
     const network::mojom::URLResponseHead& head) {
   // Currently we don't support the signed exchange which is returned from a
   // service worker.
-  // TODO(crbug/803774): Decide whether we should support it or not.
+  // TODO(crbug.com/40558902): Decide whether we should support it or not.
   if (head.was_fetched_via_service_worker)
     return false;
   if (!SignedExchangeRequestHandler::IsSupportedMimeType(head.mime_type))

@@ -24,7 +24,7 @@ namespace {
 
 const char kBackendName[] = "DirectML: ";
 
-// Note that the element count is considered as 1 when the give dimensions is
+// Note that the element count is considered as 1 when the given dimensions is
 // empty.
 uint64_t CalculateElementCount(const std::vector<uint32_t>& dimensions,
                                const std::vector<uint32_t>& strides = {}) {
@@ -57,7 +57,7 @@ bool ValidateAxes(base::span<const uint32_t> axes) {
     return false;
   }
 
-  // TODO(crbug.com/1273291): Replace `std::set` with `std::bitset` for
+  // TODO(crbug.com/40206287): Replace `std::set` with `std::bitset` for
   // duplication check after the maximum number of operand dimensions has been
   // settled and validated before using this function. Use `std::set` here at
   // present to avoid dimensions count check. Dimensions number issue tracked in
@@ -159,9 +159,9 @@ std::vector<uint32_t> PermuteArray(base::span<const uint32_t> array,
   return permuted_array;
 }
 
-ComPtr<ID3D12Device> GetD3D12Device(IDMLDevice* dml_device) {
+Microsoft::WRL::ComPtr<ID3D12Device> GetD3D12Device(IDMLDevice* dml_device) {
   CHECK(dml_device);
-  ComPtr<ID3D12Device> d3d12_device;
+  Microsoft::WRL::ComPtr<ID3D12Device> d3d12_device;
   CHECK_EQ(dml_device->GetParentDevice(IID_PPV_ARGS(&d3d12_device)), S_OK);
   return d3d12_device;
 }
@@ -175,7 +175,10 @@ DML_FEATURE_LEVEL GetMaxSupportedDMLFeatureLevel(IDMLDevice* dml_device) {
   // level.
   DML_FEATURE_LEVEL feature_levels_requested[] = {
       DML_FEATURE_LEVEL_1_0, DML_FEATURE_LEVEL_2_0, DML_FEATURE_LEVEL_2_1,
-      DML_FEATURE_LEVEL_3_0, DML_FEATURE_LEVEL_3_1, DML_FEATURE_LEVEL_4_0};
+      DML_FEATURE_LEVEL_3_0, DML_FEATURE_LEVEL_3_1, DML_FEATURE_LEVEL_4_0,
+      DML_FEATURE_LEVEL_4_1, DML_FEATURE_LEVEL_5_0, DML_FEATURE_LEVEL_5_1,
+      DML_FEATURE_LEVEL_5_2, DML_FEATURE_LEVEL_6_0, DML_FEATURE_LEVEL_6_1,
+      DML_FEATURE_LEVEL_6_2};
 
   DML_FEATURE_QUERY_FEATURE_LEVELS feature_levels_query = {
       std::size(feature_levels_requested), feature_levels_requested};
@@ -207,8 +210,8 @@ D3D12_RESOURCE_BARRIER CreateTransitionBarrier(ID3D12Resource* resource,
 }
 
 void UploadBufferWithBarrier(CommandRecorder* command_recorder,
-                             ComPtr<ID3D12Resource> dst_buffer,
-                             ComPtr<ID3D12Resource> src_buffer,
+                             Microsoft::WRL::ComPtr<ID3D12Resource> dst_buffer,
+                             Microsoft::WRL::ComPtr<ID3D12Resource> src_buffer,
                              size_t buffer_size) {
   // Copy the data from source buffer to destination buffer.
   D3D12_RESOURCE_BARRIER barriers[1];
@@ -226,10 +229,11 @@ void UploadBufferWithBarrier(CommandRecorder* command_recorder,
   command_recorder->ResourceBarrier(barriers);
 }
 
-void ReadbackBufferWithBarrier(CommandRecorder* command_recorder,
-                               ComPtr<ID3D12Resource> readback_buffer,
-                               ComPtr<ID3D12Resource> default_buffer,
-                               size_t buffer_size) {
+void ReadbackBufferWithBarrier(
+    CommandRecorder* command_recorder,
+    Microsoft::WRL::ComPtr<ID3D12Resource> readback_buffer,
+    Microsoft::WRL::ComPtr<ID3D12Resource> default_buffer,
+    size_t buffer_size) {
   // Copy the data from source buffer to destination buffer.
   D3D12_RESOURCE_BARRIER barriers[1];
   barriers[0] = CreateTransitionBarrier(default_buffer.Get(),
@@ -254,7 +258,7 @@ mojom::ErrorPtr CreateError(mojom::Error::Code error_code,
 HRESULT CreateDefaultBuffer(ID3D12Device* device,
                             uint64_t size,
                             const wchar_t* name_for_debugging,
-                            ComPtr<ID3D12Resource>& resource) {
+                            Microsoft::WRL::ComPtr<ID3D12Resource>& resource) {
   TRACE_EVENT2("gpu", "dml::CreateDefaultBuffer", "size", size, "name",
                name_for_debugging);
   auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
@@ -273,7 +277,7 @@ HRESULT CreateDefaultBuffer(ID3D12Device* device,
 HRESULT CreateUploadBuffer(ID3D12Device* device,
                            uint64_t size,
                            const wchar_t* name_for_debugging,
-                           ComPtr<ID3D12Resource>& resource) {
+                           Microsoft::WRL::ComPtr<ID3D12Resource>& resource) {
   TRACE_EVENT2("gpu", "dml::CreateUploadBuffer", "size", size, "name",
                name_for_debugging);
   auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
@@ -291,7 +295,7 @@ HRESULT CreateUploadBuffer(ID3D12Device* device,
 HRESULT CreateReadbackBuffer(ID3D12Device* device,
                              uint64_t size,
                              const wchar_t* name_for_debugging,
-                             ComPtr<ID3D12Resource>& resource) {
+                             Microsoft::WRL::ComPtr<ID3D12Resource>& resource) {
   CHECK(device);
   TRACE_EVENT2("gpu", "dml::CreateReadbackBuffer", "size", size, "name",
                name_for_debugging);
@@ -307,10 +311,11 @@ HRESULT CreateReadbackBuffer(ID3D12Device* device,
   return S_OK;
 }
 
-HRESULT CreateCustomUploadBuffer(ID3D12Device* device,
-                                 uint64_t size,
-                                 const wchar_t* name_for_debugging,
-                                 ComPtr<ID3D12Resource>& resource) {
+HRESULT CreateCustomUploadBuffer(
+    ID3D12Device* device,
+    uint64_t size,
+    const wchar_t* name_for_debugging,
+    Microsoft::WRL::ComPtr<ID3D12Resource>& resource) {
   CHECK(device);
   TRACE_EVENT2("gpu", "dml::CreateCustomUploadBuffer", "size", size, "name",
                name_for_debugging);
@@ -331,10 +336,11 @@ HRESULT CreateCustomUploadBuffer(ID3D12Device* device,
   return S_OK;
 }
 
-HRESULT CreateCustomReadbackBuffer(ID3D12Device* device,
-                                   uint64_t size,
-                                   const wchar_t* name_for_debugging,
-                                   ComPtr<ID3D12Resource>& resource) {
+HRESULT CreateCustomReadbackBuffer(
+    ID3D12Device* device,
+    uint64_t size,
+    const wchar_t* name_for_debugging,
+    Microsoft::WRL::ComPtr<ID3D12Resource>& resource) {
   CHECK(device);
   TRACE_EVENT2("gpu", "dml::CreateCustomReadbackBuffer", "size", size, "name",
                name_for_debugging);
@@ -355,10 +361,11 @@ HRESULT CreateCustomReadbackBuffer(ID3D12Device* device,
   return S_OK;
 }
 
-HRESULT CreateDescriptorHeap(ID3D12Device* device,
-                             uint32_t num_descriptors,
-                             const wchar_t* name_for_debugging,
-                             ComPtr<ID3D12DescriptorHeap>& descriptor_heap) {
+HRESULT CreateDescriptorHeap(
+    ID3D12Device* device,
+    uint32_t num_descriptors,
+    const wchar_t* name_for_debugging,
+    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& descriptor_heap) {
   CHECK(device);
   TRACE_EVENT2("gpu", "dml::CreateDescriptorHeap", "num_descriptors",
                num_descriptors, "name", name_for_debugging);

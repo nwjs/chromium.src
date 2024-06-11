@@ -8,6 +8,7 @@
 #import "base/memory/ptr_util.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/time/time.h"
+#import "components/feature_engagement/public/feature_list.h"
 #import "components/prefs/pref_service.h"
 #import "components/safe_browsing/core/browser/safe_browsing_metrics_collector.h"
 #import "components/safe_browsing/core/common/features.h"
@@ -142,6 +143,15 @@ void SafeBrowsingBlockingPage::PopulateInterstitialStrings(
   error_ui_->PopulateStringsForHtml(load_time_data);
 }
 
+void SafeBrowsingBlockingPage::ShowInfobar() {
+  if (!base::FeatureList::IsEnabled(
+          safe_browsing::kEnhancedSafeBrowsingPromo)) {
+    return;
+  }
+
+  client_->ShowEnhancedSafeBrowsingInfobar();
+}
+
 #pragma mark - SafeBrowsingBlockingPage::SafeBrowsingControllerClient
 
 SafeBrowsingBlockingPage::SafeBrowsingControllerClient::
@@ -197,5 +207,13 @@ void SafeBrowsingBlockingPage::SafeBrowsingControllerClient::
   if (web_state()) {
     SafeBrowsingTabHelper::FromWebState(web_state())
         ->OpenSafeBrowsingSettings();
+  }
+}
+
+void SafeBrowsingBlockingPage::SafeBrowsingControllerClient::
+    ShowEnhancedSafeBrowsingInfobar() {
+  if (web_state()) {
+    SafeBrowsingTabHelper::FromWebState(web_state())
+        ->ShowEnhancedSafeBrowsingInfobar();
   }
 }

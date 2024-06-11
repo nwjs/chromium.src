@@ -35,6 +35,10 @@
 #include "ui/views/controls/separator.h"
 #include "ui/views/layout/flex_layout.h"
 
+#if !BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ui/views/media_preview/media_preview_feature.h"
+#endif
+
 bool UseUpdatedFileSystemPersistentPermissionUI() {
   return base::FeatureList::IsEnabled(
              features::kFileSystemAccessPersistentPermissions) &&
@@ -173,7 +177,7 @@ PageInfoPermissionContentView::PageInfoPermissionContentView(
 }
 
 PageInfoPermissionContentView::~PageInfoPermissionContentView() {
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_CHROMEOS)
   if (previews_coordinator_) {
     previews_coordinator_->UpdateDevicePreferenceRanking();
   }
@@ -212,7 +216,7 @@ void PageInfoPermissionContentView::SetPermissionInfo(
   bool is_toggle_on = PageInfoUI::IsToggleOn(permission_);
   toggle_button_->SetIsOn(is_toggle_on);
 
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_CHROMEOS)
   if (previews_coordinator_) {
     previews_coordinator_->OnPermissionChange(is_toggle_on);
   }
@@ -276,7 +280,7 @@ void PageInfoPermissionContentView::PermissionChanged() {
                                       permission_.is_one_time);
 }
 
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
+#if !BUILDFLAG(IS_CHROMEOS)
 void PageInfoPermissionContentView::OnAudioDevicesChanged(
     const std::optional<std::vector<media::AudioDeviceDescription>>&
         device_infos) {
@@ -293,6 +297,11 @@ void PageInfoPermissionContentView::OnVideoDevicesChanged(
   if (type_ == ContentSettingsType::MEDIASTREAM_CAMERA && device_infos) {
     SetTitleTextAndTooltip(
         IDS_SITE_SETTINGS_TYPE_CAMERA_WITH_COUNT,
+        media_effects::GetRealVideoDeviceNames(device_infos.value()));
+  } else if (type_ == ContentSettingsType::CAMERA_PAN_TILT_ZOOM &&
+             device_infos) {
+    SetTitleTextAndTooltip(
+        IDS_SITE_SETTINGS_TYPE_CAMERA_PAN_TILT_ZOOM_WITH_COUNT,
         media_effects::GetRealVideoDeviceNames(device_infos.value()));
   }
 }
@@ -344,19 +353,24 @@ void PageInfoPermissionContentView::ToggleFileSystemExtendedPermissions() {
 void PageInfoPermissionContentView::MaybeAddMediaPreview(
     content::WebContents* web_contents,
     views::View& preceding_separator) {
-#if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_FUCHSIA)
-  if (!base::FeatureList::IsEnabled(blink::features::kCameraMicPreview)) {
+#if !BUILDFLAG(IS_CHROMEOS)
+  if (type_ != ContentSettingsType::MEDIASTREAM_CAMERA &&
+      type_ != ContentSettingsType::MEDIASTREAM_MIC &&
+      type_ != ContentSettingsType::CAMERA_PAN_TILT_ZOOM) {
     return;
   }
 
-  if (type_ != ContentSettingsType::MEDIASTREAM_CAMERA &&
-      type_ != ContentSettingsType::MEDIASTREAM_MIC) {
+  const GURL& site_url = web_contents->GetLastCommittedURL();
+  if (!media_preview_feature::ShouldShowMediaPreview(
+          *web_contents->GetBrowserContext(), site_url, site_url,
+          media_preview_metrics::UiLocation::kPageInfo)) {
     return;
   }
 
   auto* cached_device_info = media_effects::MediaDeviceInfo::GetInstance();
   devices_observer_.Observe(cached_device_info);
-  if (type_ == ContentSettingsType::MEDIASTREAM_CAMERA) {
+  if (type_ == ContentSettingsType::MEDIASTREAM_CAMERA ||
+      type_ == ContentSettingsType::CAMERA_PAN_TILT_ZOOM) {
     // Initialize `title_` with the current number of cached video devices.
     OnVideoDevicesChanged(cached_device_info->GetVideoDeviceInfos());
   } else {

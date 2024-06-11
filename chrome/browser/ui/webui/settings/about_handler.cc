@@ -8,6 +8,7 @@
 
 #include <limits>
 #include <string>
+#include <string_view>
 
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -77,6 +78,7 @@
 #include "chromeos/ash/components/network/network_state.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
+#include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "chromeos/version/version_loader.h"
@@ -151,7 +153,7 @@ bool CanChangeChannel(Profile* profile) {
 // Returns the relative path under the chromeos-assets dir
 // to the directory of regulatory labels for a given region, if found
 // (e.g. "regulatory_labels/us"). Must be called from the blocking pool.
-base::FilePath GetRegulatoryLabelDirForRegion(base::StringPiece region) {
+base::FilePath GetRegulatoryLabelDirForRegion(std::string_view region) {
   base::FilePath region_path(kRegulatoryLabelsDirectory);
   const std::string model_subdir =
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
@@ -176,7 +178,7 @@ base::FilePath GetRegulatoryLabelDirForRegion(base::StringPiece region) {
 base::FilePath FindRegulatoryLabelDir() {
   base::FilePath region_path;
   // Use the VPD region code to find the label dir.
-  const std::optional<base::StringPiece> region =
+  const std::optional<std::string_view> region =
       ash::system::StatisticsProvider::GetInstance()->GetMachineStatistic(
           ash::system::kRegionKey);
   if (region && !region->empty()) {
@@ -382,6 +384,10 @@ void AboutHandler::RegisterMessages() {
       "openExtendedUpdatesDialog",
       base::BindRepeating(&AboutHandler::HandleOpenExtendedUpdatesDialog,
                           base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "recordExtendedUpdatesShown",
+      base::BindRepeating(&AboutHandler::HandleRecordExtendedUpdatesShown,
+                          base::Unretained(this)));
 #endif
 #if BUILDFLAG(IS_MAC)
   web_ui()->RegisterMessageCallback(
@@ -411,10 +417,13 @@ void AboutHandler::OnJavascriptAllowed() {
                           weak_factory_.GetWeakPtr()));
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  policy_registrar_->Observe(
-      policy::key::kDeviceExtendedAutoUpdateEnabled,
-      base::BindRepeating(&AboutHandler::OnDeviceExtendedUpdatePolicyChanged,
-                          weak_factory_.GetWeakPtr()));
+  if (ash::CrosSettings::IsInitialized()) {
+    extended_updates_setting_change_subscription_ =
+        ash::CrosSettings::Get()->AddSettingsObserver(
+            ash::kDeviceExtendedAutoUpdateEnabled,
+            base::BindRepeating(&AboutHandler::OnExtendedUpdatesSettingChanged,
+                                weak_factory_.GetWeakPtr()));
+  }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
@@ -483,7 +492,7 @@ void AboutHandler::HandleOpenFeedbackDialog(const base::Value::List& args) {
   DCHECK(args.empty());
   Browser* browser = chrome::FindBrowserWithTab(web_ui()->GetWebContents());
   chrome::OpenFeedbackDialog(browser,
-                             chrome::kFeedbackSourceMdSettingsAboutPage);
+                             feedback::kFeedbackSourceMdSettingsAboutPage);
 }
 
 void AboutHandler::HandleOpenHelpPage(const base::Value::List& args) {
@@ -829,13 +838,20 @@ void AboutHandler::HandleIsExtendedUpdatesOptInEligible(
 void AboutHandler::HandleOpenExtendedUpdatesDialog(
     const base::Value::List& args) {
   CHECK(args.empty());
+  ash::ExtendedUpdatesController::
+      RecordEntryPointEventForSettingsSetUpButtonClicked();
   ash::extended_updates::ExtendedUpdatesDialog::Show();
 }
 
-void AboutHandler::OnDeviceExtendedUpdatePolicyChanged(
-    const base::Value* previous_policy,
-    const base::Value* current_policy) {
-  FireWebUIListener("extended-updates-policy-changed");
+void AboutHandler::HandleRecordExtendedUpdatesShown(
+    const base::Value::List& args) {
+  CHECK(args.empty());
+  ash::ExtendedUpdatesController::
+      RecordEntryPointEventForSettingsSetUpButtonShown();
+}
+
+void AboutHandler::OnExtendedUpdatesSettingChanged() {
+  FireWebUIListener("extended-updates-setting-changed");
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)

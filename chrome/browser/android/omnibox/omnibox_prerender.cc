@@ -52,7 +52,6 @@ void OmniboxPrerender::Clear(JNIEnv* env,
   AutocompleteActionPredictor* action_predictor =
       AutocompleteActionPredictorFactory::GetForProfile(profile);
   action_predictor->UpdateDatabaseFromTransitionalMatches(GURL());
-  action_predictor->CancelPrerender();
 }
 
 void OmniboxPrerender::InitializeForProfile(JNIEnv* env,
@@ -87,7 +86,7 @@ void OmniboxPrerender::PrerenderMaybe(
   if (!profile)
     return;
 
-  // TODO(https://crbug.com/1310147): Consider how to co-work with preconnect.
+  // TODO(crbug.com/40830195): Consider how to co-work with preconnect.
   if (SearchPrefetchService* search_prefetch_service =
           SearchPrefetchServiceFactory::GetForProfile(profile)) {
     search_prefetch_service->OnResultChanged(web_contents,

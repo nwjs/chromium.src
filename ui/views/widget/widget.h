@@ -28,7 +28,6 @@
 #include "ui/color/color_provider_utils.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/events/event_source.h"
-#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/native_theme_observer.h"
@@ -42,6 +41,7 @@ class TimeDelta;
 }
 
 namespace gfx {
+class Insets;
 class Point;
 class Rect;
 }  // namespace gfx
@@ -279,7 +279,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // top-level widget has its own focus and IME state, independent of any
     // other widget. A widget for which child is true should have a parent; if
     // it doesn't, it will not handle keyboard events or IME input at all.
-    // TODO(https://crbug.com/1057758): DCHECK(parent || !child)
+    // TODO(crbug.com/40120838): DCHECK(parent || !child)
     bool child = false;
 
     // If kTranslucent, the widget may be fully or partially transparent.
@@ -348,7 +348,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // windows instead need a "context". On Aura systems, if a widget has no
     // parent set, its backing aura::Window is parented to the Aura root window.
     //
-    // TODO(https://crbug.com/1057758): It makes no sense that this is a
+    // TODO(crbug.com/40120838): It makes no sense that this is a
     // NativeView instead of a NativeWindow. On Aura, NativeView and
     // NativeWindow are synonyms, and NativeWidgetAura immediately treats the
     // provided NativeView as an aura::Window; on Mac, the NativeView is
@@ -460,10 +460,6 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     // window should request the wayland compositor to send key events,
     // even if it matches with the compositor's keyboard shortcuts.
     bool inhibit_keyboard_shortcuts = false;
-
-    // Specifies the insets of the Widget. Default is empty, which means no
-    // insets are to be set.
-    gfx::Insets frame_insets;
 #endif
 
     // Directly sets the NativeTheme used by the Widget. Providing the
@@ -677,6 +673,10 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Retrieves the restored size for the window.
   gfx::Size GetSize() const;
+
+  // Returns the insets that each widget implementation can customize. It
+  // returns empty insets by default.
+  virtual gfx::Insets GetCustomInsetsInDIP() const;
 
   // Sizes the window to the specified size and centers it.
   void CenterWindow(const gfx::Size& size);
@@ -1320,6 +1320,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // the native widget asynchronously invokes OnNativeWidgetVisibilityChanged().
   void HandleShowRequested();
 
+  // This holds the logic for handling of the destroying and destroyed
+  // notifications.
+  void HandleWidgetDestroying();
+  void HandleWidgetDestroyed();
+
   static DisableActivationChangeHandlingType
       g_disable_activation_change_handling_;
 
@@ -1345,6 +1350,11 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // For a desktop widget with a non-desktop parent, this value might be nullptr
   // during shutdown.
   base::WeakPtr<Widget> parent_ = nullptr;
+
+  // This boolean is true when the widget tree is being traversed for
+  // WidgetObserver event broadcasting. It is used to CHECK that the widget tree
+  // is not modified during the traversal.
+  bool is_traversing_widget_tree_ = false;
 
   // The root of the View hierarchy attached to this window.
   // WARNING: see warning in tooltip_manager_ for ordering dependencies with
@@ -1403,6 +1413,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Set to true if the widget is in the process of closing.
   bool widget_closed_ = false;
+
+  // Set to true after OnWidgetDestroyed called.
+  bool native_widget_destroyed_ = false;
 
   // The reason the widget was closed.
   // Note that this may be ClosedReason::kUnspecified if the deprecated Close()

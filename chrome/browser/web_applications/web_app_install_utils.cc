@@ -37,6 +37,7 @@
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/favicon/favicon_utils.h"
+#include "chrome/browser/shortcuts/shortcut_icon_generator.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
@@ -176,7 +177,7 @@ void PopulateWebAppShortcutsMenuItemInfos(
             });
         if (valid_size_it == icon.sizes.end())
           continue;
-        // TODO(https://crbug.com/1071308): Take the declared icon density and
+        // TODO(crbug.com/40126722): Take the declared icon density and
         // sizes into account.
         info.square_size_px = valid_size_it->width();
 
@@ -626,7 +627,7 @@ void UpdateWebAppInstallInfoIconsFromManifestIfNeeded(
           continue;
         }
 
-        // TODO(https://crbug.com/1071308): Take the declared icon density and
+        // TODO(crbug.com/40126722): Take the declared icon density and
         // sizes into account.
         info.square_size_px = valid_size->width();
       }
@@ -792,7 +793,7 @@ void UpdateWebAppInfoFromManifest(const blink::mojom::Manifest& manifest,
   UpdateWebAppInstallInfoIconsFromManifestIfNeeded(manifest.icons,
                                                    web_app_info);
 
-  // TODO(crbug.com/1218210): Confirm incoming icons to write to web_app_info.
+  // TODO(crbug.com/40185556): Confirm incoming icons to write to web_app_info.
   PopulateFileHandlerInfoFromManifest(manifest.file_handlers,
                                       web_app_info->scope, web_app_info);
 
@@ -922,14 +923,14 @@ void PopulateProductIcons(WebAppInstallInfo* web_app_info,
 
   char32_t icon_letter =
       web_app_info->title.empty()
-          ? GenerateIconLetterFromUrl(web_app_info->start_url)
-          : GenerateIconLetterFromAppName(web_app_info->title);
+          ? shortcuts::GenerateIconLetterFromUrl(web_app_info->start_url)
+          : shortcuts::GenerateIconLetterFromName(web_app_info->title);
 
   // Ensure that all top-level icons that are in web_app_info with  Purpose::ANY
   // are present, by generating icons for any sizes that have failed to
   // download. This ensures that the created manifest for the web app does not
   // contain links to icons that are not actually created and linked on disk.
-  // TODO(https://crbug.com/1029223): Don't resize before writing to disk, it's
+  // TODO(crbug.com/40661228): Don't resize before writing to disk, it's
   // not necessary and would simplify this code path to remove.
   SizeToBitmap size_to_icons = ResizeIconsAndGenerateMissing(
       square_icons_any, SizesToGenerate(), icon_letter,
@@ -1067,6 +1068,7 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
     case webapps::WebappInstallSource::PROFILE_MENU:
     case webapps::WebappInstallSource::ALMANAC_INSTALL_APP_URI:
     case webapps::WebappInstallSource::WEBAPK_RESTORE:
+    case webapps::WebappInstallSource::OOBE_APP_RECOMMENDATIONS:
       return WebAppManagement::kSync;
 
     case webapps::WebappInstallSource::IWA_GRAPHICAL_INSTALLER:

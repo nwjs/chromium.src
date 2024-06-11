@@ -19,7 +19,6 @@
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
-#include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/render_view_host.h"
@@ -121,7 +120,7 @@ bool UnloadController::BeforeUnloadFired(content::WebContents* contents,
         browser_->tab_strip_model()->GetTabGroupForTab(
             browser_->tab_strip_model()->GetIndexOfWebContents(contents));
     if (group.has_value())
-      browser_->tab_strip_model()->delegate()->GroupCloseStopped(group.value());
+      browser_->tab_strip_model()->GroupCloseStopped(group.value());
   }
 
   if (!is_attempting_to_close_browser_) {

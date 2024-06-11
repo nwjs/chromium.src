@@ -180,7 +180,7 @@ class COMPONENT_EXPORT(UI_BASE) OSExchangeData {
   // file paths and display names. The method will invoke the callback with an
   // empty vector if there are no virtual files in the data object.
   //
-  // TODO(https://crbug.com/951574): Implement virtual file extraction to
+  // TODO(crbug.com/41452260): Implement virtual file extraction to
   // dynamically stream data to the renderer when File's bytes are actually
   // requested
   void GetVirtualFilesAsTempFiles(
@@ -200,7 +200,7 @@ class COMPONENT_EXPORT(UI_BASE) OSExchangeData {
 #endif
 
   // Adds a DataTransferEndpoint to represent the source of the data.
-  // TODO(crbug.com/1142406): Update all drag-and-drop references to set the
+  // TODO(crbug.com/40727723): Update all drag-and-drop references to set the
   // source of the data.
   void SetSource(std::unique_ptr<DataTransferEndpoint> data_source);
   DataTransferEndpoint* GetSource() const;

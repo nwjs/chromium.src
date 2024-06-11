@@ -33,6 +33,15 @@ const char kDynamicSchedulerPercentile[] = "percentile";
 
 namespace features {
 
+#if BUILDFLAG(IS_ANDROID)
+// During a scroll, enable viz to move browser controls according to the
+// offsets provided by the embedded renderer, circumventing browser main
+// involvement. For now, this applies only to top controls.
+BASE_FEATURE(kAndroidBrowserControlsInViz,
+             "AndroidBrowserControlsInViz",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 BASE_FEATURE(kBackdropFilterMirrorEdgeMode,
              "BackdropFilterMirrorEdgeMode",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -65,6 +74,17 @@ BASE_FEATURE(kDelegatedCompositing,
 #endif
 );
 
+#if BUILDFLAG(IS_WIN)
+// Enable partially delegated compositing. In this mode, the web contents will
+// be forced into its own render pass instead of merging into the root pass.
+// This effectively makes it so only the browser UI quads get delegated
+// compositing.
+// TODO(crbug.com/324460866): Consider removing partially delegated compositing.
+BASE_FEATURE(kDelegatedCompositingLimitToUi,
+             "DelegatedCompositingLimitToUi",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
+
 BASE_FEATURE(kRenderPassDrawnRect,
              "RenderPassDrawnRect",
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -73,10 +93,6 @@ BASE_FEATURE(kRenderPassDrawnRect,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-
-BASE_FEATURE(kVideoDetectorIgnoreNonVideos,
-             "VideoDetectorIgnoreNonVideos",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // When wide color gamut content from the web is encountered, promote our
@@ -190,7 +206,7 @@ const base::FeatureParam<int> kCALayerNewLimitManyVideos{&kCALayerNewLimit,
                                                          "many-videos", -1};
 #endif
 
-#if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_OZONE)
+#if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_WIN)
 BASE_FEATURE(kCanSkipRenderPassOverlay,
              "CanSkipRenderPassOverlay",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -235,17 +251,20 @@ BASE_FEATURE(kBufferQueueImageSetPurgeable,
              "BufferQueueImageSetPurgeable",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// On platforms using SkiaOutputDeviceBufferQueue, when this is true
-// SkiaRenderer will allocate and maintain a buffer queue of images for the root
-// render pass, instead of SkiaOutputDeviceBufferQueue itself.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+// On platforms using SkiaOutputDeviceBufferQueue and not yet universally using
+// SkiaRenderer-allocated images, when this is true SkiaRenderer will allocate
+// and maintain a buffer queue of images for the root render pass, instead of
+// SkiaOutputDeviceBufferQueue itself.
 BASE_FEATURE(kRendererAllocatesImages,
              "RendererAllocatesImages",
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_MAC)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+#endif
 
 // If enabled, CompositorFrameSinkClient::OnBeginFrame is also treated as the
 // DidReceiveCompositorFrameAck. Both in providing the Ack for the previous
@@ -372,6 +391,24 @@ BASE_FEATURE(kSnapshotEvictedRootSurface,
 const base::FeatureParam<double> kSnapshotEvictedRootSurfaceScale{
     &kSnapshotEvictedRootSurface, "scale", 0.4};
 
+// Do HDR color conversion per render pass update rect in renderer instead of
+// inserting a separate color conversion pass during surface aggregation.
+BASE_FEATURE(kColorConversionInRenderer,
+             "ColorConversionInRenderer",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Use BlitRequests for copy requests made by ViewTransition.
+BASE_FEATURE(kBlitRequestsForViewTransition,
+             "BlitRequestsForViewTransition",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Changes BeginFrame issue to use LastUsedBeginFrameArgs() instead of the
+// current set of BeginFrameArgs.
+// TODO(b/333940735): Should be removed if the issue isn't fixed.
+BASE_FEATURE(kUseLastBeginFrameArgs,
+             "UseLastBeginFrameArgs",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 bool IsDelegatedCompositingEnabled() {
   return base::FeatureList::IsEnabled(kDelegatedCompositing);
 }
@@ -431,11 +468,23 @@ bool ShouldUsePlatformDelegatedInk() {
   return base::FeatureList::IsEnabled(kUsePlatformDelegatedInk);
 }
 
+#if BUILDFLAG(IS_ANDROID)
+bool UseWebViewNewInvalidateHeuristic() {
+  // For Android TVs we bundle this with WebViewSurfaceControlForTV.
+  if (base::android::BuildInfo::GetInstance()->is_tv()) {
+    return base::FeatureList::IsEnabled(kWebViewSurfaceControlForTV);
+  }
+
+  return base::FeatureList::IsEnabled(kWebViewNewInvalidateHeuristic);
+}
+#endif
+
 bool UseSurfaceLayerForVideo() {
 #if BUILDFLAG(IS_ANDROID)
   // SurfaceLayer video should work fine with new heuristic.
-  if (base::FeatureList::IsEnabled(kWebViewNewInvalidateHeuristic))
+  if (UseWebViewNewInvalidateHeuristic()) {
     return true;
+  }
 
   // Allow enabling UseSurfaceLayerForVideo if webview is using surface control.
   if (::features::IsAndroidSurfaceControlEnabled()) {
@@ -482,17 +531,15 @@ int MaxOverlaysConsidered() {
                                                 kMaxOverlaysParam, 8);
 }
 
-bool ShouldVideoDetectorIgnoreNonVideoFrames() {
-  return base::FeatureList::IsEnabled(kVideoDetectorIgnoreNonVideos);
-}
-
 bool ShouldOnBeginFrameThrottleVideo() {
   return base::FeatureList::IsEnabled(features::kOnBeginFrameThrottleVideo);
 }
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 bool ShouldRendererAllocateImages() {
   return base::FeatureList::IsEnabled(kRendererAllocatesImages);
 }
+#endif
 
 bool IsOnBeginFrameAcksEnabled() {
   return base::FeatureList::IsEnabled(features::kOnBeginFrameAcks);

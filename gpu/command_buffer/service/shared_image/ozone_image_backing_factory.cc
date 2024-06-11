@@ -40,8 +40,10 @@ namespace gpu {
 namespace {
 
 gfx::BufferUsage GetBufferUsage(uint32_t usage) {
-  if (usage &
-      (SHARED_IMAGE_USAGE_WEBGPU_READ | SHARED_IMAGE_USAGE_WEBGPU_WRITE)) {
+  if (usage & SHARED_IMAGE_USAGE_PROTECTED_VIDEO) {
+    return gfx::BufferUsage::PROTECTED_SCANOUT;
+  } else if (usage & (SHARED_IMAGE_USAGE_WEBGPU_READ |
+                      SHARED_IMAGE_USAGE_WEBGPU_WRITE)) {
     // Just use SCANOUT for WebGPU since the memory doesn't need to be linear.
     return gfx::BufferUsage::SCANOUT;
   } else if (usage & SHARED_IMAGE_USAGE_SCANOUT) {
@@ -59,7 +61,6 @@ gfx::BufferUsage GetBufferUsage(uint32_t usage) {
 constexpr uint32_t kSupportedUsage =
     SHARED_IMAGE_USAGE_GLES2_READ | SHARED_IMAGE_USAGE_GLES2_WRITE |
     SHARED_IMAGE_USAGE_GLES2_FOR_RASTER_ONLY |
-    SHARED_IMAGE_USAGE_GLES2_FRAMEBUFFER_HINT |
     SHARED_IMAGE_USAGE_DISPLAY_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ |
     SHARED_IMAGE_USAGE_RASTER_READ | SHARED_IMAGE_USAGE_RASTER_WRITE |
     SHARED_IMAGE_USAGE_RASTER_OVER_GLES2_ONLY |
@@ -69,7 +70,8 @@ constexpr uint32_t kSupportedUsage =
     SHARED_IMAGE_USAGE_WEBGPU_SWAP_CHAIN_TEXTURE |
     SHARED_IMAGE_USAGE_RASTER_DELEGATED_COMPOSITING |
     SHARED_IMAGE_USAGE_HIGH_PERFORMANCE_GPU | SHARED_IMAGE_USAGE_CPU_UPLOAD |
-    SHARED_IMAGE_USAGE_CPU_WRITE | SHARED_IMAGE_USAGE_WEBGPU_STORAGE_TEXTURE;
+    SHARED_IMAGE_USAGE_CPU_WRITE | SHARED_IMAGE_USAGE_WEBGPU_STORAGE_TEXTURE |
+    SHARED_IMAGE_USAGE_PROTECTED_VIDEO;
 
 }  // namespace
 
@@ -349,7 +351,7 @@ bool OzoneImageBackingFactory::IsSupported(
   }
 
   // For now just use OzoneImageBacking for primary plane buffers.
-  // TODO(crbug.com/1310026): When Vulkan/GL interop is supported on Fuchsia
+  // TODO(crbug.com/40219694): When Vulkan/GL interop is supported on Fuchsia
   // OzoneImageBacking should be used for all scanout buffers.
   constexpr uint32_t kPrimaryPlaneUsageFlags =
       SHARED_IMAGE_USAGE_DISPLAY_READ | SHARED_IMAGE_USAGE_DISPLAY_WRITE |
@@ -406,7 +408,7 @@ bool OzoneImageBackingFactory::CanImportNativePixmapToWebGPU() {
   // Safe to always return true here, as it's not possible to create a WebGPU
   // adapter that doesn't support importing native pixmaps:
   // https://source.chromium.org/chromium/chromium/src/+/main:gpu/command_buffer/service/webgpu_decoder_impl.cc;drc=daed597d580d450d36578c0cc53b4f72d3b507da;l=1291
-  // TODO(crbug.com/1349189): To check it without vk_context_provider.
+  // TODO(crbug.com/40855765): To check it without vk_context_provider.
   return true;
 #else
   // Assume that if skia/vulkan vkDevice supports the Vulkan extensions

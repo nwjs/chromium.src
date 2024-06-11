@@ -9,10 +9,9 @@
  * components directly).
  */
 import '//resources/cr_elements/cr_button/cr_button.js';
-import '//resources/cr_elements/cr_hidden_style.css.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
-import '//resources/cr_elements/icons.html.js';
-import '//resources/polymer/v3_0/iron-icon/iron-icon.js';
+import '//resources/cr_elements/cr_icon/cr_icon.js';
+import '//resources/cr_elements/icons_lit.html.js';
 import './help_bubble_icons.html.js';
 
 import type {CrButtonElement} from '//resources/cr_elements/cr_button/cr_button.js';
@@ -103,6 +102,11 @@ export class HelpBubbleElement extends CrLitElement {
       sortedButtons: {type: Array},
       closeButtonAltText: {type: String},
       closeButtonTabIndex: {type: Number},
+
+      progressData_: {
+        type: Array,
+        state: true,
+      },
     };
   }
 

@@ -285,7 +285,7 @@ class CaptionBubbleFrameView : public views::BubbleFrameView {
     reset_inactivity_timer_cb_.Run();
   }
 
-  // TODO(crbug.com/1055150): This does not work on Linux because the bubble is
+  // TODO(crbug.com/40119836): This does not work on Linux because the bubble is
   // not a top-level view, so it doesn't receive events. See crbug.com/1074054
   // for more about why it doesn't work.
   int NonClientHitTest(const gfx::Point& point) override {
@@ -536,7 +536,11 @@ class CaptionBubbleLabelAXModeObserver : public ui::AXModeObserver {
 CaptionBubble::CaptionBubble(PrefService* profile_prefs,
                              const std::string& application_locale,
                              base::OnceClosure destroyed_callback)
-    : profile_prefs_(profile_prefs),
+    : views::BubbleDialogDelegateView(nullptr,
+                                      views::BubbleBorder::TOP_LEFT,
+                                      views::BubbleBorder::DIALOG_SHADOW,
+                                      true),
+      profile_prefs_(profile_prefs),
       destroyed_callback_(std::move(destroyed_callback)),
       application_locale_(application_locale),
       is_expanded_(
@@ -1494,7 +1498,7 @@ void CaptionBubble::UpdateContentSize() {
     download_progress_label_->SetPreferredSize(
         gfx::Size(width, content_height));
     language_label_->SetPreferredSize(
-        language_label_->CalculatePreferredSize());
+        language_label_->CalculatePreferredSize({}));
   }
 
 #if BUILDFLAG(IS_WIN)
@@ -1517,7 +1521,6 @@ void CaptionBubble::UpdateContentSize() {
 void CaptionBubble::Redraw() {
   UpdateBubbleAndTitleVisibility();
   UpdateContentSize();
-  SizeToContents();
 }
 
 void CaptionBubble::ShowInactive() {

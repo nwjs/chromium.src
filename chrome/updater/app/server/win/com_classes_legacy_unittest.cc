@@ -24,9 +24,9 @@
 #include "base/win/win_util.h"
 #include "build/branding_buildflags.h"
 #include "chrome/updater/test/integration_tests_impl.h"
-#include "chrome/updater/test_scope.h"
-#include "chrome/updater/util/unit_test_util.h"
-#include "chrome/updater/util/unit_test_util_win.h"
+#include "chrome/updater/test/test_scope.h"
+#include "chrome/updater/test/unit_test_util.h"
+#include "chrome/updater/test/unit_test_util_win.h"
 #include "chrome/updater/util/util.h"
 #include "chrome/updater/util/win_util.h"
 #include "chrome/updater/win/setup/setup_util.h"
@@ -35,7 +35,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
-namespace updater {
+namespace updater::test {
 namespace {
 
 constexpr wchar_t kAppId1[] = L"{3B1A3CCA-0525-4418-93E6-A0DB3398EC9B}";
@@ -56,10 +56,13 @@ class LegacyAppCommandWebImplTest : public testing::Test {
   ~LegacyAppCommandWebImplTest() override = default;
 
   void SetUp() override {
-    SetupCmdExe(GetTestScope(), cmd_exe_command_line_, temp_programfiles_dir_);
+    SetupCmdExe(GetUpdaterScopeForTesting(), cmd_exe_command_line_,
+                temp_programfiles_dir_);
   }
 
-  void TearDown() override { DeleteAppClientKey(GetTestScope(), kAppId1); }
+  void TearDown() override {
+    DeleteAppClientKey(GetUpdaterScopeForTesting(), kAppId1);
+  }
 
   [[nodiscard]] HRESULT CreateAppCommandWeb(
       const std::wstring& app_id,
@@ -67,10 +70,11 @@ class LegacyAppCommandWebImplTest : public testing::Test {
       const std::wstring& command_line_format,
       LegacyAppCommandWebImpl::PingSender ping_sender,
       Microsoft::WRL::ComPtr<LegacyAppCommandWebImpl>& app_command_web) {
-    CreateAppCommandRegistry(GetTestScope(), app_id, command_id,
+    CreateAppCommandRegistry(GetUpdaterScopeForTesting(), app_id, command_id,
                              command_line_format);
     return MakeAndInitializeComObject<LegacyAppCommandWebImpl>(
-        app_command_web, GetTestScope(), app_id, command_id, ping_sender);
+        app_command_web, GetUpdaterScopeForTesting(), app_id, command_id,
+        ping_sender);
   }
 
   void WaitForUpdateCompletion(
@@ -90,14 +94,15 @@ class LegacyAppCommandWebImplTest : public testing::Test {
 TEST_F(LegacyAppCommandWebImplTest, NoApp) {
   Microsoft::WRL::ComPtr<LegacyAppCommandWebImpl> app_command_web;
   EXPECT_HRESULT_FAILED(MakeAndInitializeComObject<LegacyAppCommandWebImpl>(
-      app_command_web, GetTestScope(), kAppId1, kCmdId1));
+      app_command_web, GetUpdaterScopeForTesting(), kAppId1, kCmdId1));
 }
 
 TEST_F(LegacyAppCommandWebImplTest, NoCmd) {
   Microsoft::WRL::ComPtr<LegacyAppCommandWebImpl> app_command_web;
-  CreateAppCommandRegistry(GetTestScope(), kAppId1, kCmdId1, kCmdLineValid);
+  CreateAppCommandRegistry(GetUpdaterScopeForTesting(), kAppId1, kCmdId1,
+                           kCmdLineValid);
   EXPECT_HRESULT_FAILED(MakeAndInitializeComObject<LegacyAppCommandWebImpl>(
-      app_command_web, GetTestScope(), kAppId1, kCmdId2));
+      app_command_web, GetUpdaterScopeForTesting(), kAppId1, kCmdId2));
 }
 
 TEST_F(LegacyAppCommandWebImplTest, Execute) {
@@ -112,7 +117,7 @@ TEST_F(LegacyAppCommandWebImplTest, Execute) {
                        const std::string& command_id,
                        LegacyAppCommandWebImpl::ErrorParams error_params) {
             ping_sent = true;
-            EXPECT_EQ(GetTestScope(), scope);
+            EXPECT_EQ(GetUpdaterScopeForTesting(), scope);
             EXPECT_EQ(app_id, base::WideToASCII(kAppId1));
             EXPECT_EQ(command_id, base::WideToASCII(kCmdId1));
             EXPECT_EQ(error_params.error_code, 7);
@@ -157,7 +162,7 @@ TEST_F(LegacyAppCommandWebImplTest, ExecuteParameterizedCommand) {
                        const std::string& command_id,
                        LegacyAppCommandWebImpl::ErrorParams error_params) {
             ping_sent = true;
-            EXPECT_EQ(GetTestScope(), scope);
+            EXPECT_EQ(GetUpdaterScopeForTesting(), scope);
             EXPECT_EQ(app_id, base::WideToASCII(kAppId1));
             EXPECT_EQ(command_id, base::WideToASCII(kCmdId1));
             EXPECT_EQ(error_params.error_code, 5420);
@@ -193,7 +198,7 @@ TEST_F(LegacyAppCommandWebImplTest, FailedToLaunchStatus) {
                        const std::string& command_id,
                        LegacyAppCommandWebImpl::ErrorParams error_params) {
             ping_sent = true;
-            EXPECT_EQ(GetTestScope(), scope);
+            EXPECT_EQ(GetUpdaterScopeForTesting(), scope);
             EXPECT_EQ(app_id, base::WideToASCII(kAppId1));
             EXPECT_EQ(command_id, base::WideToASCII(kCmdId1));
             EXPECT_EQ(error_params.error_code,
@@ -219,14 +224,14 @@ TEST_F(LegacyAppCommandWebImplTest, FailedToLaunchStatus) {
 }
 
 TEST_F(LegacyAppCommandWebImplTest, CommandRunningStatus) {
-  if (IsSystemInstall(GetTestScope())) {
+  if (IsSystemInstall(GetUpdaterScopeForTesting())) {
     return;
   }
 
   bool ping_sent = false;
   Microsoft::WRL::ComPtr<LegacyAppCommandWebImpl> app_command_web;
-  base::CommandLine command_line =
-      GetTestProcessCommandLine(GetTestScope(), test::GetTestName());
+  base::CommandLine command_line = GetTestProcessCommandLine(
+      GetUpdaterScopeForTesting(), test::GetTestName());
 
   command_line.AppendSwitchNative(kTestEventToWaitOn, L"%1");
   command_line.AppendSwitchNative(kTestExitCode, L"%2");
@@ -239,7 +244,7 @@ TEST_F(LegacyAppCommandWebImplTest, CommandRunningStatus) {
                        const std::string& command_id,
                        LegacyAppCommandWebImpl::ErrorParams error_params) {
             ping_sent = true;
-            EXPECT_EQ(GetTestScope(), scope);
+            EXPECT_EQ(GetUpdaterScopeForTesting(), scope);
             EXPECT_EQ(app_id, base::WideToASCII(kAppId1));
             EXPECT_EQ(command_id, base::WideToASCII(kCmdId1));
             EXPECT_EQ(error_params.error_code, 999);
@@ -371,4 +376,4 @@ TEST(LegacyCOMClassesTest, CheckLegacyInterfaceIDs) {
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 
-}  // namespace updater
+}  // namespace updater::test

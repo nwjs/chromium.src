@@ -85,7 +85,7 @@ ChildProcessLauncherHelper::LaunchProcessOnLauncherThread(
   Process process;
   ZygoteCommunication* zygote_handle = GetZygoteForLaunch();
   if (zygote_handle) {
-    // TODO(crbug.com/569191): If chrome supported multiple zygotes they could
+    // TODO(crbug.com/40448989): If chrome supported multiple zygotes they could
     // be created lazily here, or in the delegate GetZygote() implementations.
     // Additionally, the delegate could provide a UseGenericZygote() method.
     base::ProcessHandle handle = zygote_handle->ForkRequest(
@@ -150,7 +150,7 @@ ChildProcessTerminationInfo ChildProcessLauncherHelper::GetTerminationInfo(
 // static
 bool ChildProcessLauncherHelper::TerminateProcess(const base::Process& process,
                                                   int exit_code) {
-  // TODO(https://crbug.com/818244): Determine whether we should also call
+  // TODO(crbug.com/40565504): Determine whether we should also call
   // EnsureProcessTerminated() to make sure of process-exit, and reap it.
   return process.Terminate(exit_code, false);
 }

@@ -445,12 +445,6 @@ void PasswordFormManager::Save() {
   client_->UpdateFormManagers();
 }
 
-void PasswordFormManager::Update(const PasswordForm& credentials_to_update) {
-  password_save_manager_->Update(credentials_to_update, observed_form(),
-                                 *parsed_submitted_form_);
-  client_->UpdateFormManagers();
-}
-
 bool PasswordFormManager::IsUpdateAffectingPasswordsStoredInTheGoogleAccount()
     const {
   signin::IdentityManager* identity_manager = client_->GetIdentityManager();
@@ -625,6 +619,11 @@ void PasswordFormManager::BlockMovingCredentialsToAccountStore() {
       GaiaIdHash::FromGaiaId(gaia_id));
 }
 
+PasswordForm::Store PasswordFormManager::GetPasswordStoreForSaving(
+    const PasswordForm& password_form) const {
+  return password_save_manager_->GetPasswordStoreForSaving(password_form);
+}
+
 bool PasswordFormManager::IsNewLogin() const {
   return password_save_manager_->IsNewLogin();
 }
@@ -689,6 +688,10 @@ const PasswordForm* PasswordFormManager::GetSubmittedForm() const {
   return parsed_submitted_form_.get();
 }
 
+const PasswordForm* PasswordFormManager::GetParsedObservedForm() const {
+  return parsed_observed_form_.get();
+}
+
 #if BUILDFLAG(IS_IOS)
 void PasswordFormManager::UpdateStateOnUserInput(
     FormRendererId form_id,
@@ -733,8 +736,9 @@ void PasswordFormManager::ProvisionallySaveFieldDataManagerInfo(
     FieldRendererId field_id = field.renderer_id();
     if (!field_data_manager.HasFieldData(field_id))
       continue;
-    field.user_input = field_data_manager.GetUserInput(field_id);
-    field.properties_mask = field_data_manager.GetFieldPropertiesMask(field_id);
+    field.set_user_input(field_data_manager.GetUserInput(field_id));
+    field.set_properties_mask(
+        field_data_manager.GetFieldPropertiesMask(field_id));
     data_found = true;
   }
 
@@ -743,6 +747,37 @@ void PasswordFormManager::ProvisionallySaveFieldDataManagerInfo(
   if (data_found)
     ProvisionallySave(*observed_form(), driver, possible_usernames);
 }
+
+bool PasswordFormManager::AreRemovedUnownedFieldsValidForSubmissionDetection(
+    const std::set<FieldRendererId>& removed_fields,
+    const FieldDataManager& field_data_manager) const {
+  CHECK(observed_form());
+  CHECK(!observed_form()->renderer_id)
+      << "This method should only be called on formless form managers. Removed "
+         "formless fields are only relevant for formless forms submission "
+         "detection.";
+
+  const auto is_removed_password = [&](const FormFieldData& field_data) {
+    return field_data.IsPasswordInputElement() &&
+           removed_fields.find(field_data.renderer_id()) !=
+               removed_fields.end();
+  };
+
+  bool has_removed_passwords =
+      base::ranges::any_of(observed_form()->fields, is_removed_password);
+  if (!has_removed_passwords) {
+    return false;
+  }
+
+  // The formless form can be considered submitted if all removed password
+  // fields had input and there was at least one removed password field.
+  return base::ranges::all_of(
+      observed_form()->fields, [&](const FormFieldData& field_data) {
+        return !is_removed_password(field_data) ||
+               field_data_manager.HasFieldData(field_data.renderer_id());
+      });
+}
+
 #endif  // BUILDFLAG(IS_IOS)
 
 void PasswordFormManager::SaveSuggestedUsernameValueToVotesUploader() {
@@ -1073,47 +1108,54 @@ void PasswordFormManager::FillNow() {
   CHECK(observed_form());
   auto [observed_password_form, username_detection_method] =
       ParseFormAndMakeLogging(*observed_form(), FormDataParser::Mode::kFilling);
-  RecordMetricOnReadonly(parser_.readonly_status(), !!observed_password_form,
-                         FormDataParser::Mode::kFilling);
-  if (!observed_password_form)
-    return;
-  metrics_recorder_->CacheParsingResultInFillingMode(
-      *observed_password_form.get());
+  parsed_observed_form_ = std::move(observed_password_form);
 
-  if (observed_password_form->is_new_password_reliable && !IsBlocklisted()) {
+  RecordMetricOnReadonly(parser_.readonly_status(), !!parsed_observed_form_,
+                         FormDataParser::Mode::kFilling);
+  if (!parsed_observed_form_) {
+    return;
+  }
+  metrics_recorder_->CacheParsingResultInFillingMode(
+      *parsed_observed_form_.get());
+
+  if (parsed_observed_form_->is_new_password_reliable && !IsBlocklisted()) {
     driver_->FormEligibleForGenerationFound({
 #if BUILDFLAG(IS_IOS)
-        .form_renderer_id = observed_password_form->form_data.renderer_id,
+        .form_renderer_id = parsed_observed_form_->form_data.renderer_id,
 #endif
         .new_password_renderer_id =
-            observed_password_form->new_password_element_renderer_id,
+            parsed_observed_form_->new_password_element_renderer_id,
         .confirmation_password_renderer_id =
-            observed_password_form->confirmation_password_element_renderer_id,
+            parsed_observed_form_->confirmation_password_element_renderer_id,
     });
   }
 
 #if BUILDFLAG(IS_IOS)
   // On iOS, filling on username first flow is only supported when the feature
   // is enabled.
-  if (observed_password_form->IsSingleUsername() &&
+  if (parsed_observed_form_->IsSingleUsername() &&
       !base::FeatureList::IsEnabled(
           password_manager::features::kIOSPasswordSignInUff)) {
     return;
   }
 #endif
 
-  if (observed_password_form->HasPasswordElement() &&
-      !observed_password_form->IsSingleUsername()) {
+  if (parsed_observed_form_->HasPasswordElement() &&
+      !parsed_observed_form_->IsSingleUsername()) {
     metrics_recorder_->RecordPotentialPreferredMatch(
         form_fetcher_->GetPreferredMatch(),
         form_fetcher_->WereGroupedCredentialsAvailable());
   }
 
   SendFillInformationToRenderer(
-      client_, driver_.get(), *observed_password_form.get(),
+      client_, driver_.get(), *parsed_observed_form_.get(),
       form_fetcher_->GetBestMatches(), form_fetcher_->GetFederatedMatches(),
       form_fetcher_->GetPreferredMatch(), metrics_recorder_.get(),
       WebAuthnCredentialsAvailable());
+  // No logic should be added after the call to `SendFillInformationToRenderer`.
+  // That function can cause this `PasswordFormManager` to be destroyed, it can
+  // happen when there are saved credentials available for filling on this
+  // site, which will lead to use after free.
 }
 
 void PasswordFormManager::OnGeneratedPasswordAccepted(
@@ -1174,7 +1216,7 @@ PasswordFormManager::PasswordFormManager(
                                     true /* should_migrate_http_passwords */)),
       form_fetcher_(form_fetcher ? form_fetcher : owned_form_fetcher_.get()),
       password_save_manager_(std::move(password_save_manager)),
-      // TODO(https://crbug.com/831123): set correctly
+      // TODO(crbug.com/40570965): set correctly
       // |is_possible_change_password_form| in |votes_uploader_| constructor
       async_predictions_waiter_(this) {
   if (ShouldUploadCrowdsourcingVotes(observed_form_or_digest_)) {
@@ -1337,7 +1379,7 @@ bool PasswordFormManager::IsPossibleSingleUsernameAvailable(
     const PossibleUsernameData& possible_username) const {
   // The username form and password forms signon realms must be the same or
   // an eTLD+1 match.
-  // TODO(crbug.com/1470586): Extend to match affiliated domains.
+  // TODO(crbug.com/40925827): Extend to match affiliated domains.
   if (!IsPublicSuffixDomainMatch(possible_username.signon_realm,
                                  parsed_submitted_form_->signon_realm)) {
     LogUsingPossibleUsername(client_, /*is_used*/ false, "Different domains");
@@ -1666,7 +1708,8 @@ bool HasObservedFormChanged(const FormData& form_data,
       differences_bitmask |= PasswordFormMetricsRecorder::kFormControlTypes;
     }
 
-    if (lhs_field.autocomplete_attribute != rhs_field.autocomplete_attribute) {
+    if (lhs_field.autocomplete_attribute() !=
+        rhs_field.autocomplete_attribute()) {
       differences_bitmask |=
           PasswordFormMetricsRecorder::kAutocompleteAttributes;
     }

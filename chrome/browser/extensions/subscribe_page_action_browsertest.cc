@@ -254,7 +254,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, RSSParseFeedValidFeed0) {
                             "Desc VIDEO", "No error", "PreviewReady");
 }
 
-IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, RSSParseFeedValidFeed5) {
+// TODO(crbug.com/331144174): Re-enable this test
+IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest, DISABLED_RSSParseFeedValidFeed5) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
   const Extension* extension = LoadExtension(
@@ -320,8 +321,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionBrowserTest,
       "element 'desc_0' not found", "This feed contains no entries.", "Error");
 }
 
-// TODO(https://crbug.com/331144174): Flakey on Linux ASan LSan.
-#if BUILDFLAG(IS_LINUX) && defined(ADDRESS_SANITIZER) && defined(LEAK_SANITIZER)
+// TODO(https://crbug.com/331144174): Flaky on ASan LSan.
+#if defined(ADDRESS_SANITIZER) && defined(LEAK_SANITIZER)
 #define MAYBE_RSSParseFeedInvalidFeed3 DISABLED_RSSParseFeedInvalidFeed3
 #else
 #define MAYBE_RSSParseFeedInvalidFeed3 RSSParseFeedInvalidFeed3

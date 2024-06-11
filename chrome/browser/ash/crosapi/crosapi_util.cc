@@ -67,6 +67,8 @@
 #include "chromeos/crosapi/mojom/authentication.mojom.h"
 #include "chromeos/crosapi/mojom/automation.mojom.h"
 #include "chromeos/crosapi/mojom/browser_app_instance_registry.mojom.h"
+#include "chromeos/crosapi/mojom/browser_service.mojom.h"
+#include "chromeos/crosapi/mojom/cec_private.mojom.h"
 #include "chromeos/crosapi/mojom/cert_database.mojom.h"
 #include "chromeos/crosapi/mojom/cert_provisioning.mojom.h"
 #include "chromeos/crosapi/mojom/chaps_service.mojom.h"
@@ -75,7 +77,6 @@
 #include "chromeos/crosapi/mojom/clipboard_history.mojom.h"
 #include "chromeos/crosapi/mojom/content_protection.mojom.h"
 #include "chromeos/crosapi/mojom/cros_display_config.mojom.h"
-#include "chromeos/crosapi/mojom/crosapi.mojom.h"
 #include "chromeos/crosapi/mojom/debug_interface.mojom.h"
 #include "chromeos/crosapi/mojom/desk.mojom.h"
 #include "chromeos/crosapi/mojom/desk_profiles.mojom.h"
@@ -111,6 +112,7 @@
 #include "chromeos/crosapi/mojom/holding_space_service.mojom.h"
 #include "chromeos/crosapi/mojom/identity_manager.mojom.h"
 #include "chromeos/crosapi/mojom/image_writer.mojom.h"
+#include "chromeos/crosapi/mojom/input_methods.mojom.h"
 #include "chromeos/crosapi/mojom/kerberos_in_browser.mojom.h"
 #include "chromeos/crosapi/mojom/keystore_service.mojom.h"
 #include "chromeos/crosapi/mojom/kiosk_session_service.mojom.h"
@@ -258,6 +260,12 @@ constexpr std::string_view kAshCapabilities[] = {
     // TODO(b/331715712): Remove this capability once Ash and Lacros are both
     // past M128.
     "b/331715712"
+
+    // Support unknown package types when requesting app installation in
+    // AppInstallServiceAsh.
+    // TODO(b/339548766): Remove this capability once Ash and Lacros are both
+    // past M129.
+    "b/339106891"
 
     // Entries added to this list must record the current milestone + 3 with a
     // TODO for removal.
@@ -416,7 +424,7 @@ constexpr InterfaceVersionEntry MakeInterfaceVersionEntry() {
   return {T::Uuid_, T::Version_};
 }
 
-static_assert(crosapi::mojom::Crosapi::Version_ == 136,
+static_assert(crosapi::mojom::Crosapi::Version_ == 138,
               "If you add a new crosapi, please add it to "
               "kInterfaceVersionEntries below.");
 
@@ -439,6 +447,7 @@ constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<crosapi::mojom::BrowserAppInstanceRegistry>(),
     MakeInterfaceVersionEntry<crosapi::mojom::BrowserServiceHost>(),
     MakeInterfaceVersionEntry<crosapi::mojom::BrowserVersionService>(),
+    MakeInterfaceVersionEntry<crosapi::mojom::CecPrivate>(),
     MakeInterfaceVersionEntry<crosapi::mojom::CertDatabase>(),
     MakeInterfaceVersionEntry<crosapi::mojom::CertProvisioning>(),
     MakeInterfaceVersionEntry<crosapi::mojom::ChapsService>(),
@@ -484,6 +493,7 @@ constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<crosapi::mojom::HoldingSpaceService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::IdentityManager>(),
     MakeInterfaceVersionEntry<crosapi::mojom::IdleService>(),
+    MakeInterfaceVersionEntry<crosapi::mojom::InputMethods>(),
     MakeInterfaceVersionEntry<crosapi::mojom::ImageWriter>(),
     MakeInterfaceVersionEntry<crosapi::mojom::InputMethodTestInterface>(),
     MakeInterfaceVersionEntry<chromeos::auth::mojom::InSessionAuth>(),
@@ -605,17 +615,17 @@ crosapi::mojom::BrowserInitParams::DeviceType ConvertDeviceType(
 }
 
 crosapi::mojom::BrowserInitParams::LacrosSelection GetLacrosSelection(
-    std::optional<browser_util::LacrosSelection> selection) {
+    std::optional<ash::standalone_browser::LacrosSelection> selection) {
   if (!selection.has_value()) {
     return crosapi::mojom::BrowserInitParams::LacrosSelection::kUnspecified;
   }
 
   switch (selection.value()) {
-    case browser_util::LacrosSelection::kRootfs:
+    case ash::standalone_browser::LacrosSelection::kRootfs:
       return crosapi::mojom::BrowserInitParams::LacrosSelection::kRootfs;
-    case browser_util::LacrosSelection::kStateful:
+    case ash::standalone_browser::LacrosSelection::kStateful:
       return crosapi::mojom::BrowserInitParams::LacrosSelection::kStateful;
-    case browser_util::LacrosSelection::kDeployedLocally:
+    case ash::standalone_browser::LacrosSelection::kDeployedLocally:
       return crosapi::mojom::BrowserInitParams::LacrosSelection::kUnspecified;
   }
 }
@@ -736,7 +746,7 @@ InitialBrowserAction::~InitialBrowserAction() = default;
 void InjectBrowserInitParams(
     mojom::BrowserInitParams* params,
     bool is_keep_alive_enabled,
-    std::optional<browser_util::LacrosSelection> lacros_selection) {
+    std::optional<ash::standalone_browser::LacrosSelection> lacros_selection) {
   params->crosapi_version = crosapi::mojom::Crosapi::Version_;
   params->deprecated_ash_metrics_enabled_has_value = true;
   PrefService* local_state = g_browser_process->local_state();
@@ -867,6 +877,7 @@ void InjectBrowserInitParams(
   params->is_floss_available = floss::features::IsFlossAvailable();
   params->is_floss_availability_check_needed =
       floss::features::IsFlossAvailabilityCheckNeeded();
+  params->is_llprivacy_available = floss::features::IsLLPrivacyAvailable();
 
   params->is_cloud_gaming_device =
       chromeos::features::IsCloudGamingDeviceEnabled();
@@ -940,12 +951,18 @@ void InjectBrowserInitParams(
   params->is_orca_use_l10n_strings_enabled =
       chromeos::features::IsOrcaUseL10nStringsEnabled();
 
+  params->is_orca_internationalize_enabled =
+      chromeos::features::IsOrcaInternationalizeEnabled();
+
   params->is_cros_mall_enabled = chromeos::features::IsCrosMallEnabled();
 
   params->is_mahi_enabled = chromeos::features::IsMahiEnabled();
 
   params->is_container_app_preinstall_enabled =
       chromeos::features::IsContainerAppPreinstallEnabled();
+
+  params->is_file_system_provider_content_cache_enabled =
+      chromeos::features::IsFileSystemProviderContentCacheEnabled();
 }
 
 template <typename BrowserParams>
@@ -990,7 +1007,7 @@ void InjectBrowserPostLoginParams(BrowserParams* params,
 mojom::BrowserInitParamsPtr GetBrowserInitParams(
     InitialBrowserAction initial_browser_action,
     bool is_keep_alive_enabled,
-    std::optional<browser_util::LacrosSelection> lacros_selection,
+    std::optional<ash::standalone_browser::LacrosSelection> lacros_selection,
     bool include_post_login_params) {
   mojom::BrowserInitParamsPtr params = mojom::BrowserInitParams::New();
   InjectBrowserInitParams(params.get(), is_keep_alive_enabled,
@@ -1013,7 +1030,7 @@ mojom::BrowserPostLoginParamsPtr GetBrowserPostLoginParams(
 base::ScopedFD CreateStartupData(
     InitialBrowserAction initial_browser_action,
     bool is_keep_alive_enabled,
-    std::optional<LacrosSelection> lacros_selection,
+    std::optional<ash::standalone_browser::LacrosSelection> lacros_selection,
     bool include_post_login_params) {
   const auto& data = GetBrowserInitParams(
       std::move(initial_browser_action), is_keep_alive_enabled,

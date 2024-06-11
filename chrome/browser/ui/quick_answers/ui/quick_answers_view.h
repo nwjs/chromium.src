@@ -29,7 +29,6 @@ class WebView;
 
 namespace chromeos::editor_menu {
 class FocusSearch;
-class PreTargetHandler;
 }  // namespace chromeos::editor_menu
 
 class QuickAnswersUiController;
@@ -37,8 +36,6 @@ class QuickAnswersUiController;
 namespace quick_answers {
 struct QuickAnswer;
 struct PhoneticsInfo;
-
-class QuickAnswersPreTargetHandler;
 
 // A bubble style view to show QuickAnswer.
 class QuickAnswersView : public chromeos::ReadWriteCardsView {
@@ -75,8 +72,7 @@ class QuickAnswersView : public chromeos::ReadWriteCardsView {
   ui::ImageModel GetIconImageModelForTesting();
 
  private:
-  void InitLayout();
-  void AddContentView();
+  bool HasFocusInside();
   void AddFrameButtons();
   bool ShouldAddPhoneticsAudioButton(ResultType result_type,
                                      GURL phonetics_audio,
@@ -84,9 +80,6 @@ class QuickAnswersView : public chromeos::ReadWriteCardsView {
   void AddPhoneticsAudioButton(
       const quick_answers::PhoneticsInfo& phonetics_info,
       View* container);
-  void AddAssistantIcon();
-  void AddGoogleIcon();
-  void AddDefaultResultTypeIcon();
   int GetLabelWidth(bool is_title);
   void ResetContentView();
   void UpdateQuickAnswerResult(const quick_answers::QuickAnswer& quick_answer);
@@ -99,14 +92,13 @@ class QuickAnswersView : public chromeos::ReadWriteCardsView {
       const quick_answers::PhoneticsInfo& phonetics_info);
 
   base::WeakPtr<QuickAnswersUiController> controller_;
-  bool has_second_row_answer_ = false;
   std::string title_;
   bool is_internal_ = false;
 
-  raw_ptr<views::View> base_view_ = nullptr;
-  raw_ptr<views::View> main_view_ = nullptr;
-  raw_ptr<views::View> content_view_ = nullptr;
-  raw_ptr<views::View> report_query_view_ = nullptr;
+  views::ViewTracker base_view_;
+  views::ViewTracker main_view_;
+  views::ViewTracker content_view_;
+  views::ViewTracker report_query_view_;
   raw_ptr<views::Label> first_answer_label_ = nullptr;
   raw_ptr<views::LabelButton> retry_label_ = nullptr;
   raw_ptr<views::ImageButton> dogfood_feedback_button_ = nullptr;
@@ -118,8 +110,6 @@ class QuickAnswersView : public chromeos::ReadWriteCardsView {
   // is lazy created to improve performance.
   views::ViewTracker phonetics_audio_web_view_;
 
-  std::unique_ptr<chromeos::editor_menu::PreTargetHandler>
-      quick_answers_view_handler_;
   std::unique_ptr<chromeos::editor_menu::FocusSearch> focus_search_;
   base::WeakPtrFactory<QuickAnswersView> weak_factory_{this};
 };

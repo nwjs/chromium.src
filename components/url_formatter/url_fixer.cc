@@ -6,6 +6,8 @@
 
 #include <stddef.h>
 
+#include <string_view>
+
 #include "base/check_op.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -13,7 +15,6 @@
 #include "base/ranges/algorithm.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -346,8 +347,8 @@ bool HasPort(const std::string& original_text,
                                      url::ParserMode::kSpecialURL)) {
     ++port_end;
   }
-  base::StringPiece port_piece(original_text.data() + port_start,
-                               port_end - port_start);
+  std::string_view port_piece(original_text.data() + port_start,
+                              port_end - port_start);
   if (port_piece.empty())
     return false;
 
@@ -475,9 +476,8 @@ std::string SegmentURLInternal(std::string* text, url::Parsed* parts) {
     return scheme;
   }
 
-  int text_length = static_cast<int>(text->length());
   if (scheme == url::kFileScheme) {
-    url::ParseFileURL(text->data(), text_length, parts);
+    *parts = url::ParseFileURL(*text);
     return scheme;
   }
 
@@ -489,7 +489,7 @@ std::string SegmentURLInternal(std::string* text, url::Parsed* parts) {
 
   if (parts->scheme.is_valid()) {
     // Have the GURL parser do the heavy lifting for us.
-    url::ParseStandardURL(text->data(), text_length, parts);
+    *parts = url::ParseStandardURL(*text);
     return scheme;
   }
 
@@ -514,8 +514,7 @@ std::string SegmentURLInternal(std::string* text, url::Parsed* parts) {
   text_to_parse.append(first_nonwhite, text->end());
 
   // Have the GURL parser do the heavy lifting for us.
-  url::ParseStandardURL(text_to_parse.data(),
-                        static_cast<int>(text_to_parse.length()), parts);
+  *parts = url::ParseStandardURL(text_to_parse);
 
   // Offset the results of the parse to match the original text.
   const int offset = -static_cast<int>(inserted_text.length());

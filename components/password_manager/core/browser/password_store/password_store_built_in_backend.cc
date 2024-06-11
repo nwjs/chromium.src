@@ -81,6 +81,7 @@ PasswordStoreBuiltInBackend::~PasswordStoreBuiltInBackend() {
 void PasswordStoreBuiltInBackend::Shutdown(
     base::OnceClosure shutdown_completed) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  weak_ptr_factory_.InvalidateWeakPtrs();
   affiliated_match_helper_ = nullptr;
   if (helper_) {
     background_task_runner_->DeleteSoon(FROM_HERE, std::move(helper_));
@@ -232,6 +233,7 @@ void PasswordStoreBuiltInBackend::UpdateLoginAsync(
 }
 
 void PasswordStoreBuiltInBackend::RemoveLoginAsync(
+    const base::Location& location,
     const PasswordForm& form,
     PasswordChangesOrErrorReply callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -241,13 +243,14 @@ void PasswordStoreBuiltInBackend::RemoveLoginAsync(
       base::BindOnce(
           &LoginDatabaseAsyncHelper::RemoveLogin,
           base::Unretained(helper_.get()),  // Safe until `Shutdown()`.
-          form),
+          location, form),
       ReportMetricsForResultCallback<PasswordChangesOrError>(
           MethodName("RemoveLoginAsync"))
           .Then(std::move(callback)));
 }
 
 void PasswordStoreBuiltInBackend::RemoveLoginsCreatedBetweenAsync(
+    const base::Location& location,
     base::Time delete_begin,
     base::Time delete_end,
     PasswordChangesOrErrorReply callback) {
@@ -258,13 +261,14 @@ void PasswordStoreBuiltInBackend::RemoveLoginsCreatedBetweenAsync(
       base::BindOnce(
           &LoginDatabaseAsyncHelper::RemoveLoginsCreatedBetween,
           base::Unretained(helper_.get()),  // Safe until `Shutdown()`.
-          delete_begin, delete_end),
+          location, delete_begin, delete_end),
       ReportMetricsForResultCallback<PasswordChangesOrError>(
           MethodName("RemoveLoginsCreatedBetweenAsync"))
           .Then(std::move(callback)));
 }
 
 void PasswordStoreBuiltInBackend::RemoveLoginsByURLAndTimeAsync(
+    const base::Location& location,
     const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time delete_begin,
     base::Time delete_end,
@@ -277,7 +281,8 @@ void PasswordStoreBuiltInBackend::RemoveLoginsByURLAndTimeAsync(
       base::BindOnce(
           &LoginDatabaseAsyncHelper::RemoveLoginsByURLAndTime,
           base::Unretained(helper_.get()),  // Safe until `Shutdown()`.
-          url_filter, delete_begin, delete_end, std::move(sync_completion)),
+          location, url_filter, delete_begin, delete_end,
+          std::move(sync_completion)),
       ReportMetricsForResultCallback<PasswordChangesOrError>(
           MethodName("RemoveLoginsByURLAndTimeAsync"))
           .Then(std::move(callback)));
@@ -338,19 +343,6 @@ void PasswordStoreBuiltInBackend::RecordUpdateLoginAsyncCalledFromTheStore() {
       "PasswordManager.PasswordStore.BuiltInBackend.UpdateLoginCalledOnStore",
       true);
 }
-
-#if !BUILDFLAG(IS_ANDROID)
-void PasswordStoreBuiltInBackend::GetUnsyncedCredentials(
-    base::OnceCallback<void(std::vector<PasswordForm>)> callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(helper_);
-  background_task_runner_->PostTaskAndReplyWithResult(
-      FROM_HERE,
-      base::BindOnce(&LoginDatabaseAsyncHelper::GetUnsyncedCredentials,
-                     base::Unretained(helper_.get())),
-      std::move(callback));
-}
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 base::WeakPtr<PasswordStoreBackend> PasswordStoreBuiltInBackend::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();

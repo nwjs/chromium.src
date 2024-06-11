@@ -106,7 +106,7 @@ class CWVAutofillControllerTest : public web::WebTest {
     password_manager_client_ = password_manager_client.get();
 
     auto autofill_client = std::make_unique<autofill::WebViewAutofillClientIOS>(
-        kApplicationLocale, &pref_service_, &personal_data_manager_,
+        &pref_service_, &personal_data_manager_,
         /*autocomplete_history_manager=*/nullptr, &web_state_,
         /*identity_manager=*/nullptr, &strike_database_, &sync_service_,
         std::make_unique<autofill::StubLogManager>());
@@ -135,10 +135,10 @@ class CWVAutofillControllerTest : public web::WebTest {
 
   TestingPrefServiceSimple pref_service_;
   web::FakeBrowserState browser_state_;
-  web::FakeWebState web_state_;
   autofill::TestPersonalDataManager personal_data_manager_;
   autofill::TestStrikeDatabase strike_database_;
   syncer::TestSyncService sync_service_;
+  web::FakeWebState web_state_;
   NSString* frame_id_;
   web::FakeWebFramesManager* web_frames_manager_;
   CWVAutofillController* autofill_controller_;
@@ -155,7 +155,7 @@ TEST_F(CWVAutofillControllerTest, FetchProfileSuggestions) {
       suggestionWithValue:kTestFieldValue
        displayDescription:kTestDisplayDescription
                      icon:nil
-              popupItemId:autofill::PopupItemId::kAutocompleteEntry
+              popupItemId:autofill::SuggestionType::kAutocompleteEntry
         backendIdentifier:nil
            requiresReauth:NO];
   [autofill_agent_ addSuggestion:suggestion
@@ -202,7 +202,7 @@ TEST_F(CWVAutofillControllerTest, FetchPasswordSuggestions) {
       suggestionWithValue:kTestFieldValue
        displayDescription:nil
                      icon:nil
-              popupItemId:autofill::PopupItemId::kAutocompleteEntry
+              popupItemId:autofill::SuggestionType::kAutocompleteEntry
         backendIdentifier:nil
            requiresReauth:NO];
   OCMExpect([password_controller_
@@ -252,7 +252,7 @@ TEST_F(CWVAutofillControllerTest, AcceptSuggestion) {
       suggestionWithValue:kTestFieldValue
        displayDescription:nil
                      icon:nil
-              popupItemId:autofill::PopupItemId::kAutocompleteEntry
+              popupItemId:autofill::SuggestionType::kAutocompleteEntry
         backendIdentifier:nil
            requiresReauth:NO];
   CWVAutofillSuggestion* suggestion =

@@ -22,10 +22,22 @@ class BrightnessControlDelegate {
   virtual void HandleBrightnessDown() = 0;
   virtual void HandleBrightnessUp() = 0;
 
+  // Enum to represent the source of a brightness change, i.e. what triggered
+  // the brightness change.
+  enum class BrightnessChangeSource {
+    kUnknown = 0,
+    kQuickSettings = 1,
+    kSettingsApp = 2,
+    kMaxValue = kSettingsApp,
+  };
+
   // Requests that the brightness be set to |percent|, in the range
   // [0.0, 100.0].  |gradual| specifies whether the transition to the new
-  // brightness should be animated or instantaneous.
-  virtual void SetBrightnessPercent(double percent, bool gradual) = 0;
+  // brightness should be animated or instantaneous. |source| is required to
+  // indicate what is causing this brightness change.
+  virtual void SetBrightnessPercent(double percent,
+                                    bool gradual,
+                                    BrightnessChangeSource source) = 0;
 
   // Asynchronously invokes |callback| with the current brightness, in the range
   // [0.0, 100.0]. In case of error, it is called with nullopt.
@@ -35,6 +47,13 @@ class BrightnessControlDelegate {
   // Sets whether the ambient light sensor should be used in brightness
   // calculations.
   virtual void SetAmbientLightSensorEnabled(bool enabled) = 0;
+
+  // Asynchronously invokes |callback| with true if the ambient light sensor is
+  // enabled (i.e. if the ambient light sensor is currently being used in
+  // brightness calculations). In case of error, |callback| will be run with
+  // nullopt.
+  virtual void GetAmbientLightSensorEnabled(
+      base::OnceCallback<void(std::optional<bool>)> callback) = 0;
 
   // Asynchronously invokes |callback| with true if the device has at least one
   // ambient light sensor. In case of error, |callback| will be run with

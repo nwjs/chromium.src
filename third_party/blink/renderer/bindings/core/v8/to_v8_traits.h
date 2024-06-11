@@ -281,7 +281,7 @@ namespace bindings {
 
   CHECK(!creation_context_object.IsEmpty());
   ScriptState* script_state =
-      ScriptState::From(creation_context_object->GetCreationContextChecked());
+      ScriptState::ForRelevantRealm(isolate, creation_context_object);
   return script_wrappable->Wrap(script_state);
 }
 
@@ -969,7 +969,8 @@ ScriptPromise<IDLType> ToResolvedPromise(ScriptState* script_state,
                                          BlinkType value) {
   auto v8_value = ToV8Traits<IDLType>::ToV8(script_state, value);
   return ScriptPromise<IDLType>(
-      script_state, ScriptPromiseUntyped::ResolveRaw(script_state, v8_value));
+      script_state->GetIsolate(),
+      ScriptPromiseUntyped::ResolveRaw(script_state, v8_value));
 }
 
 }  // namespace blink

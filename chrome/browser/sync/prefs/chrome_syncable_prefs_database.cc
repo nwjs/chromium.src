@@ -48,6 +48,7 @@ namespace syncable_prefs_ids {
 // tools/metrics/histograms/metadata/sync/enums.xml. When removing an unused
 // enumerator, comment it out here, making it clear the value was previously
 // used, and add "(obsolete)" to the corresponding entry in enums.xml.
+// LINT.IfChange(SyncablePref)
 enum {
   // Starts with 100000 to avoid clash with prefs listed in
   // common_syncable_prefs_database.cc and
@@ -333,6 +334,9 @@ enum {
   kProfileDefaultContentSettingValuesTrackingProtection = 100275,
   kShowForwardButton = 100276,
   kAccessibilityMagnifierFollowsSts = 100277,
+  kAccessibilityReadAnythingLanguagesEnabled = 100278,
+  kKeyboardDefaultSplitModifierSettings = 100279,
+  kDisplayAmbientLightSensorLastEnabled = 100280,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -340,6 +344,7 @@ enum {
   // guidance and escalation path in case anything is unclear.
   // ^^^^^ IMPORTANT! ^^^^^
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncablePref)
 }  // namespace syncable_prefs_ids
 
 // Non-iOS specific list of syncable preferences.
@@ -430,6 +435,10 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kAccessibilityReadAnythingLinksEnabled,
      {syncable_prefs_ids::kAccessibilityReadAnythingLinksEnabled,
+      syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {prefs::kAccessibilityReadAnythingLanguagesEnabled,
+     {syncable_prefs_ids::kAccessibilityReadAnythingLanguagesEnabled,
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     {prefs::kLensRegionSearchEnabled,
@@ -1062,7 +1071,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone}},
     // This is not exposed in a header.
-    // TODO(crbug.com/1420978): Declare this in the corresponding header.
+    // TODO(crbug.com/40896017): Declare this in the corresponding header.
     {"user_image_info",
      {syncable_prefs_ids::kUserImageInfo, syncer::OS_PRIORITY_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
@@ -1119,6 +1128,14 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kShelfContainerAppPinRolls, syncer::OS_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kMergeableListWithRewriteOnUpdate}},
+    {ash::prefs::kKeyboardDefaultSplitModifierSettings,
+     {syncable_prefs_ids::kKeyboardDefaultSplitModifierSettings,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
+    {ash::prefs::kDisplayAmbientLightSensorLastEnabled,
+     {syncable_prefs_ids::kDisplayAmbientLightSensorLastEnabled,
+      syncer::OS_PREFERENCES, sync_preferences::PrefSensitivity::kNone,
+      sync_preferences::MergeBehavior::kNone}},
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
     {performance_manager::user_tuning::prefs::kTabDiscardingExceptions,
      {syncable_prefs_ids::kTabDiscardingExceptions, syncer::PREFERENCES,
@@ -1415,7 +1432,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone}},
 #endif
     // This is not exposed in a header.
-    // TODO(crbug.com/1420978): Declare this in the corresponding header.
+    // TODO(crbug.com/40896017): Declare this in the corresponding header.
     {"webauthn.cablev2_pairings",
      {syncable_prefs_ids::kWebauthnCablev2Pairings, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,

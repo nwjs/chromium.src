@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifdef UNSAFE_BUFFERS_BUILD
+// TODO(crbug.com/40284755): Remove this and spanify to fix the errors.
+#pragma allow_unsafe_buffers
+#endif
+
 #include "base/message_loop/message_pump_glib.h"
 
 #include <glib.h>
@@ -671,8 +676,12 @@ class BaseWatcher : public MessagePumpGlib::FdWatcher {
   ~BaseWatcher() override = default;
 
   // base:MessagePumpGlib::FdWatcher interface
-  void OnFileCanReadWithoutBlocking(int /* fd */) override { NOTREACHED(); }
-  void OnFileCanWriteWithoutBlocking(int /* fd */) override { NOTREACHED(); }
+  void OnFileCanReadWithoutBlocking(int /* fd */) override {
+    NOTREACHED_IN_MIGRATION();
+  }
+  void OnFileCanWriteWithoutBlocking(int /* fd */) override {
+    NOTREACHED_IN_MIGRATION();
+  }
 
  protected:
   raw_ptr<MessagePumpGlib::FdWatchController> controller_;

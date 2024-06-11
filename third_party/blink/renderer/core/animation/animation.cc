@@ -2992,7 +2992,9 @@ void Animation::DisableCompositedAnimationForTesting() {
   CancelAnimationOnCompositor();
 }
 
-void Animation::InvalidateKeyframeEffect(const TreeScope& tree_scope) {
+void Animation::InvalidateKeyframeEffect(
+    const TreeScope& tree_scope,
+    const StyleChangeReasonForTracing& reason) {
   auto* keyframe_effect = DynamicTo<KeyframeEffect>(content_.Get());
   if (!keyframe_effect)
     return;
@@ -3005,9 +3007,7 @@ void Animation::InvalidateKeyframeEffect(const TreeScope& tree_scope) {
   // keyframes.
   if (target &&
       CSSAnimations::IsAffectedByKeyframesFromScope(*target, tree_scope)) {
-    target->SetNeedsStyleRecalc(kLocalStyleChange,
-                                StyleChangeReasonForTracing::Create(
-                                    style_change_reason::kStyleSheetChange));
+    target->SetNeedsStyleRecalc(kLocalStyleChange, reason);
   }
 }
 
@@ -3309,12 +3309,12 @@ void Animation::UpdateCompositedPaintStatus() {
       keyframe_effect->Affects(
           PropertyHandle(GetCSSPropertyBackgroundColor()))) {
     element_animations->SetCompositedBackgroundColorStatus(
-        ElementAnimations::CompositedPaintStatus::kNeedsRepaintOrNoAnimation);
+        ElementAnimations::CompositedPaintStatus::kNeedsRepaint);
   }
   if (RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled() &&
       keyframe_effect->Affects(PropertyHandle(GetCSSPropertyClipPath()))) {
     element_animations->SetCompositedClipPathStatus(
-        ElementAnimations::CompositedPaintStatus::kNeedsRepaintOrNoAnimation);
+        ElementAnimations::CompositedPaintStatus::kNeedsRepaint);
   }
 }
 

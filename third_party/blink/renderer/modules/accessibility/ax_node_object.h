@@ -80,11 +80,11 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
 
   AXObjectInclusion ShouldIncludeBasedOnSemantics(
       IgnoredReasons* = nullptr) const;
-  bool ComputeAccessibilityIsIgnored(IgnoredReasons* = nullptr) const override;
+  bool ComputeIsIgnored(IgnoredReasons* = nullptr) const override;
   ax::mojom::blink::Role DetermineRoleValue() override;
   ax::mojom::blink::Role NativeRoleIgnoringAria() const override;
   void AlterSliderOrSpinButtonValue(bool increase);
-  AXObject* ActiveDescendant() override;
+  AXObject* ActiveDescendant() const override;
   String AriaAccessibilityDescription() const;
   String AutoComplete() const override;
   void AccessibilityChildrenFromAOMProperty(AOMRelationListProperty,
@@ -141,6 +141,7 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   bool IsNativeSpinButton() const override;
   bool IsEmbeddingElement() const override;
   bool IsLinked() const override;
+  bool IsVisible() const override;
   bool IsVisited() const override;
 
   // Check object state.
@@ -212,7 +213,10 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   KURL Url() const override;
   AXObject* ChooserPopup() const override;
   String GetValueForControl() const override;
+  String GetValueForControl(AXObjectSet& visited) const override;
   String SlowGetValueForControlIncludingContentEditable() const override;
+  String SlowGetValueForControlIncludingContentEditable(
+      AXObjectSet& visited) const override;
   String TextFromDescendants(AXObjectSet& visited,
                              const AXObject* aria_label_or_description_root,
                              bool recursive) const override;
@@ -221,9 +225,6 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   ax::mojom::blink::Role RawAriaRole() const final;
   void AriaDescribedbyElements(AXObjectVector&) const override;
   void AriaOwnsElements(AXObjectVector&) const override;
-  void Dropeffects(
-      Vector<ax::mojom::blink::Dropeffect>& dropeffects) const override;
-
   ax::mojom::blink::HasPopup HasPopup() const override;
   ax::mojom::blink::IsPopup IsPopup() const override;
   bool IsEditableRoot() const override;
@@ -360,8 +361,6 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
   const AtomicString& GetInternalsAttribute(Element&,
                                             const QualifiedName&) const;
 
-  bool IsNativeCheckboxInMixedState() const;
-
   // This function returns the text of a tooltip associated with the element.
   // Although there are two ways of doing this, it is unlikely that an author
   // would provide 2 overlapping types of tooltips. Order of precedence:
@@ -411,7 +410,6 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
 #endif
 
   ax::mojom::blink::TextPosition GetTextPositionFromRole() const;
-  ax::mojom::blink::Dropeffect ParseDropeffect(String& dropeffect) const;
 
   static bool IsNameFromLabelElement(HTMLElement* control);
 

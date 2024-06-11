@@ -25,6 +25,7 @@
 #include "extensions/common/extension_id.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -132,6 +133,13 @@ class MessageSection : public views::BoxLayoutView {
   // `kUserCustomizedAccess`.
   void RemoveExtension(const extensions::ExtensionId& id);
 
+  // Removes all extension entries.
+  void ClearExtensions();
+
+  ExtensionsMenuMainPageView::MessageSectionState state() const {
+    return state_;
+  }
+
   // Accessors used by tests:
   views::View* GetTextContainerForTesting() { return text_container_; }
   views::View* GetReloadContainerForTesting() { return reload_container_; }
@@ -149,9 +157,6 @@ class MessageSection : public views::BoxLayoutView {
   static constexpr int kExtensionItemsContainerIndex = 1;
   static constexpr int kExtensionItemIconIndex = 0;
   static constexpr int kExtensionItemLabelIndex = 1;
-
-  // Removes all extension entries.
-  void ClearExtensions();
 
   // Updates the visibility of the view based on `state_` and
   // `extension_entries_`.
@@ -210,7 +215,7 @@ MessageSection::MessageSection(
 
   views::Builder<MessageSection>(this)
       .SetOrientation(views::BoxLayout::Orientation::kVertical)
-      // TODO(crbug.com/1390952): After adding margins, compute radius from a
+      // TODO(crbug.com/40879945): After adding margins, compute radius from a
       // variable or create a const variable.
       .SetBackground(views::CreateThemedRoundedRectBackground(
           kColorExtensionsMenuHighlightedBackground, 4))
@@ -267,6 +272,8 @@ MessageSection::MessageSection(
                   // Reload button.
                   views::Builder<views::MdTextButton>()
                       .SetCallback(base::BindRepeating(reload_callback_))
+                      .SetBgColorIdOverride(
+                          kColorExtensionsMenuHighlightedBackground)
                       .SetProperty(
                           views::kMarginsKey,
                           gfx::Insets::TLBR(control_vertical_margin, 0, 0, 0))
@@ -418,12 +425,18 @@ void MessageSection::AddOrUpdateExtension(const extensions::ExtensionId& id,
                                      views::MaximumFlexSizeRule::kUnbounded)),
                 views::Builder<views::MdTextButton>()
                     .SetCallback(base::BindRepeating(dismiss_callback_, id))
+                    .SetStyle(ui::ButtonStyle::kText)
+                    .SetBgColorIdOverride(
+                        kColorExtensionsMenuHighlightedBackground)
                     .SetText(l10n_util::GetStringUTF16(
                         IDS_EXTENSIONS_MENU_REQUESTS_ACCESS_SECTION_DISMISS_BUTTON_TEXT))
                     .SetTooltipText(l10n_util::GetStringUTF16(
                         IDS_EXTENSIONS_MENU_REQUESTS_ACCESS_SECTION_DISMISS_BUTTON_TOOLTIP)),
                 views::Builder<views::MdTextButton>()
                     .SetCallback(base::BindRepeating(allow_callback_, id))
+                    .SetStyle(ui::ButtonStyle::kText)
+                    .SetBgColorIdOverride(
+                        kColorExtensionsMenuHighlightedBackground)
                     .SetText(l10n_util::GetStringUTF16(
                         IDS_EXTENSIONS_MENU_REQUESTS_ACCESS_SECTION_ALLOW_BUTTON_TEXT))
                     .SetTooltipText(l10n_util::GetStringUTF16(
@@ -474,6 +487,9 @@ void MessageSection::ClearExtensions() {
   requests_access_container_->children()[kExtensionItemsContainerIndex]
       ->RemoveAllChildViews();
   extension_entries_.clear();
+
+  requests_access_container_->SetVisible(false);
+  UpdateVisibility();
 }
 
 void MessageSection::UpdateVisibility() {
@@ -540,7 +556,7 @@ ExtensionsMenuMainPageView::ExtensionsMenuMainPageView(
   views::Builder<ExtensionsMenuMainPageView>(this)
       .SetLayoutManager(std::make_unique<views::BoxLayout>(
           views::BoxLayout::Orientation::kVertical))
-      // TODO(crbug.com/1390952): Add margins after adding the menu
+      // TODO(crbug.com/40879945): Add margins after adding the menu
       // items, to make sure all items are aligned.
       .AddChildren(
           // Subheader section.
@@ -748,6 +764,11 @@ void ExtensionsMenuMainPageView::UpdateMessageSection(
   message_section_->Update(state, has_enterprise_extensions);
 }
 
+ExtensionsMenuMainPageView::MessageSectionState
+ExtensionsMenuMainPageView::GetMessageSectionState() {
+  return message_section_->state();
+}
+
 void ExtensionsMenuMainPageView::AddOrUpdateExtensionRequestingAccess(
     const extensions::ExtensionId& id,
     const std::u16string& name,
@@ -759,6 +780,11 @@ void ExtensionsMenuMainPageView::AddOrUpdateExtensionRequestingAccess(
 void ExtensionsMenuMainPageView::RemoveExtensionRequestingAccess(
     const extensions::ExtensionId& id) {
   message_section_->RemoveExtension(id);
+  SizeToPreferredSize();
+}
+
+void ExtensionsMenuMainPageView::ClearExtensionsRequestingAccess() {
+  message_section_->ClearExtensions();
   SizeToPreferredSize();
 }
 

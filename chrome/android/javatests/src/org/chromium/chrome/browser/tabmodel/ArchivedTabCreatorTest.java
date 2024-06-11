@@ -43,7 +43,10 @@ import org.chromium.net.test.EmbeddedTestServerRule;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Batch(Batch.PER_CLASS)
-@EnableFeatures(ChromeFeatureList.ANDROID_TAB_DECLUTTER)
+@EnableFeatures({
+    ChromeFeatureList.ANDROID_TAB_DECLUTTER,
+    ChromeFeatureList.ANDROID_TAB_DECLUTTER_RESCUE_KILLSWITCH
+})
 public class ArchivedTabCreatorTest {
     @ClassRule
     public static ChromeTabbedActivityTestRule sActivityTestRule =
@@ -74,7 +77,7 @@ public class ArchivedTabCreatorTest {
                                     .get()
                                     .getOriginalProfile();
                     mOrchestrator = ArchivedTabModelOrchestrator.getForProfile(mProfile);
-                    mTabCreator = mOrchestrator.getArchivedTabCreator();
+                    mTabCreator = mOrchestrator.getArchivedTabCreatorForTesting();
                 });
     }
 

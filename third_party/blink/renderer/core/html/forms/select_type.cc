@@ -53,6 +53,7 @@
 #include "third_party/blink/renderer/core/html/forms/menu_list_inner_element.h"
 #include "third_party/blink/renderer/core/html/forms/popup_menu.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
+#include "third_party/blink/renderer/core/html/html_span_element.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/input/input_device_capabilities.h"
@@ -65,6 +66,8 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
+#include "third_party/blink/renderer/core/svg/svg_path_element.h"
+#include "third_party/blink/renderer/core/svg/svg_svg_element.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "ui/base/ui_base_features.h"
 
@@ -146,6 +149,7 @@ class MenuListSelectType final : public SelectType {
   Member<const ComputedStyle> option_style_;
   Member<HTMLSlotElement> button_slot_;
   Member<HTMLButtonElement> default_button_;
+  Member<HTMLSpanElement> default_button_selected_option_;
   Member<HTMLDataListElement> default_datalist_;
   Member<HTMLSlotElement> default_datalist_options_slot_;
   Member<HTMLSlotElement> datalist_slot_;
@@ -164,6 +168,7 @@ void MenuListSelectType::Trace(Visitor* visitor) const {
   visitor->Trace(option_style_);
   visitor->Trace(button_slot_);
   visitor->Trace(default_button_);
+  visitor->Trace(default_button_selected_option_);
   visitor->Trace(default_datalist_);
   visitor->Trace(default_datalist_options_slot_);
   visitor->Trace(datalist_slot_);
@@ -420,7 +425,32 @@ void MenuListSelectType::CreateShadowSubtree(ShadowRoot& root) {
     default_button_ = MakeGarbageCollected<HTMLButtonElement>(doc);
     default_button_->setAttribute(html_names::kTypeAttr,
                                   AtomicString("popover"));
+    default_button_->SetShadowPseudoId(
+        shadow_element_names::kSelectFallbackButton);
     button_slot_->AppendChild(default_button_);
+
+    default_button_selected_option_ =
+        MakeGarbageCollected<HTMLSpanElement>(doc);
+    default_button_selected_option_->SetShadowPseudoId(
+        shadow_element_names::kSelectFallbackButtonText);
+    default_button_->AppendChild(default_button_selected_option_);
+
+    auto* default_button_icon = MakeGarbageCollected<HTMLDivElement>(doc);
+    default_button_icon->SetShadowPseudoId(
+        shadow_element_names::kSelectFallbackButtonIcon);
+    default_button_->AppendChild(default_button_icon);
+
+    auto* default_button_icon_svg = MakeGarbageCollected<SVGSVGElement>(doc);
+    default_button_icon_svg->setAttribute(svg_names::kViewBoxAttr,
+                                          AtomicString("0 0 20 16"));
+    default_button_icon_svg->setAttribute(svg_names::kFillAttr,
+                                          AtomicString("none"));
+    default_button_icon->AppendChild(default_button_icon_svg);
+
+    auto* svg_path = MakeGarbageCollected<SVGPathElement>(doc);
+    svg_path->setAttribute(svg_names::kDAttr,
+                           AtomicString("M4 6 L10 12 L 16 6"));
+    default_button_icon_svg->AppendChild(svg_path);
 
     datalist_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
     datalist_slot_->SetIdAttribute(shadow_element_names::kSelectDatalist);
@@ -430,7 +460,10 @@ void MenuListSelectType::CreateShadowSubtree(ShadowRoot& root) {
     default_datalist_->SetShadowPseudoId(
         shadow_element_names::kSelectFallbackDatalist);
     datalist_slot_->AppendChild(default_datalist_);
+
     default_datalist_options_slot_ = MakeGarbageCollected<HTMLSlotElement>(doc);
+    default_datalist_options_slot_->SetIdAttribute(
+        shadow_element_names::kSelectDatalistOptions);
     default_datalist_->AppendChild(default_datalist_options_slot_);
   }
 }
@@ -452,7 +485,10 @@ void MenuListSelectType::ManuallyAssignSlots() {
     }
   }
 
+  CHECK(option_slot_);
   if (RuntimeEnabledFeatures::StylableSelectEnabled()) {
+    CHECK(button_slot_);
+    CHECK(datalist_slot_);
     button_slot_->Assign(buttons);
     datalist_slot_->Assign(first_datalist);
     if (default_datalist_->popoverOpen()) {
@@ -539,7 +575,16 @@ void MenuListSelectType::ShowPopup(PopupMenu::ShowEventType type) {
   if (!popup_)
     return;
 
+  // SetNativePopupIsVisible(true) will start matching :open, and we need to run
+  // a style update before we show the native popup because select:open rules in
+  // the UA sheet need to remove display:none from a <datalist> which may be
+  // wrapping the <option>s.
   SetNativePopupIsVisible(true);
+  if (RuntimeEnabledFeatures::CSSPseudoOpenClosedEnabled()) {
+    select_->GetDocument().UpdateStyleAndLayoutForNode(
+        select_, DocumentUpdateReason::kPagePopup);
+  }
+
   ObserveTreeMutation();
 
   popup_->Show(type);
@@ -575,6 +620,10 @@ bool MenuListSelectType::PopupIsVisible() const {
 
 void MenuListSelectType::SetNativePopupIsVisible(bool popup_is_visible) {
   native_popup_is_visible_ = popup_is_visible;
+  if (RuntimeEnabledFeatures::CSSPseudoOpenClosedEnabled()) {
+    select_->PseudoStateChanged(CSSSelector::kPseudoOpen);
+    select_->PseudoStateChanged(CSSSelector::kPseudoClosed);
+  }
   if (auto* layout_object = select_->GetLayoutObject()) {
     // Invalidate paint to ensure that the focus ring is updated.
     layout_object->SetShouldDoFullPaintInvalidation();
@@ -766,7 +815,7 @@ void MenuListSelectType::UpdateTextStyleAndContent() {
     // Copy the text of the selected <option> into the fallback <button> so that
     // the user can see what the selected option is, just like the
     // appearance:auto case.
-    default_button_->setTextContent(text);
+    default_button_selected_option_->setTextContent(text);
   }
   if (auto* box = select_->GetLayoutBox()) {
     if (auto* cache = select_->GetDocument().ExistingAXObjectCache())
@@ -782,6 +831,9 @@ void MenuListSelectType::DidUpdateActiveOption(HTMLOptionElement* option) {
   int option_index = option ? option->index() : -1;
   if (ax_menulist_last_active_index_ == option_index)
     return;
+
+  HTMLOptionElement* prev_selected_option =
+      select_->OptionAtListIndex(ax_menulist_last_active_index_);
   ax_menulist_last_active_index_ = option_index;
 
   // We skip sending accessiblity notifications for the very first option,
@@ -791,6 +843,7 @@ void MenuListSelectType::DidUpdateActiveOption(HTMLOptionElement* option) {
     return;
   }
 
+  document.ExistingAXObjectCache()->MarkElementDirty(prev_selected_option);
   document.ExistingAXObjectCache()->HandleUpdateActiveMenuOption(select_);
 }
 
@@ -1576,6 +1629,7 @@ void ListBoxSelectType::ManuallyAssignSlots() {
       option_nodes.push_back(child);
     }
   }
+  CHECK(option_slot_);
   option_slot_->Assign(option_nodes);
   if (RuntimeEnabledFeatures::StylableSelectEnabled()) {
     select_->GetShadowRoot()->SetDelegatesFocus(false);

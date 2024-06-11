@@ -262,7 +262,9 @@ ClipboardHistoryItemView::ClipboardHistoryItemView(
     views::MenuItemView* container)
     : item_id_(item_id),
       clipboard_history_(clipboard_history),
-      container_(container) {}
+      container_(container) {
+  SetAccessibleRole(ax::mojom::Role::kMenuItem);
+}
 
 bool ClipboardHistoryItemView::AdvancePseudoFocus(bool reverse) {
   if (pseudo_focus_ == PseudoFocus::kEmpty) {
@@ -404,10 +406,13 @@ const ClipboardHistoryItem* ClipboardHistoryItemView::GetClipboardHistoryItem()
   return GetClipboardHistoryItemImpl(item_id_, clipboard_history_);
 }
 
-gfx::Size ClipboardHistoryItemView::CalculatePreferredSize() const {
+gfx::Size ClipboardHistoryItemView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   const int preferred_width =
       clipboard_history_util::GetPreferredItemViewWidth();
-  return gfx::Size(preferred_width, GetHeightForWidth(preferred_width));
+  return gfx::Size(
+      preferred_width,
+      GetLayoutManager()->GetPreferredHeightForWidth(this, preferred_width));
 }
 
 void ClipboardHistoryItemView::GetAccessibleNodeData(ui::AXNodeData* data) {

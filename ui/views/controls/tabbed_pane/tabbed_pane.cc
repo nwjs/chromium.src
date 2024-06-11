@@ -130,11 +130,13 @@ void TabbedPaneTab::OnGestureEvent(ui::GestureEvent* event) {
   event->SetHandled();
 }
 
-gfx::Size TabbedPaneTab::CalculatePreferredSize() const {
+gfx::Size TabbedPaneTab::CalculatePreferredSize(
+    const SizeBounds& available_size) const {
   int width = preferred_title_width_ + GetInsets().width();
   if (tabbed_pane_->GetStyle() == TabbedPane::TabStripStyle::kHighlight &&
-      tabbed_pane_->GetOrientation() == TabbedPane::Orientation::kVertical)
+      tabbed_pane_->GetOrientation() == TabbedPane::Orientation::kVertical) {
     width = std::max(width, 192);
+  }
   return gfx::Size(width, 32);
 }
 
@@ -143,7 +145,7 @@ int TabbedPaneTab::GetHeightForWidth(int w) const {
   // LayoutManager::GetPreferredHeightForWidth by default, but this is not
   // consistent with the fixed height desired by CalculatePreferredSize, so we
   // override it and call it manually.
-  return CalculatePreferredSize().height();
+  return CalculatePreferredSize(SizeBounds(w, {})).height();
 }
 
 void TabbedPaneTab::GetAccessibleNodeData(ui::AXNodeData* data) {
@@ -406,18 +408,20 @@ TabbedPane::TabStripStyle TabbedPaneTabStrip::GetStyle() const {
   return style_;
 }
 
-gfx::Size TabbedPaneTabStrip::CalculatePreferredSize() const {
+gfx::Size TabbedPaneTabStrip::CalculatePreferredSize(
+    const SizeBounds& available_size) const {
   // In horizontal mode, use the preferred size as determined by the largest
   // child or the minimum size necessary to display the tab titles, whichever is
   // larger.
   if (GetOrientation() == TabbedPane::Orientation::kHorizontal) {
-    return GetLayoutManager()->GetPreferredSize(this);
+    return GetLayoutManager()->GetPreferredSize(this, available_size);
   }
 
   // In vertical mode, Tabstrips don't require any minimum space along their
   // main axis, and can shrink all the way to zero size.  Only the cross axis
   // thickness matters.
-  const gfx::Size size = GetLayoutManager()->GetPreferredSize(this);
+  const gfx::Size size =
+      GetLayoutManager()->GetPreferredSize(this, available_size);
   return gfx::Size(size.width(), 0);
 }
 

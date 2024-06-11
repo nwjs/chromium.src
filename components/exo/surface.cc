@@ -651,8 +651,10 @@ bool Surface::DoPlaceAboveOrBelow(Surface* child,
   DCHECK(ListContainsEntry(list, child));
   auto it = FindListEntry(list, child);
 
-  if (place_above && reference != this) {
-    ++position_it;
+  if (place_above) {
+    if (reference != this) {
+      ++position_it;
+    }
   } else {
     --position_it;
   }
@@ -961,8 +963,20 @@ void Surface::Commit() {
 
   needs_commit_surface_ = true;
 
+  // We accumulate the pending offset in cached_state_. Although the spec does
+  // not explicitly describe how multiple commits for a synchronized subsurface
+  // behave between parent commits, we should probably accumulate pending
+  // offsets in cache too, considering that the cached state has been committed
+  // already (even though it has not been applied).
+  //
+  // Other compositors (Weston and Wlroots) seem to manage the offset similarly.
+  gfx::Vector2d new_offset =
+      cached_state_.basic_state.offset + pending_state_.basic_state.offset;
+
   // Transfer pending state to cached state.
   cached_state_.basic_state = pending_state_.basic_state;
+  cached_state_.basic_state.offset = new_offset;
+  pending_state_.basic_state.offset = gfx::Vector2d(0, 0);
   pending_state_.basic_state.only_visible_on_secure_output = false;
   has_cached_contents_ |= has_pending_contents_;
   has_pending_contents_ = false;
@@ -1074,7 +1088,14 @@ void Surface::CommitSurfaceHierarchy(bool synchronized) {
     if (!state_.basic_state.alpha && cached_state_.basic_state.alpha)
       needs_update_resource_ = true;
 
+    // The offset should be accumulated rather than replaced with the new
+    // offset.
+    gfx::Vector2d new_offset =
+        state_.basic_state.offset + cached_state_.basic_state.offset;
+
     state_.basic_state = cached_state_.basic_state;
+    state_.basic_state.offset = new_offset;
+    cached_state_.basic_state.offset = gfx::Vector2d(0, 0);
     cached_state_.basic_state.only_visible_on_secure_output = false;
 
     if (!is_augmented()) {
@@ -1868,7 +1889,7 @@ void Surface::AppendContentsToFrame(const gfx::PointF& parent_to_root_px,
       }
     }
     frame->resource_list.push_back(current_resource_);
-  } else {
+  } else if (state_.basic_state.alpha != 0.0f) {
     const viz::SharedQuadState* quad_state = AppendOrCreateSharedQuadState(
         viz::DrawQuad::Material::kSolidColor, state_.basic_state.alpha,
         render_pass, quad_to_target_transform, quad_rect, msk, quad_clip_rect,

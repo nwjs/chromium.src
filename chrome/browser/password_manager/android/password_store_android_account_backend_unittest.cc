@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/password_manager/android/password_store_android_account_backend.h"
+
 #include <memory>
 #include <vector>
 
@@ -22,15 +24,14 @@
 #include "chrome/browser/password_manager/android/password_manager_android_util.h"
 #include "chrome/browser/password_manager/android/password_manager_eviction_util.h"
 #include "chrome/browser/password_manager/android/password_manager_lifecycle_helper.h"
-#include "chrome/browser/password_manager/android/password_store_android_account_backend.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_api_error_codes.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_dispatcher_bridge.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_receiver_bridge.h"
 #include "chrome/browser/password_manager/android/password_sync_controller_delegate_android.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
-#include "components/password_manager/core/browser/affiliation/affiliations_prefetcher.h"
 #include "components/password_manager/core/browser/affiliation/mock_affiliated_match_helper.h"
+#include "components/password_manager/core/browser/affiliation/password_affiliation_source_adapter.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
@@ -167,8 +168,6 @@ class PasswordStoreAndroidAccountBackendTest : public testing::Test {
   PasswordStoreAndroidAccountBackendTest() {
     mock_affiliation_service_ =
         std::make_unique<testing::NiceMock<MockAffiliationService>>();
-    affiliations_prefetcher_ =
-        std::make_unique<AffiliationsPrefetcher>(mock_affiliation_service());
 
     prefs_.registry()->RegisterBooleanPref(
         prefs::kUnenrolledFromGoogleMobileServicesDueToErrors, false);
@@ -192,7 +191,7 @@ class PasswordStoreAndroidAccountBackendTest : public testing::Test {
         base::PassKey<class PasswordStoreAndroidAccountBackendTest>(),
         CreateMockBridgeHelper(), CreateFakeLifecycleHelper(),
         CreatePasswordSyncControllerDelegate(), &prefs_,
-        affiliations_prefetcher_.get());
+        &password_affiliation_adapter_);
   }
 
   ~PasswordStoreAndroidAccountBackendTest() override {
@@ -218,6 +217,9 @@ class PasswordStoreAndroidAccountBackendTest : public testing::Test {
   PrefService* prefs() { return &prefs_; }
   MockAffiliationService* mock_affiliation_service() {
     return mock_affiliation_service_.get();
+  }
+  PasswordAffiliationSourceAdapter* affiliation_source_adapter() {
+    return &password_affiliation_adapter_;
   }
   void RunUntilIdle() { task_environment_.RunUntilIdle(); }
 
@@ -264,7 +266,7 @@ class PasswordStoreAndroidAccountBackendTest : public testing::Test {
   }
 
   std::unique_ptr<MockAffiliationService> mock_affiliation_service_;
-  std::unique_ptr<AffiliationsPrefetcher> affiliations_prefetcher_;
+  PasswordAffiliationSourceAdapter password_affiliation_adapter_;
   std::unique_ptr<PasswordStoreAndroidAccountBackend> backend_;
   raw_ptr<NiceMock<MockPasswordStoreAndroidBackendBridgeHelper>> bridge_helper_;
   raw_ptr<FakePasswordManagerLifecycleHelper> lifecycle_helper_;
@@ -489,7 +491,7 @@ TEST_F(PasswordStoreAndroidAccountBackendTest, CallsBridgeForRemoveLogin) {
       CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
   EXPECT_CALL(*bridge_helper(), RemoveLogin(form, kTestAccount))
       .WillOnce(Return(kRemoveLoginJobId));
-  backend().RemoveLoginAsync(form, mock_reply.Get());
+  backend().RemoveLoginAsync(FROM_HERE, form, mock_reply.Get());
 
   PasswordStoreChangeList expected_changes;
   expected_changes.emplace_back(
@@ -521,9 +523,9 @@ TEST_F(PasswordStoreAndroidAccountBackendTest,
   // first.
   const JobId kGetLoginsJobId{13387};
   EXPECT_CALL(*bridge_helper(), GetAllLogins).WillOnce(Return(kGetLoginsJobId));
-  backend().RemoveLoginsByURLAndTimeAsync(url_filter, delete_begin, delete_end,
-                                          base::OnceCallback<void(bool)>(),
-                                          mock_deletion_reply.Get());
+  backend().RemoveLoginsByURLAndTimeAsync(
+      FROM_HERE, url_filter, delete_begin, delete_end,
+      base::OnceCallback<void(bool)>(), mock_deletion_reply.Get());
 
   // Imitate login retrieval and check that it triggers the removal of matching
   // forms.
@@ -573,7 +575,7 @@ TEST_F(PasswordStoreAndroidAccountBackendTest,
   // first.
   const JobId kGetLoginsJobId{13387};
   EXPECT_CALL(*bridge_helper(), GetAllLogins).WillOnce(Return(kGetLoginsJobId));
-  backend().RemoveLoginsCreatedBetweenAsync(delete_begin, delete_end,
+  backend().RemoveLoginsCreatedBetweenAsync(FROM_HERE, delete_begin, delete_end,
                                             mock_deletion_reply.Get());
 
   // Imitate login retrieval and check that it triggers the removal of matching
@@ -1922,10 +1924,14 @@ TEST_F(PasswordStoreAndroidAccountBackendTest, DisablesAffiliationsPrefetching) 
 
   EXPECT_CALL(*bridge_helper(), CanUseGetAllLoginsWithBrandingInfoAPI)
       .WillOnce(Return(true));
-  // Expect call to clear cache of all affiliations.
-  EXPECT_CALL(*mock_affiliation_service(),
-              KeepPrefetchForFacets(testing::IsEmpty()));
   backend().OnSyncServiceInitialized(sync_service());
+
+  // Test that the affiliation source got disabled and the data layer is never
+  // queried.
+  base::MockCallback<affiliations::AffiliationSource::ResultCallback> callback;
+  EXPECT_CALL(callback, Run(IsEmpty()));
+  EXPECT_CALL(*bridge_helper(), GetAllLogins).Times(0);
+  affiliation_source_adapter()->GetFacets(callback.Get());
 }
 
 TEST_F(PasswordStoreAndroidAccountBackendTest,
@@ -2035,7 +2041,7 @@ TEST_F(PasswordStoreAndroidAccountBackendTest,
   PasswordForm form =
       CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
   EXPECT_CALL(*bridge_helper(), RemoveLogin).Times(0);
-  backend().RemoveLoginAsync(form, mock_reply.Get());
+  backend().RemoveLoginAsync(FROM_HERE, form, mock_reply.Get());
 
   EXPECT_CALL(mock_reply,
               Run(VariantWith<PasswordChanges>(Optional(IsEmpty()))));
@@ -2060,8 +2066,9 @@ TEST_F(PasswordStoreAndroidAccountBackendTest,
   EXPECT_CALL(*bridge_helper(), GetAllLogins).Times(0);
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  backend().RemoveLoginsByURLAndTimeAsync(url_filter, delete_begin, delete_end,
-                                          base::DoNothing(), mock_reply.Get());
+  backend().RemoveLoginsByURLAndTimeAsync(FROM_HERE, url_filter, delete_begin,
+                                          delete_end, base::DoNothing(),
+                                          mock_reply.Get());
 
   EXPECT_CALL(mock_reply,
               Run(VariantWith<PasswordChanges>(Optional(IsEmpty()))));
@@ -2084,7 +2091,7 @@ TEST_F(PasswordStoreAndroidAccountBackendTest,
   EXPECT_CALL(*bridge_helper(), GetAllLogins).Times(0);
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  backend().RemoveLoginsCreatedBetweenAsync(delete_begin, delete_end,
+  backend().RemoveLoginsCreatedBetweenAsync(FROM_HERE, delete_begin, delete_end,
                                             mock_reply.Get());
 
   EXPECT_CALL(mock_reply,
@@ -2437,7 +2444,7 @@ TEST_P(PasswordStoreAndroidAccountBackendWithoutUnenrollmentTest,
   PasswordForm form =
       CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
   EXPECT_CALL(*bridge_helper(), RemoveLogin(form, _)).WillOnce(Return(kJobId));
-  backend().RemoveLoginAsync(form, mock_reply.Get());
+  backend().RemoveLoginAsync(FROM_HERE, form, mock_reply.Get());
 
   PasswordStoreBackendError error(GetBackendErrorType(), RecoveryType());
   EXPECT_CALL(mock_reply, Run(VariantWith<PasswordStoreBackendError>(error)));
@@ -2675,7 +2682,7 @@ TEST_P(PasswordStoreAndroidAccountBackendTestForMetrics, RemoveLoginAsyncMetrics
   EXPECT_CALL(*bridge_helper(), RemoveLogin).WillOnce(Return(kJobId));
   PasswordForm form =
       CreateTestLogin(kTestUsername, kTestPassword, kTestUrl, kTestDateCreated);
-  backend().RemoveLoginAsync(form, mock_reply.Get());
+  backend().RemoveLoginAsync(FROM_HERE, form, mock_reply.Get());
   EXPECT_CALL(mock_reply, Run);
   task_environment_.FastForwardBy(kTestLatencyDelta);
 

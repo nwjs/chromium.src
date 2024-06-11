@@ -138,7 +138,7 @@ AudioNodeList GenerateAudioNodeList(
 // Test param is the version of stable device id used by audio node.
 class UnifiedAudioDetailedViewControllerTest : public AshTestBase {
  public:
-  UnifiedAudioDetailedViewControllerTest() {}
+  UnifiedAudioDetailedViewControllerTest() = default;
   ~UnifiedAudioDetailedViewControllerTest() override = default;
 
   // AshTestBase:
@@ -225,9 +225,7 @@ class UnifiedAudioDetailedViewControllerTest : public AshTestBase {
     return audio_detailed_view_.get();
   }
 
-  void CheckSliderFocusBehavior(views::Widget* widget,
-                                bool is_input_slider,
-                                uint64_t device_id) {
+  void CheckSliderFocusBehavior(bool is_input_slider, uint64_t device_id) {
     SCOPED_TRACE(
         base::StringPrintf("Test params: is_input_slider=%d", is_input_slider));
 
@@ -237,7 +235,6 @@ class UnifiedAudioDetailedViewControllerTest : public AshTestBase {
 
     auto* unified_slider_view =
         static_cast<UnifiedSliderView*>(sliders_map.find(device_id)->second);
-    widget->SetContentsView(unified_slider_view);
 
     views::Slider* slider = unified_slider_view->slider();
     IconButton* slider_button = unified_slider_view->slider_button();
@@ -312,16 +309,16 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, ToggleNbsWarning) {
 
   auto jack_mic = AudioDevice(GenerateAudioNode(kMicJack));
   cras_audio_handler_->SwitchToDevice(jack_mic, true,
-                                      CrasAudioHandler::ACTIVATE_BY_USER);
+                                      DeviceActivateType::kActivateByUser);
   EXPECT_FALSE(nbs_warning_view());
 
   auto nbs_mic = AudioDevice(GenerateAudioNode(kNbsMic));
   cras_audio_handler_->SwitchToDevice(nbs_mic, true,
-                                      CrasAudioHandler::ACTIVATE_BY_USER);
+                                      DeviceActivateType::kActivateByUser);
   EXPECT_TRUE(nbs_warning_view());
 
   cras_audio_handler_->SwitchToDevice(jack_mic, true,
-                                      CrasAudioHandler::ACTIVATE_BY_USER);
+                                      DeviceActivateType::kActivateByUser);
   EXPECT_FALSE(nbs_warning_view());
 }
 
@@ -333,7 +330,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, OneInputSlider) {
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kInternalMic)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
+      DeviceActivateType::kActivateByUser);
   EXPECT_EQ(kInternalMicId, cras_audio_handler_->GetPrimaryActiveInputNode());
   EXPECT_TRUE(input_sliders_map_.find(kInternalMicId)->second->GetVisible());
 
@@ -341,7 +338,8 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, OneInputSlider) {
   EXPECT_TRUE(input_sliders_map_.find(kMicJackId)->second->GetVisible());
 
   cras_audio_handler_->SwitchToDevice(AudioDevice(GenerateAudioNode(kMicJack)),
-                                      true, CrasAudioHandler::ACTIVATE_BY_USER);
+                                      true,
+                                      DeviceActivateType::kActivateByUser);
   EXPECT_EQ(kMicJackId, cras_audio_handler_->GetPrimaryActiveInputNode());
   EXPECT_TRUE(input_sliders_map_.find(kMicJackId)->second->GetVisible());
 
@@ -357,7 +355,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, OneOutputSlider) {
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kInternalSpeaker)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
+      DeviceActivateType::kActivateByUser);
   EXPECT_EQ(kInternalSpeakerId,
             cras_audio_handler_->GetPrimaryActiveOutputNode());
   // Both sliders should be visible.
@@ -367,7 +365,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, OneOutputSlider) {
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kHeadphone)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
+      DeviceActivateType::kActivateByUser);
   EXPECT_EQ(kHeadphoneId, cras_audio_handler_->GetPrimaryActiveOutputNode());
   // Both sliders should be visible.
   EXPECT_TRUE(output_sliders_map_.find(kHeadphoneId)->second->GetVisible());
@@ -442,7 +440,8 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 
   // Switches to `kMicJack` to make the internal mic inactive.
   cras_audio_handler_->SwitchToDevice(AudioDevice(GenerateAudioNode(kMicJack)),
-                                      true, CrasAudioHandler::ACTIVATE_BY_USER);
+                                      true,
+                                      DeviceActivateType::kActivateByUser);
 
   // Verifies the dual internal mic slider is inactive and its volume level
   // equals to the front mic's level.
@@ -463,7 +462,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kInternalMic)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
+      DeviceActivateType::kActivateByUser);
 
   std::unique_ptr<views::View> view =
       audio_detailed_view_controller_->CreateView();
@@ -479,7 +478,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 
   auto internal_mic = AudioDevice(GenerateAudioNode(kInternalMic));
   cras_audio_handler_->SwitchToDevice(internal_mic, true,
-                                      CrasAudioHandler::ACTIVATE_BY_USER);
+                                      DeviceActivateType::kActivateByUser);
 
   // If `audio_detailed_view_` doesn't exist, this getter method will create the
   // view first.
@@ -499,7 +498,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 
   auto internal_mic = AudioDevice(GenerateAudioNode(kInternalMic));
   cras_audio_handler_->SwitchToDevice(internal_mic, true,
-                                      CrasAudioHandler::ACTIVATE_BY_USER);
+                                      DeviceActivateType::kActivateByUser);
 
   // If `audio_detailed_view_` doesn't exist, this getter method will create the
   // view first.
@@ -530,7 +529,8 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
   cras_audio_handler_->RequestNoiseCancellationSupported(base::DoNothing());
 
   cras_audio_handler_->SwitchToDevice(AudioDevice(GenerateAudioNode(kMicJack)),
-                                      true, CrasAudioHandler::ACTIVATE_BY_USER);
+                                      true,
+                                      DeviceActivateType::kActivateByUser);
 
   std::unique_ptr<views::View> view =
       audio_detailed_view_controller_->CreateView();
@@ -539,7 +539,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kInternalMic)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
+      DeviceActivateType::kActivateByUser);
   EXPECT_EQ(1u, toggles_map_.size());
 }
 
@@ -552,7 +552,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kInternalMic)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
+      DeviceActivateType::kActivateByUser);
 
   // If `audio_detailed_view_` doesn't exist, this getter method will create the
   // view first.
@@ -580,9 +580,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 TEST_F(UnifiedAudioDetailedViewControllerTest, ToggleLiveCaption) {
   scoped_feature_list_.Reset();
   scoped_feature_list_.InitWithFeatures(
-      {media::kLiveCaption, media::kLiveCaptionSystemWideOnChromeOS,
-       ash::features::kOnDeviceSpeechRecognition},
-      {});
+      {media::kLiveCaption, ash::features::kOnDeviceSpeechRecognition}, {});
 
   EXPECT_TRUE(live_caption_view());
   EXPECT_FALSE(live_caption_enabled());
@@ -598,15 +596,14 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, ToggleLiveCaption) {
 
 TEST_F(UnifiedAudioDetailedViewControllerTest, LiveCaptionNotAvailable) {
   // If the Live Caption feature flags are not set, the Live Caption toggle will
-  // not be enabled in audio settings.
-  EXPECT_TRUE(live_caption_view());
+  // not be visible in audio settings.
+  EXPECT_FALSE(live_caption_view());
   EXPECT_FALSE(live_caption_enabled());
 }
 
 TEST_F(UnifiedAudioDetailedViewControllerTest, SliderFocusToggleMute) {
-  std::unique_ptr<views::View> view =
-      audio_detailed_view_controller_->CreateView();
   auto widget = CreateFramelessTestWidget();
+  widget->SetContentsView(audio_detailed_view_controller_->CreateView());
   fake_cras_audio_client()->SetAudioNodesAndNotifyObserversForTesting(
       GenerateAudioNodeList({kInternalMic, kInternalSpeaker}));
 
@@ -618,15 +615,13 @@ TEST_F(UnifiedAudioDetailedViewControllerTest, SliderFocusToggleMute) {
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kInternalMic)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
-  CheckSliderFocusBehavior(widget.get(), /*is_input_slider=*/true,
-                           kInternalMicId);
+      DeviceActivateType::kActivateByUser);
+  CheckSliderFocusBehavior(/*is_input_slider=*/true, kInternalMicId);
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kInternalSpeaker)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
-  CheckSliderFocusBehavior(widget.get(), /*is_input_slider=*/false,
-                           kInternalSpeakerId);
+      DeviceActivateType::kActivateByUser);
+  CheckSliderFocusBehavior(/*is_input_slider=*/false, kInternalSpeakerId);
 }
 
 TEST_F(UnifiedAudioDetailedViewControllerTest,
@@ -638,7 +633,7 @@ TEST_F(UnifiedAudioDetailedViewControllerTest,
 
   cras_audio_handler_->SwitchToDevice(
       AudioDevice(GenerateAudioNode(kHeadphone)), true,
-      CrasAudioHandler::ACTIVATE_BY_USER);
+      DeviceActivateType::kActivateByUser);
   EXPECT_EQ(kHeadphoneId, cras_audio_handler_->GetPrimaryActiveOutputNode());
 
   // Sets a volume level greater than 0 and the device is unmuted.
@@ -670,8 +665,7 @@ class UnifiedAudioDetailedViewControllerSodaTest
     // calling speech::SodaInstaller::GetInstance() returns a valid instance.
     scoped_feature_list_.InitWithFeatures(
         {ash::features::kOnDeviceSpeechRecognition, media::kLiveCaption,
-         media::kLiveCaptionMultiLanguage,
-         media::kLiveCaptionSystemWideOnChromeOS},
+         media::kLiveCaptionMultiLanguage},
         {});
     soda_installer_impl_ =
         std::make_unique<speech::SodaInstallerImplChromeOS>();

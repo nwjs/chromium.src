@@ -146,7 +146,7 @@ gfx::Rect AppWindowFrameView::GetBoundsForClientView() const {
 gfx::Rect AppWindowFrameView::GetWindowBoundsForClientBounds(
     const gfx::Rect& client_bounds) const {
   gfx::Rect window_bounds = client_bounds;
-// TODO(crbug.com/1052397): Revisit once build flag switch of lacros-chrome is
+// TODO(crbug.com/40118868): Revisit once build flag switch of lacros-chrome is
 // complete.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS)
   // Get the difference between the widget's client area bounds and window
@@ -239,8 +239,9 @@ void AppWindowFrameView::SizeConstraintsChanged() {
   }
 }
 
-gfx::Size AppWindowFrameView::CalculatePreferredSize() const {
-  gfx::Size pref = widget_->client_view()->GetPreferredSize({});
+gfx::Size AppWindowFrameView::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  gfx::Size pref = widget_->client_view()->GetPreferredSize(available_size);
   gfx::Rect bounds(0, 0, pref.width(), pref.height());
   return widget_->non_client_view()
       ->GetWindowBoundsForClientBounds(bounds)

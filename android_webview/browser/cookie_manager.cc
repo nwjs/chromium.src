@@ -488,12 +488,16 @@ void CookieManager::SetCookieHelper(const GURL& host,
   bool should_allow_cookie = true;
   const GURL& new_host = MaybeFixUpSchemeForSecureCookie(
       host, value, workaround_http_secure_cookies_, &should_allow_cookie);
+  std::optional<net::CookiePartitionKey> cookie_partition_key =
+      net::cookie_util::PartitionedCookiesDisabledByCommandLine()
+          ? std::nullopt
+          : std::make_optional(net::CookiePartitionKey::FromWire(
+                net::SchemefulSite(new_host),
+                net::CookiePartitionKey::AncestorChainBit::kSameSite));
 
   std::unique_ptr<net::CanonicalCookie> cc(net::CanonicalCookie::Create(
       new_host, value, base::Time::Now(), std::nullopt /* server_time */,
-      net::CookiePartitionKey::FromWire(
-          net::SchemefulSite(new_host),
-          net::CookiePartitionKey::AncestorChainBit::kSameSite),
+      cookie_partition_key,
       /*block_truncated=*/true, net::CookieSourceType::kOther,
       /*status=*/nullptr));
 
@@ -560,7 +564,7 @@ void CookieManager::GetCookieListAsyncHelper(const GURL& host,
                                              base::OnceClosure complete) {
   net::CookieOptions options = net::CookieOptions::MakeAllInclusive();
 
-  // TODO(crbug.com/1225444): Complete partitioned cookies implementation for
+  // TODO(crbug.com/40188414): Complete partitioned cookies implementation for
   // WebView. The current implementation is a temporary fix for
   // crbug.com/1442333 to let the app access its 1p partitioned cookie.
   if (GetMojoCookieManager()) {
@@ -670,7 +674,7 @@ void CookieManager::RemoveAllCookiesHelper(
         base::BindOnce(&CookieManager::RemoveCookiesCompleted,
                        base::Unretained(this), std::move(callback)));
   } else {
-    // TODO(crbug.com/921655): Support clearing client hints here as well.
+    // TODO(crbug.com/40609350): Support clearing client hints here as well.
     GetCookieStore()->DeleteAllAsync(
         base::BindOnce(&CookieManager::RemoveCookiesCompleted,
                        base::Unretained(this), std::move(callback)));

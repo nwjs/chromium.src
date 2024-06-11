@@ -25,6 +25,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.SysUtils;
 import org.chromium.base.supplier.ObservableSupplier;
+import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.blink_public.input.SelectionGranularity;
 import org.chromium.cc.input.BrowserControlsState;
@@ -34,9 +35,8 @@ import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayContentDelegate;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.PanelState;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.StateChangeReason;
+import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelStateProvider;
 import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchPanel;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchPanelCoordinator;
-import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.ContextualSearchPanelInterface;
 import org.chromium.chrome.browser.compositor.bottombar.contextualsearch.RelatedSearchesControl;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchInternalStateController.InternalState;
@@ -171,7 +171,9 @@ public class ContextualSearchManager
     private ContextualSearchInternalStateController mInternalStateController;
 
     // The panel.
-    private ContextualSearchPanelInterface mSearchPanel;
+    private ContextualSearchPanel mSearchPanel;
+    private ObservableSupplierImpl<OverlayPanelStateProvider> mOverlayPanelStateProviderSupplier =
+            new ObservableSupplierImpl<>();
 
     // The native manager associated with this object.
     private long mNativeContextualSearchManagerPtr;
@@ -365,39 +367,24 @@ public class ContextualSearchManager
 
         mLayoutManager = layoutManager;
 
-        ContextualSearchPanelInterface panel;
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.CONTEXTUAL_SEARCH_THIN_WEB_VIEW_IMPLEMENTATION)) {
-            panel =
-                    new ContextualSearchPanelCoordinator(
-                            mActivity,
-                            mWindowAndroid,
-                            bottomSheetController,
-                            this::getBasePageHeight,
-                            intentRequestTracker);
-        } else {
-            panel =
-                    new ContextualSearchPanel(
-                            mActivity,
-                            mLayoutManager,
-                            mLayoutManager.getOverlayPanelManager(),
-                            mBrowserControlsStateProvider,
-                            mWindowAndroid,
-                            mProfile,
-                            compositorViewHolder,
-                            toolbarHeightDp,
-                            toolbarManager,
-                            activityType,
-                            mTabSupplier,
-                            mEdgeToEdgeControllerSupplier);
-        }
-
+        ContextualSearchPanel panel =
+                new ContextualSearchPanel(
+                        mActivity,
+                        mLayoutManager,
+                        mLayoutManager.getOverlayPanelManager(),
+                        mBrowserControlsStateProvider,
+                        mWindowAndroid,
+                        mProfile,
+                        compositorViewHolder,
+                        toolbarHeightDp,
+                        toolbarManager,
+                        activityType,
+                        mTabSupplier,
+                        mEdgeToEdgeControllerSupplier);
         panel.setManagementDelegate(this);
-        setContextualSearchPanel(panel);
 
-        if (panel instanceof SceneOverlay) {
-            mLayoutManager.addSceneOverlay((SceneOverlay) panel);
-        }
+        setContextualSearchPanel(panel);
+        mLayoutManager.addSceneOverlay((SceneOverlay) panel);
 
         mRedirectHandler = RedirectHandler.create();
 
@@ -430,12 +417,14 @@ public class ContextualSearchManager
 
         if (mSearchPanel != null) mSearchPanel.destroy();
         mSearchPanel = null;
+        mOverlayPanelStateProviderSupplier.set(null);
     }
 
     @Override
-    public void setContextualSearchPanel(ContextualSearchPanelInterface panel) {
+    public void setContextualSearchPanel(ContextualSearchPanel panel) {
         assert panel != null;
         mSearchPanel = panel;
+        mOverlayPanelStateProviderSupplier.set(mSearchPanel);
         mPolicy.setContextualSearchPanel(panel);
     }
 
@@ -1453,7 +1442,7 @@ public class ContextualSearchManager
                         + "Please update crbug.com/1307267 with this repro.";
         assert (suggestionIndex - defaultSearchAdjustment) < mRelatedSearches.getQueries().size();
 
-        // TODO(crbug.com/1307267) remove this check once we figure out how this can happen.
+        // TODO(crbug.com/40828323) remove this check once we figure out how this can happen.
         if (mRelatedSearches == null) return;
 
         if (mSearchPanel.isPeeking()) {
@@ -2054,13 +2043,25 @@ public class ContextualSearchManager
         mPolicy = policy;
     }
 
-    /** @return The {@link ContextualSearchPanelInterface}, for testing purposes only. */
+    /**
+     * @return The {@link ContextualSearchPanel}, for testing purposes only.
+     */
     @VisibleForTesting
-    ContextualSearchPanelInterface getContextualSearchPanel() {
+    ContextualSearchPanel getContextualSearchPanel() {
         return mSearchPanel;
     }
 
-    /** @return The selection controller, for testing purposes. */
+    /**
+     * @return the {@link OverlayPanelStateProvider} for observing changes to the Overlay Panel
+     *     state.
+     */
+    public ObservableSupplier<OverlayPanelStateProvider> getOverlayPanelStateProviderSupplier() {
+        return mOverlayPanelStateProviderSupplier;
+    }
+
+    /**
+     * @return The selection controller, for testing purposes.
+     */
     @VisibleForTesting
     ContextualSearchSelectionController getSelectionController() {
         return mSelectionController;

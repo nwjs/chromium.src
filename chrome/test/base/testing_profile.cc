@@ -146,16 +146,6 @@ using content::DownloadManagerDelegate;
 using testing::NiceMock;
 using testing::Return;
 
-namespace {
-
-std::unique_ptr<KeyedService> BuildPersonalDataManagerInstanceFor(
-    content::BrowserContext* context) {
-  return std::unique_ptr<KeyedService>(
-      autofill::PersonalDataManagerFactory::BuildPersonalDataManager(context));
-}
-
-}  // namespace
-
 TestingProfile::TestingFactory::TestingFactory(
     BrowserContextKeyedServiceFactory* service_factory,
     BrowserContextKeyedServiceFactory::TestingFactory testing_factory)
@@ -396,9 +386,6 @@ void TestingProfile::Init(bool is_supervised_profile) {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   if (!AreKeyedServicesDisabledForProfileByDefault(this)) {
-    autofill::PersonalDataManagerFactory::GetInstance()->SetTestingFactory(
-        this, base::BindRepeating(&BuildPersonalDataManagerInstanceFor));
-
     ReadingListModelFactory::GetInstance()->SetTestingFactory(
         this, ReadingListModelFactory::GetDefaultFactoryForTesting());
 
@@ -787,7 +774,9 @@ void TestingProfile::CreateProfilePolicyConnector() {
         raw_ptr<policy::ConfigurationPolicyProvider, VectorExperimental>>
         providers;
     std::unique_ptr<policy::PolicyServiceImpl> policy_service =
-        std::make_unique<policy::PolicyServiceImpl>(std::move(providers));
+        std::make_unique<policy::PolicyServiceImpl>(
+            std::move(providers),
+            policy::PolicyServiceImpl::ScopeForMetrics::kUser);
     policy_service_ = std::move(policy_service);
   }
   profile_policy_connector_ =
@@ -885,6 +874,20 @@ TestingProfile::GetProfileCloudPolicyManager() {
   return profile_cloud_policy_manager_.get();
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+policy::CloudPolicyManager* TestingProfile::GetCloudPolicyManager() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  return GetUserCloudPolicyManagerAsh();
+#else
+  if (user_cloud_policy_manager_) {
+    return GetUserCloudPolicyManager();
+  }
+  if (profile_cloud_policy_manager_) {
+    return GetProfileCloudPolicyManager();
+  }
+  return nullptr;
+#endif
+}
 
 policy::ProfilePolicyConnector* TestingProfile::GetProfilePolicyConnector() {
   // This matches OffTheRecordProfileImpl::GetProfilePolicyConnector()

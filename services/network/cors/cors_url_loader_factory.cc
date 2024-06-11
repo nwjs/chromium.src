@@ -70,7 +70,7 @@ bool VerifyTrustTokenParamsIntegrityIfPresent(
     return false;
   }
 
-  // TODO(crbug.com/1145346): There's no current way to get a trusted
+  // TODO(crbug.com/40729410): There's no current way to get a trusted
   // browser-side view of whether a request "came from" a secure context, so we
   // don't implement a check for the second criterion in the function comment.
 
@@ -117,7 +117,7 @@ bool IsTrustedNavigationRequestFromSecureContext(
   }
 
   // `client_security_state` is not set for top-level navigation requests.
-  // TODO(crbug.com/1129326): Remove this when we set it for top-level
+  // TODO(crbug.com/40149351): Remove this when we set it for top-level
   // navigation requests.
   if (!request.trusted_params->client_security_state) {
     return IsUrlPotentiallyTrustworthy(request.url);
@@ -747,7 +747,7 @@ bool CorsURLLoaderFactory::IsValidRequest(const ResourceRequest& request,
   // Check only when `disable_web_security_` is false because
   // PreflightControllerTest use CorsURLLoaderFactory with this flag true
   // instead of network::URLLoaderFactory.
-  // TODO(https://crbug.com/1264298): consider if we can remove this exemption.
+  // TODO(crbug.com/40203308): consider if we can remove this exemption.
   if (!disable_web_security_) {
     // `net_log_create_info` field is expected to be used within network
     // service.
@@ -831,6 +831,33 @@ mojom::SharedDictionaryAccessObserver*
 CorsURLLoaderFactory::GetSharedDictionaryAccessObserver() const {
   return shared_dictionary_observer_ ? shared_dictionary_observer_.get()
                                      : nullptr;
+}
+
+net::handles::NetworkHandle CorsURLLoaderFactory::GetBoundNetworkForTesting()
+    const {
+  CHECK(!factory_override_);
+  return network_loader_factory_->GetBoundNetworkForTesting();  // IN-TEST
+}
+
+void CorsURLLoaderFactory::CancelRequestsIfNonceMatchesAndUrlNotExempted(
+    const base::UnguessableToken& nonce,
+    const std::set<GURL>& exemptions) {
+  // Cancelling the request may cause the URL loader to be deleted from the data
+  // structure, invalidating the iterator if it is currently pointing to that
+  // element. So advance to the next element first and delete the previous one.
+  for (auto loader_it = url_loaders_.begin(); loader_it != url_loaders_.end();
+       /* iteration performed inside the loop */) {
+    ++loader_it;
+    (*std::prev(loader_it))
+        ->CancelRequestIfNonceMatchesAndUrlNotExempted(nonce, exemptions);
+  }
+  for (auto loader_it = cors_url_loaders_.begin();
+       loader_it != cors_url_loaders_.end();
+       /* iteration performed inside the loop */) {
+    ++loader_it;
+    (*std::prev(loader_it))
+        ->CancelRequestIfNonceMatchesAndUrlNotExempted(nonce, exemptions);
+  }
 }
 
 }  // namespace network::cors

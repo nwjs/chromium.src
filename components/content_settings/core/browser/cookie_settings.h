@@ -24,7 +24,7 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "components/privacy_sandbox/tracking_protection_settings_observer.h"
-#include "components/tpcd/metadata/manager.h"
+#include "components/tpcd/metadata/browser/manager.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 class GURL;
@@ -96,7 +96,7 @@ class CookieSettings
   //
   // This may be called on any thread.
   ContentSetting GetDefaultCookieSetting(
-      std::string* provider_id = nullptr) const;
+      content_settings::ProviderType* provider_id = nullptr) const;
 
   // Returns all patterns with a non-default cookie setting, mapped to their
   // actual settings, in the precedence order of the setting rules.
@@ -207,9 +207,6 @@ class CookieSettings
   //
   // This method may be called on any thread. Virtual for testing.
   bool MitigationsEnabledFor3pcd() const override;
-
-  // Returns true iff tracking protection for 3PCD (prefs + UX) is enabled.
-  bool TrackingProtectionEnabledFor3pcd() const;
 
   // Returns true if there is an active storage access exception with
   // |first_party_url| as the secondary pattern.

@@ -65,7 +65,7 @@
 #include "content/browser/hid/hid_service.h"
 #endif
 
-// TODO(crbug.com/824858): Much of this file, which dealt with thread hops
+// TODO(crbug.com/40568315): Much of this file, which dealt with thread hops
 // between UI and IO, can likely be simplified when the service worker core
 // thread moves to the UI thread.
 
@@ -118,7 +118,7 @@ void NotifyForegroundServiceWorker(bool added, int process_id) {
 // when the worker stops, and this proxies notifications to DevToolsManager.
 // Owned by EmbeddedWorkerInstance.
 //
-// TODO(https://crbug.com/1138155): Remove this because we no longer need
+// TODO(crbug.com/40725202): Remove this because we no longer need
 // proxying the notifications because there's no thread hopping thanks to
 // ServiceWorkerOnUI.
 class EmbeddedWorkerInstance::DevToolsProxy {
@@ -173,7 +173,7 @@ class EmbeddedWorkerInstance::DevToolsProxy {
 
 // A handle for a renderer process managed by ServiceWorkerProcessManager.
 //
-// TODO(https://crbug.com/1138155): Remove this as a clean up of
+// TODO(crbug.com/40725202): Remove this as a clean up of
 // ServiceWorkerOnUI.
 class EmbeddedWorkerInstance::WorkerProcessHandle {
  public:
@@ -255,7 +255,7 @@ void EmbeddedWorkerInstance::Start(
   params->subresource_loader_updater =
       subresource_loader_updater_.BindNewPipeAndPassReceiver();
 
-  // TODO(https://crbug.com/978694): Consider a reset flow since new mojo types
+  // TODO(crbug.com/41467868): Consider a reset flow since new mojo types
   // check is_bound strictly.
   client_.reset();
 
@@ -386,8 +386,8 @@ void EmbeddedWorkerInstance::Start(
   CHECK(params->forced_enabled_runtime_features.empty() ||
         rph->GetProcessLock().is_locked_to_site());
 
-  // TODO(crbug.com/862854): Support changes to blink::RendererPreferences while
-  // the worker is running.
+  // TODO(crbug.com/40584626): Support changes to blink::RendererPreferences
+  // while the worker is running.
   DCHECK(context_->wrapper()->browser_context() ||
          process_manager->IsShutdown());
   params->renderer_preferences = blink::RendererPreferences();
@@ -436,13 +436,11 @@ void EmbeddedWorkerInstance::Start(
 
   // Create cache storage now as an optimization, so the service worker can
   // use the Cache Storage API immediately on startup.
-  if (base::FeatureList::IsEnabled(
-          blink::features::kEagerCacheStorageSetupForServiceWorkers) &&
-      // Without COEP, BindCacheStorage won't bind the cache storage,
-      // which make cache storage set up in the install handler get stuck.
-      // Since this is a performance improvement feature, fallback to the slow
-      // path should be better than making the execution get stuck.
-      owner_version_->cross_origin_embedder_policy()) {
+  // Without COEP, BindCacheStorage won't bind the cache storage,
+  // which make cache storage set up in the install handler get stuck.
+  // Since this is a performance improvement feature, fallback to the slow
+  // path should be better than making the execution get stuck.
+  if (owner_version_->cross_origin_embedder_policy()) {
     BindCacheStorage(
         params->provider_info->cache_storage.InitWithNewPipeAndPassReceiver(),
         storage::BucketLocator::ForDefaultBucket(owner_version_->key()));

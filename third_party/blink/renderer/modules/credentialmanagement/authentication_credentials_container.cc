@@ -33,7 +33,6 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_credential_creation_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_credential_properties_output.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_credential_request_options.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_digital_credential_provider.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_federated_credential_request_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_identity_credential_request_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_identity_provider_config.h"
@@ -65,7 +64,6 @@
 #include "third_party/blink/renderer/modules/credentialmanagement/credential_manager_proxy.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/credential_manager_type_converters.h"  // IWYU pragma: keep
 #include "third_party/blink/renderer/modules/credentialmanagement/credential_utils.h"
-#include "third_party/blink/renderer/modules/credentialmanagement/digital_identity_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/federated_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/identity_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/identity_credential_error.h"
@@ -73,7 +71,6 @@
 #include "third_party/blink/renderer/modules/credentialmanagement/password_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/public_key_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/scoped_promise_resolver.h"
-#include "third_party/blink/renderer/modules/credentialmanagement/web_identity_requester.h"
 #include "third_party/blink/renderer/platform/bindings/exception_code.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -102,7 +99,6 @@ using mojom::blink::CredentialInfoPtr;
 using mojom::blink::CredentialManagerError;
 using mojom::blink::CredentialMediationRequirement;
 using mojom::blink::PaymentCredentialInstrument;
-using mojom::blink::RequestDigitalIdentityStatus;
 using mojom::blink::WebAuthnDOMExceptionDetailsPtr;
 using MojoPublicKeyCredentialCreationOptions =
     mojom::blink::PublicKeyCredentialCreationOptions;
@@ -263,7 +259,7 @@ bool CheckSecurityRequirementsBeforeRequest(
               mojom::blink::PermissionsPolicyFeature::kOTPCredentials)) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNotAllowedError,
-            "The 'otp-credentials` feature is not enabled in this document."));
+            "The 'otp-credentials' feature is not enabled in this document."));
         return false;
       }
       if (!IsAncestorChainValidForWebOTP(
@@ -281,7 +277,7 @@ bool CheckSecurityRequirementsBeforeRequest(
                   kIdentityCredentialsGet)) {
         resolver->Reject(MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kNotAllowedError,
-            "The 'identity-credentials-get` feature is not enabled in this "
+            "The 'identity-credentials-get' feature is not enabled in this "
             "document."));
         return false;
       }
@@ -608,7 +604,7 @@ void AbortIdentityCredentialRequest(ScriptState* script_state) {
   auth_request->CancelTokenRequest();
 }
 
-void OnRequestToken(ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
+void OnRequestToken(std::unique_ptr<ScopedPromiseResolver> scoped_resolver,
                     std::unique_ptr<ScopedAbortState> scoped_abort_state,
                     const CredentialRequestOptions* options,
                     RequestTokenStatus status,
@@ -616,6 +612,8 @@ void OnRequestToken(ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
                     const WTF::String& token,
                     mojom::blink::TokenErrorPtr error,
                     bool is_auto_selected) {
+  auto* resolver =
+      scoped_resolver->Release()->DowncastTo<IDLNullable<Credential>>();
   switch (status) {
     case RequestTokenStatus::kErrorTooManyRequests: {
       resolver->Reject(MakeGarbageCollected<DOMException>(
@@ -648,8 +646,9 @@ void OnRequestToken(ScriptPromiseResolver<IDLNullable<Credential>>* resolver,
       return;
     }
     case RequestTokenStatus::kSuccess: {
-      IdentityCredential* credential =
-          IdentityCredential::Create(token, is_auto_selected);
+      CHECK(selected_idp_config_url);
+      IdentityCredential* credential = IdentityCredential::Create(
+          token, is_auto_selected, *selected_idp_config_url);
       resolver->Resolve(credential);
       return;
     }
@@ -1227,11 +1226,6 @@ ScriptPromise<IDLNullable<Credential>> AuthenticationCredentialsContainer::get(
           script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
   ExecutionContext* context = ExecutionContext::From(script_state);
-
-  if (IsDigitalIdentityCredentialType(*options)) {
-    return DiscoverDigitalIdentityCredentialFromExternalSource(
-        script_state, resolver, *options, exception_state);
-  }
 
   auto required_origin_type = RequiredOriginType::kSecureAndSameWithAncestors;
   // hasPublicKey() implies that this is a WebAuthn request.
@@ -1905,7 +1899,6 @@ AuthenticationCredentialsContainer::preventSilentAccess(
 }
 
 void AuthenticationCredentialsContainer::Trace(Visitor* visitor) const {
-  visitor->Trace(web_identity_requester_);
   Supplement<Navigator>::Trace(visitor);
   CredentialsContainer::Trace(visitor);
 }
@@ -1937,12 +1930,17 @@ void AuthenticationCredentialsContainer::GetForIdentity(
   ContentSecurityPolicy* policy =
       resolver->GetExecutionContext()
           ->GetContentSecurityPolicyForCurrentWorld();
-  if (!RuntimeEnabledFeatures::FedCmMultipleIdentityProvidersEnabled(context) &&
-      identity_options.providers().size() > 1) {
-    resolver->RejectWithTypeError(
-        "Multiple providers specified but FedCmMultipleIdentityProviders "
-        "flag is disabled.");
-    return;
+  if (identity_options.providers().size() > 1) {
+    if (RuntimeEnabledFeatures::FedCmMultipleIdentityProvidersEnabled(
+            context)) {
+      UseCounter::Count(resolver->GetExecutionContext(),
+                        WebFeature::kFedCmMultipleIdentityProviders);
+    } else {
+      resolver->RejectWithTypeError(
+          "Multiple providers specified but FedCmMultipleIdentityProviders "
+          "flag is disabled.");
+      return;
+    }
   }
 
   // Log the UseCounter only when the WebID flag is enabled.
@@ -2058,56 +2056,30 @@ void AuthenticationCredentialsContainer::GetForIdentity(
     mediation_requirement = CredentialMediationRequirement::kOptional;
   }
 
-  if (!web_identity_requester_) {
-    web_identity_requester_ = MakeGarbageCollected<WebIdentityRequester>(
-        context, mediation_requirement);
-  }
-
   std::unique_ptr<ScopedAbortState> scoped_abort_state;
   if (signal) {
     // Checked signal->aborted() at the top of the function.
 
-    auto callback =
-        !RuntimeEnabledFeatures::FedCmMultipleIdentityProvidersEnabled(context)
-            ? WTF::BindOnce(&AbortIdentityCredentialRequest,
-                            WrapPersistent(script_state))
-            : WTF::BindOnce(&WebIdentityRequester::AbortRequest,
-                            WrapPersistent(web_identity_requester_.Get()),
-                            WrapPersistent(script_state));
+    auto callback = WTF::BindOnce(&AbortIdentityCredentialRequest,
+                                  WrapPersistent(script_state));
 
     auto* handle = signal->AddAlgorithm(std::move(callback));
     scoped_abort_state = std::make_unique<ScopedAbortState>(signal, handle);
   }
 
-  if (!RuntimeEnabledFeatures::FedCmMultipleIdentityProvidersEnabled(context)) {
-    Vector<mojom::blink::IdentityProviderGetParametersPtr> idp_get_params;
-    mojom::blink::IdentityProviderGetParametersPtr get_params =
-        mojom::blink::IdentityProviderGetParameters::New(
-            std::move(identity_provider_ptrs), rp_context, rp_mode);
-    idp_get_params.push_back(std::move(get_params));
+  Vector<mojom::blink::IdentityProviderGetParametersPtr> idp_get_params;
+  mojom::blink::IdentityProviderGetParametersPtr get_params =
+      mojom::blink::IdentityProviderGetParameters::New(
+          std::move(identity_provider_ptrs), rp_context, rp_mode);
+  idp_get_params.push_back(std::move(get_params));
 
-    auto* auth_request =
-        CredentialManagerProxy::From(script_state)->FederatedAuthRequest();
-    auth_request->RequestToken(
-        std::move(idp_get_params), mediation_requirement,
-        WTF::BindOnce(&OnRequestToken, WrapPersistent(resolver),
-                      std::move(scoped_abort_state), WrapPersistent(&options)));
-
-    // Start recording the duration from when RequestToken is called directly
-    // to when RequestToken would be called if invoked through
-    // web_identity_requester_.
-    web_identity_requester_->StartDelayTimer(resolver);
-
-    return;
-  }
-
-  if (scoped_abort_state) {
-    web_identity_requester_->InsertScopedAbortState(
-        std::move(scoped_abort_state));
-  }
-
-  web_identity_requester_->AppendGetCall(resolver, identity_options.providers(),
-                                         rp_context, rp_mode);
+  auto* auth_request =
+      CredentialManagerProxy::From(script_state)->FederatedAuthRequest();
+  auth_request->RequestToken(
+      std::move(idp_get_params), mediation_requirement,
+      WTF::BindOnce(&OnRequestToken,
+                    std::make_unique<ScopedPromiseResolver>(resolver),
+                    std::move(scoped_abort_state), WrapPersistent(&options)));
 }
 
 }  // namespace blink

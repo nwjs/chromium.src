@@ -84,17 +84,17 @@ void AXInlineTextBox::GetRelativeBounds(AXObject** out_container,
   out_bounds_in_container.Offset(-parent_bounding_box.OffsetFromOrigin());
 }
 
-bool AXInlineTextBox::ComputeAccessibilityIsIgnored(
+bool AXInlineTextBox::ComputeIsIgnored(
     IgnoredReasons* ignored_reasons) const {
   AXObject* parent = ParentObject();
   if (!parent)
     return false;
 
-  if (!parent->AccessibilityIsIgnored())
+  if (!parent->IsIgnored())
     return false;
 
   if (ignored_reasons)
-    parent->ComputeAccessibilityIsIgnored(ignored_reasons);
+    parent->ComputeIsIgnored(ignored_reasons);
 
   return true;
 }
@@ -206,7 +206,7 @@ Node* AXInlineTextBox::GetNode() const {
 }
 
 Document* AXInlineTextBox::GetDocument() const {
-  return CachedParentObject() ? CachedParentObject()->GetDocument() : nullptr;
+  return ParentObject() ? ParentObject()->GetDocument() : nullptr;
 }
 
 AbstractInlineTextBox* AXInlineTextBox::GetInlineTextBox() const {
@@ -382,7 +382,7 @@ void AXInlineTextBox::Init(AXObject* parent) {
   DCHECK(ui::CanHaveInlineTextBoxChildren(parent->RoleValue()))
       << "Unexpected parent of inline text box: " << parent->RoleValue();
   DCHECK(parent->CanHaveChildren())
-      << "Parent cannot have children: " << parent->ToString(true, true);
+      << "Parent cannot have children: " << parent;
   // Don't call SetParent(), which calls SetAncestorsHaveDirtyDescendants(),
   // because once inline textboxes are loaded for the parent text, it's never
   // necessary to again recompute this part of the tree.
@@ -416,7 +416,7 @@ int AXInlineTextBox::TextLength() const {
   return static_cast<int>(inline_text_box_->Len());
 }
 
-void AXInlineTextBox::ClearChildren() const {
+void AXInlineTextBox::ClearChildren() {
   // An AXInlineTextBox has no children to clear.
 }
 

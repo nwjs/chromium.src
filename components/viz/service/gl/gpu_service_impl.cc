@@ -629,19 +629,26 @@ void GpuServiceImpl::InitializeWithHost(
       gpu_channel_manager_.get());
 
   // Create and Initialize compositor gpu thread.
-  compositor_gpu_thread_ = CompositorGpuThread::Create(
-      gpu_channel_manager_.get(),
+  {
+    CompositorGpuThread::CreateParams params;
+    params.gpu_channel_manager = gpu_channel_manager_.get();
+    params.display =
+        gpu_channel_manager_->default_offscreen_surface()
+            ? gpu_channel_manager_->default_offscreen_surface()->GetGLDisplay()
+            : nullptr;
+    params.enable_watchdog = !!watchdog_thread_;
+
 #if BUILDFLAG(ENABLE_VULKAN)
-      vulkan_implementation_,
-      vulkan_context_provider_ ? vulkan_context_provider_->GetDeviceQueue()
-                               : nullptr,
-#else
-      nullptr, nullptr,
+    params.vulkan_implementation = vulkan_implementation_;
+    params.device_queue = vulkan_context_provider_
+                              ? vulkan_context_provider_->GetDeviceQueue()
+                              : nullptr;
 #endif
-      gpu_channel_manager_->default_offscreen_surface()
-          ? gpu_channel_manager_->default_offscreen_surface()->GetGLDisplay()
-          : nullptr,
-      !!watchdog_thread_);
+#if BUILDFLAG(SKIA_USE_DAWN)
+    params.dawn_context_provider = dawn_context_provider_.get();
+#endif
+    compositor_gpu_thread_ = CompositorGpuThread::MaybeCreate(params);
+  }
 
 #if BUILDFLAG(IS_WIN)
   // Add GpuServiceImpl to DirectCompositionOverlayCapsMonitor observer list for
@@ -846,7 +853,7 @@ void GpuServiceImpl::CreateVideoEncodeAcceleratorProvider(
   // processing of other mojo calls if executed on the current runner.
   scoped_refptr<base::SequencedTaskRunner> runner;
 #if BUILDFLAG(IS_FUCHSIA)
-  // TODO(crbug.com/1340041): Fuchsia does not support FIDL communication from
+  // TODO(crbug.com/40850116): Fuchsia does not support FIDL communication from
   // ThreadPool's worker threads.
   if (!vea_thread_) {
     base::Thread::Options thread_options(base::MessagePumpType::IO, /*size=*/0);
@@ -877,7 +884,6 @@ void GpuServiceImpl::CreateVideoEncodeAcceleratorProvider(
 void GpuServiceImpl::BindClientGmbInterface(
     mojo::PendingReceiver<gpu::mojom::ClientGmbInterface> pending_receiver,
     int client_id) {
-  CHECK(base::FeatureList::IsEnabled(features::kUseClientGmbInterface));
   // Bind the receiver to the IO tread. All IPC in this interface will be
   // then received on the IO thread.
   if (main_runner_->BelongsToCurrentThread()) {
@@ -1491,7 +1497,6 @@ void GpuServiceImpl::OnOverlayCapsChanged() {
 
 bool GpuServiceImpl::IsNativeBufferSupported(gfx::BufferFormat format,
                                              gfx::BufferUsage usage) {
-  CHECK(base::FeatureList::IsEnabled(features::kUseClientGmbInterface));
   // Note that we are initializing the |supported_gmb_configurations_| here to
   // make sure gpu service have already initialized and required metadata like
   // supported buffer configurations have already been sent from browser

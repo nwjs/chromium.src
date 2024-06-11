@@ -514,13 +514,14 @@ public final class ReturnToChromeUtil {
 
     /**
      * Returns whether to use Chrome's homepage. This function doesn't distinguish whether to show
-     * NTP or Start though. If checking whether to show Start as homepage, use
-     * {@link ReturnToChromeUtil#shouldShowStartSurfaceAsTheHomePage(Context)} instead.
+     * NTP or Start though. If checking whether to show Start as homepage, use {@link
+     * ReturnToChromeUtil#shouldShowStartSurfaceAsTheHomePage(Context)} instead.
      */
     @VisibleForTesting
     public static boolean useChromeHomepage() {
-        GURL homePageGurl = HomepageManager.getHomepageGurl();
-        return HomepageManager.isHomepageEnabled()
+        HomepageManager homepageManager = HomepageManager.getInstance();
+        GURL homePageGurl = homepageManager.getHomepageGurl();
+        return homepageManager.isHomepageEnabled()
                 && ((HomepagePolicyManager.isInitializedWithNative()
                                 || sSkipInitializationCheckForTesting)
                         && (homePageGurl.isEmpty() || UrlUtilities.isNtpUrl(homePageGurl)));
@@ -874,14 +875,9 @@ public final class ReturnToChromeUtil {
                         == ActiveTabState.NTP);
     }
 
-    /** Returns whether to move logo out of toolbar from Start surface. */
-    public static boolean moveDownLogo() {
-        return ChromeFeatureList.sSurfacePolish.isEnabled()
-                && StartSurfaceConfiguration.SURFACE_POLISH_MOVE_DOWN_LOGO.getValue();
-    }
-
     /**
      * Records a user action that Start surface is showing due to tapping the back button.
+     *
      * @param from: Where the back navigation is initiated, either "FromTab" or "FromTabSwitcher".
      */
     public static void recordBackNavigationToStart(String from) {
@@ -1005,7 +1001,7 @@ public final class ReturnToChromeUtil {
         }
     }
 
-    // TODO(https://crbug.com/1450578): Removes this histogram once we understand the root cause of
+    // TODO(crbug.com/40270227): Removes this histogram once we understand the root cause of
     // the crash.
     private static void recordFailToShowHomeSurfaceReasonUma(
             @FailToShowHomeSurfaceReason int reason) {

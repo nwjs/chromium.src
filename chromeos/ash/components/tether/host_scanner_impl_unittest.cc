@@ -24,7 +24,6 @@
 #include "chromeos/ash/components/tether/fake_notification_presenter.h"
 #include "chromeos/ash/components/tether/fake_tether_host_fetcher.h"
 #include "chromeos/ash/components/tether/gms_core_notifications_state_tracker_impl.h"
-#include "chromeos/ash/components/tether/host_scan_device_prioritizer.h"
 #include "chromeos/ash/components/tether/host_scanner.h"
 #include "chromeos/ash/components/tether/mock_tether_host_response_recorder.h"
 #include "chromeos/ash/components/tether/proto_test_util.h"
@@ -50,16 +49,6 @@ class TestObserver final : public HostScanner::Observer {
 
  private:
   int scan_finished_count_ = 0;
-};
-
-class FakeHostScanDevicePrioritizer : public HostScanDevicePrioritizer {
- public:
-  FakeHostScanDevicePrioritizer() : HostScanDevicePrioritizer() {}
-  ~FakeHostScanDevicePrioritizer() override = default;
-
-  // Simply leave |remote_devices| as-is.
-  void SortByHostScanOrder(
-      multidevice::RemoteDeviceRefList* remote_devices) const override {}
 };
 
 class FakeTetherAvailabilityOperationOrchestrator
@@ -177,8 +166,9 @@ std::vector<ScannedDeviceInfo> CreateFakeScannedDeviceInfos(
     // Require set-up for odd-numbered device indices.
     bool setup_required = i % 2 == 0;
 
-    scanned_device_infos.push_back(
-        ScannedDeviceInfo(remote_devices[i], device_status, setup_required));
+    scanned_device_infos.push_back(ScannedDeviceInfo(
+        remote_devices[i].GetDeviceId(), remote_devices[i].name(),
+        device_status, setup_required, /*notifications_enabled=*/true));
   }
 
   return scanned_device_infos;
@@ -207,8 +197,6 @@ class HostScannerImplTest : public testing::Test {
     session_manager_ = std::make_unique<session_manager::SessionManager>();
     fake_tether_host_fetcher_ =
         std::make_unique<FakeTetherHostFetcher>(test_devices_[0]);
-    fake_host_scan_device_prioritizer_ =
-        std::make_unique<FakeHostScanDevicePrioritizer>();
     mock_tether_host_response_recorder_ =
         std::make_unique<MockTetherHostResponseRecorder>();
     gms_core_notifications_state_tracker_ =
@@ -255,7 +243,7 @@ class HostScannerImplTest : public testing::Test {
       int num_expected_host_scan_histogram_samples = 1) {
     bool already_in_list = false;
     for (auto& scanned_device_info : scanned_device_infos_from_current_scan_) {
-      if (scanned_device_info.remote_device.GetDeviceId() ==
+      if (scanned_device_info.device_id ==
           test_devices_[test_device_index].GetDeviceId()) {
         already_in_list = true;
         break;
@@ -307,8 +295,7 @@ class HostScannerImplTest : public testing::Test {
          scanned_device_infos_from_previous_scans_) {
       bool already_in_combined = false;
       for (const auto& combined_device_info : combined_device_infos) {
-        if (previous_scan_result.remote_device.GetDeviceId() ==
-            combined_device_info.remote_device.GetDeviceId()) {
+        if (previous_scan_result.device_id == combined_device_info.device_id) {
           already_in_combined = true;
           break;
         }
@@ -322,7 +309,7 @@ class HostScannerImplTest : public testing::Test {
     for (auto& scanned_device_info : combined_device_infos) {
       std::string tether_network_guid =
           device_id_tether_network_guid_map_->GetTetherNetworkGuidForDeviceId(
-              scanned_device_info.remote_device.GetDeviceId());
+              scanned_device_info.device_id);
       const HostScanCacheEntry* entry =
           fake_host_scan_cache_->GetCacheEntry(tether_network_guid);
       ASSERT_TRUE(entry);
@@ -334,9 +321,9 @@ class HostScannerImplTest : public testing::Test {
   void VerifyScannedDeviceInfoAndCacheEntryAreEquivalent(
       const ScannedDeviceInfo& scanned_device_info,
       const HostScanCacheEntry& entry) {
-    EXPECT_EQ(scanned_device_info.remote_device.name(), entry.device_name);
+    EXPECT_EQ(scanned_device_info.device_name, entry.device_name);
 
-    const DeviceStatus& status = scanned_device_info.device_status;
+    const DeviceStatus& status = scanned_device_info.device_status.value();
     if (!status.has_cell_provider() || status.cell_provider().empty()) {
       EXPECT_EQ("unknown-carrier", entry.carrier);
     } else {
@@ -400,7 +387,6 @@ class HostScannerImplTest : public testing::Test {
       fake_secure_channel_client_;
   std::unique_ptr<session_manager::SessionManager> session_manager_;
   std::unique_ptr<FakeTetherHostFetcher> fake_tether_host_fetcher_;
-  std::unique_ptr<HostScanDevicePrioritizer> fake_host_scan_device_prioritizer_;
   std::unique_ptr<MockTetherHostResponseRecorder>
       mock_tether_host_response_recorder_;
   std::unique_ptr<GmsCoreNotificationsStateTrackerImpl>

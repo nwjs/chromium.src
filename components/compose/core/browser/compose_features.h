@@ -26,14 +26,16 @@ BASE_DECLARE_FEATURE(kComposeAutoSubmit);
 BASE_DECLARE_FEATURE(kComposeEligible);
 
 // Controls whether or not the saved state nudge is enabled.
-// TODO(b/334158978): Rename to kEnableComposeSavedStateNudge
-BASE_DECLARE_FEATURE(kEnableComposeNudge);
+BASE_DECLARE_FEATURE(kEnableComposeSavedStateNudge);
 
 // Controls whether or not the proactive nudge is enabled.
 BASE_DECLARE_FEATURE(kEnableComposeProactiveNudge);
 
 // Controls whether or not the saved state notification is shown.
 BASE_DECLARE_FEATURE(kEnableComposeSavedStateNotification);
+
+// Controls whether or not the nudge displays at the cursor.
+BASE_DECLARE_FEATURE(kEnableComposeNudgeAtCursor);
 
 // Controls whether the language check is bypassed for Compose.
 BASE_DECLARE_FEATURE(kEnableComposeLanguageBypass);
@@ -62,6 +64,9 @@ BASE_DECLARE_FEATURE(kComposeUiRefinement);
 
 // Default nudge allow/deny decision for unspecified hint.
 BASE_DECLARE_FEATURE(kEnableNudgeForUnspecifiedHint);
+
+// A kill switch for additional metrics added to ComposeTextUsageLogger.
+BASE_DECLARE_FEATURE(kEnableAdditionalTextMetrics);
 
 }  // namespace compose::features
 

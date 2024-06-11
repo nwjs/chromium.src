@@ -94,9 +94,6 @@ mojom::blink::InputEventResultState InputEventDispositionToAck(
     case InputHandlerProxy::DID_HANDLE:
       return mojom::blink::InputEventResultState::kConsumed;
     case InputHandlerProxy::DID_NOT_HANDLE:
-      if (base::FeatureList::IsEnabled(features::kFixGestureScrollQueuingBug)) {
-        return mojom::blink::InputEventResultState::kNotConsumedBlocking;
-      }
       return mojom::blink::InputEventResultState::kNotConsumed;
     case InputHandlerProxy::DID_NOT_HANDLE_NON_BLOCKING_DUE_TO_FLING:
       return mojom::blink::InputEventResultState::kSetNonBlockingDueToFling;
@@ -384,10 +381,6 @@ void WidgetInputHandlerManager::FindScrollTargetOnMainThread(
       ->PostTask(FROM_HERE, base::BindOnce(std::move(callback), element_id));
 }
 
-void WidgetInputHandlerManager::DidAnimateForInput() {
-  widget_scheduler_->DidAnimateForInputOnCompositorThread();
-}
-
 void WidgetInputHandlerManager::DidStartScrollingViewport() {
   mojom::blink::WidgetInputHandlerHost* host = GetWidgetInputHandlerHost();
   if (!host)
@@ -641,9 +634,9 @@ void WidgetInputHandlerManager::DispatchEvent(
               : cc::ScrollUpdateEventMetrics::ScrollUpdateType::kStarted,
           gesture_event.data.scroll_update.delta_y, event->Event().TimeStamp(),
           arrived_in_browser_main_timestamp,
+          blocking_touch_dispatched_to_renderer_timestamp,
           base::IdType64<class ui::LatencyInfo>(
-              event->latency_info().trace_id()),
-          blocking_touch_dispatched_to_renderer_timestamp);
+              event->latency_info().trace_id()));
       has_seen_first_gesture_scroll_update_after_begin_ = true;
     } else {
       metrics = cc::ScrollEventMetrics::Create(
@@ -1034,8 +1027,7 @@ void WidgetInputHandlerManager::DidHandleInputEventSentToCompositor(
   if (ack_state == mojom::blink::InputEventResultState::kSetNonBlocking ||
       ack_state ==
           mojom::blink::InputEventResultState::kSetNonBlockingDueToFling ||
-      ack_state == mojom::blink::InputEventResultState::kNotConsumed ||
-      ack_state == mojom::blink::InputEventResultState::kNotConsumedBlocking) {
+      ack_state == mojom::blink::InputEventResultState::kNotConsumed) {
     DCHECK(!overscroll_params);
     DCHECK(!event->latency_info().coalesced());
     MainThreadEventQueue::DispatchType dispatch_type =

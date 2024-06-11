@@ -103,7 +103,7 @@ StreamingSearchPrefetchURLLoader::ResponseReader::~ResponseReader() {
   // safety consideration.
   ReleaseSelfReference();
 
-  // TODO(crbug.com/1400881): For now prerender is the only use case. After
+  // TODO(crbug.com/40250486): For now prerender is the only use case. After
   // refactoring it should specify the client type.
   base::UmaHistogramEnumeration(
       "Omnibox.SearchPreload.ResponseDataReaderFinalStatus.Prerender", status_);
@@ -161,7 +161,7 @@ void StreamingSearchPrefetchURLLoader::ResponseReader::PushData() {
       }
       break;
     }
-    uint32_t write_size = response_data.size();
+    size_t write_size = response_data.size();
     MojoResult result = producer_handle_->WriteData(
         response_data.data(), &write_size, MOJO_WRITE_DATA_FLAG_NONE);
 
@@ -260,7 +260,7 @@ void StreamingSearchPrefetchURLLoader::ResponseReader::FollowRedirect(
 void StreamingSearchPrefetchURLLoader::ResponseReader::SetPriority(
     net::RequestPriority priority,
     int32_t intra_priority_value) {}
-// TODO(https://crbug.com/1400881): We may need to pause the producer from
+// TODO(crbug.com/40250486): We may need to pause the producer from
 // pushing data to the client.
 void StreamingSearchPrefetchURLLoader::ResponseReader::
     PauseReadingBodyFromNet() {}
@@ -702,7 +702,7 @@ void StreamingSearchPrefetchURLLoader::OnHandleReady(
 }
 
 std::string_view StreamingSearchPrefetchURLLoader::GetMoreDataFromCache(
-    int writing_position) const {
+    size_t writing_position) const {
   DCHECK_GE(bytes_of_raw_data_to_transfer_, writing_position);
   if (drain_complete_ && writing_position == bytes_of_raw_data_to_transfer_) {
     return std::string_view();
@@ -712,7 +712,7 @@ std::string_view StreamingSearchPrefetchURLLoader::GetMoreDataFromCache(
 }
 
 void StreamingSearchPrefetchURLLoader::PushData() {
-  // TODO(https://crbug.com/1400881): This method should be migrated into
+  // TODO(crbug.com/40250486): This method should be migrated into
   // `ResponseReader::PushData`. Now `ResponseReader` is sort of a copy of this,
   // as we are at the intermediate state during refactoring.
   DCHECK(forwarding_client_);
@@ -730,7 +730,7 @@ void StreamingSearchPrefetchURLLoader::PushData() {
       // No data can be fed into the producer.
       return;
     }
-    uint32_t write_size = response_data.size();
+    size_t write_size = response_data.size();
     MojoResult result = producer_handle_->WriteData(
         response_data.data(), &write_size, MOJO_WRITE_DATA_FLAG_NONE);
 

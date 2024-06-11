@@ -114,7 +114,7 @@ class InternalRefCountedPool
   friend class base::RefCountedThreadSafe<InternalRefCountedPool>;
   ~InternalRefCountedPool();
 
-  // Callback made whe a created VideoFrame is destroyed. Returns
+  // Callback made when a created VideoFrame is destroyed. Returns
   // `gpu_memory_buffer` to `frame_resources`, and then either returns
   // `frame_resources` to `available_frame_resources_` or destroys it.
   void OnVideoFrameDestroyed(
@@ -321,7 +321,7 @@ FrameResources::CreateVideoFrameAndTakeGpuMemoryBuffer() {
 
   video_frame->set_color_space(color_space_);
 
-  // TODO(https://crbug.com/1191956): This should depend on the platform and
+  // TODO(crbug.com/40174702): This should depend on the platform and
   // format.
   video_frame->metadata().allow_overlay = true;
 
@@ -335,9 +335,7 @@ FrameResources::CreateVideoFrameAndTakeGpuMemoryBuffer() {
   }
 
   // Only native (non shared memory) GMBs require waiting on GPU fences.
-  const bool has_native_gmb =
-      video_frame->HasGpuMemoryBuffer() &&
-      video_frame->GetGpuMemoryBuffer()->GetType() != gfx::SHARED_MEMORY_BUFFER;
+  const bool has_native_gmb = video_frame->HasNativeGpuMemoryBuffer();
   video_frame->metadata().read_lock_fences_enabled = has_native_gmb;
 
   return video_frame;
@@ -412,7 +410,7 @@ void InternalRefCountedPool::OnVideoFrameDestroyed(
     return;
   }
 
-  // TODO(https://crbug.com/1191956): Determine if we can get away with just
+  // TODO(crbug.com/40174702): Determine if we can get away with just
   // having 1 available frame, or if that will cause flakey underruns.
   constexpr size_t kMaxAvailableFrames = 2;
   available_frame_resources_.push_back(std::move(frame_resources));

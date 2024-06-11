@@ -56,7 +56,7 @@ constexpr bool IsEmpty(const char16_t* s) {
 }
 
 AutofillRegexCache& GetAutofillRegexCache() {
-  // TODO(crbug.com/1309848): If ParseForm() is called from the same thread,
+  // TODO(crbug.com/40219607): If ParseForm() is called from the same thread,
   // use a thread-unsafe parser.
   static base::NoDestructor<AutofillRegexCache> cache(ThreadSafe(true));
   return *cache;
@@ -567,8 +567,8 @@ FormFieldParser::RemoveCheckableFields(
     // interferes with correctly understanding ADDRESS_LINE2.
     // Ignore fields marked as presentational, unless for 'select' fields (for
     // synthetic fields.)
-    if (IsCheckable(field->check_status) ||
-        (field->role == FormFieldData::RoleAttribute::kPresentation &&
+    if (IsCheckable(field->check_status()) ||
+        (field->role() == FormFieldData::RoleAttribute::kPresentation &&
          !field->IsSelectElement())) {
       continue;
     }
@@ -590,11 +590,11 @@ bool FormFieldParser::Match(ParsingContext& context,
       context.log_manager && context.log_manager->IsLoggingActive() ? &matches
                                                                     : nullptr;
 
-  // TODO(crbug/1165780): Remove once shared labels are launched.
+  // TODO(crbug.com/40741721): Remove once shared labels are launched.
   const std::u16string& label =
       context.autofill_enable_support_for_parsing_with_shared_labels
           ? field->parseable_label()
-          : field->label;
+          : field->label();
 
   const std::u16string& name = field->parseable_name();
 
@@ -612,18 +612,18 @@ bool FormFieldParser::Match(ParsingContext& context,
     value = name;
   } else if (match_label && pattern != kEmptyLabelRegex &&
              context.autofill_always_parse_placeholders &&
-             MatchesRegexWithCache(context, field->placeholder, pattern,
+             MatchesRegexWithCache(context, field->placeholder(), pattern,
                                    capture_destination)) {
     // Placeholders are matched against the same regexes as labels. However, to
     // prevent false positives in `ParseEmptyLabel()`, matches in placeholders
     // are explicitly prevented for `kEmptyLabelRegex`.
-    // TODO(crbug.com/1317961): The label and placeholder cases should logically
-    // be grouped together. Placeholder is currently last, because for the finch
-    // study we want the group assignment to happen as late as possible.
-    // Reorder once the change is rolled out.
+    // TODO(crbug.com/40222716): The label and placeholder cases should
+    // logically be grouped together. Placeholder is currently last, because for
+    // the finch study we want the group assignment to happen as late as
+    // possible. Reorder once the change is rolled out.
     found_match = true;
     match_type_string = "Match in placeholder";
-    value = field->placeholder;
+    value = field->placeholder();
   }
 
   if (found_match && capture_destination) {

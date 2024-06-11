@@ -4,16 +4,20 @@
 
 #include "chrome/browser/ui/webauthn/authenticator_request_window.h"
 
+#include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/strings/strcat.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
+#include "chrome/browser/webauthn/webauthn_switches.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "device/fido/enclave/metrics.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
 #include "net/http/http_response_headers.h"
@@ -21,6 +25,38 @@
 #include "ui/gfx/geometry/rect.h"
 
 namespace {
+
+const char kGpmPinResetReauthUrl[] =
+    "https://passwords.google.com/encryption/pin/reset";
+
+// The kdi parameter here was generated from the following protobuf:
+//
+// {
+//   operation: RETRIEVAL
+//   retrieval_inputs: {
+//     security_domain_name: "hw_protected"
+//   }
+// }
+//
+// And then converted to bytes with:
+//
+// % gqui --outfile=rawproto:/tmp/out.pb from textproto:/tmp/input \
+//       proto gaia_frontend.ClientDecryptableKeyDataInputs
+//
+// Then the contents of `/tmp/out.pb` need to be base64url-encoded to produce
+// the "kdi" parameter's value.
+const char kKdi[] = "CAESDgoMaHdfcHJvdGVjdGVk";
+
+GURL GetGpmResetPinUrl() {
+  std::string command_line_url =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          webauthn::switches::kGpmPinResetReauthUrlSwitch);
+  if (command_line_url.empty()) {
+    // Command line switch is not specified or is not a valid ASCII string.
+    return GURL(kGpmPinResetReauthUrl);
+  }
+  return GURL(command_line_url);
+}
 
 // This WebContents observer watches the WebView that shows a GAIA
 // reauthentication page. When that page navigates to a URL that includes the
@@ -110,29 +146,13 @@ class AuthenticatorRequestWindow
     GURL url;
     switch (step_) {
       case AuthenticatorRequestDialogModel::Step::kRecoverSecurityDomain:
-        // The kdi parameter here was generated from the following protobuf:
-        //
-        // {
-        //   operation: RETRIEVAL
-        //   retrieval_inputs: {
-        //     security_domain_name: "hw_protected"
-        //   }
-        // }
-        //
-        // And then converted to bytes with:
-        //
-        // % gqui --outfile=rawproto:/tmp/out.pb from textproto:/tmp/input \
-        //       proto gaia_frontend.ClientDecryptableKeyDataInputs
-        //
-        // Then the contents of `/tmp/out.pb` need to be base64url-encoded to
-        // produce the "kdi" parameter's value.
         url = GaiaUrls::GetInstance()->gaia_url().Resolve(
-            "/encryption/unlock/desktop?kdi=CAESDgoMaHdfcHJvdGVjdGVk");
+            base::StrCat({"/encryption/unlock/desktop?kdi=", kKdi}));
+        device::enclave::RecordEvent(device::enclave::Event::kRecoveryShown);
         break;
 
-      case AuthenticatorRequestDialogModel::Step::kGPMReauthAccount:
-        // TODO(enclave): this isn't the correct URL, but it'll serve for now.
-        url = GaiaUrls::GetInstance()->reauth_url();
+      case AuthenticatorRequestDialogModel::Step::kGPMReauthForPinReset:
+        url = GetGpmResetPinUrl();
         reauth_observer_ = std::make_unique<ReauthWebContentsObserver>(
             web_contents.get(), url,
             // Unretained: `reauth_observer_` is owned by this object so if
@@ -209,4 +229,9 @@ void ShowAuthenticatorRequestWindow(content::WebContents* web_contents,
                                     AuthenticatorRequestDialogModel* model) {
   // This object owns itself.
   new AuthenticatorRequestWindow(web_contents, model);
+}
+
+bool IsAuthenticatorRequestWindowUrl(const GURL& url) {
+  std::string kdi;
+  return net::GetValueForKeyInQuery(url, "kdi", &kdi) && kdi == kKdi;
 }

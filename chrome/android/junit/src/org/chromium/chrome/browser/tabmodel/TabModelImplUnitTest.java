@@ -86,7 +86,8 @@ public class TabModelImplUnitTest {
         PriceTrackingFeatures.setPriceTrackingEnabledForTesting(false);
 
         mJniMocker.mock(TabModelJniBridgeJni.TEST_HOOKS, mTabModelJniBridge);
-        when(mTabModelJniBridge.init(any(), any(), anyInt())).thenReturn(FAKE_NATIVE_ADDRESS);
+        when(mTabModelJniBridge.init(any(), any(), anyInt(), anyBoolean()))
+                .thenReturn(FAKE_NATIVE_ADDRESS);
 
         when(mTabModelDelegate.isReparentingInProgress()).thenReturn(false);
 
@@ -138,7 +139,8 @@ public class TabModelImplUnitTest {
                         () -> NextTabPolicy.HIERARCHICAL,
                         realAsyncTabParamsManager,
                         mTabModelDelegate,
-                        /* supportsUndo= */ true);
+                        /* supportUndo= */ true,
+                        /* trackInNativeModelList= */ true);
         when(mTabModelSelector.getModel(isIncognito)).thenReturn(tabModel);
         tabModel.setActive(isActive);
         if (isActive) {
@@ -369,7 +371,7 @@ public class TabModelImplUnitTest {
         Tab tab1 = createTab(tabModel);
         assertEquals(tab1, tabModel.getTabById(tab1.getId()));
 
-        tabModel.closeTab(tab1, /* animate= */ false, /* uponExit= */ false, /* canUndo= */ true);
+        tabModel.closeTab(tab1, /* uponExit= */ false, /* canUndo= */ true);
         assertEquals(null, tabModel.getTabById(tab1.getId()));
 
         tabModel.cancelTabClosure(tab1.getId());
@@ -377,5 +379,28 @@ public class TabModelImplUnitTest {
 
         tabModel.destroy();
         assertEquals(null, tabModel.getTabById(tab1.getId()));
+    }
+
+    @Test
+    @SmallTest
+    public void testGetTabsNavigatedInTimeWindow() {
+        TabModelImpl tabModel = (TabModelImpl) createTabModel(true, false);
+        MockTab tab1 = (MockTab) createTab(tabModel, 0, Tab.INVALID_TAB_ID);
+        tab1.setLastNavigationCommittedTimestampMillis(200);
+
+        MockTab tab2 = (MockTab) createTab(tabModel, 0, Tab.INVALID_TAB_ID);
+        tab2.setLastNavigationCommittedTimestampMillis(50);
+
+        MockTab tab3 = (MockTab) createTab(tabModel, 0, Tab.INVALID_TAB_ID);
+        tab3.setLastNavigationCommittedTimestampMillis(100);
+
+        MockTab tab4 = (MockTab) createTab(tabModel, 0, Tab.INVALID_TAB_ID);
+        tab4.setLastNavigationCommittedTimestampMillis(30);
+        tab4.setIsCustomTab(true);
+
+        MockTab tab5 = (MockTab) createTab(tabModel, 0, Tab.INVALID_TAB_ID);
+        tab5.setLastNavigationCommittedTimestampMillis(10);
+
+        assertEquals(Arrays.asList(tab2, tab5), tabModel.getTabsNavigatedInTimeWindow(10, 100));
     }
 }

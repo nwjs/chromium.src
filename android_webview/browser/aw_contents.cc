@@ -67,7 +67,7 @@
 #include "base/trace_event/typed_macros.h"
 #include "components/android_autofill/browser/android_autofill_client.h"
 #include "components/android_autofill/browser/android_autofill_manager.h"
-#include "components/android_autofill/browser/autofill_provider_android.h"
+#include "components/android_autofill/browser/android_autofill_provider.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
@@ -311,23 +311,12 @@ void AwContents::InitializeAndroidAutofill(JNIEnv* env) {
     return;
   }
   android_autofill::AndroidAutofillClient::CreateForWebContents(
-      web_contents_.get(), [&](const JavaRef<jobject>& client) {
-        SetAndroidAutofillClient(client);
-      });
+      web_contents_.get());
 
   // We need to initialize the keyboard suppressor before creating any
   // AutofillManagers and after the autofill client is available.
   autofill::AutofillProvider::FromWebContents(web_contents_.get())
       ->MaybeInitKeyboardSuppressor();
-}
-
-void AwContents::SetAndroidAutofillClient(const JavaRef<jobject>& client) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  JNIEnv* env = AttachCurrentThread();
-  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
-  if (!obj)
-    return;
-  Java_AwContents_setAndroidAutofillClient(env, obj, client);
 }
 
 AwContents::~AwContents() {
@@ -357,7 +346,7 @@ AwContents::~AwContents() {
   // Corresponds to "WebView Instance" in AwContents's constructor.
   TRACE_EVENT_END("android_webview.timeline",
                   perfetto::Track::FromPointer(this));
-  // TODO(crbug.com/1021571): Remove this once fixed.
+  // TODO(crbug.com/40657156): Remove this once fixed.
   PERFETTO_INTERNAL_ADD_EMPTY_EVENT();
 }
 
@@ -1398,6 +1387,10 @@ AwContents::GetDocumentStartupJavascripts(JNIEnv* env) {
   return script_objects;
 }
 
+void AwContents::FlushBackForwardCache(JNIEnv* env) {
+  web_contents()->GetController().GetBackForwardCache().Flush();
+}
+
 void AwContents::ClearView(JNIEnv* env) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   browser_view_renderer_.ClearView();
@@ -1548,6 +1541,11 @@ void AwContents::ReadyToCommitNavigation(
                                               ->GetOrCreateWebPreferences()
                                               .allow_mixed_content_upgrades;
   navigation_handle->SetContentSettings(std::move(content_settings));
+}
+
+void AwContents::RenderViewReady() {
+  AwRenderProcess::SetRenderViewReady(
+      web_contents_->GetPrimaryMainFrame()->GetProcess());
 }
 
 bool AwContents::CanShowInterstitial() {

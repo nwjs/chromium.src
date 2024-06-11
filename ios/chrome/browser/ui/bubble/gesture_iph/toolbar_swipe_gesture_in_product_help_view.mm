@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/ui/bubble/gesture_iph/toolbar_swipe_gesture_in_product_help_view.h"
 
+#import "base/notreached.h"
 #import "base/time/time.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -39,7 +40,7 @@ const int kBidirectionalAnimationRepeatCount = 4;
                                  canGoBack:(BOOL)back
                                    forward:(BOOL)forward {
   CHECK(back || forward);
-  self = [super initWithText:l10n_util::GetNSString(IDS_IOS_TAB_STRIP_SWIPE_IPH)
+  self = [super initWithText:l10n_util::GetNSString(IDS_IOS_TOOLBAR_SWIPE_IPH)
           bubbleBoundingSize:bubbleBoundingSize
               swipeDirection:(back ^ UseRTLLayout())
                                  ? UISwipeGestureRecognizerDirectionRight

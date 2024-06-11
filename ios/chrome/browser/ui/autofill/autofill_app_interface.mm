@@ -10,6 +10,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "components/autofill/core/browser/address_data_manager.h"
 #import "components/autofill/core/browser/autofill_client.h"
 #import "components/autofill/core/browser/autofill_test_utils.h"
 #import "components/autofill/core/browser/browser_autofill_manager_test_api.h"
@@ -17,6 +18,7 @@
 #import "components/autofill/core/browser/payments/credit_card_save_manager.h"
 #import "components/autofill/core/browser/payments/payments_autofill_client.h"
 #import "components/autofill/core/browser/payments/payments_network_interface.h"
+#import "components/autofill/core/browser/payments_data_manager.h"
 #import "components/autofill/core/browser/personal_data_manager.h"
 #import "components/autofill/core/common/autofill_prefs.h"
 #import "components/autofill/ios/browser/autofill_driver_ios.h"
@@ -151,7 +153,7 @@ void SaveLocalPasswordForm(const GURL& url) {
 // Removes all credentials from the profile store.
 void ClearProfilePasswordStore() {
   GetPasswordProfileStore()->RemoveLoginsCreatedBetween(
-      base::Time(), base::Time(), base::DoNothing());
+      FROM_HERE, base::Time(), base::Time(), base::DoNothing());
   TestStoreConsumer consumer;
 }
 
@@ -161,20 +163,23 @@ void AddAutofillProfile(autofill::PersonalDataManager* personalDataManager,
   autofill::AutofillProfile profile = autofill::test::GetFullProfile();
   // If the test profile is already in the store, adding it will be a no-op.
   // In that case, early return.
-  for (autofill::AutofillProfile* p : personalDataManager->GetProfiles()) {
+  for (autofill::AutofillProfile* p :
+       personalDataManager->address_data_manager().GetProfiles()) {
     if (p->Compare(profile) == 0) {
       return;
     }
   }
-  size_t profileCount = personalDataManager->GetProfiles().size();
+  size_t profileCount =
+      personalDataManager->address_data_manager().GetProfiles().size();
 
   if (isAccountProfile) {
     profile.set_source_for_testing(autofill::AutofillProfile::Source::kAccount);
   }
-  personalDataManager->AddProfile(profile);
+  personalDataManager->address_data_manager().AddProfile(profile);
 
   ConditionBlock conditionBlock = ^bool {
-    return profileCount < personalDataManager->GetProfiles().size();
+    return profileCount <
+           personalDataManager->address_data_manager().GetProfiles().size();
   };
   CHECK(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForActionTimeout, conditionBlock));
@@ -371,7 +376,7 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
 + (NSInteger)profilesCount {
   autofill::PersonalDataManager* personalDataManager =
       [self personalDataManager];
-  return personalDataManager->GetProfiles().size();
+  return personalDataManager->address_data_manager().GetProfiles().size();
 }
 
 + (void)clearProfilesStore {
@@ -380,12 +385,13 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
   autofill::PersonalDataManager* personalDataManager =
       autofill::PersonalDataManagerFactory::GetForBrowserState(browserState);
   for (const autofill::AutofillProfile* profile :
-       personalDataManager->GetProfiles()) {
+       personalDataManager->address_data_manager().GetProfiles()) {
     personalDataManager->RemoveByGUID(profile->guid());
   }
 
   ConditionBlock conditionBlock = ^bool {
-    return 0 == personalDataManager->GetProfiles().size();
+    return 0 ==
+           personalDataManager->address_data_manager().GetProfiles().size();
   };
   CHECK(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForActionTimeout, conditionBlock));
@@ -413,7 +419,7 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
   autofill::PersonalDataManager* personalDataManager =
       [self personalDataManager];
   for (const autofill::CreditCard* creditCard :
-       personalDataManager->GetCreditCards()) {
+       personalDataManager->payments_data_manager().GetCreditCards()) {
     // This will not remove server cards, as they have no guid.
     personalDataManager->RemoveByGUID(creditCard->guid());
   }
@@ -426,17 +432,21 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
 
 // Clears all server data including server cards.
 + (void)clearAllServerDataForTesting {
-  [self personalDataManager]->ClearAllServerDataForTesting();
+  [self personalDataManager]
+      ->payments_data_manager()
+      .ClearAllServerDataForTesting();
 }
 
 + (NSString*)saveLocalCreditCard {
   autofill::PersonalDataManager* personalDataManager =
       [self personalDataManager];
   autofill::CreditCard card = autofill::test::GetCreditCard();
-  size_t card_count = personalDataManager->GetCreditCards().size();
-  personalDataManager->AddCreditCard(card);
+  size_t card_count =
+      personalDataManager->payments_data_manager().GetCreditCards().size();
+  personalDataManager->payments_data_manager().AddCreditCard(card);
   ConditionBlock conditionBlock = ^bool {
-    return card_count < personalDataManager->GetCreditCards().size();
+    return card_count <
+           personalDataManager->payments_data_manager().GetCreditCards().size();
   };
   CHECK(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForFileOperationTimeout, conditionBlock));
@@ -445,7 +455,10 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
 }
 
 + (NSInteger)localCreditCount {
-  return [self personalDataManager] -> GetCreditCards().size();
+  return [self personalDataManager]
+      ->payments_data_manager()
+      .GetCreditCards()
+      .size();
 }
 
 + (NSString*)saveMaskedCreditCard {
@@ -454,7 +467,7 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
   autofill::CreditCard card =
       autofill::test::WithCvc(autofill::test::GetMaskedServerCard());
   DCHECK(card.record_type() != autofill::CreditCard::RecordType::kLocalCard);
-  personalDataManager->AddServerCreditCardForTest(
+  personalDataManager->payments_data_manager().AddServerCreditCardForTest(
       std::make_unique<autofill::CreditCard>(card));
   personalDataManager->NotifyPersonalDataObserver();
   return base::SysUTF16ToNSString(card.NetworkAndLastFourDigits());
@@ -463,18 +476,21 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
 + (NSString*)saveMaskedCreditCardEnrolledInVirtualCard {
   autofill::PersonalDataManager* personalDataManager =
       [self personalDataManager];
-  size_t card_count = personalDataManager->GetCreditCards().size();
+  size_t card_count =
+      personalDataManager->payments_data_manager().GetCreditCards().size();
   autofill::CreditCard card =
       autofill::test::GetMaskedServerCardEnrolledIntoVirtualCardNumber();
   CHECK_NE(card.record_type(), autofill::CreditCard::RecordType::kLocalCard);
 
-  personalDataManager->AddServerCreditCardForTest(
+  personalDataManager->payments_data_manager().AddServerCreditCardForTest(
       std::make_unique<autofill::CreditCard>(card));
 
   // Confirm card is present in personalDataManager
   CHECK(base::test::ios::WaitUntilConditionOrTimeout(
       base::test::ios::kWaitForFileOperationTimeout, ^bool {
-        return (personalDataManager->GetCreditCards().size() == card_count + 1);
+        return (personalDataManager->payments_data_manager()
+                    .GetCreditCards()
+                    .size() == card_count + 1);
       }));
 
   personalDataManager->NotifyPersonalDataObserver();
@@ -578,7 +594,8 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
 + (void)setMandatoryReauthEnabled:(BOOL)enabled {
   autofill::PersonalDataManager* personalDataManager =
       [self personalDataManager];
-  personalDataManager->SetPaymentMethodsMandatoryReauthEnabled(enabled);
+  personalDataManager->payments_data_manager()
+      .SetPaymentMethodsMandatoryReauthEnabled(enabled);
 }
 
 + (BOOL)isKeyboardAccessoryUpgradeEnabled {
@@ -593,7 +610,7 @@ static std::unique_ptr<ScopedAutofillPaymentReauthModuleOverride>
       chrome_test_util::GetOriginalBrowserState();
   autofill::PersonalDataManager* personalDataManager =
       autofill::PersonalDataManagerFactory::GetForBrowserState(browserState);
-  personalDataManager->SetSyncingForTest(true);
+  personalDataManager->payments_data_manager().SetSyncingForTest(true);
   return personalDataManager;
 }
 

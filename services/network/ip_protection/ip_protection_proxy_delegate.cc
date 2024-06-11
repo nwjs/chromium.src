@@ -154,17 +154,20 @@ void IpProtectionProxyDelegate::OnResolveProxy(
       }
     }
   }
-  // Final fallback is to DIRECT.
-  auto direct_proxy_chain = net::ProxyChain::Direct();
-  if (net::features::kIpPrivacyDirectOnly.Get()) {
-    // To enable measuring how much traffic would be proxied (for
-    // experimentation and planning purposes), mark the direct
-    // proxy chain as being for IP Protection when `kIpPrivacyDirectOnly` is
-    // true. When it is false, we only care about traffic that actually went
-    // through the IP Protection proxies, so don't set this flag.
-    direct_proxy_chain = net::ProxyChain::ForIpProtection({});
+
+  if (net::features::kIpPrivacyFallbackToDirect.Get()) {
+    // Final fallback is to DIRECT.
+    auto direct_proxy_chain = net::ProxyChain::Direct();
+    if (net::features::kIpPrivacyDirectOnly.Get()) {
+      // To enable measuring how much traffic would be proxied (for
+      // experimentation and planning purposes), mark the direct
+      // proxy chain as being for IP Protection when `kIpPrivacyDirectOnly` is
+      // true. When it is false, we only care about traffic that actually went
+      // through the IP Protection proxies, so don't set this flag.
+      direct_proxy_chain = net::ProxyChain::ForIpProtection({});
+    }
+    proxy_list.AddProxyChain(std::move(direct_proxy_chain));
   }
-  proxy_list.AddProxyChain(std::move(direct_proxy_chain));
 
   if (VLOG_IS_ON(3)) {
     dvlog(base::StrCat({"setting proxy list (before deprioritization) to ",
@@ -277,7 +280,7 @@ void IpProtectionProxyDelegate::OnFallback(const net::ProxyChain& bad_chain,
   }
 }
 
-void IpProtectionProxyDelegate::OnBeforeTunnelRequest(
+net::Error IpProtectionProxyDelegate::OnBeforeTunnelRequest(
     const net::ProxyChain& proxy_chain,
     size_t chain_index,
     net::HttpRequestHeaders* extra_headers) {
@@ -285,15 +288,6 @@ void IpProtectionProxyDelegate::OnBeforeTunnelRequest(
     VLOG(2) << "NSPD::OnBeforeTunnelRequest() - " << message;
   };
   if (proxy_chain.is_for_ip_protection()) {
-    // Temporarily support a pre-shared key for access to proxyB.
-    if (chain_index == 1) {
-      std::string proxy_b_psk = net::features::kIpPrivacyProxyBPsk.Get();
-      if (!proxy_b_psk.empty()) {
-        vlog("adding proxyB PSK");
-        extra_headers->SetHeader(net::HttpRequestHeaders::kProxyAuthorization,
-                                 base::StrCat({"Preshared ", proxy_b_psk}));
-      }
-    }
     std::optional<network::mojom::BlindSignedAuthTokenPtr> token =
         ipp_config_cache_->GetAuthToken(chain_index);
     if (token) {
@@ -304,10 +298,15 @@ void IpProtectionProxyDelegate::OnBeforeTunnelRequest(
                                std::move((*token)->token));
     } else {
       vlog("no token available");
+      // This is an unexpected circumstance, but does happen in the wild. Rather
+      // than send the request to the proxy, which will reply with an error,
+      // mark the connection as failed immediately.
+      return net::ERR_TUNNEL_CONNECTION_FAILED;
     }
   } else {
     vlog("not for IP protection");
   }
+  return net::OK;
 }
 
 net::Error IpProtectionProxyDelegate::OnTunnelHeadersReceived(
@@ -382,13 +381,13 @@ void IpProtectionProxyDelegate::VerifyIpProtectionConfigGetterForTesting(
 
 void IpProtectionProxyDelegate::SetIpProtectionEnabled(bool enabled) {
   is_ip_protection_enabled_ = enabled;
-  // TODO(https://crbug.com/1521138): Tear down all existing proxied
+  // TODO(crbug.com/41494110): Tear down all existing proxied
   // HTTP/SPDY/QUIC sessions if the settings goes from being enabled to being
   // disabled. For HTTP and SPDY we could just simulate an IP address change and
   // tear down all connections rather easily, but for QUIC it's more complicated
   // because with network change session migration the connections might still
   // persist. More investigation is needed here.
-  // TODO(https://crbug.com/1521138): Propagate this change to the config cache,
+  // TODO(crbug.com/41494110): Propagate this change to the config cache,
   // proxy list manager, and token cache manager to cancel further requests or
   // reschedule them. Note that as currently implemented, the token cache
   // manager will already stop requesting tokens soon after IP Protection is

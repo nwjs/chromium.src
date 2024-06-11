@@ -210,8 +210,7 @@ bool PaintArtifactCompositor::ComputeNeedsCompositedScrolling(
     return true;
   }
   // Don't automatically composite non-user-scrollable scrollers.
-  if (!scroll_translation.ScrollNode()->UserScrollableHorizontal() &&
-      !scroll_translation.ScrollNode()->UserScrollableVertical()) {
+  if (!scroll_translation.ScrollNode()->UserScrollable()) {
     return false;
   }
   auto preference =
@@ -737,20 +736,21 @@ SynthesizedClip& PaintArtifactCompositor::CreateOrReuseSynthesizedClipLayer(
     synthesized_clip.Layer()->SetLayerTreeHost(root_layer_->layer_tree_host());
     if (layer_debug_info_enabled_ && !synthesized_clip.Layer()->debug_info())
       synthesized_clip.Layer()->SetDebugName("Synthesized Clip");
+  }
 
-    if (!should_always_update_on_scroll_) {
-      // If there is any scroll translation between `clip.LocalTransformSpace`
-      // and `transform`, the synthesized clip layer's geometry and paint
-      // operations depend on the scroll offset and we need to update them
-      // on each scroll of the scroller.
-      const auto& clip_transform = clip.LocalTransformSpace().Unalias();
-      if (&clip_transform != &transform &&
-          &clip_transform.NearestScrollTranslationNode() !=
-              &transform.NearestScrollTranslationNode()) {
-        should_always_update_on_scroll_ = true;
-      }
+  if (!should_always_update_on_scroll_) {
+    // If there is any scroll translation between `clip.LocalTransformSpace`
+    // and `transform`, the synthesized clip's fast rounded border or layer
+    // geometry and paint operations depend on the scroll offset and we need to
+    // update them on each scroll of the scroller.
+    const auto& clip_transform = clip.LocalTransformSpace().Unalias();
+    if (&clip_transform != &transform &&
+        &clip_transform.NearestScrollTranslationNode() !=
+            &transform.NearestScrollTranslationNode()) {
+      should_always_update_on_scroll_ = true;
     }
   }
+
   mask_isolation_id = synthesized_clip.GetMaskIsolationId();
   mask_effect_id = synthesized_clip.GetMaskEffectId();
   return synthesized_clip;
@@ -848,6 +848,23 @@ void PaintArtifactCompositor::Update(
   for (auto& entry : synthesized_clip_cache_)
     entry.in_use = false;
 
+  // Ensure scroll and scroll translation nodes which may be referenced by
+  // AnchorPositionScrollTranslation nodes, to reduce chance of inefficient
+  // stale_forward_dependencies in cc::TransformTree::AnchorPositionOffset().
+  // We want to create a cc::TransformNode only if the scroller is painted.
+  // This avoids violating an assumption in CompositorAnimations that an
+  // element has property nodes for either all or none of its animating
+  // properties (see crbug.com/1385575).
+  // However, we want to create a cc::ScrollNode regardless of whether the
+  // scroller is painted. This ensures that scroll offset animations aren't
+  // affected by becoming unpainted.
+  for (auto* node : scroll_translation_nodes) {
+    property_tree_manager.EnsureCompositorScrollNode(*node);
+  }
+  for (auto* node : painted_scroll_translations_.Keys()) {
+    property_tree_manager.EnsureCompositorScrollAndTransformNode(*node);
+  }
+
   host->property_trees()
       ->effect_tree_mutable()
       .ClearTransitionPseudoElementEffectNodes();
@@ -904,20 +921,6 @@ void PaintArtifactCompositor::Update(
           ->effect_tree_mutable()
           .AddTransitionPseudoElementEffectId(effect_id);
     }
-  }
-
-  // We want to create a cc::TransformNode only if the scroller is painted.
-  // This avoids violating an assumption in CompositorAnimations that an
-  // element has property nodes for either all or none of its animating
-  // properties (see crbug.com/1385575).
-  // However, we want to create a cc::ScrollNode regardless of whether the
-  // scroller is painted. This ensures that scroll offset animations aren't
-  // affected by becoming unpainted.
-  for (auto* node : scroll_translation_nodes) {
-    property_tree_manager.EnsureCompositorScrollNode(*node);
-  }
-  for (auto* node : painted_scroll_translations_.Keys()) {
-    property_tree_manager.EnsureCompositorScrollAndTransformNode(*node);
   }
 
   root_layer_->layer_tree_host()->RegisterSelection(layer_selection);

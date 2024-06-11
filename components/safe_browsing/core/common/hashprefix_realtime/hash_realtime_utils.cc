@@ -13,6 +13,7 @@
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/common/utils.h"
+#include "components/variations/pref_names.h"
 #include "components/variations/service/variations_service.h"
 
 namespace safe_browsing::hash_realtime_utils {
@@ -80,22 +81,16 @@ bool IsHashRealTimeLookupEligibleInSession() {
          base::FeatureList::IsEnabled(kHashPrefixRealTimeLookups);
 }
 bool IsHashRealTimeLookupEligibleInLocation(
-    std::optional<std::string> stored_permanent_country) {
-  return (!stored_permanent_country.has_value() ||
-          !base::Contains(GetExcludedCountries(),
-                          stored_permanent_country.value()));
+    std::optional<std::string> latest_country) {
+  return (!latest_country.has_value() ||
+          !base::Contains(GetExcludedCountries(), latest_country.value()));
 }
 bool IsHashRealTimeLookupEligibleInSessionAndLocation(
-    std::optional<std::string> stored_permanent_country) {
+    std::optional<std::string> latest_country) {
   return IsHashRealTimeLookupEligibleInSession() &&
-         IsHashRealTimeLookupEligibleInLocation(stored_permanent_country);
+         IsHashRealTimeLookupEligibleInLocation(latest_country);
 }
 std::optional<std::string> GetCountryCode(
-    variations::VariationsService* variations_service) {
-  return variations_service ? variations_service->GetStoredPermanentCountry()
-                            : std::optional<std::string>();
-}
-std::optional<std::string> GetLatestCountryCode(
     variations::VariationsService* variations_service) {
   return variations_service ? variations_service->GetLatestCountry()
                             : std::optional<std::string>();
@@ -103,7 +98,6 @@ std::optional<std::string> GetLatestCountryCode(
 HashRealTimeSelection DetermineHashRealTimeSelection(
     bool is_off_the_record,
     PrefService* prefs,
-    std::optional<std::string> stored_permanent_country,
     std::optional<std::string> latest_country,
     bool log_usage_histograms) {
   // All prefs used in this method must match the ones returned by
@@ -115,7 +109,7 @@ HashRealTimeSelection DetermineHashRealTimeSelection(
   } requirements[] = {
       {"IneligibleForSessionOrLocation",
        hash_realtime_utils::IsHashRealTimeLookupEligibleInSessionAndLocation(
-           stored_permanent_country)},
+           latest_country)},
       {"OffTheRecord", !is_off_the_record},
       {"NotStandardProtection", safe_browsing::GetSafeBrowsingState(*prefs) ==
                                     SafeBrowsingState::STANDARD_PROTECTION},
@@ -135,10 +129,6 @@ HashRealTimeSelection DetermineHashRealTimeSelection(
   }
   if (log_usage_histograms) {
     base::UmaHistogramBoolean(
-        "SafeBrowsing.HPRT.WouldBeIneligibleForSessionOrLatestCountry",
-        !hash_realtime_utils::IsHashRealTimeLookupEligibleInSessionAndLocation(
-            latest_country));
-    base::UmaHistogramBoolean(
         "SafeBrowsing.HPRT.Ineligible.NoGoogleChromeBranding",
         !HasGoogleChromeBranding());
     base::UmaHistogramBoolean(
@@ -146,7 +136,7 @@ HashRealTimeSelection DetermineHashRealTimeSelection(
         !base::FeatureList::IsEnabled(kHashPrefixRealTimeLookups));
     base::UmaHistogramBoolean(
         "SafeBrowsing.HPRT.Ineligible.IneligibleForLocation",
-        !IsHashRealTimeLookupEligibleInLocation(stored_permanent_country));
+        !IsHashRealTimeLookupEligibleInLocation(latest_country));
   }
   return can_do_lookup ?
 #if BUILDFLAG(IS_ANDROID)
@@ -157,9 +147,17 @@ HashRealTimeSelection DetermineHashRealTimeSelection(
                        : HashRealTimeSelection::kNone;
 }
 
-std::vector<const char*> GetHashRealTimeSelectionConfiguringPrefs() {
-  return {prefs::kSafeBrowsingEnabled, prefs::kSafeBrowsingEnhanced,
-          prefs::kHashPrefixRealTimeChecksAllowedByPolicy};
+HashRealTimeSelectionConfiguringPrefs
+GetHashRealTimeSelectionConfiguringPrefs() {
+  std::vector<const char*> profile_prefs = {
+      prefs::kSafeBrowsingEnabled, prefs::kSafeBrowsingEnhanced,
+      prefs::kHashPrefixRealTimeChecksAllowedByPolicy};
+  // |kVariationsCountry| is used by |VariationsService::GetLatestCountry|.
+  std::vector<const char*> local_state_prefs = {
+      variations::prefs::kVariationsCountry};
+  return HashRealTimeSelectionConfiguringPrefs(
+      /*profile_prefs=*/profile_prefs,
+      /*local_state_prefs=*/local_state_prefs);
 }
 
 GoogleChromeBrandingPretenderForTesting::
@@ -173,5 +171,13 @@ GoogleChromeBrandingPretenderForTesting::
 void GoogleChromeBrandingPretenderForTesting::StopApplyingBranding() {
   kPretendHasGoogleChromeBranding = false;
 }
+
+HashRealTimeSelectionConfiguringPrefs::HashRealTimeSelectionConfiguringPrefs(
+    std::vector<const char*>& profile_prefs,
+    std::vector<const char*>& local_state_prefs)
+    : profile_prefs(profile_prefs), local_state_prefs(local_state_prefs) {}
+
+HashRealTimeSelectionConfiguringPrefs::
+    ~HashRealTimeSelectionConfiguringPrefs() = default;
 
 }  // namespace safe_browsing::hash_realtime_utils

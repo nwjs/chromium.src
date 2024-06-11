@@ -1153,16 +1153,6 @@ bool CSSParserFastPaths::IsNonStandardAppearanceValuesHighUsage(
          value_id == CSSValueID::kSearchfieldCancelButton;
 }
 
-bool CSSParserFastPaths::IsNonStandardAppearanceValuesLowUsage(
-    CSSValueID value_id) {
-  return value_id == CSSValueID::kMediaSlider ||
-         value_id == CSSValueID::kMediaSliderthumb ||
-         value_id == CSSValueID::kMediaVolumeSlider ||
-         value_id == CSSValueID::kMediaVolumeSliderthumb ||
-         value_id == CSSValueID::kSliderthumbHorizontal ||
-         value_id == CSSValueID::kSliderthumbVertical;
-}
-
 bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     CSSPropertyID property_id,
     CSSValueID value_id,
@@ -1450,9 +1440,6 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
                   NonStandardAppearanceValuesHighUsageEnabled() &&
               IsNonStandardAppearanceValuesHighUsage(value_id)) ||
              (RuntimeEnabledFeatures::
-                  NonStandardAppearanceValuesLowUsageEnabled() &&
-              IsNonStandardAppearanceValuesLowUsage(value_id)) ||
-             (RuntimeEnabledFeatures::
                   NonStandardAppearanceValueSliderVerticalEnabled() &&
               value_id == CSSValueID::kSliderVertical) ||
              value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto;
@@ -1569,6 +1556,10 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     case CSSPropertyID::kFontVariantPosition:
       return value_id == CSSValueID::kNormal || value_id == CSSValueID::kSub ||
              value_id == CSSValueID::kSuper;
+    case CSSPropertyID::kFontVariantEmoji:
+      DCHECK(RuntimeEnabledFeatures::FontVariantEmojiEnabled());
+      return value_id == CSSValueID::kNormal || value_id == CSSValueID::kText ||
+             value_id == CSSValueID::kEmoji || value_id == CSSValueID::kUnicode;
     case CSSPropertyID::kLineBreak:
       return value_id == CSSValueID::kAuto || value_id == CSSValueID::kLoose ||
              value_id == CSSValueID::kNormal ||
@@ -1593,7 +1584,6 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       return value_id == CSSValueID::kNormal ||
              value_id == CSSValueID::kNoAutospace;
     case CSSPropertyID::kTextSpacingTrim:
-      DCHECK(RuntimeEnabledFeatures::CSSTextSpacingTrimEnabled());
       return value_id == CSSValueID::kNormal ||
              value_id == CSSValueID::kTrimStart ||
              value_id == CSSValueID::kSpaceAll ||
@@ -1777,6 +1767,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kFontSynthesisWeight,
     CSSPropertyID::kFontSynthesisStyle,
     CSSPropertyID::kFontSynthesisSmallCaps,
+    CSSPropertyID::kFontVariantEmoji,
     CSSPropertyID::kFontVariantPosition,
     CSSPropertyID::kWebkitFontSmoothing,
     CSSPropertyID::kLineBreak,

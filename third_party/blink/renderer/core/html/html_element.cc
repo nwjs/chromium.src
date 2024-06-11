@@ -85,6 +85,8 @@
 #include "third_party/blink/renderer/core/html/forms/html_listbox_element.h"
 #include "third_party/blink/renderer/core/html/forms/labels_node_list.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
+#include "third_party/blink/renderer/core/html/html_bdi_element.h"
+#include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_br_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_dimension.h"
@@ -648,16 +650,12 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
        kNoEvent, nullptr},
       {html_names::kAriaDisabledAttr, WebFeature::kARIADisabledAttribute,
        kNoEvent, nullptr},
-      {html_names::kAriaDropeffectAttr, WebFeature::kARIADropEffectAttribute,
-       kNoEvent, nullptr},
       {html_names::kAriaErrormessageAttr,
        WebFeature::kARIAErrorMessageAttribute, kNoEvent, nullptr},
       {html_names::kAriaExpandedAttr, WebFeature::kARIAExpandedAttribute,
        kNoEvent, nullptr},
       {html_names::kAriaFlowtoAttr, WebFeature::kARIAFlowToAttribute, kNoEvent,
        nullptr},
-      {html_names::kAriaGrabbedAttr, WebFeature::kARIAGrabbedAttribute,
-       kNoEvent, nullptr},
       {html_names::kAriaHaspopupAttr, WebFeature::kARIAHasPopupAttribute,
        kNoEvent, nullptr},
       {html_names::kAriaHiddenAttr, WebFeature::kARIAHiddenAttribute, kNoEvent,

@@ -449,6 +449,8 @@ EnumTraits<crosapi::mojom::Readiness, apps::Readiness>::ToMojom(
       return crosapi::mojom::Readiness::kRemoved;
     case apps::Readiness::kUninstalledByNonUser:
       return crosapi::mojom::Readiness::kUninstalledByNonUser;
+    case apps::Readiness::kDisabledByLocalSettings:
+      return crosapi::mojom::Readiness::kDisabledByLocalSettings;
   }
 
   NOTREACHED();
@@ -484,6 +486,9 @@ bool EnumTraits<crosapi::mojom::Readiness, apps::Readiness>::FromMojom(
       return true;
     case crosapi::mojom::Readiness::kUninstalledByNonUser:
       *output = apps::Readiness::kUninstalledByNonUser;
+      return true;
+    case crosapi::mojom::Readiness::kDisabledByLocalSettings:
+      *output = apps::Readiness::kDisabledByLocalSettings;
       return true;
   }
 
@@ -1021,7 +1026,9 @@ EnumTraits<crosapi::mojom::LaunchSource, apps::LaunchSource>::ToMojom(
       return crosapi::mojom::LaunchSource::kFromFirstRun;
     case apps::LaunchSource::kFromWelcomeTour:
       return crosapi::mojom::LaunchSource::kFromWelcomeTour;
-    // TODO(crbug.com/1343692): Make lock screen apps use lacros browser.
+    case apps::LaunchSource::kFromFocusMode:
+      return crosapi::mojom::LaunchSource::kFromFocusMode;
+    // TODO(crbug.com/40852514): Make lock screen apps use lacros browser.
     case apps::LaunchSource::kFromLockScreen:
     case apps::LaunchSource::kFromCommandLine:
     case apps::LaunchSource::kFromBackgroundMode:
@@ -1139,6 +1146,9 @@ bool EnumTraits<crosapi::mojom::LaunchSource, apps::LaunchSource>::FromMojom(
       return true;
     case crosapi::mojom::LaunchSource::kFromWelcomeTour:
       *output = apps::LaunchSource::kFromWelcomeTour;
+      return true;
+    case crosapi::mojom::LaunchSource::kFromFocusMode:
+      *output = apps::LaunchSource::kFromFocusMode;
       return true;
   }
 

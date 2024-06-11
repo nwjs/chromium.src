@@ -25,8 +25,13 @@
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
 #include "ash/public/cpp/app_menu_constants.h"
+#include "ash/resources/vector_icons/vector_icons.h"
+#include "ash/strings/grit/ash_strings.h"
+#include "ash/style/pill_button.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
+#include "base/functional/callback_helpers.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
@@ -36,11 +41,16 @@
 #include "ui/views/animation/animation_builder.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/layout/box_layout_view.h"
 #include "ui/views/view.h"
+#include "ui/views/view_utils.h"
 
 namespace ash {
 
 namespace {
+
+// This ID is from //chrome/browser/web_applications/web_app_id_constants.h.
+constexpr char kHelpAppId[] = "nbljnnecbjbmifnoehiemkgefbnpoeak";
 
 // Insets for the vertical scroll bar. The bottom is pushed up slightly to keep
 // the scroll bar from being clipped by the rounded corners.
@@ -98,8 +108,10 @@ AppListBubbleAppsCollectionsPage::AppListBubbleAppsCollectionsPage(
   // Arrow keys are used to select app icons.
   scroll_view_->SetAllowKeyboardScrolling(false);
 
-  // Scroll view will have a gradient mask layer.
-  scroll_view_->SetPaintToLayer(ui::LAYER_NOT_DRAWN);
+  // Scroll view will have a gradient mask layer, and is animated during
+  // hide/show.
+  scroll_view_->SetPaintToLayer();
+  scroll_view_->layer()->SetFillsBoundsOpaquely(false);
 
   // Set up scroll bars.
   scroll_view_->SetHorizontalScrollBarMode(
@@ -141,6 +153,22 @@ AppListBubbleAppsCollectionsPage::AppListBubbleAppsCollectionsPage(
 
   PopulateCollections(model);
 
+  views::BoxLayoutView* discovery_chip_container =
+      scroll_contents->AddChildView(std::make_unique<views::BoxLayoutView>());
+  discovery_chip_container->SetMainAxisAlignment(
+      views::BoxLayout::MainAxisAlignment::kCenter);
+  discovery_chip_container->SetCrossAxisAlignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
+
+  discovery_chip_ =
+      discovery_chip_container->AddChildView(std::make_unique<ash::PillButton>(
+          base::BindRepeating(
+              &AppListBubbleAppsCollectionsPage::OnDiscoveryChipPressed,
+              base::Unretained(this)),
+          l10n_util::GetStringUTF16(
+              IDS_ASH_LAUNCHER_APPS_COLLECTIONS_DISCOVERY_CHIP_LABEL),
+          ash::PillButton::kDefaultWithIconLeading, &kDiscoveryChipIcon));
+
   scroll_view_->SetContents(std::move(scroll_contents));
   toast_container_->CreateTutorialNudgeView();
   toast_container_->UpdateVisibilityState(
@@ -164,6 +192,13 @@ AppListBubbleAppsCollectionsPage::~AppListBubbleAppsCollectionsPage() {
   AppListModelProvider::Get()->RemoveObserver(this);
 }
 
+void AppListBubbleAppsCollectionsPage::OnDiscoveryChipPressed() {
+  view_delegate_->ActivateItem(
+      kHelpAppId,
+      /*event_flags=*/0, ash::AppListLaunchedFrom::kLaunchedFromDiscoveryChip,
+      /*is_app_above_the_fold=*/false);
+}
+
 void AppListBubbleAppsCollectionsPage::AnimateShowPage() {
   // If skipping animations, just update visibility.
   if (ui::ScopedAnimationDurationScaleMode::is_zero()) {
@@ -178,10 +213,9 @@ void AppListBubbleAppsCollectionsPage::AnimateShowPage() {
   // Ensure the view is visible.
   SetVisible(true);
 
-  // Scroll contents has a layer, so animate that.
-  views::View* scroll_contents = scroll_view_->contents();
-  DCHECK(scroll_contents->layer());
-  DCHECK_EQ(scroll_contents->layer()->type(), ui::LAYER_TEXTURED);
+  ui::Layer* scroll_view_layer = scroll_view_->layer();
+  DCHECK(scroll_view_layer);
+  DCHECK_EQ(scroll_view_layer->type(), ui::LAYER_TEXTURED);
 
   gfx::Transform translate_down;
   translate_down.Translate(0, kShowPageAnimationVerticalOffset);
@@ -196,15 +230,15 @@ void AppListBubbleAppsCollectionsPage::AnimateShowPage() {
           &AppListBubbleAppsCollectionsPage::SetVisibilityAfterAnimation,
           weak_factory_.GetWeakPtr(), /* visible= */ true))
       .Once()
-      .SetOpacity(scroll_contents, 0.f)
-      .SetTransform(scroll_contents, translate_down)
+      .SetOpacity(scroll_view_layer, 0.f)
+      .SetTransform(scroll_view_layer, translate_down)
       .At(kShowPageAnimationDelay)
       .SetDuration(kShowPageAnimationTransformDuration)
-      .SetTransform(scroll_contents, gfx::Transform(),
+      .SetTransform(scroll_view_layer, gfx::Transform(),
                     gfx::Tween::LINEAR_OUT_SLOW_IN)
       .At(kShowPageAnimationDelay)
       .SetDuration(kShowPageAnimationOpacityDuration)
-      .SetOpacity(scroll_contents, 1.f);
+      .SetOpacity(scroll_view_layer, 1.f);
 }
 
 void AppListBubbleAppsCollectionsPage::AnimateHidePage() {
@@ -214,15 +248,14 @@ void AppListBubbleAppsCollectionsPage::AnimateHidePage() {
     return;
   }
 
-  // Scroll contents has a layer, so animate that.
-  views::View* scroll_contents = scroll_view_->contents();
-  DCHECK(scroll_contents->layer());
-  DCHECK_EQ(scroll_contents->layer()->type(), ui::LAYER_TEXTURED);
+  ui::Layer* scroll_view_layer = scroll_view_->layer();
+  DCHECK(scroll_view_layer);
+  DCHECK_EQ(scroll_view_layer->type(), ui::LAYER_TEXTURED);
 
   // The animation spec says 40 dips down over 250ms, but the opacity animation
   // renders the view invisible after 50ms, so animate the visible fraction.
   gfx::Transform translate_down;
-  constexpr int kVerticalOffset = 40 * 250 / 50;
+  constexpr int kVerticalOffset = 40 * 50 / 250;
   translate_down.Translate(0, kVerticalOffset);
 
   // Opacity: 100% -> 0%, duration 50ms
@@ -237,8 +270,8 @@ void AppListBubbleAppsCollectionsPage::AnimateHidePage() {
           weak_factory_.GetWeakPtr(), /* visible= */ false))
       .Once()
       .SetDuration(base::Milliseconds(50))
-      .SetOpacity(scroll_contents, 0.f)
-      .SetTransform(scroll_contents, translate_down);
+      .SetOpacity(scroll_view_layer, 0.f)
+      .SetTransform(scroll_view_layer, translate_down);
 }
 
 void AppListBubbleAppsCollectionsPage::AbortAllAnimations() {
@@ -247,7 +280,7 @@ void AppListBubbleAppsCollectionsPage::AbortAllAnimations() {
       view->layer()->GetAnimator()->AbortAllAnimations();
     }
   };
-  abort_animations(scroll_view_->contents());
+  abort_animations(scroll_view_);
   if (toast_container_) {
     abort_animations(toast_container_);
   }
@@ -269,7 +302,11 @@ AppListBubbleAppsCollectionsPage::GetGridTypeForContextMenu() {
 }
 
 ui::Layer* AppListBubbleAppsCollectionsPage::GetPageAnimationLayerForTest() {
-  return scroll_view_->contents()->layer();
+  // Animating the `scroll_view_`'s content layer can have its transform
+  // animations interrupted when the content layer's transforms get set due to
+  // rtl specific transforms in ScrollView code. Use the `scroll_view_` layer
+  // for animations to avoid this.
+  return scroll_view_->layer();
 }
 
 AppListToastContainerView*
@@ -282,7 +319,7 @@ void AppListBubbleAppsCollectionsPage::SetVisibilityAfterAnimation(
   // Ensure the view has the correct opacity and transform when the animation is
   // aborted.
   SetVisible(visible);
-  ui::Layer* layer = scroll_view()->contents()->layer();
+  ui::Layer* layer = scroll_view()->layer();
   layer->SetOpacity(1.f);
   layer->SetTransform(gfx::Transform());
 }
@@ -293,9 +330,86 @@ void AppListBubbleAppsCollectionsPage::OnActiveAppListModelsChanged(
   PopulateCollections(model);
 }
 
+bool AppListBubbleAppsCollectionsPage::IsInFolder() const {
+  return false;
+}
+
+void AppListBubbleAppsCollectionsPage::SetSelectedView(AppListItemView* view) {
+  selected_view_ = view;
+}
+
+void AppListBubbleAppsCollectionsPage::ClearSelectedView() {
+  selected_view_ = nullptr;
+}
+
+bool AppListBubbleAppsCollectionsPage::IsSelectedView(
+    const AppListItemView* view) const {
+  return view == selected_view_;
+}
+
+bool AppListBubbleAppsCollectionsPage::InitiateDrag(
+    AppListItemView* view,
+    const gfx::Point& location,
+    const gfx::Point& root_location,
+    base::OnceClosure drag_start_callback,
+    base::OnceClosure drag_end_callback) {
+  return false;
+}
+
+void AppListBubbleAppsCollectionsPage::
+    StartDragAndDropHostDragAfterLongPress() {}
+
+bool AppListBubbleAppsCollectionsPage::UpdateDragFromItem(
+    bool is_touch,
+    const ui::LocatedEvent& event) {
+  return false;
+}
+
+void AppListBubbleAppsCollectionsPage::EndDrag(bool cancel) {}
+
+void AppListBubbleAppsCollectionsPage::OnAppListItemViewActivated(
+    AppListItemView* pressed_item_view,
+    const ui::Event& event) {
+  const std::string id = pressed_item_view->item()->id();
+  view_delegate_->ActivateItem(
+      id, event.flags(), AppListLaunchedFrom::kLaunchedFromAppsCollections,
+      IsAboveTheFold(pressed_item_view));
+  RecordAppListByCollectionLaunched(pressed_item_view->item()->collection_id(),
+                                    /*is_apps_collections_page=*/true);
+  // `this` may be deleted.
+}
+
+bool AppListBubbleAppsCollectionsPage::IsAboveTheFold(
+    AppListItemView* item_view) {
+  gfx::Rect item_bounds_in_scroll_view = views::View::ConvertRectToTarget(
+      item_view, scroll_view_->contents(), item_view->GetLocalBounds());
+  return item_bounds_in_scroll_view.bottom() <
+         scroll_view_->GetVisibleRect().height();
+}
+
 void AppListBubbleAppsCollectionsPage::SetDialogController(
     SearchResultPageDialogController* dialog_controller) {
   dialog_controller_ = dialog_controller;
+}
+
+void AppListBubbleAppsCollectionsPage::RecordAboveTheFoldMetrics() {
+  std::vector<std::string> apps_above_the_fold = {};
+  std::vector<std::string> apps_below_the_fold = {};
+  for (views::View* child_view : sections_container_->children()) {
+    AppsCollectionSectionView* collection_view =
+        views::AsViewClass<AppsCollectionSectionView>(child_view);
+    for (size_t i = 0; i < collection_view->item_views()->view_size(); ++i) {
+      AppListItemView* app_view = collection_view->item_views()->view_at(i);
+      if (IsAboveTheFold(app_view)) {
+        apps_above_the_fold.push_back(app_view->item()->id());
+      } else {
+        apps_below_the_fold.push_back(app_view->item()->id());
+      }
+    }
+  }
+  view_delegate_->RecordAppsDefaultVisibility(
+      apps_above_the_fold, apps_below_the_fold,
+      /*is_apps_collections_page=*/true);
 }
 
 void AppListBubbleAppsCollectionsPage::PopulateCollections(
@@ -310,7 +424,7 @@ void AppListBubbleAppsCollectionsPage::PopulateCollections(
     AppsCollectionSectionView* collection_view =
         sections_container_->AddChildView(
             std::make_unique<AppsCollectionSectionView>(collection,
-                                                        view_delegate_));
+                                                        view_delegate_, this));
     collection_view->UpdateAppListConfig(app_list_config_);
     collection_view->SetModel(model);
   }
@@ -340,18 +454,26 @@ void AppListBubbleAppsCollectionsPage::DismissPageAndReorder(
 }
 
 void AppListBubbleAppsCollectionsPage::OnPageScrolled() {
-  // Do not log anything if the contents are not scrollable.
-  if (scroll_view_->GetVisibleRect().height() >=
-      scroll_view_->contents()->height()) {
+  const gfx::Rect visible_bounds = scroll_view_->GetVisibleRect();
+  const gfx::Rect contents_bounds = scroll_view_->contents()->bounds();
+
+  // Do not log anything if the contents are not scrolled.
+  if (visible_bounds.y() == contents_bounds.y()) {
+    last_bottom_scroll_offset_.reset();
     return;
   }
 
-  if (scroll_view_->GetVisibleRect().bottom() ==
-      scroll_view_->contents()->bounds().bottom()) {
+  const int bottom_scroll_offset =
+      contents_bounds.bottom() - visible_bounds.bottom();
+  const int buffer =
+      kVerticalPaddingBetweenSections + kVerticalPaddingBetweenNudgeAndSections;
+  if (bottom_scroll_offset <= buffer &&
+      (!last_bottom_scroll_offset_ || last_bottom_scroll_offset_ > buffer)) {
     RecordLauncherWorkflowMetrics(
         AppListUserAction::kNavigatedToBottomOfAppList,
         /*is_tablet_mode = */ false, std::nullopt);
   }
+  last_bottom_scroll_offset_ = bottom_scroll_offset;
 }
 
 BEGIN_METADATA(AppListBubbleAppsCollectionsPage)

@@ -12,6 +12,8 @@
 #import "base/memory/raw_ptr.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/strings/sys_string_conversions.h"
+#import "components/autofill/core/browser/address_data_manager.h"
+#import "components/autofill/core/browser/payments_data_manager.h"
 #import "components/autofill/core/browser/personal_data_manager.h"
 #import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
@@ -252,10 +254,11 @@ bool InputTriggersKeyboard(std::string field_type, bool default_value) {
       // button is hidden when local cards are saved and then
       // kAutofillCreditCardEnabled is changed to disabled.
       consumer.creditCardButtonHidden =
-          personalDataManager->GetCreditCards().empty();
+          personalDataManager->payments_data_manager().GetCreditCards().empty();
 
-      consumer.addressButtonHidden =
-          personalDataManager->GetProfilesToSuggest().empty();
+      consumer.addressButtonHidden = personalDataManager->address_data_manager()
+                                         .GetProfilesToSuggest()
+                                         .empty();
     } else {
       consumer.creditCardButtonHidden = YES;
       consumer.addressButtonHidden = YES;
@@ -277,7 +280,7 @@ bool InputTriggersKeyboard(std::string field_type, bool default_value) {
 }
 
 - (void)dealloc {
-  // TODO(crbug.com/1454777)
+  // TODO(crbug.com/40272467)
   DUMP_WILL_BE_CHECK(!_formActivityObserverBridge.get());
   DUMP_WILL_BE_CHECK(!_autofillBottomSheetObserverBridge.get());
   DUMP_WILL_BE_CHECK(!_personalDataManager);
@@ -573,7 +576,7 @@ bool InputTriggersKeyboard(std::string field_type, bool default_value) {
 
 - (void)setOriginalPrefService:(PrefService*)originalPrefService {
   _originalPrefService = originalPrefService;
-  if (IsBottomOmniboxSteadyStateEnabled() && _originalPrefService) {
+  if (IsBottomOmniboxAvailable() && _originalPrefService) {
     _bottomOmniboxEnabled =
         [[PrefBackedBoolean alloc] initWithPrefService:_originalPrefService
                                               prefName:prefs::kBottomOmnibox];
@@ -724,16 +727,17 @@ bool InputTriggersKeyboard(std::string field_type, bool default_value) {
 
 // Logs information about what type of suggestion the user selected.
 - (void)logReauthenticationEvent:(ReauthenticationEvent)reauthenticationEvent
-                     popupItemId:(autofill::PopupItemId)popupItemId {
+                     popupItemId:(autofill::SuggestionType)popupItemId {
   std::string histogramName;
   if (self.currentProvider.type == SuggestionProviderTypePassword) {
     histogramName = "IOS.Reauth.Password.Autofill";
   } else if (self.currentProvider.type == SuggestionProviderTypeAutofill) {
     switch (popupItemId) {
-      case autofill::PopupItemId::kCreditCardEntry:
+      case autofill::SuggestionType::kCreditCardEntry:
+      case autofill::SuggestionType::kVirtualCreditCardEntry:
         histogramName = "IOS.Reauth.CreditCard.Autofill";
         break;
-      case autofill::PopupItemId::kAddressEntry:
+      case autofill::SuggestionType::kAddressEntry:
         histogramName = "IOS.Reauth.Address.Autofill";
         break;
       default:
@@ -765,7 +769,6 @@ bool InputTriggersKeyboard(std::string field_type, bool default_value) {
 
 - (void)booleanDidChange:(id<ObservableBoolean>)observableBoolean {
   if (observableBoolean == _bottomOmniboxEnabled) {
-    CHECK(IsBottomOmniboxSteadyStateEnabled());
     [self.consumer newOmniboxPositionIsBottom:_bottomOmniboxEnabled.value];
   }
 }
@@ -824,10 +827,12 @@ bool InputTriggersKeyboard(std::string field_type, bool default_value) {
   DCHECK(_personalDataManager);
 
   self.consumer.creditCardButtonHidden =
-      _personalDataManager->GetCreditCards().empty();
+      _personalDataManager->payments_data_manager().GetCreditCards().empty();
 
   self.consumer.addressButtonHidden =
-      _personalDataManager->GetProfilesToSuggest().empty();
+      _personalDataManager->address_data_manager()
+          .GetProfilesToSuggest()
+          .empty();
 }
 
 #pragma mark - Tests

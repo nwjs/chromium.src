@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "ash/accelerators/accelerator_prefs_delegate.h"
-#include "ash/constants/app_types.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/game_dashboard/game_dashboard_delegate.h"
@@ -51,6 +50,7 @@
 #include "chrome/browser/ui/ash/chrome_accessibility_delegate.h"
 #include "chrome/browser/ui/ash/clipboard_history_controller_delegate_impl.h"
 #include "chrome/browser/ui/ash/desks/chrome_saved_desk_delegate.h"
+#include "chrome/browser/ui/ash/focus_mode/chrome_focus_mode_delegate.h"
 #include "chrome/browser/ui/ash/game_dashboard/chrome_game_dashboard_delegate.h"
 #include "chrome/browser/ui/ash/global_media_controls/media_notification_provider_impl.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_ui.h"
@@ -121,24 +121,24 @@ content::WebContents* GetActiveWebContentsForNativeBrowserWindow(
   return tab_strip_model ? tab_strip_model->GetActiveWebContents() : nullptr;
 }
 
-chrome::FeedbackSource ToChromeFeedbackSource(
+feedback::FeedbackSource ToChromeFeedbackSource(
     ash::ShellDelegate::FeedbackSource source) {
   switch (source) {
     case ash::ShellDelegate::FeedbackSource::kBirch:
-      return chrome::FeedbackSource::kFeedbackSourceBirch;
+      return feedback::FeedbackSource::kFeedbackSourceBirch;
     case ash::ShellDelegate::FeedbackSource::kFocusMode:
-      return chrome::FeedbackSource::kFeedbackSourceFocusMode;
+      return feedback::FeedbackSource::kFeedbackSourceFocusMode;
     case ash::ShellDelegate::FeedbackSource::kGameDashboard:
-      return chrome::FeedbackSource::kFeedbackSourceGameDashboard;
+      return feedback::FeedbackSource::kFeedbackSourceGameDashboard;
     case ash::ShellDelegate::FeedbackSource::kOverview:
-      return chrome::FeedbackSource::kFeedbackSourceOverview;
+      return feedback::FeedbackSource::kFeedbackSourceOverview;
     case ash::ShellDelegate::FeedbackSource::kSnapGroups:
-      return chrome::FeedbackSource::kFeedbackSourceSnapGroups;
+      return feedback::FeedbackSource::kFeedbackSourceSnapGroups;
     case ash::ShellDelegate::FeedbackSource::kWindowLayoutMenu:
-      return chrome::FeedbackSource::kFeedbackSourceWindowLayoutMenu;
+      return feedback::FeedbackSource::kFeedbackSourceWindowLayoutMenu;
   }
-  NOTREACHED_NORETURN()
-      << "Unable to retrieve FeedbackSource due to unknown source type.";
+  NOTREACHED_NORETURN() << "Unable to retrieve feedback::FeedbackSource due to "
+                           "unknown source type.";
 }
 
 }  // namespace
@@ -210,13 +210,18 @@ ChromeShellDelegate::CreateTasksDelegate() const {
   return std::make_unique<ash::api::ChromeTasksDelegate>();
 }
 
+std::unique_ptr<ash::FocusModeDelegate>
+ChromeShellDelegate::CreateFocusModeDelegate() const {
+  return std::make_unique<ChromeFocusModeDelegate>();
+}
+
 std::unique_ptr<ash::UserEducationDelegate>
 ChromeShellDelegate::CreateUserEducationDelegate() const {
   return std::make_unique<ChromeUserEducationDelegate>();
 }
 
 scoped_refptr<network::SharedURLLoaderFactory>
-ChromeShellDelegate::GetGeolocationUrlLoaderFactory() const {
+ChromeShellDelegate::GetBrowserProcessUrlLoaderFactory() const {
   return g_browser_process->shared_url_loader_factory();
 }
 

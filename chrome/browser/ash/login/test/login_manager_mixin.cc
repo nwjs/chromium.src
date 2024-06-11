@@ -206,6 +206,27 @@ void LoginManagerMixin::SetUpOnMainThread() {
       should_launch_browser_);
   session_manager_test_api.SetShouldObtainTokenHandleInTests(
       should_obtain_handles_);
+  set_up_on_main_thread_ = true;
+}
+
+void LoginManagerMixin::SetShouldLaunchBrowser(bool value) {
+  should_launch_browser_ = value;
+  if (set_up_on_main_thread_) {
+    test::UserSessionManagerTestApi session_manager_test_api(
+        UserSessionManager::GetInstance());
+    session_manager_test_api.SetShouldLaunchBrowserInTests(
+        should_launch_browser_);
+  }
+}
+
+void LoginManagerMixin::SetShouldObtainHandle(bool value) {
+  should_obtain_handles_ = value;
+  if (set_up_on_main_thread_) {
+    test::UserSessionManagerTestApi session_manager_test_api(
+        UserSessionManager::GetInstance());
+    session_manager_test_api.SetShouldObtainTokenHandleInTests(
+        should_obtain_handles_);
+  }
 }
 
 void LoginManagerMixin::TearDownOnMainThread() {
@@ -216,6 +237,19 @@ void LoginManagerMixin::AttemptLoginUsingFakeDataAuthClient(
     const UserContext& user_context) {
   ExistingUserController::current_controller()->Login(user_context,
                                                       SigninSpecifics());
+  if (skip_post_login_screens_ && ash::WizardController::default_controller()) {
+    ash::WizardController::default_controller()
+        ->SkipPostLoginScreensForTesting();
+  }
+}
+
+void LoginManagerMixin::AttemptNewUserLoginUsingFakeDataAuthClient(
+    const UserContext& user_context) {
+  if (skip_post_login_screens_ && ash::WizardController::default_controller()) {
+    ash::WizardController::default_controller()
+        ->SkipPostLoginScreensForTesting();
+  }
+  ExistingUserController::current_controller()->CompleteLogin(user_context);
   if (skip_post_login_screens_ && ash::WizardController::default_controller()) {
     ash::WizardController::default_controller()
         ->SkipPostLoginScreensForTesting();
@@ -249,15 +283,13 @@ bool LoginManagerMixin::LoginAndWaitForActiveSession(
          active_user->GetAccountId() == user_context.GetAccountId();
 }
 
-void LoginManagerMixin::LoginWithDefaultContext(
-    const TestUserInfo& user_info,
-    bool wait_for_profile_prepared) {
+void LoginManagerMixin::LoginWithDefaultContext(const TestUserInfo& user_info) {
   UserContext user_context = CreateDefaultUserContext(user_info);
   test::ProfilePreparedWaiter profile_prepared(user_info.account_id);
   AttemptLoginUsingAuthenticator(
       user_context, std::make_unique<StubAuthenticatorBuilder>(user_context));
 
-  if (wait_for_profile_prepared) {
+  if (wait_for_profile_) {
     profile_prepared.Wait();
   }
 }
@@ -273,9 +305,27 @@ void LoginManagerMixin::LoginAsNewRegularUser(
   }
 
   test::ProfilePreparedWaiter profile_prepared(user_context->GetAccountId());
-  AttemptLoginUsingAuthenticator(
-      *user_context, std::make_unique<StubAuthenticatorBuilder>(*user_context));
-  profile_prepared.Wait();
+  AttemptNewUserLoginUsingFakeDataAuthClient(*user_context);
+  if (wait_for_profile_) {
+    profile_prepared.Wait();
+  }
+}
+
+void LoginManagerMixin::LoginAsNewEnterpriseUser() {
+  LoginDisplayHost::default_host()->StartWizard(GaiaView::kScreenId);
+  test::WaitForOobeJSReady();
+
+  ASSERT_FALSE(session_manager::SessionManager::Get()->IsSessionStarted());
+  UserContext user_context = CreateDefaultUserContext(TestUserInfo(
+      AccountId::FromUserEmailGaiaId(FakeGaiaMixin::kEnterpriseUser1,
+                                     FakeGaiaMixin::kEnterpriseUser1GaiaId)));
+  user_context.SetRefreshToken(FakeGaiaMixin::kFakeRefreshToken);
+
+  test::ProfilePreparedWaiter profile_prepared(user_context.GetAccountId());
+  AttemptNewUserLoginUsingFakeDataAuthClient(user_context);
+  if (wait_for_profile_) {
+    profile_prepared.Wait();
+  }
 }
 
 void LoginManagerMixin::LoginAsNewChildUser() {
@@ -296,9 +346,10 @@ void LoginManagerMixin::LoginAsNewChildUser() {
       test_child_user_.account_id.GetGaiaId(), FakeGaiaMixin::kFakeRefreshToken,
       false /*issue_any_scope_token*/);
   test::ProfilePreparedWaiter profile_prepared(user_context.GetAccountId());
-  AttemptLoginUsingAuthenticator(
-      user_context, std::make_unique<StubAuthenticatorBuilder>(user_context));
-  profile_prepared.Wait();
+  AttemptNewUserLoginUsingFakeDataAuthClient(user_context);
+  if (wait_for_profile_) {
+    profile_prepared.Wait();
+  }
 }
 
 void LoginManagerMixin::SkipPostLoginScreens() {

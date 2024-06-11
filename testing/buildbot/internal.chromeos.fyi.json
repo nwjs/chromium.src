@@ -720,12 +720,17 @@
             {
               "cipd_package": "infra/3pp/tools/cpython3/linux-amd64",
               "location": "vpython_dir_linux_amd64",
-              "revision": "version:2@3.8.10.chromium.21"
+              "revision": "version:2@3.8.10.chromium.34"
             },
             {
-              "cipd_package": "infra/tools/luci/vpython/linux-amd64",
+              "cipd_package": "infra/tools/luci/vpython3/linux-amd64",
               "location": "vpython_dir_linux_amd64",
-              "revision": "git_revision:0f694cdc06ba054b9960aa1ae9766e45b53d02c1"
+              "revision": "git_revision:6ee2ba6ba03b09d8d8763f524aa77edf1945ca92"
+            },
+            {
+              "cipd_package": "infra/tools/cipd/linux-amd64",
+              "location": "vpython_dir_linux_amd64",
+              "revision": "git_revision:200dbdf0e967e81388359d3f85f095d39b35db67"
             }
           ],
           "dimensions": {
@@ -1014,7 +1019,6 @@
       },
       {
         "args": [
-          "--magic-vm-cache=magic_cros_vm_cache",
           "--stop-ui",
           "--gtest_filter=\"VaapiTest.*\"",
           "--env-var",
@@ -1022,7 +1026,8 @@
           "./",
           "--env-var",
           "LIBVA_DRIVER_NAME",
-          "libfake"
+          "libfake",
+          "--magic-vm-cache=magic_cros_vm_cache"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1188,9 +1193,9 @@
       {
         "args": [
           "--target-platform=cros",
+          "--git-revision=${got_revision}",
           "--board=betty-pi-arc",
-          "--magic-vm-cache=magic_cros_vm_cache",
-          "--git-revision=${got_revision}"
+          "--magic-vm-cache=magic_cros_vm_cache"
         ],
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
@@ -1598,7 +1603,7 @@
         "autotest_name": "tast.chrome-from-gcs",
         "cros_board": "jacuzzi",
         "name": "chrome_all_tast_tests RELEASE_LKGM",
-        "shards": 20,
+        "shards": 30,
         "tast_expr": "STUB_STRING_TO_RUN_TAST_TESTS",
         "test": "chrome_all_tast_tests",
         "test_id_prefix": "ninja://chromeos:chrome_all_tast_tests/",

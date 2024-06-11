@@ -415,7 +415,7 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
                  base::TimeTicks,
                  base::TimeTicks) override;
   void DidCommitAndDrawFrame(int source_frame_number) override {}
-  void DidReceiveCompositorFrameAck() override;
+  void DidReceiveCompositorFrameAckDeprecatedForCompositor() override;
   void DidCompletePageScaleAnimation(int source_frame_number) override {}
   void DidPresentCompositorFrame(
       uint32_t frame_token,
@@ -472,7 +472,6 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   }
 
   const viz::FrameSinkId& frame_sink_id() const { return frame_sink_id_; }
-  int activated_frame_count() const { return activated_frame_count_; }
   float refresh_rate() const { return refresh_rate_; }
 
   bool use_external_begin_frame_control() const {
@@ -557,8 +556,6 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
       animation_observer_list_;
 
   gfx::AcceleratedWidget widget_ = gfx::kNullAcceleratedWidget;
-  // A sequence number of a current compositor frame for use with metrics.
-  int activated_frame_count_ = 0;
 
 #if BUILDFLAG(IS_MAC)
   // Current CGDirectDisplayID for the screen.

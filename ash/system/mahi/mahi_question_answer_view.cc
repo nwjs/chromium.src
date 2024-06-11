@@ -74,8 +74,8 @@ constexpr int kTextBubbleCornerRadius = 12;
 // TODO(b/319731776): Use panel bounds here instead of `kPanelDefaultWidth` when
 // the panel is resizable.
 constexpr int kTextBubbleLabelDefaultMaximumWidth =
-    mahi_constants::kPanelDefaultWidth - mahi_constants::kPanelPadding.width() -
-    kQuestionAnswerInteriorMargin.width() - kTextBubbleInteriorMargin.width();
+    mahi_constants::kScrollViewWidth - kQuestionAnswerInteriorMargin.width() -
+    kTextBubbleInteriorMargin.width();
 
 // ErrorBubble -----------------------------------------------------------------
 
@@ -137,6 +137,7 @@ views::Builder<views::FlexLayoutView> CreateTextBubbleBuilder(
               // Since every text bubble label has this ID, the view lookup will
               // only be performed from one parent above.
               .SetID(mahi_constants::ViewId::kQuestionAnswerTextBubbleLabel)
+              .SetSelectable(true)
               .SetMultiLine(true)
               .CustomConfigure(base::BindOnce([](views::Label* label) {
                 label->SetProperty(views::kFlexBehaviorKey,
@@ -145,7 +146,7 @@ views::Builder<views::FlexLayoutView> CreateTextBubbleBuilder(
                                        views::MaximumFlexSizeRule::kPreferred,
                                        /*adjust_height_for_width=*/true));
 
-                // TODO(crbug.com/1349528): Multiline label right now doesn't
+                // TODO(crbug.com/40233803): Multiline label right now doesn't
                 // work well with `FlexLayout`. The size constraint is not
                 // passed down from the views tree in the first round of layout,
                 // so we impose a maximum width constraint so that the first

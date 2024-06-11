@@ -61,6 +61,7 @@
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/login/auth/public/auth_types.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
+#include "chromeos/ash/components/osauth/public/auth_hub.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_id/account_id.h"
 #include "components/startup_metric_utils/common/startup_metric_utils.h"
@@ -272,9 +273,6 @@ void LoginDisplayHostMojo::SetUsers(const user_manager::UserList& users) {
   // services.
   VLOG(1) << "Emitting login-prompt-visible";
   SessionManagerClient::Get()->EmitLoginPromptVisible();
-
-  // TODO(crbug.com/1305245) - Remove once the issue is fixed.
-  LOG(WARNING) << __func__ << " NotifyLoginOrLockScreenVisible";
   session_manager::SessionManager::Get()->NotifyLoginOrLockScreenVisible();
 
   // If there no available users exist, delay showing the dialogs until after
@@ -491,6 +489,8 @@ void LoginDisplayHostMojo::OnStartSignInScreen() {
   signin_screen_started_ = true;
 
   CreateExistingUserController();
+
+  AuthHub::Get()->InitializeForMode(AuthHubMode::kLoginScreen);
 
   // Load the UI.
   existing_user_controller_->Init(user_manager::UserManager::Get()->GetUsers());
@@ -889,7 +889,7 @@ void LoginDisplayHostMojo::OnChallengeResponseKeysPrepared(
     base::OnceCallback<void(bool)> on_auth_complete_callback,
     std::vector<ChallengeResponseKey> challenge_response_keys) {
   if (challenge_response_keys.empty()) {
-    // TODO(crbug.com/826417): Indicate the error in the UI.
+    // TODO(crbug.com/40568975): Indicate the error in the UI.
     std::move(on_auth_complete_callback).Run(false);
     return;
   }

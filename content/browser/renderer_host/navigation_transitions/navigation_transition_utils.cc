@@ -79,7 +79,7 @@ void CacheScreenshotImpl(base::WeakPtr<NavigationControllerImpl> controller,
   }
 
   if (entry == controller->GetLastCommittedEntry()) {
-    // TODO(https://crbug.com/1472395): We shouldn't cache the screenshot into
+    // TODO(crbug.com/40278616): We shouldn't cache the screenshot into
     // the navigation entry if the entry is re-navigated after we send out the
     // copy request. See the two cases below.
     //
@@ -158,13 +158,13 @@ bool CanTraverseToPreviousEntryAfterNavigation(
 // TODO(liuwilliam): remove it once all the TODOs are implemented.
 ShouldCapture ShouldCaptureForWorkInProgressConditions(
     const NavigationRequest& navigation_request) {
-  // TODO(https://crbug.com/1420995): Support same-doc navigations. Make sure
+  // TODO(crbug.com/40259037): Support same-doc navigations. Make sure
   // to test the `history.pushState` and `history.replaceState` APIs.
   if (navigation_request.IsSameDocument()) {
     return ShouldCapture::kNo;
   }
 
-  // TODO(https://crbug.com/1421377): Support subframe navigations.
+  // TODO(crbug.com/40896219): Support subframe navigations.
   if (!navigation_request.IsInMainFrame()) {
     return ShouldCapture::kNo;
   }
@@ -185,14 +185,14 @@ ShouldCapture ShouldCaptureForWorkInProgressConditions(
                                          ->render_manager()
                                          ->current_frame_host();
   if (is_same_rfh_or_early_commit) {
-    // TODO(https://crbug.com/1445976): Screenshot capture for same-RFH
+    // TODO(crbug.com/40268383): Screenshot capture for same-RFH
     // navigations can yield unexpected results because the
     // `viz::LocalSurfaceId` update is in a different IPC than navigation. We
     // will rely on RenderDocument to be enabled to all navigations.
     return ShouldCapture::kOnlyAskEmbedder;
   }
 
-  // TODO(https://crbug.com/1474904): Test capturing for WebUI.
+  // TODO(crbug.com/40279439): Test capturing for WebUI.
 
   return ShouldCapture::kYes;
 }
@@ -268,7 +268,7 @@ void NavigationTransitionUtils::CaptureNavigationEntryScreenshot(
   // here after the `RenderFrameHost` has been selected for a successful
   // navigation.
   //
-  // TODO(https://crbug.com/1473327): This CHECK won't hold for early-swap. For
+  // TODO(crbug.com/40278956): This CHECK won't hold for early-swap. For
   // early-swap, we don't have the network response when we swap the RFHs, thus
   // no RFH on the navigation request. See the comment above
   // `is_same_rfh_or_early_commit`.

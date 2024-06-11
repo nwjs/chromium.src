@@ -97,6 +97,9 @@
 // Layout guide for the cell's content.
 @property(nonatomic, strong) UILayoutGuide* layoutGuide;
 
+// Button to autofill the current form with the address' data.
+@property(nonatomic, strong) UIButton* autofillFormButton;
+
 @end
 
 @implementation ManualFillAddressCell
@@ -187,9 +190,6 @@
 
   self.dynamicConstraints = [[NSMutableArray alloc] init];
 
-  BOOL largeTypes = UIContentSizeCategoryIsAccessibilityCategory(
-      UIScreen.mainScreen.traitCollection.preferredContentSizeCategory);
-
   // First, middle and last names are presented on the same line when possible.
   NSMutableArray<UIView*>* nameLineViews = [[NSMutableArray alloc] init];
 
@@ -231,10 +231,9 @@
     self.lastNameButton.hidden = YES;
   }
 
-  [self layMultipleViews:nameLineViews
-          withLargeTypes:largeTypes
-                 onGuide:self.layoutGuide
-      addFirstLineViewTo:nameGroupVerticalLeadChips];
+  LayViewsHorizontallyWhenPossible(nameLineViews, self.layoutGuide,
+                                   self.dynamicConstraints,
+                                   nameGroupVerticalLeadChips);
 
   // Holds the chip buttons related to the company name that are vertical leads.
   NSMutableArray<UIView*>* companyGroupVerticalLeadChips =
@@ -292,10 +291,9 @@
     self.cityButton.hidden = YES;
   }
 
-  [self layMultipleViews:zipCityLineViews
-          withLargeTypes:largeTypes
-                 onGuide:self.layoutGuide
-      addFirstLineViewTo:addressGroupVerticalLeadChips];
+  LayViewsHorizontallyWhenPossible(zipCityLineViews, self.layoutGuide,
+                                   self.dynamicConstraints,
+                                   addressGroupVerticalLeadChips);
 
   // State and country are presented on the same line when possible.
   NSMutableArray<UIView*>* stateCountryLineViews =
@@ -319,10 +317,9 @@
     self.countryButton.hidden = YES;
   }
 
-  [self layMultipleViews:stateCountryLineViews
-          withLargeTypes:largeTypes
-                 onGuide:self.layoutGuide
-      addFirstLineViewTo:addressGroupVerticalLeadChips];
+  LayViewsHorizontallyWhenPossible(stateCountryLineViews, self.layoutGuide,
+                                   self.dynamicConstraints,
+                                   addressGroupVerticalLeadChips);
 
   // Holds the chip buttons related to the contact info that are vertical leads.
   NSMutableArray<UIView*>* contactInfoGroupVerticalLeadChips =
@@ -355,6 +352,12 @@
       ],
       verticalLeadViews);
 
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    AddViewToVerticalLeadViews(self.autofillFormButton,
+                               ManualFillCellView::ElementType::kOther,
+                               verticalLeadViews);
+  }
+
   // Set and activate constraints.
   AppendVerticalConstraintsSpacingForViews(self.dynamicConstraints,
                                            verticalLeadViews, self.layoutGuide);
@@ -363,35 +366,11 @@
 
 #pragma mark - Private
 
-// Dynamically lay givens `views` on `guide`, adding first view of every
-// generated line to `verticalLeadViews`. If `largeTypes` is true, fields are
-// laid out vertically one per line, otherwise horizontally on one line.
-// Constraints are added to `self.dynamicConstraints` property.
-- (void)layMultipleViews:(NSArray<UIView*>*)views
-          withLargeTypes:(BOOL)largeTypes
-                 onGuide:(UILayoutGuide*)guide
-      addFirstLineViewTo:(NSMutableArray<UIView*>*)verticalLeadViews {
-  if (views.count == 0)
-    return;
-  if (largeTypes) {
-    for (UIView* view in views) {
-      AppendHorizontalConstraintsForViews(
-          self.dynamicConstraints, @[ view ], guide, kChipsHorizontalMargin,
-          AppendConstraintsHorizontalEqualOrSmallerThanGuide);
-      [verticalLeadViews addObject:view];
-    }
-  } else {
-    AppendHorizontalConstraintsForViews(
-        self.dynamicConstraints, views, guide, kChipsHorizontalMargin,
-        AppendConstraintsHorizontalSyncBaselines |
-            AppendConstraintsHorizontalEqualOrSmallerThanGuide);
-    [verticalLeadViews addObject:views.firstObject];
-  }
-}
-
 // Creates and sets up the view hierarchy.
 - (void)createViewHierarchy {
-  self.layoutGuide = AddLayoutGuideToContentView(self.contentView);
+  self.layoutGuide = AddLayoutGuideToContentView(
+      self.contentView,
+      /*cell_has_header=*/!IsKeyboardAccessoryUpgradeEnabled());
 
   self.selectionStyle = UITableViewCellSelectionStyleNone;
 
@@ -476,6 +455,13 @@
       staticConstraints, @[ self.emailAddressButton ], self.layoutGuide,
       kChipsHorizontalMargin,
       AppendConstraintsHorizontalEqualOrSmallerThanGuide);
+
+  if (IsKeyboardAccessoryUpgradeEnabled()) {
+    self.autofillFormButton = CreateAutofillFormButton();
+    [self.contentView addSubview:self.autofillFormButton];
+    AppendHorizontalConstraintsForViews(
+        staticConstraints, @[ self.autofillFormButton ], self.layoutGuide);
+  }
 
   // Without this set, Voice Over will read the content vertically instead of
   // horizontally.

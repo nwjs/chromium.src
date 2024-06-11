@@ -20,12 +20,14 @@
 #include "base/strings/string_number_conversions.h"
 #include "build/build_config.h"
 #include "components/password_manager/core/browser/features/password_features.h"
+#include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_store/password_store_change.h"
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
 #include "components/password_manager/core/browser/sync/password_store_sync.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/sync/base/data_type_histogram.h"
+#include "components/sync/base/deletion_origin.h"
 #include "components/sync/base/features.h"
 #include "components/sync/model/in_memory_metadata_change_list.h"
 #include "components/sync/model/metadata_batch.h"
@@ -409,6 +411,7 @@ PasswordSyncBridge::PasswordSyncBridge(
 PasswordSyncBridge::~PasswordSyncBridge() = default;
 
 void PasswordSyncBridge::ActOnPasswordStoreChanges(
+    const base::Location& location,
     const PasswordStoreChangeList& local_changes) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // It's the responsibility of the callers to call this method within the same
@@ -450,18 +453,13 @@ void PasswordSyncBridge::ActOnPasswordStoreChanges(
         break;
       }
       case PasswordStoreChange::REMOVE: {
-        change_processor()->Delete(storage_key, &metadata_change_list);
+        change_processor()->Delete(
+            storage_key, syncer::DeletionOrigin::FromLocation(location),
+            &metadata_change_list);
         break;
       }
     }
   }
-}
-
-std::vector<PasswordForm> PasswordSyncBridge::GetUnsyncedCredentials() const {
-  std::vector<PasswordForm> forms_to_be_moved;
-  GetUnsyncedCredentialsHelper(forms_to_be_moved,
-                               /*forms_to_be_deleted=*/nullptr);
-  return forms_to_be_moved;
 }
 
 std::unique_ptr<syncer::MetadataChangeList>
@@ -557,7 +555,16 @@ std::optional<syncer::ModelError> PasswordSyncBridge::MergeFullSyncData(
 
       const std::string client_tag_of_local_password =
           GetClientTag(*local_form_entity_data);
-      client_tags_of_local_passwords.insert(client_tag_of_local_password);
+      const bool local_client_tag_is_unique =
+          client_tags_of_local_passwords.insert(client_tag_of_local_password)
+              .second;
+
+      if (!local_client_tag_is_unique) {
+        // The client tag should uniquely identify local passwords. If there are
+        // two local passwords with the same client tag, it must be a corrupt
+        // state that cannot be synced.
+        continue;
+      }
 
       if (client_tag_to_remote_entity_change_map.count(
               client_tag_of_local_password) == 0) {
@@ -945,7 +952,7 @@ void PasswordSyncBridge::GetAllDataForDebugging(DataCallback callback) {
 
   auto batch = std::make_unique<syncer::MutableDataBatch>();
   for (const auto& [primary_key, specifics] : key_to_specifics_map) {
-    // TODO(crbug.com/1406388): consider whether the VISIT_SECRET macro in
+    // TODO(crbug.com/40252694): consider whether the VISIT_SECRET macro in
     // proto_visitors.h could replace this.
     specifics->set_password_value("<redacted>");
     const std::string storage_key = base::NumberToString(primary_key.value());
@@ -1014,39 +1021,8 @@ void PasswordSyncBridge::ApplyDisableSyncChanges(
   base::AutoReset<bool> processing_changes(&is_processing_remote_sync_changes_,
                                            true);
 
-  std::vector<PasswordForm> credentials_to_move;
-  std::vector<PasswordForm> credentials_to_delete;
-  GetUnsyncedCredentialsHelper(credentials_to_move, &credentials_to_delete);
   PasswordStoreChangeList password_store_changes;
-  for (const auto& form : credentials_to_move) {
-    password_store_changes.emplace_back(PasswordStoreChange::REMOVE, form);
-  }
-  for (const auto& form : credentials_to_delete) {
-    password_store_changes.emplace_back(PasswordStoreChange::REMOVE, form);
-  }
-
-  password_store_sync_->GetMetadataStore()->DeleteAllSyncMetadata(
-      syncer::PASSWORDS);
-  password_store_sync_->DeleteAndRecreateDatabaseFile();
-  password_store_sync_->NotifyCredentialsChanged(password_store_changes);
-
-  if (password_store_sync_->IsAccountStore()) {
-    base::UmaHistogramCounts100(
-        "PasswordManager.AccountStorage.UnsyncedPasswordsFoundDuringSignOut",
-        credentials_to_move.size());
-
-    if (!credentials_to_move.empty()) {
-      password_store_sync_->NotifyUnsyncedCredentialsWillBeDeleted(
-          std::move(credentials_to_move));
-    }
-  }
-
-  sync_enabled_or_disabled_cb_.Run();
-}
-
-void PasswordSyncBridge::GetUnsyncedCredentialsHelper(
-    std::vector<PasswordForm>& forms_to_be_moved,
-    std::vector<PasswordForm>* forms_to_be_deleted) const {
+  std::vector<PasswordForm> unsynced_credentials_being_deleted;
   PrimaryKeyToPasswordSpecificsDataMap credentials;
   FormRetrievalResult result =
       password_store_sync_->ReadAllCredentials(&credentials);
@@ -1057,14 +1033,30 @@ void PasswordSyncBridge::GetUnsyncedCredentialsHelper(
       PasswordForm form = PasswordFromSpecifics(*specifics);
       form.primary_key = primary_key;
       form.in_store = password_manager::PasswordForm::Store::kAccountStore;
+      password_store_changes.emplace_back(PasswordStoreChange::REMOVE, form);
       if (unsynced_passwords_storage_keys.count(primary_key) != 0 &&
           !form.blocked_by_user) {
-        forms_to_be_moved.push_back(std::move(form));
-      } else if (forms_to_be_deleted) {
-        forms_to_be_deleted->push_back(std::move(form));
+        unsynced_credentials_being_deleted.push_back(std::move(form));
       }
     }
   }
+  password_store_sync_->GetMetadataStore()->DeleteAllSyncMetadata(
+      syncer::PASSWORDS);
+  password_store_sync_->DeleteAndRecreateDatabaseFile();
+  password_store_sync_->NotifyCredentialsChanged(password_store_changes);
+
+  if (password_store_sync_->IsAccountStore()) {
+    base::UmaHistogramCounts100(
+        "PasswordManager.AccountStorage.UnsyncedPasswordsFoundDuringSignOut",
+        unsynced_credentials_being_deleted.size());
+
+    if (!unsynced_credentials_being_deleted.empty()) {
+      password_store_sync_->NotifyUnsyncedCredentialsWillBeDeleted(
+          std::move(unsynced_credentials_being_deleted));
+    }
+  }
+
+  sync_enabled_or_disabled_cb_.Run();
 }
 
 sync_pb::EntitySpecifics
@@ -1094,7 +1086,7 @@ PasswordSyncBridge::GetPossiblyTrimmedPasswordSpecificsData(
       .client_only_encrypted_data();
 }
 
-// TODO(crbug.com/1407925): Consider moving this logic to processor.
+// TODO(crbug.com/40253286): Consider moving this logic to processor.
 bool PasswordSyncBridge::SyncMetadataCacheContainsSupportedFields(
     const syncer::EntityMetadataMap& metadata_map) const {
   for (const auto& metadata_entry : metadata_map) {
@@ -1126,8 +1118,7 @@ bool PasswordSyncBridge::SyncMetadataCacheContainsSupportedFields(
   return false;
 }
 
-std::set<FormPrimaryKey> PasswordSyncBridge::GetUnsyncedPasswordsStorageKeys()
-    const {
+std::set<FormPrimaryKey> PasswordSyncBridge::GetUnsyncedPasswordsStorageKeys() {
   std::set<FormPrimaryKey> storage_keys;
   DCHECK(password_store_sync_);
   PasswordStoreSync::MetadataStore* metadata_store =

@@ -196,7 +196,7 @@ class FeedbackServiceTest : public ApiUnitTest {
     ASSERT_TRUE(base::CreateDirectory(test_file_dir));
 
     const base::FilePath test_file =
-        test_file_dir.Append("iwlwifi_firmware_dumps.tar.zst");
+        test_file_dir.Append("wifi_firmware_dumps.tar.zst");
     ASSERT_TRUE(base::WriteFile(test_file, "Test file content"));
 
     EXPECT_CALL(*mock_uploader_, QueueReport).Times(1);
@@ -222,7 +222,7 @@ class FeedbackServiceTest : public ApiUnitTest {
 
     // Verify the attachment is added if and only if send_wifi_debug_logs is
     // true.
-    constexpr char kWifiDumpName[] = "iwlwifi_firmware_dumps.tar.zst";
+    constexpr char kWifiDumpName[] = "wifi_firmware_dumps.tar.zst";
     if (send_wifi_debug_logs) {
       VerifyAttachment(kWifiDumpName, "TestData", feedback_data_);
     } else {
@@ -299,7 +299,7 @@ TEST_F(FeedbackServiceTest, SendFeedbackLoadSysInfo) {
                     feedback::FeedbackReport::kMemUsageWithTabTitlesKey));
 }
 
-// TODO(crbug.com/1439227): Re-enable this test
+// TODO(crbug.com/40908623): Re-enable this test
 TEST_F(FeedbackServiceTest, DISABLED_SendFeedbackDoNotSendTabTitles) {
   TestSendFeedbackConcerningTabTitles(false);
   EXPECT_EQ(0u, feedback_data_->sys_info()->count(

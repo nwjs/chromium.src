@@ -201,9 +201,9 @@ class LaunchCommand(object):
       outdir_attempt = os.path.join(self.out_dir, 'attempt_%d' % attempt)
       cmd_list = self.egtests_app.command(outdir_attempt, 'id=%s' % self.udid,
                                           clones)
-      # TODO(crbug.com/914878): add heartbeat logging to xcodebuild_runner.
-      LOGGER.info('Start test attempt #%d for command [%s]' % (
-          attempt, ' '.join(cmd_list)))
+      # TODO(crbug.com/40606422): add heartbeat logging to xcodebuild_runner.
+      LOGGER.info('Start test attempt #%d for command [%s]' %
+                  (attempt, ' '.join(cmd_list)))
       output = self.launch_attempt(cmd_list)
 
       result = XcodeLogParser.collect_test_results(outdir_attempt, output)
@@ -214,7 +214,7 @@ class LaunchCommand(object):
       # will cover any missing tests. For these decided at runtime, retain
       # crashes from all attempts and a dummy "crashed" result will be reported
       # to indicate some tests might never ran.
-      # TODO(crbug.com/1235871): Switch back to excluded tests and set
+      # TODO(crbug.com/40782444): Switch back to excluded tests and set
       # |overall_crash| to always True.
       overall_launch_command_result.add_result_collection(
           result, overwrite_crash=not tests_selected_at_runtime)
@@ -295,7 +295,7 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
     self.release = kwargs.get('release') or False
     self.test_results['path_delimiter'] = '/'
 
-    # TODO(crbug.com/1486897): For simulators, the record_video_option
+    # TODO(crbug.com/40933880): For simulators, the record_video_option
     # is always None right now, because we are still using our own video
     # plugin. Currently native Xcode15+ video recording is only supported
     # on iOS17+, but we should aim to migrate to the native solution so
@@ -481,7 +481,7 @@ class SimulatorParallelTestRunner(test_runner.SimulatorTestRunner):
       # Adds unexpectedly skipped tests to result if applicable.
       tests_selected_at_runtime = _tests_decided_at_runtime(self.app_path)
       unexpectedly_skipped = []
-      # TODO(crbug.com/1048758): For the multitasking or any flaky test suites,
+      # TODO(crbug.com/40672177): For the multitasking or any flaky test suites,
       # |all_tests_to_run| contains more tests than what actually runs.
       if not tests_selected_at_runtime:
         # |all_tests_to_run| takes into consideration that only a subset of

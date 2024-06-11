@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="WebAuthentication.Android.CredManAvailability" enum="Boolean"
-    expires_after="2024-09-01">
+    expires_after="2024-11-03">
   <owner>derinel@google.com</owner>
   <owner>kenrb@chromium.org</owner>
   <summary>
@@ -53,7 +53,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.Android.CredManModalRequests"
-    enum="CredManGetRequestEnum" expires_after="2024-09-01">
+    enum="CredManGetRequestEnum" expires_after="2024-11-03">
   <owner>derinel@google.com</owner>
   <owner>kenrb@chromium.org</owner>
   <summary>
@@ -196,6 +196,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebAuthentication.EnclaveEvent"
+    enum="WebAuthenticationEnclaveEvent" expires_after="2024-12-31">
+  <owner>agl@chromium.org</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <summary>
+    Records events related to the enclave (i.e. Google Password Manager passkeys
+    on the desktop).
+  </summary>
+</histogram>
+
 <histogram name="WebAuthentication.GetAssertion.Result"
     enum="WebAuthenticationGetAssertionResult" expires_after="2024-10-01">
   <owner>nsatragno@chromium.org</owner>
@@ -236,7 +246,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.MacOS.PasskeyPermission"
-    enum="WebAuthenticationMacOSPasskeysPermission" expires_after="2024-08-18">
+    enum="WebAuthenticationMacOSPasskeysPermission" expires_after="2024-10-20">
   <owner>agl@chromium.org</owner>
   <owner>martinkr@google.com</owner>
   <summary>
@@ -247,7 +257,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="WebAuthentication.MacOS.PlatformAuthenticatorAction"
     enum="WebAuthenticationMacOSPlatformAuthenticatorAction"
-    expires_after="2024-08-18">
+    expires_after="2024-10-20">
   <owner>agl@chromium.org</owner>
   <owner>martinkr@google.com</owner>
   <summary>
@@ -267,6 +277,40 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebAuthentication.Windows.FindHelloDialogIterationCount"
+    units="iterations" expires_after="2024-12-31">
+  <owner>kenrb@chromium.org</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <summary>
+    Records the number of iterations that it took to find the Windows Hello
+    dialog for the purpose of bringing it to the foreground. This dialog is the
+    user verification for using or creating a KeyCredential signing key.
+  </summary>
+</histogram>
+
+<histogram name="WebAuthentication.Windows.ForegroundedWindowsHelloDialog"
+    enum="WindowsForegroundedHelloDialog" expires_after="2024-12-31">
+  <owner>kenrb@chromium.org</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <summary>
+    Records the success or failure of attempts to bring the Windows Hello user
+    verification dialog to the foreground during a GPM passkey UV operation,
+    using or creating a KeyCredential signing key.
+  </summary>
+</histogram>
+
+<histogram name="WebAuthentication.Windows.KeyCredentialCreation"
+    enum="WindowsKeyCredentialCreateResult" expires_after="2024-12-31">
+  <owner>kenrb@chromium.org</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <summary>
+    Records the result of the KeyCredentialManager.RequestCreateAsync method in
+    the Windows Runtime API. It is recorded when that method is called, which
+    currently only happens following a device registration with the GPM passkey
+    enclave service.
+  </summary>
+</histogram>
+
 <histogram name="WebAuthentication.Windows.KeyCredentialManagerSupported"
     enum="WindowsKeyCredentialManagerSupportResults" expires_after="2024-12-31">
   <owner>kenrb@chromium.org</owner>
@@ -275,6 +319,18 @@ chromium-metrics-reviews@google.com.
     Records the result of the KeyCredentialManager.IsSupportedAsync method in
     the Windows Runtime API. It is recorded on a low-priority thread at browser
     startup.
+  </summary>
+</histogram>
+
+<histogram name="WebAuthentication.Windows.KeyCredentialSign"
+    enum="WindowsKeyCredentialSignResult" expires_after="2024-12-31">
+  <owner>kenrb@chromium.org</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <summary>
+    Records the result of the KeyCredential.RequestSignAsync method in the
+    Windows Runtime API. It is recorded when that method is called, which
+    currently only happens when signing a UV passkey request for the GPM passkey
+    enclave service.
   </summary>
 </histogram>
 

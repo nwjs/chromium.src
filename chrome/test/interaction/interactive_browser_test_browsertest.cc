@@ -9,6 +9,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/test/bind.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/test/base/test_switches.h"
 #include "components/constrained_window/constrained_window_views.h"
@@ -661,7 +662,8 @@ class TestDialog : public views::DialogDelegateView {
   TestDialog() { SetProperty(views::kElementIdentifierKey, kElementId); }
   ~TestDialog() override = default;
 
-  gfx::Size CalculatePreferredSize() const override {
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override {
     return gfx::Size(200, 200);
   }
 
@@ -737,10 +739,16 @@ class InteractiveBrowserTestDialogBrowsertest
 INSTANTIATE_TEST_SUITE_P(
     ,
     InteractiveBrowserTestDialogBrowsertest,
-    ::testing::Values(ui::MODAL_TYPE_NONE,
-                      ui::MODAL_TYPE_CHILD,
-                      ui::MODAL_TYPE_WINDOW,
-                      ui::MODAL_TYPE_SYSTEM),
+    ::testing::Values(
+        ui::MODAL_TYPE_NONE,
+        ui::MODAL_TYPE_CHILD,
+        ui::MODAL_TYPE_WINDOW
+#if !BUILDFLAG(IS_MAC)
+        // System modals not supported on mac; see crbug.com/335864910
+        ,
+        ui::MODAL_TYPE_SYSTEM
+#endif
+        ),
     [](const testing::TestParamInfo<ui::ModalType>& param) {
       switch (param.param) {
         case ui::MODAL_TYPE_NONE:

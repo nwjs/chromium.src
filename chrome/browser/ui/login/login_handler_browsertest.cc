@@ -40,7 +40,6 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
-#include "components/no_state_prefetch/common/prerender_origin.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/prefs/pref_service.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
@@ -48,7 +47,6 @@
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/network_service_util.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
@@ -630,7 +628,7 @@ IN_PROC_BROWSER_TEST_P(LoginPromptBrowserTest,
   content::RenderFrameHostWrapper rfh(contents->GetPrimaryMainFrame());
 
   // Navigate away.
-  // TODO(https://crbug.com/1444329): Use `NavigateToURL`.
+  // TODO(crbug.com/40267658): Use `NavigateToURL`.
   auto auth_cancelled_waiter = CreateAuthCancelledObserver();
   ASSERT_TRUE(content::NavigateToURLFromRenderer(contents, title_page));
   auth_cancelled_waiter.Wait();
@@ -654,7 +652,7 @@ IN_PROC_BROWSER_TEST_P(LoginPromptBrowserTest,
 
   // Navigate away and go back again.
   content::RenderFrameHostWrapper rfh2(contents->GetPrimaryMainFrame());
-  // TODO(https://crbug.com/1444329): Use `NavigateToURL`.
+  // TODO(crbug.com/40267658): Use `NavigateToURL`.
   ASSERT_TRUE(content::NavigateToURLFromRenderer(contents, title_page));
   ASSERT_TRUE(content::HistoryGoBack(contents));
 

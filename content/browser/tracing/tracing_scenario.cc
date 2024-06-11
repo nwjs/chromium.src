@@ -26,21 +26,7 @@ namespace content {
 
 namespace {
 
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
 constexpr uint32_t kStartupTracingTimeoutMs = 30 * 1000;  // 30 sec
-#endif
-
-bool AppendRules(const std::vector<perfetto::protos::gen::TriggerRule>& configs,
-                 std::vector<std::unique_ptr<BackgroundTracingRule>>& rules) {
-  for (const auto& rule_config : configs) {
-    auto rule = BackgroundTracingRule::Create(rule_config);
-    if (!rule) {
-      return false;
-    }
-    rules.push_back(std::move(rule));
-  }
-  return true;
-}
 
 }  // namespace
 
@@ -146,9 +132,9 @@ void NestedTracingScenario::Stop() {
 
 bool NestedTracingScenario::Initialize(
     const perfetto::protos::gen::NestedScenarioConfig& config) {
-  return AppendRules(config.start_rules(), start_rules_) &&
-         AppendRules(config.stop_rules(), stop_rules_) &&
-         AppendRules(config.upload_rules(), upload_rules_);
+  return BackgroundTracingRule::Append(config.start_rules(), start_rules_) &&
+         BackgroundTracingRule::Append(config.stop_rules(), stop_rules_) &&
+         BackgroundTracingRule::Append(config.upload_rules(), upload_rules_);
 }
 
 bool NestedTracingScenario::OnStartTrigger(
@@ -251,10 +237,10 @@ bool TracingScenario::Initialize(
     }
     nested_scenarios_.push_back(std::move(nested_scenario));
   }
-  return AppendRules(config.start_rules(), start_rules_) &&
-         AppendRules(config.stop_rules(), stop_rules_) &&
-         AppendRules(config.upload_rules(), upload_rules_) &&
-         AppendRules(config.setup_rules(), setup_rules_);
+  return BackgroundTracingRule::Append(config.start_rules(), start_rules_) &&
+         BackgroundTracingRule::Append(config.stop_rules(), stop_rules_) &&
+         BackgroundTracingRule::Append(config.upload_rules(), upload_rules_) &&
+         BackgroundTracingRule::Append(config.setup_rules(), setup_rules_);
 }
 
 void TracingScenario::Disable() {
@@ -427,13 +413,11 @@ bool TracingScenario::OnStartTrigger(
 
   SetState(State::kRecording);
 
-#if BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
   perfetto::Tracing::SetupStartupTracingOpts opts;
   opts.timeout_ms = kStartupTracingTimeoutMs;
   opts.backend = perfetto::kCustomBackend;
   tracing::PerfettoTracedProcess::Get()->RequestStartupTracing(trace_config_,
                                                                opts);
-#endif
 
   tracing_session_->SetOnStopCallback([task_runner = task_runner_,
                                        weak_ptr = GetWeakPtr()]() {
@@ -541,7 +525,7 @@ void TracingScenario::OnTracingError(perfetto::TracingError error) {
   DisableNestedScenarios();
   SetState(State::kStopping);
   tracing_session_->Stop();
-  // TODO(crbug.com/1418116): Consider reporting |error|.
+  // TODO(crbug.com/40257548): Consider reporting |error|.
 }
 
 void TracingScenario::OnTracingStart() {

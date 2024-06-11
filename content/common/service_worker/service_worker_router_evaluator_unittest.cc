@@ -18,7 +18,7 @@ namespace content {
 
 namespace {
 
-// TODO(crbug.com/1371756): consolidate the default URLPatternInit.
+// TODO(crbug.com/40241479): consolidate the default URLPatternInit.
 // service_worker_router_type_converter_test.cc has the same function,
 // and we can also initialize legacy URLPattern with this in
 // service_worker_database.cc.
@@ -1135,6 +1135,10 @@ TEST(ServiceWorkerRouterEvaluator, OrConditionMatch) {
   ASSERT_EQ(1U, evaluator.rules().rules.size());
   EXPECT_TRUE(evaluator.IsValid());
   EXPECT_TRUE(evaluator.need_running_status());
+  size_t max_depth, max_width;
+  std::tie(max_depth, max_width) = evaluator.GetMaxDepthAndWidth();
+  EXPECT_EQ(2U, max_depth);
+  EXPECT_EQ(2U, max_width);
 
   {
     network::ResourceRequest request;
@@ -1272,6 +1276,47 @@ TEST(ServiceWorkerRouterEvaluator, NotConditionMatchNested) {
     const auto eval_result = evaluator.EvaluateWithoutRunningStatus(request);
     EXPECT_FALSE(eval_result.has_value());
   }
+}
+
+blink::ServiceWorkerRouterCondition generateNestedNotCondition(int depth) {
+  if (depth <= 0) {
+    return blink::ServiceWorkerRouterCondition::WithUrlPattern(
+        DefaultURLPattern());
+  }
+  blink::ServiceWorkerRouterNotCondition not_condition;
+  not_condition.condition =
+      std::make_unique<blink::ServiceWorkerRouterCondition>();
+  *not_condition.condition = generateNestedNotCondition(depth - 1);
+  return blink::ServiceWorkerRouterCondition::WithNotCondition(not_condition);
+}
+
+TEST(ServiceWorkerRouterEvaluator, NotConditionShouldNotExceedMaxDepth) {
+  auto notTest = [](int depth, bool expect_valid) {
+    blink::ServiceWorkerRouterRules rules;
+    {
+      blink::ServiceWorkerRouterRule rule;
+      { rule.condition = generateNestedNotCondition(depth); }
+      {
+        blink::ServiceWorkerRouterSource source;
+        source.type = network::mojom::ServiceWorkerRouterSourceType::kNetwork;
+        source.network_source.emplace();
+        rule.sources.push_back(source);
+      }
+      rules.rules.push_back(rule);
+    }
+    ASSERT_EQ(1U, rules.rules.size());
+
+    ServiceWorkerRouterEvaluator evaluator(rules);
+    ASSERT_EQ(1U, evaluator.rules().rules.size());
+    if (expect_valid) {
+      EXPECT_TRUE(evaluator.IsValid());
+    } else {
+      EXPECT_FALSE(evaluator.IsValid());
+    }
+  };
+
+  notTest(1, true);
+  notTest(blink::kServiceWorkerRouterConditionMaxRecursionDepth + 1, false);
 }
 
 TEST(ServiceWorkerRouterEvaluator, ToValueEmptyRule) {

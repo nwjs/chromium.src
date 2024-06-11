@@ -94,10 +94,10 @@ void TabsSearchService::SearchRecentlyClosed(
     DCHECK(entry);
 
     // Only TAB type is handled.
-    // TODO(crbug.com/1056596) : Support WINDOW restoration under multi-window.
-    DCHECK_EQ(sessions::TabRestoreService::TAB, entry->type);
-    const sessions::TabRestoreService::Tab* tab =
-        static_cast<const sessions::TabRestoreService::Tab*>(entry.get());
+    // TODO(crbug.com/40676931) : Support WINDOW restoration under multi-window.
+    DCHECK_EQ(sessions::tab_restore::Type::TAB, entry->type);
+    const sessions::tab_restore::Tab* tab =
+        static_cast<const sessions::tab_restore::Tab*>(entry.get());
     const sessions::SerializedNavigationEntry& navigationEntry =
         tab->navigations[tab->current_navigation_index];
 

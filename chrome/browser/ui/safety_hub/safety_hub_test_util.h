@@ -37,6 +37,10 @@ void UpdateSafetyHubServiceAsync(SafetyHubService* service);
 void UpdatePasswordCheckServiceAsync(
     PasswordStatusCheckService* password_service);
 
+// This will run until ongoing checks in PasswordStatusCheckService to be
+// completed.
+void RunUntilPasswordCheckCompleted(Profile* profile);
+
 // Creates a mock service that returns mock results for the CWS info service. If
 // |with_calls| is true, total six extensions with different properties are
 // mocked: malware, policy violation, unpublished, combination of malware and
@@ -69,6 +73,19 @@ void RemoveExtension(const std::string& name,
 // Add the `ack_safety_check_warning` pref to an extension.
 void AcknowledgeSafetyCheckExtensions(const std::string& name,
                                       Profile* profile);
+
+// Creates the service used for bulk leak checks.
+password_manager::BulkLeakCheckService* CreateAndUseBulkLeakCheckService(
+    signin::IdentityManager* identity_manager,
+    Profile* profile);
+
+// Creates a form for the password manager with a given username, password and
+// origin. If |is_leaked| is set to |true|, the password will be considered a
+// leaked password.
+password_manager::PasswordForm MakeForm(base::StringPiece16 username,
+                                        base::StringPiece16 password,
+                                        std::string origin,
+                                        bool is_leaked = false);
 
 }  // namespace safety_hub_test_util
 

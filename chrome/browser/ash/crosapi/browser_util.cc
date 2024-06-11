@@ -62,10 +62,6 @@ BASE_FEATURE(kLacrosLaunchAtLoginScreen,
              "LacrosLaunchAtLoginScreen",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLacrosForkZygotesAtLoginScreen,
-             "LacrosForkZygotesAtLoginScreen",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 namespace {
 
 // At session start the value for LacrosAvailability logic is applied and the
@@ -77,10 +73,6 @@ std::optional<LacrosAvailability> g_lacros_availability_cache;
 // a cache.
 std::optional<LacrosDataBackwardMigrationMode>
     g_lacros_data_backward_migration_mode;
-
-// At session start the value for LacrosSelection logic is applied and the
-// result is stored in this variable which is used after that as a cache.
-std::optional<LacrosSelectionPolicy> g_lacros_selection_cache;
 
 // The rootfs lacros-chrome metadata keys.
 constexpr char kLacrosMetadataContentKey[] = "content";
@@ -98,14 +90,6 @@ constexpr auto kLacrosDataBackwardMigrationModeMap =
          LacrosDataBackwardMigrationMode::kKeepSafeData},
         {kLacrosDataBackwardMigrationModePolicyKeepAll,
          LacrosDataBackwardMigrationMode::kKeepAll},
-    });
-
-// The conversion map for LacrosSelection policy data. The values must match
-// the ones from LacrosSelection.yaml.
-constexpr auto kLacrosSelectionPolicyMap =
-    base::MakeFixedFlatMap<std::string_view, LacrosSelectionPolicy>({
-        {"user_choice", LacrosSelectionPolicy::kUserChoice},
-        {"rootfs", LacrosSelectionPolicy::kRootfs},
     });
 
 // Returns primary user's User instance.
@@ -238,10 +222,6 @@ const ComponentInfo kLacrosDogfoodStableInfo = {
 
 const Channel kLacrosDefaultChannel = Channel::DEV;
 
-const char kLacrosSelectionSwitch[] = "lacros-selection";
-const char kLacrosSelectionRootfs[] = "rootfs";
-const char kLacrosSelectionStateful[] = "stateful";
-
 const char kLaunchOnLoginPref[] = "lacros.launch_on_login";
 const char kProfileDataBackwardMigrationCompletedForUserPref[] =
     "lacros.profile_data_backward_migration_completed_for_user";
@@ -280,7 +260,7 @@ bool IsLacrosAllowedToBeEnabled() {
     // This function must be called only after user session starts.
     base::debug::DumpWithoutCrashing();
     // Returning false for compatibility.
-    // TODO(crbug.com/1494005): replace this logic by CHECK/DCHECK.
+    // TODO(crbug.com/40286020): replace this logic by CHECK/DCHECK.
     return false;
   }
   return ash::standalone_browser::BrowserSupport::GetForPrimaryUser()
@@ -337,7 +317,7 @@ bool IsLacrosOnlyBrowserAllowed() {
     // This function must be called only after user session starts.
     base::debug::DumpWithoutCrashing();
     // Returning false for compatibility.
-    // TODO(crbug.com/1494005): replace this logic by CHECK/DCHECK.
+    // TODO(crbug.com/40286020): replace this logic by CHECK/DCHECK.
     return false;
   }
   return ash::standalone_browser::BrowserSupport::GetForPrimaryUser()
@@ -413,13 +393,6 @@ bool DoesMetadataSupportNewAccountManager(base::Value* metadata) {
   return major_version >= 1000 && minor_version >= 0;
 }
 
-void RecordDataVer(PrefService* local_state,
-                   const std::string& user_id_hash,
-                   const base::Version& version) {
-  ash::standalone_browser::migrator_util::RecordDataVer(local_state,
-                                                        user_id_hash, version);
-}
-
 base::Version GetRootfsLacrosVersionMayBlock(
     const base::FilePath& version_file_path) {
   if (!base::PathExists(version_file_path)) {
@@ -485,58 +458,6 @@ void CacheLacrosDataBackwardMigrationMode(const policy::PolicyMap& map) {
       value ? value->GetString() : std::string_view());
 }
 
-void CacheLacrosSelection(const policy::PolicyMap& map) {
-  if (g_lacros_selection_cache.has_value()) {
-    // Some browser tests might call this multiple times.
-    LOG(ERROR) << "Trying to cache LacrosSelection and the value was set";
-    return;
-  }
-
-  // Users can set this switch in chrome://flags to disable the effect of the
-  // lacros-selection policy. This should only be allows for googlers.
-  const base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
-  if (cmdline->HasSwitch(ash::switches::kLacrosSelectionPolicyIgnore) &&
-      IsGoogleInternal(UserManager::Get()->GetPrimaryUser())) {
-    LOG(WARNING) << "LacrosSelection policy is ignored due to the ignore flag";
-    return;
-  }
-
-  const base::Value* value =
-      map.GetValue(policy::key::kLacrosSelection, base::Value::Type::STRING);
-  g_lacros_selection_cache = ParseLacrosSelectionPolicy(
-      value ? value->GetString() : std::string_view());
-}
-
-LacrosSelectionPolicy GetCachedLacrosSelectionPolicy() {
-  return g_lacros_selection_cache.value_or(LacrosSelectionPolicy::kUserChoice);
-}
-
-std::optional<LacrosSelection> DetermineLacrosSelection() {
-  switch (GetCachedLacrosSelectionPolicy()) {
-    case LacrosSelectionPolicy::kRootfs:
-      return LacrosSelection::kRootfs;
-    case LacrosSelectionPolicy::kUserChoice:
-      break;
-  }
-
-  const base::CommandLine* cmdline = base::CommandLine::ForCurrentProcess();
-
-  if (!cmdline->HasSwitch(browser_util::kLacrosSelectionSwitch)) {
-    return std::nullopt;
-  }
-
-  auto value =
-      cmdline->GetSwitchValueASCII(browser_util::kLacrosSelectionSwitch);
-  if (value == browser_util::kLacrosSelectionRootfs) {
-    return LacrosSelection::kRootfs;
-  }
-  if (value == browser_util::kLacrosSelectionStateful) {
-    return LacrosSelection::kStateful;
-  }
-
-  return std::nullopt;
-}
-
 ComponentInfo GetLacrosComponentInfoForChannel(version_info::Channel channel) {
   // We default to the Dev component for UNKNOWN channels.
   static constexpr auto kChannelToComponentInfoMap =
@@ -554,17 +475,18 @@ ComponentInfo GetLacrosComponentInfo() {
   return GetLacrosComponentInfoForChannel(GetStatefulLacrosChannel());
 }
 
-Channel GetLacrosSelectionUpdateChannel(LacrosSelection selection) {
+Channel GetLacrosSelectionUpdateChannel(
+    ash::standalone_browser::LacrosSelection selection) {
   switch (selection) {
-    case LacrosSelection::kRootfs:
+    case ash::standalone_browser::LacrosSelection::kRootfs:
       // For 'rootfs' Lacros use the same channel as ash/OS. Obtained from
       // the LSB's release track property.
       return chrome::GetChannel();
-    case LacrosSelection::kStateful:
+    case ash::standalone_browser::LacrosSelection::kStateful:
       // For 'stateful' Lacros directly check the channel of stateful-lacros
       // that the user is on.
       return GetStatefulLacrosChannel();
-    case LacrosSelection::kDeployedLocally:
+    case ash::standalone_browser::LacrosSelection::kDeployedLocally:
       // For locally deployed Lacros there is no channel so return unknown.
       return Channel::UNKNOWN;
   }
@@ -612,10 +534,6 @@ void ClearLacrosAvailabilityCacheForTest() {
 
 void ClearLacrosDataBackwardMigrationModeCacheForTest() {
   g_lacros_data_backward_migration_mode.reset();
-}
-
-void ClearLacrosSelectionCacheForTest() {
-  g_lacros_selection_cache.reset();
 }
 
 std::optional<MigrationStatus> GetMigrationStatus() {
@@ -734,16 +652,6 @@ LacrosLaunchSwitchSource GetLacrosLaunchSwitchSource() {
              : LacrosLaunchSwitchSource::kForcedByPolicy;
 }
 
-std::optional<LacrosSelectionPolicy> ParseLacrosSelectionPolicy(
-    std::string_view value) {
-  auto it = kLacrosSelectionPolicyMap.find(value);
-  if (it != kLacrosSelectionPolicyMap.end())
-    return it->second;
-
-  LOG(ERROR) << "Unknown LacrosSelection policy value is passed: " << value;
-  return std::nullopt;
-}
-
 std::optional<LacrosDataBackwardMigrationMode>
 ParseLacrosDataBackwardMigrationMode(std::string_view value) {
   auto it = kLacrosDataBackwardMigrationModeMap.find(value);
@@ -762,17 +670,6 @@ std::string_view GetLacrosDataBackwardMigrationModeName(
   for (const auto& entry : kLacrosDataBackwardMigrationModeMap) {
     if (entry.second == value)
       return entry.first;
-  }
-
-  NOTREACHED();
-  return std::string_view();
-}
-
-std::string_view GetLacrosSelectionPolicyName(LacrosSelectionPolicy value) {
-  for (const auto& entry : kLacrosSelectionPolicyMap) {
-    if (entry.second == value) {
-      return entry.first;
-    }
   }
 
   NOTREACHED();

@@ -326,8 +326,11 @@ void FormTracker::DidStartNavigation(
 
 void FormTracker::WillDetach(blink::DetachReason detach_reason) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
+  if (!unsafe_render_frame()) {
+    return;
+  }
   if (detach_reason == blink::DetachReason::kFrameDeletion &&
-      (provisionally_saved_form() ||
+      (!unsafe_render_frame()->GetWebFrame()->IsOutermostMainFrame() ||
        !base::FeatureList::IsEnabled(
            features::kAutofillUnifyAndFixFormTracking))) {
     // Exclude cases where the previous RenderFrame gets deleted only to be
@@ -336,12 +339,21 @@ void FormTracker::WillDetach(blink::DetachReason detach_reason) {
     // (<iframe> element etc) gets detached.
     FireInferredFormSubmission(SubmissionSource::FRAME_DETACHED);
   }
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillUnifyAndFixFormTracking)) {
+    // TODO(b/40281981): Figure out if this is still needed, and document
+    // the reason, otherwise remove.
+    ResetLastInteractedElements();
+  }
 }
 
 void FormTracker::WillSendSubmitEvent(const WebFormElement& form) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
-  ResetLastInteractedElements();
-  last_interacted_.form = FormRef(form);
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillUnifyAndFixFormTracking)) {
+    ResetLastInteractedElements();
+    last_interacted_.form = FormRef(form);
+  }
   for (auto& observer : observers_) {
     observer.OnProvisionallySaveForm(
         form, blink::WebFormControlElement(),
@@ -361,7 +373,6 @@ void FormTracker::WillSubmitForm(const WebFormElement& form) {
       !form_util::IsOwnedByFrame(form, unsafe_render_frame())) {
     return;
   }
-
   FireFormSubmitted(form);
 }
 
@@ -372,7 +383,10 @@ void FormTracker::OnDestruct() {
 
 void FormTracker::OnFrameDetached() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(form_tracker_sequence_checker_);
-  ResetLastInteractedElements();
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillUnifyAndFixFormTracking)) {
+    ResetLastInteractedElements();
+  }
 }
 
 void FormTracker::FireFormSubmitted(const blink::WebFormElement& form) {

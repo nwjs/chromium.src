@@ -521,8 +521,9 @@ class NativeWindowVisibilityObserver : public aura::WindowObserver {
   }
 
   void OnWindowVisibilityChanged(aura::Window* window, bool visible) override {
-    if (visible)
+    if (visible) {
       was_visible_ = visible;
+    }
   }
 
   bool was_visible() { return was_visible_; }
@@ -555,13 +556,15 @@ class NativeWindowVisibilityBrowserMainExtraParts
   // ChromeBrowserMainExtraParts:
   void PostProfileInit(Profile* profile, bool is_initial_profile) override {
     // The setup below is intended to run for only the initial profile.
-    if (!is_initial_profile)
+    if (!is_initial_profile) {
       return;
+    }
 
     gfx::NativeWindow window =
         LoginDisplayHost::default_host()->GetNativeWindow();
-    if (window)
+    if (window) {
       observer_->Observe(window);
+    }
   }
 
  private:
@@ -655,8 +658,9 @@ class OobeEndToEndTestSetupMixin : public InProcessBrowserTestMixin {
   }
 
   void SetUpOnMainThread() override {
-    if (params_.is_tablet)
+    if (params_.is_tablet) {
       ShellTestApi().SetTabletModeEnabledForTest(true);
+    }
 
     if (params_.arc_state != ArcState::kNotAvailable) {
       // Init ArcSessionManager for testing.
@@ -718,8 +722,9 @@ class OobeInteractiveUITest : public OobeBaseTest,
   }
 
   void WaitForLoginDisplayHostShutdown() {
-    if (!LoginDisplayHost::default_host())
+    if (!LoginDisplayHost::default_host()) {
       return;
+    }
 
     LOG(INFO) << "OobeInteractiveUITest: Waiting for LoginDisplayHost to "
                  "shut down.";
@@ -866,8 +871,10 @@ void OobeInteractiveUITest::SimpleEndToEnd() {
 
 // Disabled on *San bots since they time out.
 // crbug.com/1260131: SimpleEndToEnd is flaky on builder "linux-chromeos-dbg"
+// crbug.com/337379954: SimpleEndToEnd is excessively flaky on
+// linux-chromeos-chrome.
 #if defined(MEMORY_SANITIZER) || defined(ADDRESS_SANITIZER) || \
-    defined(LEAK_SANITIZER) || !defined(NDEBUG)
+    defined(LEAK_SANITIZER) || !defined(NDEBUG) || BUILDFLAG(IS_CHROMEOS_ASH)
 #define MAYBE_SimpleEndToEnd DISABLED_SimpleEndToEnd
 #else
 #define MAYBE_SimpleEndToEnd SimpleEndToEnd
@@ -954,8 +961,9 @@ void OobeZeroTouchInteractiveUITest::ZeroTouchEndToEnd() {
 
 // crbug.com/997987. Disabled on MSAN since they time out.
 // crbug.com/1055853: EndToEnd is flaky on Linux Chromium OS ASan LSan
+// crbug.com/337379954: EndToEnd is excessively flaky on linux-chromeos-chrome.
 #if defined(MEMORY_SANITIZER) || defined(ADDRESS_SANITIZER) || \
-    defined(LEAK_SANITIZER) || !defined(NDEBUG)
+    defined(LEAK_SANITIZER) || !defined(NDEBUG) || BUILDFLAG(IS_CHROMEOS_ASH)
 #define MAYBE_EndToEnd DISABLED_EndToEnd
 #else
 #define MAYBE_EndToEnd EndToEnd
@@ -992,7 +1000,7 @@ class PublicSessionOobeTest : public MixinBasedInProcessBrowserTest,
         observer_(std::make_unique<NativeWindowVisibilityObserver>()) {
     // Prevents Chrome from starting to quit right after login display is
     // finalized.
-    login_manager_.set_should_launch_browser(true);
+    login_manager_.SetShouldLaunchBrowser(true);
   }
 
   ~PublicSessionOobeTest() override = default;
@@ -1111,7 +1119,7 @@ class EphemeralUserOobeTest : public OobeBaseTest,
                               public ::testing::WithParamInterface<
                                   std::tuple<bool, bool, bool, ArcState>> {
  public:
-  EphemeralUserOobeTest() { login_manager_.set_should_launch_browser(true); }
+  EphemeralUserOobeTest() { login_manager_.SetShouldLaunchBrowser(true); }
   ~EphemeralUserOobeTest() override = default;
 
   // OobeBaseTest:
@@ -1145,16 +1153,10 @@ class EphemeralUserOobeTest : public OobeBaseTest,
       &mixin_host_, DeviceStateMixin::State::OOBE_COMPLETED_CLOUD_ENROLLED};
 };
 
-// TODO(crbug.com/40882667): Flaky on Linux Chrome OS ASan LSan and dbg.
-// Re-enable this test.
-#if BUILDFLAG(IS_CHROMEOS) && (defined(ADDRESS_SANITIZER) || !defined(NDEBUG))
-#define MAYBE_RegularEphemeralUser DISABLED_RegularEphemeralUser
-#else
-#define MAYBE_RegularEphemeralUser RegularEphemeralUser
-#endif
+// TODO(crbug.com/40882667): Flaky. Re-enable this test.
 // In this test we login as a regular user, which means it is not affilated
 // with the domain of the device. Thus we still need a consent from user.
-IN_PROC_BROWSER_TEST_P(EphemeralUserOobeTest, MAYBE_RegularEphemeralUser) {
+IN_PROC_BROWSER_TEST_P(EphemeralUserOobeTest, DISABLED_RegularEphemeralUser) {
   LoginDisplayHost::default_host()->GetWizardContext()->is_branded_build = true;
 
   WaitForGaiaSignInScreen();

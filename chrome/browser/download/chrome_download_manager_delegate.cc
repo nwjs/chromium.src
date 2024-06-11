@@ -628,20 +628,24 @@ bool ChromeDownloadManagerDelegate::DetermineDownloadTarget(
   DownloadPathReservationTracker::FilenameConflictAction action =
       kDefaultPlatformConflictAction;
 #if BUILDFLAG(IS_ANDROID)
-  if (download->IsTransient() && download_path.empty() &&
-      download->GetMimeType() == pdf::kPDFMimeType &&
-      !download->IsMustDownload()) {
-    base::FilePath generated_filename = net::GenerateFileName(
-        download->GetURL(), download->GetContentDisposition(),
-        profile_->GetPrefs()->GetString(prefs::kDefaultCharset),
-        download->GetSuggestedFilename(), download->GetMimeType(),
-        l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
-    base::FilePath cache_dir;
-    base::android::GetCacheDirectory(&cache_dir);
-    download_path = cache_dir.Append(kPdfDirName).Append(generated_filename);
-  }
-  if (!download_path.empty())
+  if (download->IsTransient()) {
+    if (download_path.empty() && download->GetMimeType() == pdf::kPDFMimeType &&
+        !download->IsMustDownload()) {
+      base::FilePath generated_filename = net::GenerateFileName(
+          download->GetURL(), download->GetContentDisposition(),
+          profile_->GetPrefs()->GetString(prefs::kDefaultCharset),
+          download->GetSuggestedFilename(), download->GetMimeType(),
+          l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
+      base::FilePath cache_dir;
+      base::android::GetCacheDirectory(&cache_dir);
+      download_path = cache_dir.Append(kPdfDirName).Append(generated_filename);
+      action = DownloadPathReservationTracker::UNIQUIFY;
+    } else {
+      action = DownloadPathReservationTracker::OVERWRITE;
+    }
+  } else if (!download_path.empty()) {
     action = DownloadPathReservationTracker::UNIQUIFY;
+  }
 #endif
   DownloadTargetDeterminer::Start(download, download_path, action,
                                   download_prefs_.get(), this,
@@ -656,7 +660,7 @@ bool ChromeDownloadManagerDelegate::ShouldAutomaticallyOpenFile(
   if (path.Extension().empty())
     return false;
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  // TODO(crbug.com/1077929): This determination is done based on |path|, while
+  // TODO(crbug.com/40129365): This determination is done based on |path|, while
   // ShouldOpenDownload() detects extension downloads based on the
   // characteristics of the download. Reconcile this.
   if (path.MatchesExtension(extensions::kExtensionFileExtension))
@@ -685,7 +689,7 @@ bool ChromeDownloadManagerDelegate::ShouldAutomaticallyOpenFileByPolicy(
   if (path.Extension().empty())
     return false;
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  // TODO(crbug.com/1077929): This determination is done based on |path|, while
+  // TODO(crbug.com/40129365): This determination is done based on |path|, while
   // ShouldOpenDownload() detects extension downloads based on the
   // characteristics of the download. Reconcile this.
   if (path.MatchesExtension(extensions::kExtensionFileExtension))
@@ -727,11 +731,14 @@ bool ChromeDownloadManagerDelegate::IsDownloadReadyForCompletion(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 #if BUILDFLAG(FULL_SAFE_BROWSING)
   // If this is a chrome triggered download, return true;
-  if (!item->RequireSafetyChecks())
+  if (!item->RequireSafetyChecks()) {
     return true;
+  }
 
   if (!download_prefs_->safebrowsing_for_trusted_sources_enabled() &&
-      download_prefs_->IsFromTrustedSource(*item)) {
+      download_prefs_->IsFromTrustedSource(*item) &&
+      !safe_browsing::DeepScanningRequest::ShouldUploadBinary(item)
+           .has_value()) {
     return true;
   }
 

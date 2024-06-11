@@ -162,14 +162,9 @@ LayerTreeImpl::LayerTreeImpl(
       external_page_scale_factor_(1.f),
       device_scale_factor_(1.f),
       painted_device_scale_factor_(1.f),
+      always_push_properties_on_picture_layers_(!base::FeatureList::IsEnabled(
+          features::kDontAlwaysPushPictureLayerImpls)),
       elastic_overscroll_(elastic_overscroll),
-      needs_update_draw_properties_(true),
-      scrollbar_geometries_need_update_(false),
-      needs_full_tree_sync_(true),
-      needs_surface_ranges_sync_(false),
-      next_activation_forces_redraw_(false),
-      handle_visibility_changed_(false),
-      have_scroll_event_handlers_(false),
       event_listener_properties_(),
       top_controls_shown_ratio_(std::move(top_controls_shown_ratio)),
       bottom_controls_shown_ratio_(std::move(bottom_controls_shown_ratio)) {
@@ -520,7 +515,7 @@ OwnedLayerImplList LayerTreeImpl::DetachLayers() {
   render_surface_list_.clear();
   set_needs_update_draw_properties();
   OwnedLayerImplList result = std::move(layer_list_);
-  // TODO(crbug.com/1229805): remove diagnostic CHECK
+  // TODO(crbug.com/40778609): remove diagnostic CHECK
   CHECK(!layer_list_.size());
   return result;
 }
@@ -660,6 +655,8 @@ void LayerTreeImpl::PullPropertiesFrom(
   unsafe_state.mutator_host->PushPropertiesTo(mutator_host(),
                                               unsafe_state.property_trees);
 
+  // Make sure that property tree based changes are moved to layers
+  // and draw properties are invalidated.
   MoveChangeTrackingToLayers();
 
   lifecycle().AdvanceTo(LayerTreeLifecycle::kNotSyncing);
@@ -733,6 +730,10 @@ void LayerTreeImpl::PullLayerTreePropertiesFrom(CommitState& commit_state) {
 
   if (commit_state.new_local_surface_id_request)
     RequestNewLocalSurfaceId();
+
+  if (!commit_state.screenshot_destination_token.is_empty()) {
+    SetScreenshotDestinationToken(commit_state.screenshot_destination_token);
+  }
 
   SetLocalSurfaceIdFromParent(commit_state.local_surface_id_from_parent);
 
@@ -832,6 +833,10 @@ void LayerTreeImpl::PushPropertiesTo(LayerTreeImpl* target_tree) {
     target_tree->RequestNewLocalSurfaceId();
   target_tree->SetLocalSurfaceIdFromParent(local_surface_id_from_parent());
 
+  if (auto token = TakeScreenshotDestinationToken(); !token.is_empty()) {
+    target_tree->SetScreenshotDestinationToken(std::move(token));
+  }
+
   target_tree->pending_page_scale_animation_ =
       std::move(pending_page_scale_animation_);
 
@@ -884,6 +889,10 @@ void LayerTreeImpl::PushPropertiesTo(LayerTreeImpl* target_tree) {
 
   for (auto& request : TakeViewTransitionRequests())
     target_tree->AddViewTransitionRequest(std::move(request));
+
+  // Make sure that property tree based changes are moved to layers
+  // and draw properties are invalidated.
+  target_tree->MoveChangeTrackingToLayers();
 }
 
 void LayerTreeImpl::HandleTickmarksVisibilityChange() {
@@ -1437,6 +1446,17 @@ bool LayerTreeImpl::TakeNewLocalSurfaceIdRequest() {
   return new_local_surface_id_request;
 }
 
+void LayerTreeImpl::SetScreenshotDestinationToken(
+    base::UnguessableToken destination_token) {
+  screenshot_destination_ = std::move(destination_token);
+}
+
+base::UnguessableToken LayerTreeImpl::TakeScreenshotDestinationToken() {
+  base::UnguessableToken token = std::move(screenshot_destination_);
+  screenshot_destination_ = base::UnguessableToken();
+  return token;
+}
+
 void LayerTreeImpl::SetDeviceViewportRect(
     const gfx::Rect& device_viewport_rect) {
   if (device_viewport_rect == device_viewport_rect_)
@@ -1774,9 +1794,10 @@ void LayerTreeImpl::ClearSurfaceRanges() {
 
 void LayerTreeImpl::AddLayerShouldPushProperties(LayerImpl* layer) {
   DCHECK(!IsActiveTree()) << "The active tree does not push layer properties";
-  // TODO(crbug.com/303943): PictureLayerImpls always push properties so should
-  // not go into this set or we'd push them twice.
-  DCHECK(!base::Contains(picture_layers_, layer));
+  // PictureLayerImpls should only go into this when
+  // always_push_properties_on_picture_layers() is disabled.
+  DCHECK(!always_push_properties_on_picture_layers() ||
+         !base::Contains(picture_layers_, layer));
   layers_that_should_push_properties_.insert(layer);
 }
 
@@ -2529,7 +2550,7 @@ LayerTreeImpl::FindLayersUpToFirstScrollableOrOpaqueToHitTest(
       // The intention here is to skip over any layers that belong to a
       // different 3d sorting context than the first_hit layer.
       //
-      // TODO(crbug.com/1407697): This code is kind of broken for the case of a
+      // TODO(crbug.com/40887983): This code is kind of broken for the case of a
       // scroller inside a preserve-3d: we assign a sorting_context_id to the
       // scroller's main layer, which is marked as scrollable, but not its
       // scrolling-contents layer, which is first_hit.  Currently we rely on
@@ -2558,7 +2579,9 @@ LayerTreeImpl::FindLayersUpToFirstScrollableOrOpaqueToHitTest(
           std::pair<const LayerImpl*, float>(layer, distance_to_intersection));
     } else {
       layers.push_back(layer);
-      if (layer->IsScrollerOrScrollbar() || layer->OpaqueToHitTest()) {
+      if (settings().enable_hit_test_opaqueness
+              ? layer->OpaqueToHitTest()
+              : layer->IsScrollerOrScrollbar()) {
         break;
       }
     }
@@ -2587,7 +2610,9 @@ LayerTreeImpl::FindLayersUpToFirstScrollableOrOpaqueToHitTest(
       const LayerImpl* layer = pair.first;
 
       result.push_back(layer);
-      if (layer->IsScrollerOrScrollbar() || layer->OpaqueToHitTest()) {
+      if (settings().enable_hit_test_opaqueness
+              ? layer->OpaqueToHitTest()
+              : layer->IsScrollerOrScrollbar()) {
         return result;
       }
     }
@@ -2699,7 +2724,7 @@ ElementId LayerTreeImpl::FindFrameElementIdAtPoint(
                                          layer_list_[0].get(), &state);
 
   if (const auto* layer = state.closest_match.get()) {
-    // TODO(https://crbug.com/1058870): Permit hit testing only if the framed
+    // TODO(crbug.com/40121347): Permit hit testing only if the framed
     // element hit has a simple mask/clip. We don't have enough information
     // about complex masks/clips on the impl-side to do accurate hit testing.
     bool layer_hit_test_region_is_masked =

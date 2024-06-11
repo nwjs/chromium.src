@@ -25,6 +25,7 @@ build_webui("build") {
     "help_bubble.ts",
     "help_bubble.html.ts",
     "help_bubble_mixin.ts",
+    "help_bubble_mixin_lit.ts",
     "help_bubble_proxy.ts",
     "help_bubble_controller.ts",
   ]
@@ -35,6 +36,8 @@ build_webui("build") {
 
   mojo_files_deps = [ ":mojo_bindings_ts__generator" ]
   mojo_files = [ "$target_gen_dir/help_bubble.mojom-webui.ts" ]
+
+  html_to_wrapper_template = "detect"
 
   ts_out_dir = "$root_gen_dir/ui/webui/resources/tsc/cr_components/help_bubble"
   ts_composite = true

@@ -564,7 +564,7 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile,
         // status.
         if (dev_mode_enabled) {
           base::UmaHistogramEnumeration(
-              "Extensions.NonWebstoreLocationWithDeveloperModeOn.Enabled2",
+              "Extensions.NonWebstoreLocationWithDeveloperModeOn.Enabled",
               location);
         } else {
           base::UmaHistogramEnumeration(
@@ -910,7 +910,7 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile,
         !disabled_extension->from_webstore()) {
       if (dev_mode_enabled) {
         base::UmaHistogramEnumeration(
-            "Extensions.NonWebstoreLocationWithDeveloperModeOn.Disabled2",
+            "Extensions.NonWebstoreLocationWithDeveloperModeOn.Disabled",
             location);
       } else {
         base::UmaHistogramEnumeration(
@@ -1010,8 +1010,6 @@ void InstalledLoader::RecordExtensionsMetrics(Profile* profile,
   base::UmaHistogramCounts100("Extensions.LoadPlatformApp", platform_app_count);
   base::UmaHistogramCounts100("Extensions.LoadExtension",
                               extension_user_count + extension_external_count);
-  base::UmaHistogramCounts100("Extensions.LoadExtensionUser",
-                              extension_user_count);
   base::UmaHistogramCounts100("Extensions.LoadExtensionExternal",
                               extension_external_count);
   base::UmaHistogramCounts100("Extensions.LoadUserScript", user_script_count);

@@ -45,6 +45,7 @@ luci.bucket(
             projects = [p for p in [
                 branches.value(branch_selector = branches.selector.MAIN, value = "angle"),
                 branches.value(branch_selector = branches.selector.DESKTOP_BRANCHES, value = "dawn"),
+                branches.value(branch_selector = branches.selector.MAIN, value = "infra"),
                 branches.value(branch_selector = branches.selector.MAIN, value = "skia"),
                 branches.value(branch_selector = branches.selector.MAIN, value = "swiftshader"),
                 branches.value(branch_selector = branches.selector.MAIN, value = "v8"),
@@ -76,10 +77,17 @@ luci.bucket(
             ],
             users = [
                 "chromium-orchestrator@chops-service-accounts.iam.gserviceaccount.com",
+                "chromium-try-builder@chops-service-accounts.iam.gserviceaccount.com",
                 "infra-try-recipes-tester@chops-service-accounts.iam.gserviceaccount.com",
             ],
         ),
-        # TODO(crbug.com/1501383): Remove this binding after shadow bucket
+        luci.binding(
+            roles = "role/buildbucket.triggerer",
+            users = [
+                "chromium-try-builder@chops-service-accounts.iam.gserviceaccount.com",
+            ],
+        ),
+        # TODO(crbug.com/40941662): Remove this binding after shadow bucket
         # could inherit the view permission from the actual bucket.
         luci.binding(
             roles = "role/buildbucket.reader",

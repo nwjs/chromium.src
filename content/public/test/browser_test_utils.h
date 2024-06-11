@@ -24,7 +24,6 @@
 #include "base/process/process.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
-#include "base/template_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/types/strong_alias.h"
 #include "base/types/to_address.h"
@@ -118,6 +117,7 @@ typedef int PROPERTYID;
 
 namespace blink {
 class StorageKey;
+struct TransferableMessage;
 
 namespace mojom {
 class FrameWidget;
@@ -355,7 +355,7 @@ void SimulateMouseClickAt(WebContents* web_contents,
 // are relative to the page not the viewport. In particular for Android make
 // sure the page has the meta tag
 // <meta name="viewport" content="width=device-width,minimum-scale=1">
-// TODO(https://crbug.com/1199644): Make the Simulate* methods more user
+// TODO(crbug.com/40177926): Make the Simulate* methods more user
 // friendly by taking zooming into account.
 gfx::PointF GetCenterCoordinatesOfElementWithId(
     const ToRenderFrameHost& adapter,
@@ -521,6 +521,15 @@ void SimulateKeyPressWithoutChar(WebContents* web_contents,
                                  bool alt,
                                  bool command);
 
+// Simulates `source_render_frame_host` sending `message` to
+// `target_render_frame_host` through a `RenderFrameProxyHost`. This allows
+// testing corner cases where postMessage() should not be allowed, even from a
+// compromised renderer. `target_render_frame_host`'s frame must have a
+// `RenderFrameProxyHost` in `source_render_frame_host`'s `SiteInstanceGroup`.
+void SimulateProxyHostPostMessage(RenderFrameHost* source_render_frame_host,
+                                  RenderFrameHost* target_render_frame_host,
+                                  blink::TransferableMessage message);
+
 // Reset touch action for the embedder of a BrowserPluginGuest.
 void ResetTouchAction(RenderWidgetHost* host);
 
@@ -630,8 +639,8 @@ void ExecuteScriptAsyncWithoutUserGesture(const ToRenderFrameHost& adapter,
                                           std::string_view script);
 
 // JsLiteralHelper is a helper class that determines what types are legal to
-// pass to StringifyJsLiteral. Legal types include int, string, StringPiece,
-// char*, bool, double, GURL, url::Origin, and base::Value&&.
+// pass to StringifyJsLiteral. Legal types include int, string,
+// std::string_view, char*, bool, double, GURL, url::Origin, and base::Value&&.
 template <typename T>
 struct JsLiteralHelper {
   // This generic version enables passing any type from which base::Value can be
@@ -663,7 +672,7 @@ struct JsLiteralHelper<url::Origin> {
 // Construct a list-type base::Value from a mix of arguments.
 //
 // Each |arg| can be any type explicitly convertible to base::Value
-// (including int/string/StringPiece/char*/double/bool), or any type that
+// (including int/string/std::string_view/char*/double/bool), or any type that
 // JsLiteralHelper is specialized for -- like URL and url::Origin, which emit
 // string literals. |args| can be a mix of different types.
 template <typename... Args>
@@ -683,7 +692,7 @@ base::Value ListValueOf(Args&&... args) {
 // escape string content, even if it contains slashes or quotation marks.
 //
 // Each |arg| can be any type explicitly convertible to base::Value
-// (including int/string/StringPiece/char*/double/bool), or any type that
+// (including int/string/std::string_view/char*/double/bool), or any type that
 // JsLiteralHelper is specialized for -- like URL and url::Origin, which emit
 // string literals. |args| can be a mix of different types.
 //
@@ -1536,13 +1545,21 @@ class InputMsgWatcher : public RenderWidgetHost::InputEventObserver {
     return ack_source_;
   }
 
+  blink::WebInputEvent::Type last_sent_event_type() const {
+    return last_sent_event_type_;
+  }
+
  private:
   // Overridden InputEventObserver methods.
   void OnInputEventAck(blink::mojom::InputEventResultSource source,
                        blink::mojom::InputEventResultState state,
                        const blink::WebInputEvent&) override;
 
+  void OnInputEvent(const blink::WebInputEvent&) override;
+
   raw_ptr<RenderWidgetHost> render_widget_host_;
+  blink::WebInputEvent::Type last_sent_event_type_ =
+      blink::WebInputEvent::Type::kUndefined;
   blink::WebInputEvent::Type wait_for_type_;
   blink::mojom::InputEventResultState ack_result_;
   blink::mojom::InputEventResultSource ack_source_;
@@ -2060,7 +2077,7 @@ class BlobURLStoreInterceptor
   void Register(
       mojo::PendingRemote<blink::mojom::Blob> blob,
       const GURL& url,
-      // TODO(https://crbug.com/1224926): Remove these once experiment is over.
+      // TODO(crbug.com/40775506): Remove these once experiment is over.
       const base::UnguessableToken& unsafe_agent_cluster_id,
       const std::optional<net::SchemefulSite>& unsafe_top_level_site,
       RegisterCallback callback) override;

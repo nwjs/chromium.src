@@ -121,13 +121,13 @@ enum ModelType {
   WEB_APPS,
   // A WebAPK object.
   WEB_APKS,
-  // OS-specific preferences (a.k.a. "OS settings"). Chrome OS only.
+  // OS-specific preferences (a.k.a. "OS settings"). ChromeOS only.
   OS_PREFERENCES,
-  // Synced before other user types. Never encrypted. Chrome OS only.
+  // Synced before other user types. Never encrypted. ChromeOS only.
   OS_PRIORITY_PREFERENCES,
   // Commit only sharing message object.
   SHARING_MESSAGE,
-  // A workspace desk saved by user. Chrome OS only.
+  // A workspace desk saved by user. ChromeOS only.
   WORKSPACE_DESK,
   // Synced history. An entity roughly corresponds to a navigation.
   HISTORY,
@@ -165,7 +165,10 @@ enum ModelType {
   // Product comparison groups.
   COMPARE,
 
-  LAST_USER_MODEL_TYPE = COMPARE,
+  // Browser cookies, ChromeOS only.
+  COOKIES,
+
+  LAST_USER_MODEL_TYPE = COOKIES,
 
   // ---- Control Types ----
   // An object representing a set of Nigori keys.
@@ -192,6 +195,7 @@ constexpr int GetNumModelTypes() {
 // numeric values should never be reused. When you add a new entry or when you
 // deprecate an existing one, also update SyncModelTypes in enums.xml and
 // SyncModelType suffix in histograms.xml.
+// LINT.IfChange(SyncModelTypes)
 enum class ModelTypeForHistograms {
   kUnspecified = 0,
   // kTopLevelFolder = 1,
@@ -260,8 +264,10 @@ enum class ModelTypeForHistograms {
   kCollaborationGroup = 64,
   kPlusAddresses = 65,
   kCompare = 66,
-  kMaxValue = kCompare,
+  kCookies = 67,
+  kMaxValue = kCookies,
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncModelTypes)
 
 // Used to mark the type of EntitySpecifics that has no actual data.
 void AddDefaultFieldValue(ModelType type, sync_pb::EntitySpecifics* specifics);
@@ -301,7 +307,7 @@ constexpr ModelTypeSet AlwaysEncryptedUserTypes() {
   // If you add a new model type here that is conceptually different from a
   // password, make sure you audit UI code that refers to these types as
   // passwords, e.g. consumers of IsEncryptEverythingEnabled().
-  return {AUTOFILL_WALLET_CREDENTIAL, PASSWORDS, WIFI_CONFIGURATIONS};
+  return {AUTOFILL_WALLET_CREDENTIAL, PASSWORDS, WIFI_CONFIGURATIONS, COOKIES};
 }
 
 // This is the subset of UserTypes() that have priority over other types. These

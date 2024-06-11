@@ -4,14 +4,13 @@
 
 #import "ios/chrome/browser/ui/bookmarks/bookmark_utils_ios.h"
 
+#import <MaterialComponents/MaterialSnackbar.h>
 #import <stdint.h>
 
 #import <algorithm>
 #import <iterator>
 #import <memory>
 #import <vector>
-
-#import <MaterialComponents/MaterialSnackbar.h>
 
 #import "base/check.h"
 #import "base/containers/contains.h"
@@ -33,6 +32,7 @@
 #import "components/query_parser/query_parser.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/strings/grit/components_strings.h"
+#import "components/sync/base/features.h"
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
@@ -175,6 +175,15 @@ bool IsAccountBookmarkStorageOptedIn(syncer::SyncService* sync_service) {
   syncer::UserSelectableTypeSet selected_types =
       sync_service->GetUserSettings()->GetSelectedTypes();
   return selected_types.Has(syncer::UserSelectableType::kBookmarks);
+}
+
+bool IsAccountBookmarkStorageAvailable(syncer::SyncService* sync_service,
+                                       LegacyBookmarkModel* account_model) {
+  if (base::FeatureList::IsEnabled(
+          syncer::kEnableBookmarkFoldersForAccountStorage)) {
+    return account_model->mobile_node() != nullptr;
+  }
+  return IsAccountBookmarkStorageOptedIn(sync_service);
 }
 
 #pragma mark - Updating Bookmarks
@@ -448,15 +457,18 @@ MDCSnackbarMessage* UpdateBookmarkPositionWithUndoToast(
 }
 
 void DeleteBookmarks(const std::set<const BookmarkNode*>& bookmarks,
-                     LegacyBookmarkModel* model) {
+                     LegacyBookmarkModel* model,
+                     const base::Location& location) {
   CHECK(model && model->loaded()) << "Model: " << model;
-  model->RemoveMany(bookmarks, bookmarks::metrics::BookmarkEditSource::kUser);
+  model->RemoveMany(bookmarks, bookmarks::metrics::BookmarkEditSource::kUser,
+                    location);
 }
 
 MDCSnackbarMessage* DeleteBookmarksWithUndoToast(
     const std::set<const BookmarkNode*>& nodes,
     const std::vector<LegacyBookmarkModel*>& bookmark_models,
-    ChromeBrowserState* browser_state) {
+    ChromeBrowserState* browser_state,
+    const base::Location& location) {
   CHECK_GT(bookmark_models.size(), 0u);
   size_t node_count = nodes.size();
   DCHECK_GT(node_count, 0u);
@@ -467,7 +479,7 @@ MDCSnackbarMessage* DeleteBookmarksWithUndoToast(
   // Delete the selected bookmarks.
   [wrapper startGroupingActions];
   for (auto* model : bookmark_models) {
-    bookmark_utils_ios::DeleteBookmarks(nodes, model);
+    bookmark_utils_ios::DeleteBookmarks(nodes, model, location);
   }
   [wrapper stopGroupingActions];
   [wrapper resetUndoManagerChanged];

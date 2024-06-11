@@ -20,6 +20,7 @@
 #include "components/autofill/core/browser/payments/autofill_payments_feature_availability.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
+#include "components/autofill/core/browser/payments_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -177,8 +178,9 @@ void FullCardRequest::GetFullCardImpl(
   // TODO(crbug.com/332715322): Refactor FullCardRequest to use
   // AutofillClient::GetPersonalDataManager() instead of a separate class
   // variable.
-  if (DidDisplayBenefitForCard(card, autofill_client_.get(),
-                               *personal_data_manager_)) {
+  if (DidDisplayBenefitForCard(
+          card, autofill_client_.get(),
+          personal_data_manager_->payments_data_manager())) {
     request_->client_behavior_signals.push_back(
         ClientBehaviorConstants::kShowingCardBenefits);
   }
@@ -211,7 +213,8 @@ void FullCardRequest::OnUnmaskPromptAccepted(
   if (request_->card.record_type() == CreditCard::RecordType::kLocalCard &&
       !request_->card.guid().empty() &&
       (!user_response.exp_month.empty() || !user_response.exp_year.empty())) {
-    personal_data_manager_->UpdateCreditCard(request_->card);
+    personal_data_manager_->payments_data_manager().UpdateCreditCard(
+        request_->card);
   }
 
   if (!should_unmask_card_) {
@@ -377,7 +380,7 @@ void FullCardRequest::OnDidGetRealPan(
         NOTREACHED();
       }
 
-      // TODO(crbug/949269): Once |fido_opt_in| is added to
+      // TODO(crbug.com/40621544): Once |fido_opt_in| is added to
       // UserProvidedUnmaskDetails, clear out |creation_options| from
       // |response_details_| if |user_response.fido_opt_in| was not set to true
       // to avoid an unwanted registration prompt.

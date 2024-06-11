@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "base/containers/fixed_flat_map.h"
 #include "base/functional/callback.h"
@@ -30,7 +31,7 @@ constexpr char kExpectedEndPointDomain[] = "aratea-pa.googleapis.com";
 std::optional<MantaStatusCode> MapServerFailureReasonToMantaStatusCode(
     const std::string& reason) {
   static constexpr auto reason_map =
-      base::MakeFixedFlatMap<base::StringPiece, MantaStatusCode>({
+      base::MakeFixedFlatMap<std::string_view, MantaStatusCode>({
           {"MISSING_INPUT", MantaStatusCode::kInvalidInput},
           {"INVALID_INPUT", MantaStatusCode::kInvalidInput},
           {"UNSUPPORTED_LANGUAGE", MantaStatusCode::kUnsupportedLanguage},
@@ -79,6 +80,10 @@ void LogTimeCost(const MantaMetricType request_type,
       base::UmaHistogramTimes("Ash.MantaService.MahiProvider.QA.TimeCost",
                               time_cost);
       break;
+    case manta::MantaMetricType::kSparky:
+      base::UmaHistogramTimes("Ash.MantaService.SparkyProvider.TimeCost",
+                              time_cost);
+      break;
   }
 }
 }  // namespace
@@ -95,7 +100,7 @@ void OnEndpointFetcherComplete(MantaProtoResponseCallback callback,
 
   base::TimeDelta time_cost = base::Time::Now() - start_time;
 
-  std::string message = std::string();
+  std::string message, locale;
 
   if (!responses) {
     std::move(callback).Run(nullptr,
@@ -147,10 +152,11 @@ void OnEndpointFetcherComplete(MantaProtoResponseCallback callback,
         proto::RpcLocalizedMessage localize_message;
         localize_message.ParseFromString(detail.value());
         message = localize_message.message();
+        locale = localize_message.locale();
       }
     }
 
-    std::move(callback).Run(nullptr, {manta_status_code, message});
+    std::move(callback).Run(nullptr, {manta_status_code, message, locale});
 
     return;
   }

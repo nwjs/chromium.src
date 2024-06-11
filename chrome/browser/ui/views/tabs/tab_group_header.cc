@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_layout.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_types.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/saved_tab_groups/features.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -124,10 +125,6 @@ TabGroupHeader::TabGroupHeader(TabSlotController& tab_slot_controller,
   title_->SetElideBehavior(gfx::FADE_TAIL);
   if (features::IsChromeRefresh2023()) {
     title_->SetLineHeight(20);
-    if (base::FeatureList::IsEnabled(
-            features::kChromeRefresh2023TopChromeFont)) {
-      title_->SetTextStyle(views::style::STYLE_BODY_4_EMPHASIS);
-    }
   } else {
     title_->SetTextStyle(views::style::STYLE_BODY_4);
   }
@@ -582,6 +579,10 @@ int TabGroupHeader::GetCollapsedHeaderWidth() const {
 }
 
 bool TabGroupHeader::ShouldShowSyncIcon() const {
+  if (tab_groups::IsTabGroupsSaveV2Enabled()) {
+    return false;
+  }
+
   return saved_tab_group_service_ && saved_tab_group_service_->model() &&
          saved_tab_group_service_->model()->Contains(group().value());
 }

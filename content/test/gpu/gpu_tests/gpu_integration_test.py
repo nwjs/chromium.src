@@ -118,7 +118,7 @@ class GpuIntegrationTest(
   _last_launched_browser_info = _BrowserLaunchInfo()
 
   # Keeps track of flaky tests that we're retrying.
-  # TODO(crbug.com/1248602): Remove this in favor of a method that doesn't rely
+  # TODO(crbug.com/40197330): Remove this in favor of a method that doesn't rely
   # on assumptions about retries, etc. if possible.
   _flaky_test_tries = collections.Counter()
 
@@ -129,6 +129,8 @@ class GpuIntegrationTest(
   # Keeps track of whether this is the first browser start on a shard for a
   # flakiness workaround. See crbug.com/323927831.
   _is_first_browser_start = True
+
+  _is_asan = False
 
   tab: Optional[ct.Tab] = None
 
@@ -266,6 +268,10 @@ class GpuIntegrationTest(
     """
     default_args = [
         '--disable-metal-test-shaders',
+        # TODO(crbug.com/339479329): Remove this once we either determine that
+        # BFCache is not the culprit or it is and the root cause of flakiness
+        # is fixed.
+        '--disable-features=BackForwardCache',
     ]
     if cls._SuiteSupportsParallelTests():
       # When running tests in parallel, windows can be treated as occluded if a
@@ -274,13 +280,6 @@ class GpuIntegrationTest(
       # Linux/Mac stagger new windows, but pass in on all platforms since it
       # could technically be hit on any platform.
       default_args.append('--disable-backgrounding-occluded-windows')
-
-      if host_information.IsMac():
-        # TODO(crbug.com/333443445): Remove this once the feature no longer
-        # causes screenshot capturing to hang when run with multiple Chrome
-        # instances
-        default_args.append(
-            '--disable-features=UseScreenCaptureKitForSnapshots')
 
     return default_args + additional_args
 
@@ -328,7 +327,7 @@ class GpuIntegrationTest(
     ]:
       # Reduce number of video buffers when running tests on Fuchsia to
       # workaround crbug.com/1203580
-      # TODO(https://crbug.com/1203580): Remove this once the bug is resolved.
+      # TODO(crbug.com/40763608): Remove this once the bug is resolved.
       browser_args.append('--double-buffer-compositing')
 
       # Increase GPU watchdog timeout to 60 seconds to avoid flake when
@@ -678,7 +677,7 @@ class GpuIntegrationTest(
       # Perform the same data collection as we do for an unexpected failure
       # but only if this was the last try for a flaky test so we don't
       # waste time symbolizing minidumps for expected flaky crashes.
-      # TODO(crbug.com/1248602): Replace this with a different method of
+      # TODO(crbug.com/40197330): Replace this with a different method of
       # tracking retries if possible.
       self._flaky_test_tries[test_name] += 1
       if self._flaky_test_tries[test_name] == _MAX_TEST_TRIES:
@@ -929,6 +928,7 @@ class GpuIntegrationTest(
     if system_info:
       gpu_tags = []
       gpu_info = system_info.gpu
+      cls._is_asan = gpu_info.aux_attributes.get('is_asan', False)
       # On the dual-GPU MacBook Pros, surface the tags of the secondary GPU if
       # it's the discrete GPU, so that test expectations can be written that
       # target the discrete GPU.
@@ -1083,13 +1083,6 @@ class GpuIntegrationTest(
         'cros-chrome',  # ChromeOS
         'web-engine-shell',  # Fuchsia
         'cast-streaming-shell',  # Syonymous with cast_streaming suite
-        # WebGL version is already handled by having expectations in separate
-        # files.
-        # TODO(crbug.com/1140283): Remove these tags once we're sure that
-        # all relevant data has aged out. Should be safe to do so at the end of
-        # August 2023.
-        'webgl-version-1',
-        'webgl-version-2',
         # GPU tests are always run in remote mode on the bots, and it shouldn't
         # make a difference to these tests anyways.
         'chromeos-local',
@@ -1103,6 +1096,17 @@ class GpuIntegrationTest(
         'unknown-gpu',
         'unknown-gpu-0x8c',
         'unknown-gpu-',
+        # Android versions prior to Android 14 use the letter corresponding to
+        # the code name, e.g. O for Oreo. 14 and later uses the numerical
+        # version. See crbug.com/333795261 for context on why this is
+        # necessary.
+        'android-8',  # Android O
+        'android-9',  # Android P
+        'android-10',  # Android Q
+        'android-11',  # Android R
+        'android-12',  # Android S
+        'android-13',  # Android T
+        'android-a',  # Android 14+ releases in 2024
     ]
 
   @classmethod

@@ -10,6 +10,7 @@
 #include "base/check.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
+#include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/plus_addresses/plus_address_types.h"
 #include "components/plus_addresses/webdata/plus_address_sync_util.h"
 #include "components/plus_addresses/webdata/plus_address_table.h"
@@ -78,7 +79,7 @@ PlusAddressSyncBridge::ApplyIncrementalSyncChanges(
     return syncer::ModelError(FROM_HERE, "Failed to begin transaction.");
   }
 
-  std::vector<PlusAddressSyncDataChange> profile_changes;
+  std::vector<PlusAddressDataChange> profile_changes;
   for (const std::unique_ptr<syncer::EntityChange>& change : entity_changes) {
     switch (change->type()) {
       case syncer::EntityChange::ACTION_ADD:
@@ -94,10 +95,10 @@ PlusAddressSyncBridge::ApplyIncrementalSyncChanges(
         // both a REMOVE and ADD change for the old and new profiles
         // respectively.
         if (existing_profile) {
-          profile_changes.emplace_back(PlusAddressSyncDataChange::Type::kRemove,
+          profile_changes.emplace_back(PlusAddressDataChange::Type::kRemove,
                                        std::move(*existing_profile));
         }
-        profile_changes.emplace_back(PlusAddressSyncDataChange::Type::kAdd,
+        profile_changes.emplace_back(PlusAddressDataChange::Type::kAdd,
                                      std::move(profile));
         break;
       }
@@ -109,7 +110,7 @@ PlusAddressSyncBridge::ApplyIncrementalSyncChanges(
                                     "Failed to remove profile in database.");
         }
         if (profile) {
-          profile_changes.emplace_back(PlusAddressSyncDataChange::Type::kRemove,
+          profile_changes.emplace_back(PlusAddressDataChange::Type::kRemove,
                                        std::move(*profile));
         }
         break;
@@ -136,9 +137,9 @@ void PlusAddressSyncBridge::ApplyDisableSyncChanges(
         {FROM_HERE, "Failed to begin transaction."});
   }
 
-  std::vector<PlusAddressSyncDataChange> profile_changes;
+  std::vector<PlusAddressDataChange> profile_changes;
   for (PlusProfile& profile : GetPlusAddressTable()->GetPlusProfiles()) {
-    profile_changes.emplace_back(PlusAddressSyncDataChange::Type::kRemove,
+    profile_changes.emplace_back(PlusAddressDataChange::Type::kRemove,
                                  std::move(profile));
   }
 
@@ -181,7 +182,14 @@ void PlusAddressSyncBridge::GetAllDataForDebugging(DataCallback callback) {
 bool PlusAddressSyncBridge::IsEntityDataValid(
     const syncer::EntityData& entity_data) const {
   CHECK(entity_data.specifics.has_plus_address());
-  return entity_data.specifics.plus_address().has_profile_id();
+  const sync_pb::PlusAddressSpecifics& plus_address =
+      entity_data.specifics.plus_address();
+  if (!plus_address.has_profile_id()) {
+    return false;
+  }
+  return affiliations::FacetURI::FromPotentiallyInvalidSpec(
+             plus_address.facet())
+      .is_valid();
 }
 
 std::string PlusAddressSyncBridge::GetClientTag(

@@ -16,15 +16,18 @@
 #include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/layout/flex_layout_view.h"
 
+namespace ui {
+class LocatedEvent;
+}
+
 namespace views {
-class ImageView;
-class Label;
 class Textfield;
 }  // namespace views
 
 namespace ash {
 
 class IconButton;
+class MahiContentSourceButton;
 class MahiQuestionAnswerView;
 class MahiUiUpdate;
 class SummaryOutlinesSection;
@@ -42,6 +45,10 @@ class ASH_EXPORT MahiPanelView : public views::FlexLayoutView,
   MahiPanelView(const MahiPanelView&) = delete;
   MahiPanelView& operator=(const MahiPanelView&) = delete;
   ~MahiPanelView() override;
+
+  // views::View:
+  void OnMouseEvent(ui::MouseEvent* event) override;
+  void OnGestureEvent(ui::GestureEvent* event) override;
 
  private:
   // views::TextfieldController:
@@ -63,13 +70,16 @@ class ASH_EXPORT MahiPanelView : public views::FlexLayoutView,
   void OnBackButtonPressed();
   void OnSendButtonPressed();
 
+  // Handles drag events to reposition the panel. Events that are not part of a
+  // drag event sequence are ignored.
+  void HandleDragEventIfNeeded(ui::LocatedEvent* event);
+
   // `ui_controller_` will outlive `this`.
   const raw_ptr<MahiUiController> ui_controller_;
 
   // Owned by the views hierarchy.
   raw_ptr<views::View> back_button_ = nullptr;
-  raw_ptr<views::ImageView> content_icon_ = nullptr;
-  raw_ptr<views::Label> content_title_ = nullptr;
+  raw_ptr<MahiContentSourceButton> content_source_button_ = nullptr;
   raw_ptr<MahiQuestionAnswerView> question_answer_view_ = nullptr;
   raw_ptr<SummaryOutlinesSection> summary_outlines_section_ = nullptr;
   raw_ptr<views::Textfield> question_textfield_ = nullptr;

@@ -52,7 +52,7 @@
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ash/accessibility/magnification_manager.h"
 #include "chrome/browser/ash/app_mode/app_launch_utils.h"
-#include "chrome/browser/ash/app_mode/kiosk_controller.h"
+#include "chrome/browser/ash/app_mode/kiosk_controller_impl.h"
 #include "chrome/browser/ash/app_mode/kiosk_mode_idle_app_name_notification.h"
 #include "chrome/browser/ash/arc/memory_pressure/container_app_killer.h"
 #include "chrome/browser/ash/arc/session/arc_service_launcher.h"
@@ -124,6 +124,7 @@
 #include "chrome/browser/ash/net/network_pref_state_observer.h"
 #include "chrome/browser/ash/net/network_throttling_observer.h"
 #include "chrome/browser/ash/net/rollback_network_config/rollback_network_config_service.h"
+#include "chrome/browser/ash/net/secure_dns_manager.h"
 #include "chrome/browser/ash/net/system_proxy_manager.h"
 #include "chrome/browser/ash/net/traffic_counters_handler.h"
 #include "chrome/browser/ash/network_change_manager_client.h"
@@ -146,7 +147,7 @@
 #include "chrome/browser/ash/power/power_metrics_reporter.h"
 #include "chrome/browser/ash/power/renderer_freezer.h"
 #include "chrome/browser/ash/power/smart_charging/smart_charging_manager.h"
-#include "chrome/browser/ash/printing/bulk_printers_calculator_factory.h"
+#include "chrome/browser/ash/printing/enterprise/bulk_printers_calculator_factory.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/profiles/signin_profile_handler.h"
 #include "chrome/browser/ash/quick_pair/quick_pair_browser_delegate_impl.h"
@@ -213,6 +214,7 @@
 #include "chromeos/ash/components/dbus/userdataauth/fake_userdataauth_client.h"
 #include "chromeos/ash/components/disks/disk_mount_manager.h"
 #include "chromeos/ash/components/drivefs/fake_drivefs_launcher_client.h"
+#include "chromeos/ash/components/file_manager/indexing/file_index_service_registry.h"
 #include "chromeos/ash/components/fwupd/firmware_update_manager.h"
 #include "chromeos/ash/components/geolocation/simple_geolocation_provider.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
@@ -308,7 +310,8 @@ void InitializeNetworkPortalDetector() {
     return;
   }
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ::switches::kTestType)) {
+          ::switches::kTestType) ||
+      features::IsRemoveDetectPortalFromChromeEnabled()) {
     network_portal_detector::SetNetworkPortalDetector(
         new NetworkPortalDetectorStub());
   } else {
@@ -421,7 +424,7 @@ class DBusServices {
         CrosDBusService::CreateServiceProviderList(
             std::make_unique<ComponentUpdaterServiceProvider>(
                 g_browser_process->platform_part()
-                    ->cros_component_manager()
+                    ->component_manager_ash()
                     .get())));
 
     chrome_features_service_ = CrosDBusService::Create(
@@ -749,7 +752,7 @@ void ChromeBrowserMainPartsAsh::PostCreateMainMessageLoop() {
 
   // This has to be initialized before DBusServices
   // (ComponentUpdaterServiceProvider).
-  g_browser_process->platform_part()->InitializeCrosComponentManager();
+  g_browser_process->platform_part()->InitializeComponentManager();
 
   dbus_services_ = std::make_unique<internal::DBusServices>(
       std::move(feature_list_accessor_));
@@ -869,10 +872,8 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   bluetooth_log_controller_ = std::make_unique<ash::BluetoothLogController>(
       user_manager::UserManager::Get());
 
-  if (base::FeatureList::IsEnabled(features::kPerUserMetrics)) {
-    // Enable per-user metrics support as soon as user_manager is created.
-    g_browser_process->metrics_service()->InitPerUserMetrics();
-  }
+  // Enable per-user metrics support as soon as user_manager is created.
+  g_browser_process->metrics_service()->InitPerUserMetrics();
 
   ScreenLocker::InitClass();
 
@@ -896,7 +897,7 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
 
   // Instantiate ProfileHelper as some following code depending on this
   // behavior.
-  // TODO(crbug.com/1325210): Switch to explicit initialization.
+  // TODO(crbug.com/40225390): Switch to explicit initialization.
   ProfileHelper::Get();
   signin_profile_handler_ = std::make_unique<SigninProfileHandler>();
 
@@ -955,7 +956,7 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
       base::BindOnce(&ChromeOSVersionCallback));
 
   kiosk_controller_ =
-      std::make_unique<KioskController>(user_manager::UserManager::Get());
+      std::make_unique<KioskControllerImpl>(user_manager::UserManager::Get());
 
   if (base::FeatureList::IsEnabled(features::kEnableHostnameSetting)) {
     DeviceNameStore::Initialize(g_browser_process->local_state(),
@@ -1018,7 +1019,7 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   // profile-keyed service AppService can call into it.
   crosapi_manager_ = std::make_unique<crosapi::CrosapiManager>();
   browser_manager_ = std::make_unique<crosapi::BrowserManager>(
-      g_browser_process->platform_part()->cros_component_manager());
+      g_browser_process->platform_part()->component_manager_ash());
   browser_manager_->AddObserver(SessionControllerClientImpl::Get());
   lacros_availability_policy_observer_ =
       std::make_unique<crosapi::LacrosAvailabilityPolicyObserver>();
@@ -1216,6 +1217,10 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
           std::make_unique<ash::HatsBluetoothRevampTriggerImpl>();
     }
 
+    file_index_service_registry_ =
+        std::make_unique<::ash::file_manager::FileIndexServiceRegistry>(
+            user_manager::UserManager::Get());
+
     // Initialize the NetworkHealth aggregator.
     network_health::NetworkHealthManager::GetInstance();
 
@@ -1236,8 +1241,8 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
     // Initialize input methods.
     input_method::InputMethodManager* manager =
         input_method::InputMethodManager::Get();
-    // TODO(crbug/1264581): Remove this object once kDeviceI18nShortcutsEnabled
-    // policy is deprecated.
+    // TODO(crbug.com/40203434): Remove this object once
+    // kDeviceI18nShortcutsEnabled policy is deprecated.
     UserSessionManager* session_manager = UserSessionManager::GetInstance();
     DCHECK(manager);
     DCHECK(session_manager);
@@ -1285,6 +1290,13 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
 
     login_screen_extensions_storage_cleaner_ =
         std::make_unique<LoginScreenExtensionsStorageCleaner>();
+
+    // Initialize a local state observer for secure DNS (DNS-over-HTTPS).
+    // The lifetime of the class should match the browser's lifetime for its
+    // secure DNS settings UI. This is only modifiable when a user (including
+    // guest) is logged in, but is active for the entire browser session.
+    secure_dns_manager_ =
+        std::make_unique<SecureDnsManager>(g_browser_process->local_state());
 
     ash::ShillManagerClient::Get()->SetProperty(
         shill::kEnableRFC8925Property,
@@ -1540,6 +1552,7 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
 
   // We should remove observers attached to D-Bus clients before
   // DBusThreadManager is shut down.
+  secure_dns_manager_.reset();
   network_pref_state_observer_.reset();
   power_metrics_reporter_.reset();
   renderer_freezer_.reset();
@@ -1564,6 +1577,10 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   }
   bluetooth_pref_state_observer_.reset();
   auth_events_recorder_.reset();
+  if (file_index_service_registry_) {
+    file_index_service_registry_->Shutdown();
+    file_index_service_registry_.reset();
+  }
 
   // Detach D-Bus clients before DBusThreadManager is shut down.
   idle_action_warning_observer_.reset();
@@ -1753,7 +1770,7 @@ void ChromeBrowserMainPartsAsh::PostDestroyThreads() {
 
   // This has to be destroyed after DBusServices
   // (ComponentUpdaterServiceProvider).
-  g_browser_process->platform_part()->ShutdownCrosComponentManager();
+  g_browser_process->platform_part()->ShutdownComponentManager();
 
   ShutdownDBus();
 

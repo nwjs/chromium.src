@@ -101,9 +101,22 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
                     int operations,
                     mojom::DragEventSource source);
 
-  // Cancels the currently running drag and drop session. Must only be called if
-  // `IsDragSource()` returns true.
+  // Cancels the currently running drag and drop session.
+  //
+  // For an outgoing session, i.e. one that was initiated by us, this will tell
+  // the compositor to cancel the session.
+  //
+  // For an incoming session, this will prevent any future drag events for the
+  // current session that we receive from the compositor from being propagated.
+  // Note that a final leave event will still be sent, and that on the next
+  // wl_data_device.enter event a new session will be created, for which events
+  // will be propagated as usual (e.g. if the user moves the mouse out of our
+  // window and then back over it again).
   void CancelSession();
+
+  // Returns true if there is an in-progress drag session owned by the data drag
+  // controller.
+  bool IsDragInProgress() const;
 
   // Updates the drag image. An empty |image| may be used to hide a previously
   // set non-empty drag image, and a non-empty |image| shows the drag image
@@ -113,9 +126,7 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
   void UpdateDragImage(const gfx::ImageSkia& image,
                        const gfx::Vector2d& offset);
 
-  State state() const { return state_; }
-
-  // TODO(crbug.com/896640): Remove once focus is fixed during DND sessions.
+  // TODO(crbug.com/40598679): Remove once focus is fixed during DND sessions.
   WaylandWindow* entered_window() const { return window_; }
 
   // Returns false iff the data is for a window dragging session.
@@ -129,6 +140,7 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
   // able to track only the current fetching task, on which it's interested in.
   using CancelFlag = base::RefCountedData<base::AtomicFlag>;
 
+  friend class WaylandDataDragControllerTest;
   FRIEND_TEST_ALL_PREFIXES(WaylandDataDragControllerTest, AsyncNoopStartDrag);
   FRIEND_TEST_ALL_PREFIXES(WaylandDataDragControllerTest, CancelDrag);
   FRIEND_TEST_ALL_PREFIXES(WaylandDataDragControllerTest,
@@ -140,6 +152,8 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
                            SuppressPointerButtonReleasesAfterEnter);
   FRIEND_TEST_ALL_PREFIXES(WaylandDataDragControllerTest,
                            StartDragWithWrongMimeType);
+  FRIEND_TEST_ALL_PREFIXES(WaylandDataDragControllerTest,
+                           OutgoingSessionWithoutDndFinished);
 
   enum class DragResult {
     kCancelled,
@@ -164,6 +178,8 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
   void OnDataSourceFinish(WaylandDataSource* source,
                           base::TimeTicks timestamp,
                           bool completed) override;
+  void OnDataSourceDropPerformed(WaylandDataSource* source,
+                                 base::TimeTicks timestamp) override;
   void OnDataSourceSend(WaylandDataSource* source,
                         const std::string& mime_type,
                         std::string* contents) override;
@@ -184,9 +200,14 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
       std::unique_ptr<ui::OSExchangeData> received_data);
   void CancelDataFetchingIfNeeded();
 
-  // Completes/cancels the drag session and resets everything to idle state.
-  // Does nothing if the current state is already `kIdle`.
-  void Reset(DragResult result, base::TimeTicks timestamp);
+  // Resets everything to idle state. Does nothing if the current state is
+  // already `kIdle`.
+  void Reset();
+
+  // Perform steps required when ending a drag session. e.g: quit the nested
+  // drag loop (if any), remove the event dispatcher override, and notify the
+  // drag/drop handlers based on `result`.
+  void HandleDragEnd(DragResult result, base::TimeTicks timestamp);
 
   std::optional<wl::Serial> GetAndValidateSerialForDrag(
       mojom::DragEventSource source);
@@ -242,12 +263,12 @@ class WaylandDataDragController : public WaylandDataDevice::DragDelegate,
   // holds the provider for the data to be sent through Wayland protocol.
   std::unique_ptr<OSExchangeDataProvider> offered_exchange_data_provider_;
 
-  // Offer to receive data from another process via drag-and-drop, or null if
-  // no drag-and-drop from another process is in progress.
+  // The data offer through wl_data_device for the current drag and drop
+  // session, or null if there is no session running.
   //
-  // The data offer from another Wayland client through wl_data_device, that
-  // triggered the current drag and drop session. If null, either there is no
-  // dnd session running or Chromium is the data source.
+  // Note that this is non-null even for a drag initiated by ourselves, we just
+  // don't do anything with the offer as we handle all the data transfer
+  // internally.
   std::unique_ptr<WaylandDataOffer> data_offer_;
 
   // The window that initiated the drag session. Can be null when the session

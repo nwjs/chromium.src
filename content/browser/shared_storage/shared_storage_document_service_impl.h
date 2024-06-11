@@ -87,8 +87,10 @@ class CONTENT_EXPORT SharedStorageDocumentServiceImpl final
 
   void OnCreateWorkletResponseIntercepted(
       bool is_same_origin,
+      bool prefs_success,
+      bool prefs_failure_is_site_specific,
       CreateWorkletCallback original_callback,
-      bool success,
+      bool post_prefs_success,
       const std::string& error_message);
 
   SharedStorageWorkletHostManager* GetSharedStorageWorkletHostManager();
@@ -97,14 +99,17 @@ class CONTENT_EXPORT SharedStorageDocumentServiceImpl final
 
   storage::SharedStorageManager* GetSharedStorageManager();
 
-  bool IsSharedStorageAllowed(std::string* out_debug_message);
+  bool IsSharedStorageAllowed(std::string* out_debug_message,
+                              bool* out_block_is_site_specific = nullptr);
 
   bool IsSharedStorageAllowedForOrigin(const url::Origin& accessing_origin,
-                                       std::string* out_debug_message);
+                                       std::string* out_debug_message,
+                                       bool* out_block_is_site_specific);
 
   bool IsSharedStorageAddModuleAllowedForOrigin(
       const url::Origin& accessing_origin,
-      std::string* out_debug_message);
+      std::string* out_debug_message,
+      bool* out_block_is_site_specific);
 
   std::string SerializeLastCommittedOrigin() const;
 

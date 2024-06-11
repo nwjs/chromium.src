@@ -16,14 +16,18 @@ TabModel::TabModel(std::unique_ptr<content::WebContents> contents,
                    TabStripModel* owning_model)
     : contents_owned_(std::move(contents)),
       contents_(contents_owned_.get()),
-      owning_model_(owning_model) {
+      owning_model_(owning_model),
+      is_in_normal_window_(owning_model->delegate()->IsNormalWindow()) {
   // When a TabModel is constructed it must be attached to a TabStripModel. This
   // may later change if the Tab is detached.
   CHECK(owning_model);
   owning_model_->AddObserver(this);
 
   tab_features_ = TabFeatures::CreateTabFeatures();
-  tab_features_->Init(this);
+
+  // Once tabs are pulled into a standalone module, TabFeatures and its
+  // initialization will need to be delegated back to the main module.
+  tab_features_->Init(this, owning_model_->profile());
 }
 
 TabModel::~TabModel() = default;
@@ -45,9 +49,6 @@ void TabModel::OnRemovedFromModel() {
   // Going through each field here:
   // Keep `contents_`, obviously.
 
-  // We are now unowned. In this case no UI is shown, which is functionally
-  // equivalent to being in the background.
-  did_enter_background_callback_list_.Notify(this);
   owning_model_->RemoveObserver(this);
   owning_model_ = nullptr;
 
@@ -76,22 +77,26 @@ void TabModel::OnReparented(TabCollection* parent,
   parent_collection_ = parent;
 }
 
+void TabModel::WillEnterBackground(base::PassKey<TabStripModel>) {
+  will_enter_background_callback_list_.Notify(this);
+}
+
+void TabModel::WillDetach(base::PassKey<TabStripModel>,
+                          tabs::TabInterface::DetachReason reason) {
+  will_detach_callback_list_.Notify(this, reason);
+}
+
 content::WebContents* TabModel::GetContents() const {
   return contents();
 }
 
-base::CallbackListSubscription TabModel::RegisterDidAddContents(
-    TabInterface::DidAddContentsCallback callback) {
-  return did_add_contents_callback_list_.Add(std::move(callback));
-}
-
-base::CallbackListSubscription TabModel::RegisterWillRemoveContents(
-    TabInterface::WillRemoveContentsCallback callback) {
-  return will_remove_contents_callback_list_.Add(std::move(callback));
+base::CallbackListSubscription TabModel::RegisterWillDiscardContents(
+    TabInterface::WillDiscardContentsCallback callback) {
+  return will_discard_contents_callback_list_.Add(std::move(callback));
 }
 
 bool TabModel::IsInForeground() const {
-  return owning_model()->GetActiveTab() == this;
+  return owning_model() && owning_model()->GetActiveTab() == this;
 }
 
 base::CallbackListSubscription TabModel::RegisterDidEnterForeground(
@@ -99,9 +104,14 @@ base::CallbackListSubscription TabModel::RegisterDidEnterForeground(
   return did_enter_foreground_callback_list_.Add(std::move(callback));
 }
 
-base::CallbackListSubscription TabModel::RegisterDidEnterBackground(
-    TabInterface::DidEnterBackgroundCallback callback) {
-  return did_enter_background_callback_list_.Add(std::move(callback));
+base::CallbackListSubscription TabModel::RegisterWillEnterBackground(
+    TabInterface::WillEnterBackgroundCallback callback) {
+  return will_enter_background_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription TabModel::RegisterWillDetach(
+    TabInterface::WillDetach callback) {
+  return will_detach_callback_list_.Add(std::move(callback));
 }
 
 bool TabModel::CanShowModalUI() const {
@@ -110,6 +120,14 @@ bool TabModel::CanShowModalUI() const {
 
 std::unique_ptr<ScopedTabModalUI> TabModel::ShowModalUI() {
   return std::make_unique<ScopedTabModalUIImpl>(this);
+}
+
+bool TabModel::IsInNormalWindow() const {
+  return is_in_normal_window_;
+}
+
+BrowserWindowInterface* TabModel::GetBrowserWindowInterface() {
+  return owning_model_->delegate()->GetBrowserWindowInterface();
 }
 
 void TabModel::OnTabStripModelChanged(
@@ -123,10 +141,6 @@ void TabModel::OnTabStripModelChanged(
   if (selection.new_contents == contents()) {
     did_enter_foreground_callback_list_.Notify(this);
     return;
-  }
-
-  if (selection.old_contents == contents()) {
-    did_enter_background_callback_list_.Notify(this);
   }
 }
 
@@ -147,20 +161,14 @@ void TabModel::WriteIntoTrace(perfetto::TracedValue context) const {
   dict.Add("blocked", blocked());
 }
 
-std::unique_ptr<content::WebContents> TabModel::ReplaceContents(
+std::unique_ptr<content::WebContents> TabModel::DiscardContents(
     std::unique_ptr<content::WebContents> contents) {
-  std::unique_ptr<content::WebContents> old_contents = RemoveContents();
-  SetContents(std::move(contents));
+  will_discard_contents_callback_list_.Notify(this, contents_, contents.get());
+  std::unique_ptr<content::WebContents> old_contents =
+      std::move(contents_owned_);
+  contents_owned_ = std::move(contents);
+  contents_ = contents_owned_.get();
   return old_contents;
-}
-
-std::unique_ptr<content::WebContents> TabModel::RemoveContents() {
-  for (auto& obs : observers_) {
-    obs.WillRemoveContents(this, contents_.get());
-  }
-  will_remove_contents_callback_list_.Notify(this, contents_.get());
-  contents_ = nullptr;
-  return std::move(contents_owned_);
 }
 
 // static
@@ -169,17 +177,6 @@ std::unique_ptr<content::WebContents> TabModel::DestroyAndTakeWebContents(
   std::unique_ptr<content::WebContents> contents =
       std::move(tab_model->contents_owned_);
   return contents;
-}
-
-void TabModel::SetContents(std::unique_ptr<content::WebContents> contents) {
-  CHECK(!contents_);
-  CHECK(contents);
-  contents_owned_ = std::move(contents);
-  contents_ = contents_owned_.get();
-  for (auto& obs : observers_) {
-    obs.DidAddContents(this, contents_.get());
-  }
-  did_add_contents_callback_list_.Notify(this, contents_.get());
 }
 
 }  // namespace tabs

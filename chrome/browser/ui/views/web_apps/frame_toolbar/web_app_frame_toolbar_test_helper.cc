@@ -42,8 +42,8 @@ WebAppFrameToolbarTestHelper::~WebAppFrameToolbarTestHelper() = default;
 webapps::AppId WebAppFrameToolbarTestHelper::InstallWebApp(
     Profile* profile,
     const GURL& start_url) {
-  auto web_app_info = std::make_unique<web_app::WebAppInstallInfo>();
-  web_app_info->start_url = start_url;
+  auto web_app_info =
+      web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
   web_app_info->scope = start_url.GetWithoutFilename();
   web_app_info->title = u"A minimal-ui app";
   web_app_info->display_mode = web_app::DisplayMode::kMinimalUi;
@@ -175,7 +175,7 @@ GURL WebAppFrameToolbarTestHelper::
 GURL WebAppFrameToolbarTestHelper::LoadTestPageWithDataAndGetURL(
     net::test_server::EmbeddedTestServer* embedded_test_server,
     base::ScopedTempDir* temp_dir,
-    base::StringPiece test_html) {
+    std::string_view test_html) {
   // Write kTestHTML to a temporary file that can be later reached at
   // http://127.0.0.1/test_file_*.html.
   static int s_test_file_number = 1;
@@ -220,7 +220,7 @@ void WebAppFrameToolbarTestHelper::SetupGeometryChangeCallback(
   )"));
 }
 
-// TODO(https://crbug.com/1277860): Flaky.
+// TODO(crbug.com/40809857): Flaky.
 void WebAppFrameToolbarTestHelper::TestDraggableRegions() {
   views::NonClientFrameView* frame_view =
       browser_view()->GetWidget()->non_client_view()->frame_view();

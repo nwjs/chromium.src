@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/browser_features.h"
+#include "chrome/common/buildflags.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/history_clusters/core/features.h"
@@ -29,6 +30,15 @@ IN_PROC_BROWSER_TEST_F(CrComponentsTest, CertificateManagerProvisioning) {
 }
 #endif  // BUILDFLAG(USE_NSS_CERTS) && BUILDFLAG(IS_CHROMEOS)
 
+#if BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+
+IN_PROC_BROWSER_TEST_F(CrComponentsTest, CertificateManagerV2) {
+  set_test_loader_host(chrome::kChromeUISettingsHost);
+  RunTest("cr_components/certificate_manager_v2_test.js", "mocha.run()");
+}
+
+#endif  // BUILDFLAG(CHROME_ROOT_STORE_CERT_MANAGEMENT_UI)
+
 IN_PROC_BROWSER_TEST_F(CrComponentsTest, ColorChangeListener) {
   RunTest("cr_components/color_change_listener_test.js", "mocha.run()");
 }
@@ -46,6 +56,11 @@ IN_PROC_BROWSER_TEST_F(CrComponentsTest, CustomizeThemes) {
 IN_PROC_BROWSER_TEST_F(CrComponentsTest, HelpBubbleMixin) {
   set_test_loader_host(chrome::kChromeUINewTabPageHost);
   RunTest("cr_components/help_bubble_mixin_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrComponentsTest, HelpBubbleMixinLit) {
+  set_test_loader_host(chrome::kChromeUINewTabPageHost);
+  RunTest("cr_components/help_bubble_mixin_lit_test.js", "mocha.run()");
 }
 
 IN_PROC_BROWSER_TEST_F(CrComponentsTest, HelpBubble) {

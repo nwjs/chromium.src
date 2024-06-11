@@ -638,7 +638,8 @@ int Textfield::GetBaseline() const {
   return GetInsets().top() + GetRenderText()->GetBaseline();
 }
 
-gfx::Size Textfield::CalculatePreferredSize() const {
+gfx::Size Textfield::CalculatePreferredSize(
+    const SizeBounds& available_size) const {
   DCHECK_GE(default_width_in_chars_, minimum_width_in_chars_);
   return gfx::Size(
       CharsToDips(default_width_in_chars_),
@@ -1076,7 +1077,7 @@ void Textfield::GetAccessibleNodeData(ui::AXNodeData* node_data) {
 
 #if BUILDFLAG(SUPPORTS_AX_TEXT_OFFSETS)
 void Textfield::RefreshAccessibleTextOffsets() {
-  // TODO(https://crbug.com/1485632): Add support for multiline textfields.
+  // TODO(crbug.com/40933356): Add support for multiline textfields.
   if (GetRenderText()->multiline()) {
     return;
   }
@@ -1837,7 +1838,7 @@ bool Textfield::ChangeTextDirectionAndLayoutAlignment(
 void Textfield::ExtendSelectionAndDelete(size_t before, size_t after) {
   gfx::Range range = GetRenderText()->selection();
   // Discard out-of-bound operations.
-  // TODO(crbug.com/1344096): this is a temporary fix to prevent the
+  // TODO(crbug.com/40852753): this is a temporary fix to prevent the
   // checked_cast failure in gfx::Range. There does not seem to be any
   // observable bad behaviors before checked_cast was added. However, range
   // clipping or dropping should be the last resort because a checkfail
@@ -1979,12 +1980,12 @@ bool Textfield::ShouldDoLearning() {
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-// TODO(https://crbug.com/952355): Implement this method to support Korean IME
+// TODO(crbug.com/41452689): Implement this method to support Korean IME
 // reconversion feature on native text fields (e.g. find bar).
 bool Textfield::SetCompositionFromExistingText(
     const gfx::Range& range,
     const std::vector<ui::ImeTextSpan>& ui_ime_text_spans) {
-  // TODO(https://crbug.com/952355): Support custom text spans.
+  // TODO(crbug.com/41452689): Support custom text spans.
   DCHECK(!model_->HasCompositionText());
   OnBeforeUserAction();
   model_->SetCompositionFromExistingText(range);
@@ -2023,7 +2024,7 @@ bool Textfield::AddGrammarFragments(
     base::UmaHistogramEnumeration("InputMethod.Assistive.Grammar.Count",
                                   TextInputClient::SubClass::kTextField);
   }
-  // TODO(crbug/1201454): Implement this method for CrOS Grammar.
+  // TODO(crbug.com/40178699): Implement this method for CrOS Grammar.
   NOTIMPLEMENTED_LOG_ONCE();
   return false;
 }
@@ -2041,7 +2042,7 @@ void Textfield::GetActiveTextInputControlLayoutBounds(
 #endif
 
 #if BUILDFLAG(IS_WIN)
-// TODO(https://crbug.com/952355): Implement this method once TSF supports
+// TODO(crbug.com/41452689): Implement this method once TSF supports
 // reconversion features on native text fields.
 void Textfield::SetActiveCompositionForAccessibility(
     const gfx::Range& range,
@@ -2938,7 +2939,7 @@ void Textfield::StopBlinkingCursor() {
 
 void Textfield::OnCursorBlinkTimerFired() {
   DCHECK(ShouldBlinkCursor());
-  // TODO(crbug.com/1294712): The cursor position is not updated appropriately
+  // TODO(crbug.com/40820702): The cursor position is not updated appropriately
   // when locale changes from a left-to-right script to a right-to-left script.
   // Thus the cursor is displayed at a wrong position immediately after the
   // locale change. As a band-aid solution, we update the cursor here, so that

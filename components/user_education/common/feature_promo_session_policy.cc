@@ -70,6 +70,9 @@ void FeaturePromoSessionPolicy::NotifyPromoEnded(
     case FeaturePromoClosedReason::kOverrideForPrecedence:
     case FeaturePromoClosedReason::kOverrideForTesting:
     case FeaturePromoClosedReason::kOverrideForUIRegionConflict:
+    case FeaturePromoClosedReason::kAbortedByFeature:
+    case FeaturePromoClosedReason::kAbortedByAnchorHidden:
+    case FeaturePromoClosedReason::kAbortedByBubbleDestroyed:
       // These count as the user not interacting, so they cannot trigger a full
       // cooldown. Do not record the shown time.
       break;
@@ -115,6 +118,7 @@ FeaturePromoSessionPolicy::SpecificationToPromoInfo(
   switch (spec.promo_type()) {
     case FeaturePromoSpecification::PromoType::kToast:
     case FeaturePromoSpecification::PromoType::kLegacy:
+    case FeaturePromoSpecification::PromoType::kRotating:
       promo_info.weight = PromoWeight::kLight;
       break;
     case FeaturePromoSpecification::PromoType::kSnooze:

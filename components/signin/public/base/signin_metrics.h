@@ -126,6 +126,7 @@ enum class ProfileSignout {
 // A Java counterpart will be generated for this enum.
 // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.signin.metrics
 // GENERATED_JAVA_CLASS_NAME_OVERRIDE: SigninAccessPoint
+// LINT.IfChange
 enum class AccessPoint : int {
   ACCESS_POINT_START_PAGE = 0,
   ACCESS_POINT_NTP_LINK = 1,
@@ -149,7 +150,7 @@ enum class AccessPoint : int {
   ACCESS_POINT_UNKNOWN = 17,
   ACCESS_POINT_PASSWORD_BUBBLE = 18,
   ACCESS_POINT_AUTOFILL_DROPDOWN = 19,
-  ACCESS_POINT_NTP_CONTENT_SUGGESTIONS = 20,
+  // ACCESS_POINT_NTP_CONTENT_SUGGESTIONS = 20, no longer used.
   ACCESS_POINT_RESIGNIN_INFOBAR = 21,
   ACCESS_POINT_TAB_SWITCHER = 22,
   // ACCESS_POINT_FORCE_SIGNIN_WARNING = 23, no longer used.
@@ -213,11 +214,24 @@ enum class AccessPoint : int {
   // allowing the user to reauth.
   ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT = 61,
   ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT = 62,
+  // The identity disc (avatar) on the New Tab page. Note that this only covers
+  // signed-in avatars - interactions with the signed-out avatar are instead
+  // counted under ACCESS_POINT_NTP_SIGNED_OUT_ICON.
+  ACCESS_POINT_NTP_IDENTITY_DISC = 63,
+  // The identity is received through an interception of a 3rd party OIDC auth
+  // redirection.
+  ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION = 64,
+  // The "Sign in again" button on a Web Authentication modal dialog when
+  // reauthentication is necessary to sign in with or save a passkey from the
+  // Google Password Manager.
+  ACCESS_POINT_WEBAUTHN_MODAL_DIALOG = 65,
 
   // Add values above this line with a corresponding label to the
-  // "SigninAccessPoint" enum in tools/metrics/histograms/enums.xml
+  // "SigninAccessPoint" enum in
+  // tools/metrics/histograms/metadata/signin/enums.xml.
   ACCESS_POINT_MAX,  // This must be last.
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/signin/enums.xml)
 
 // Enum values which enumerates all access points where transactional reauth
 // could be initiated. Transactional reauth is used when the user already has
@@ -443,8 +457,9 @@ enum class SourceForRefreshTokenOperation {
   kLogoutTabHelper_PrimaryPageChanged = 19,
   kForceSigninReauthWithDifferentAccount = 20,
   kAccountReconcilor_RevokeTokensNotInCookies = 21,
+  kDiceResponseHandler_PasswordPromoSignin = 22,
 
-  kMaxValue = kAccountReconcilor_RevokeTokensNotInCookies,
+  kMaxValue = kDiceResponseHandler_PasswordPromoSignin,
 };
 
 // Different types of reporting. This is used as a histogram suffix.
@@ -484,7 +499,12 @@ enum class SyncButtonsType : int {
   kSyncNotEqualWeighted = 1,
   kHistorySyncEqualWeighted = 2,
   kHistorySyncNotEqualWeighted = 3,
-  kMaxValue = kHistorySyncNotEqualWeighted,
+
+  // Either use one of the two or kSyncEqualWeighted.
+  kSyncEqualWeightedFromDeadline = 4,
+  kSyncEqualWeightedFromCapability = 5,
+
+  kMaxValue = kSyncEqualWeightedFromCapability,
 };
 
 // Tracks type of the button that was clicked by the user.
@@ -501,7 +521,8 @@ enum class SyncButtonClicked : int {
   kHistorySyncCancelEqualWeighted = 7,
   kHistorySyncOptInNotEqualWeighted = 8,
   kHistorySyncCancelNotEqualWeighted = 9,
-  kMaxValue = kHistorySyncCancelNotEqualWeighted,
+  kSyncSettingsUnknownWeighted = 10,
+  kMaxValue = kSyncSettingsUnknownWeighted,
 };
 
 // -----------------------------------------------------------------------------

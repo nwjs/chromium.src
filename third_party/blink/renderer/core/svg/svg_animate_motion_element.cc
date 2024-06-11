@@ -24,10 +24,25 @@
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/svg/animation/smil_animation_effect_parameters.h"
 #include "third_party/blink/renderer/core/svg/animation/smil_animation_value.h"
+#include "third_party/blink/renderer/core/svg/svg_a_element.h"
+#include "third_party/blink/renderer/core/svg/svg_circle_element.h"
+#include "third_party/blink/renderer/core/svg/svg_clip_path_element.h"
+#include "third_party/blink/renderer/core/svg/svg_defs_element.h"
+#include "third_party/blink/renderer/core/svg/svg_ellipse_element.h"
+#include "third_party/blink/renderer/core/svg/svg_foreign_object_element.h"
+#include "third_party/blink/renderer/core/svg/svg_g_element.h"
+#include "third_party/blink/renderer/core/svg/svg_image_element.h"
+#include "third_party/blink/renderer/core/svg/svg_line_element.h"
 #include "third_party/blink/renderer/core/svg/svg_mpath_element.h"
 #include "third_party/blink/renderer/core/svg/svg_parser_utilities.h"
 #include "third_party/blink/renderer/core/svg/svg_path_element.h"
 #include "third_party/blink/renderer/core/svg/svg_path_utilities.h"
+#include "third_party/blink/renderer/core/svg/svg_polygon_element.h"
+#include "third_party/blink/renderer/core/svg/svg_polyline_element.h"
+#include "third_party/blink/renderer/core/svg/svg_rect_element.h"
+#include "third_party/blink/renderer/core/svg/svg_switch_element.h"
+#include "third_party/blink/renderer/core/svg/svg_text_element.h"
+#include "third_party/blink/renderer/core/svg/svg_use_element.h"
 #include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
@@ -175,7 +190,7 @@ bool SVGAnimateMotionElement::CalculateToAtEndOfDurationValue(
   return true;
 }
 
-bool SVGAnimateMotionElement::CalculateFromAndToValues(
+void SVGAnimateMotionElement::CalculateFromAndToValues(
     const String& from_string,
     const String& to_string) {
   ParsePoint(from_string, from_point_);
@@ -183,10 +198,9 @@ bool SVGAnimateMotionElement::CalculateFromAndToValues(
   // TODO(fs): Looks like this would clobber the at-end-of-duration
   // value for a cumulative 'values' animation.
   to_point_at_end_of_duration_ = to_point_;
-  return true;
 }
 
-bool SVGAnimateMotionElement::CalculateFromAndByValues(
+void SVGAnimateMotionElement::CalculateFromAndByValues(
     const String& from_string,
     const String& by_string) {
   CalculateFromAndToValues(from_string, by_string);
@@ -195,7 +209,6 @@ bool SVGAnimateMotionElement::CalculateFromAndByValues(
   // of (0,0).
   to_point_ += from_point_.OffsetFromOrigin();
   to_point_at_end_of_duration_ = to_point_;
-  return true;
 }
 
 void SVGAnimateMotionElement::CalculateAnimationValue(

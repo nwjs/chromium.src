@@ -184,8 +184,8 @@ class DeviceCloudPolicyManagerAshTest
  protected:
   DeviceCloudPolicyManagerAshTest()
       : state_keys_broker_(&session_manager_client_), store_(nullptr) {
-    fake_statistics_provider_.SetMachineStatistic(
-        ash::system::kSerialNumberKeyForTest, "test_sn");
+    fake_statistics_provider_.SetMachineStatistic(ash::system::kSerialNumberKey,
+                                                  "test_sn");
     fake_statistics_provider_.SetMachineStatistic(
         ash::system::kHardwareClassKey, "test_hw");
     session_manager_client_.AddObserver(this);
@@ -722,7 +722,7 @@ class DeviceCloudPolicyManagerAshEnrollmentTest
 
     EnrollmentConfig enrollment_config;
     enrollment_config.auth_mechanism =
-        EnrollmentConfig::AUTH_MECHANISM_BEST_AVAILABLE;
+        EnrollmentConfig::AUTH_MECHANISM_ATTESTATION_PREFERRED;
     enrollment_config.mode = with_cert ? EnrollmentConfig::MODE_ATTESTATION
                                        : EnrollmentConfig::MODE_MANUAL;
     DMAuth auth =

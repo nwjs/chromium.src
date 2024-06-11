@@ -3,6 +3,10 @@
   display: block;
 }
 
+:host([is-empty]) {
+  display: none;
+}
+
 .card {
   background: var(--cr-card-background-color);
   border-radius: var(--cr-card-border-radius);
@@ -21,7 +25,7 @@ h2 {
   color: var(--cr-primary-text-color);
 }
 
-h2 iron-icon {
+h2 cr-icon {
   flex-shrink: 0;
 }
 
@@ -73,7 +77,7 @@ a {
 
 <div class="card">
   <h2 id="heading">
-    <iron-icon icon="history-embeddings:heading"></iron-icon>
+    <cr-icon icon="history-embeddings:heading"></cr-icon>
     [[getHeadingText_(loading_, searchQuery)]]
   </h2>
 
@@ -94,7 +98,8 @@ a {
       <template is="dom-repeat" items="[[searchResult_.items]]">
         <cr-url-list-item url="[[item.url.url]]" title="[[item.title]]"
             description="[[item.urlForDisplay]]"
-            on-click="onResultClick_" as-anchor always-show-suffix>
+            on-click="onResultClick_" on-auxclick="onResultClick_"
+            as-anchor always-show-suffix>
           <span slot="suffix">[[item.relativeTime]]</span>
           <cr-icon-button slot="suffix" iron-icon="cr:more-vert"
               on-click="onMoreActionsClick_">
@@ -118,3 +123,18 @@ a {
     </div>
   </div>
 </div>
+
+<cr-lazy-render id="sharedMenu">
+  <template>
+    <cr-action-menu role-description="$i18n{actionMenuDescription}">
+      <button id="moreFromSiteOption" class="dropdown-item"
+          on-click="onMoreFromSiteClick_">
+        $i18n{moreFromSite}
+      </button>
+      <button id="removeFromHistoryOption"
+          class="dropdown-item" on-click="onRemoveFromHistoryClick_">
+        $i18n{removeFromHistory}
+      </button>
+    </cr-action-menu>
+  </template>
+</cr-lazy-render>

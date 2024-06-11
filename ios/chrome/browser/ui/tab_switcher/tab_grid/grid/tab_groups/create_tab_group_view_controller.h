@@ -11,6 +11,7 @@
 
 @protocol CreateOrEditTabGroupViewControllerDelegate;
 class TabGroup;
+@protocol TabGroupsCommands;
 @protocol TabGroupCreationMutator;
 
 // View controller that display the tab group creation view.

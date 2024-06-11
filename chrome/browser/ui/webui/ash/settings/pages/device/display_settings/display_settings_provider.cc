@@ -173,6 +173,38 @@ void DisplaySettingsProvider::ObserveDisplayBrightnessSettings(
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
 
+void DisplaySettingsProvider::OnGetAmbientLightSensorEnabled(
+    ObserveAmbientLightSensorCallback callback,
+    std::optional<bool> is_ambient_light_sensor_enabled) {
+  if (!is_ambient_light_sensor_enabled.has_value()) {
+    LOG(ERROR) << "GetAmbientLightSensorEnabled returned nullopt.";
+    // In the rare case that GetAmbientLightSensorEnabled returns a nullopt,
+    // assume that the ambient light sensor is enabled, because by default the
+    // ambient light sensor is re-enabled at system start.
+    std::move(callback).Run(true);
+    return;
+  }
+  std::move(callback).Run(is_ambient_light_sensor_enabled.value());
+}
+
+void DisplaySettingsProvider::ObserveAmbientLightSensor(
+    mojo::PendingRemote<mojom::AmbientLightSensorObserver> observer,
+    ObserveAmbientLightSensorCallback callback) {
+  if (!brightness_control_delegate_) {
+    LOG(ERROR) << "DisplaySettingsProvider: Expected BrightnessControlDelegate "
+                  "to be non-null when adding an observer.";
+    return;
+  }
+
+  ambient_light_sensor_observers_.Add(std::move(observer));
+
+  // Get whether the ambient light sensor is currently enabled and run the
+  // callback with that value.
+  brightness_control_delegate_->GetAmbientLightSensorEnabled(
+      base::BindOnce(&DisplaySettingsProvider::OnGetAmbientLightSensorEnabled,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
 void DisplaySettingsProvider::OnDidProcessDisplayChanges(
     const DisplayConfigurationChange& configuration_change) {
   for (auto& observer : display_configuration_observers_) {
@@ -304,6 +336,13 @@ void DisplaySettingsProvider::ScreenBrightnessChanged(
   }
 }
 
+void DisplaySettingsProvider::AmbientLightSensorEnabledChanged(
+    const power_manager::AmbientLightSensorChange& change) {
+  for (auto& observer : ambient_light_sensor_observers_) {
+    observer->OnAmbientLightSensorEnabledChanged(change.sensor_enabled());
+  }
+}
+
 void DisplaySettingsProvider::SetInternalDisplayScreenBrightness(
     double percent) {
   if (!features::IsBrightnessControlInSettingsEnabled()) {
@@ -317,7 +356,9 @@ void DisplaySettingsProvider::SetInternalDisplayScreenBrightness(
     return;
   }
 
-  brightness_control_delegate_->SetBrightnessPercent(percent, /*gradual=*/true);
+  brightness_control_delegate_->SetBrightnessPercent(
+      percent, /*gradual=*/true, /*source=*/
+      BrightnessControlDelegate::BrightnessChangeSource::kSettingsApp);
 
   // Record the brightness change event.
   std::string histogram_name(base::StrCat(

@@ -7,6 +7,7 @@ package org.chromium.components.tab_group_sync;
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
 
+import org.chromium.base.Token;
 import org.chromium.url.GURL;
 
 /**
@@ -19,14 +20,14 @@ public class TabGroupSyncConversionsBridge {
     @CalledByNative
     private static SavedTabGroup createGroup(
             String syncId,
-            int localId,
+            LocalTabGroupId localId,
             String title,
             int color,
             long creationTimeMs,
             long updateTimeMs) {
         SavedTabGroup group = new SavedTabGroup();
         group.syncId = syncId;
-        group.localId = localId == -1 ? null : localId;
+        group.localId = localId;
         group.title = title;
         group.color = color;
         assert group.color != -1;
@@ -59,5 +60,17 @@ public class TabGroupSyncConversionsBridge {
             group.savedTabs.add(tab);
         }
         return tab;
+    }
+
+    @CalledByNative
+    private static LocalTabGroupId createJavaTabGroupId(Token groupId) {
+        assert groupId != null;
+        return new LocalTabGroupId(groupId);
+    }
+
+    @CalledByNative
+    private static Token getNativeTabGroupId(LocalTabGroupId tabGroupId) {
+        assert tabGroupId != null;
+        return tabGroupId.tabGroupId;
     }
 }

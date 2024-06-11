@@ -169,8 +169,7 @@ class DrmGpuDisplayManagerTest : public testing::Test {
   }
 
   // Note: the first device added will be marked as the primary device.
-  scoped_refptr<FakeDrmDevice> AddAndInitializeDrmDeviceWithState(
-      FakeDrmDevice::MockDrmState& drm_state) {
+  scoped_refptr<FakeDrmDevice> AddDrmDevice() {
     std::string card_path = base::StringPrintf(kDefaultTestGraphicsCardPattern,
                                                next_drm_device_number_++);
     base::FilePath file_path(card_path);
@@ -178,9 +177,6 @@ class DrmGpuDisplayManagerTest : public testing::Test {
     device_manager_->AddDrmDevice(file_path, base::ScopedFD());
     FakeDrmDevice* fake_drm = static_cast<FakeDrmDevice*>(
         device_manager_->GetDrmDevices().back().get());
-    fake_drm->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-        kInFormatsBlobIdBase, {DRM_FORMAT_XRGB8888}, {}));
-    fake_drm->InitializeState(drm_state, /* use_atomic */ true);
     return scoped_refptr<FakeDrmDevice>(fake_drm);
   }
 
@@ -214,25 +210,25 @@ class DrmGpuDisplayManagerTest : public testing::Test {
 TEST_F(DrmGpuDisplayManagerTest, CapOutOnMaxDrmDeviceCount) {
   // Add |kMaxDrmCount| + 1 DRM devices, each with one active display.
   for (size_t i = 0; i < kMaxDrmCount + 1; ++i) {
-    auto drm_state =
-        FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+    auto fake_drm = AddDrmDevice();
+    fake_drm->ResetStateWithAllProperties();
 
     // Add 1 CRTC
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    fake_drm->AddCrtcWithPrimaryAndCursorPlanes();
 
     // Add one encoder
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = fake_drm->AddEncoder();
     encoder.possible_crtcs = 0b1;
 
     // Add 1 Connector
-    auto& connector = drm_state.AddConnector();
+    auto& connector = fake_drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{kStandardModes[0]};
     connector.encoders = std::vector<uint32_t>{encoder.id};
     connector.edid_blob =
         std::vector<uint8_t>(kHPz32x, kHPz32x + kHPz32xLength);
 
-    AddAndInitializeDrmDeviceWithState(drm_state);
+    fake_drm->InitializeState(/* use_atomic */ true);
   }
 
   ASSERT_EQ(drm_gpu_display_manager_->GetDisplays().size(), kMaxDrmCount);
@@ -240,42 +236,44 @@ TEST_F(DrmGpuDisplayManagerTest, CapOutOnMaxDrmDeviceCount) {
 
 TEST_F(DrmGpuDisplayManagerTest, CapOutOnMaxConnectorCount) {
   // One DRM device.
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto fake_drm = AddDrmDevice();
+  fake_drm->ResetStateWithAllProperties();
 
   // Add |kMaxDrmConnectors| + 1 connector, each with one active display.
   for (size_t i = 0; i < kMaxDrmConnectors + 1; ++i) {
     // Add 1 CRTC
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    fake_drm->AddCrtcWithPrimaryAndCursorPlanes();
 
     // Add one encoder
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = fake_drm->AddEncoder();
     encoder.possible_crtcs = 1 << i;
 
     // Add 1 Connector
-    auto& connector = drm_state.AddConnector();
+    auto& connector = fake_drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{kStandardModes[0]};
     connector.encoders = std::vector<uint32_t>{encoder.id};
     connector.edid_blob =
         std::vector<uint8_t>(kHPz32x, kHPz32x + kHPz32xLength);
   }
-  AddAndInitializeDrmDeviceWithState(drm_state);
+  fake_drm->InitializeState(/* use_atomic */ true);
 
   ASSERT_EQ(drm_gpu_display_manager_->GetDisplays().size(), kMaxDrmConnectors);
 }
 
 TEST_F(DrmGpuDisplayManagerTest, FindAndConfigureDisplaysOnSameDrmDevice) {
   // One DRM device.
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm = AddDrmDevice();
+  drm->ResetStateWithAllProperties();
 
   // Add 3 connectors, each with one active display.
   for (size_t i = 0; i < 3; ++i) {
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    drm->AddCrtcWithPrimaryAndCursorPlanes();
 
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     encoder.possible_crtcs = 1 << i;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{
         kStandardModes[i % kStandardModes.size()]};
@@ -283,8 +281,7 @@ TEST_F(DrmGpuDisplayManagerTest, FindAndConfigureDisplaysOnSameDrmDevice) {
     connector.edid_blob =
         std::vector<uint8_t>(kHPz32x, kHPz32x + kHPz32xLength);
   }
-  scoped_refptr<FakeDrmDevice> drm =
-      AddAndInitializeDrmDeviceWithState(drm_state);
+  drm->InitializeState(/* use_atomic */ true);
 
   MovableDisplaySnapshots display_snapshots =
       drm_gpu_display_manager_->GetDisplays();
@@ -316,15 +313,15 @@ TEST_F(DrmGpuDisplayManagerTest,
        FindAndConfigureDisplaysAcrossDifferentDrmDevices) {
   // Add 3 DRM devices, each with one active display.
   for (size_t i = 0; i < 3; ++i) {
-    auto drm_state =
-        FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+    auto fake_drm = AddDrmDevice();
+    fake_drm->ResetStateWithAllProperties();
 
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    fake_drm->AddCrtcWithPrimaryAndCursorPlanes();
 
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = fake_drm->AddEncoder();
     encoder.possible_crtcs = 0b1;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = fake_drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{
         kStandardModes[i % kStandardModes.size()]};
@@ -332,7 +329,7 @@ TEST_F(DrmGpuDisplayManagerTest,
     connector.edid_blob =
         std::vector<uint8_t>(kHPz32x, kHPz32x + kHPz32xLength);
 
-    AddAndInitializeDrmDeviceWithState(drm_state);
+    fake_drm->InitializeState(/* use_atomic */ true);
   }
 
   MovableDisplaySnapshots display_snapshots =
@@ -363,26 +360,27 @@ TEST_F(DrmGpuDisplayManagerTest,
 TEST_F(DrmGpuDisplayManagerTest,
        OriginsPersistThroughSimilarExtendedModeConfigurations) {
   // One DRM device.
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto fake_drm = AddDrmDevice();
+  fake_drm->ResetStateWithAllProperties();
 
   // Add three connectors, each with one active display.
   for (size_t i = 0; i < 3; ++i) {
     // Add 1 CRTC
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    fake_drm->AddCrtcWithPrimaryAndCursorPlanes();
 
     // Add one encoder
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = fake_drm->AddEncoder();
     encoder.possible_crtcs = 1 << i;
 
     // Add 1 Connector
-    auto& connector = drm_state.AddConnector();
+    auto& connector = fake_drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{kStandardModes[0]};
     connector.encoders = std::vector<uint32_t>{encoder.id};
     connector.edid_blob =
         std::vector<uint8_t>(kHPz32x, kHPz32x + kHPz32xLength);
   }
-  AddAndInitializeDrmDeviceWithState(drm_state);
+  fake_drm->InitializeState(/* use_atomic */ true);
 
   auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
   ASSERT_EQ(display_snapshots.size(), 3u);
@@ -443,16 +441,17 @@ TEST_F(DrmGpuDisplayManagerTest,
 
 TEST_F(DrmGpuDisplayManagerTest, TestEdidIdConflictResolution) {
   // One DRM device.
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto fake_drm = AddDrmDevice();
+  fake_drm->ResetStateWithAllProperties();
 
   // First, add the internal display.
   {
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    fake_drm->AddCrtcWithPrimaryAndCursorPlanes();
 
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = fake_drm->AddEncoder();
     encoder.possible_crtcs = 0b1;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = fake_drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{kStandardModes[3]};
     connector.encoders = std::vector<uint32_t>{encoder.id};
@@ -463,12 +462,12 @@ TEST_F(DrmGpuDisplayManagerTest, TestEdidIdConflictResolution) {
   // Next, add two external displays that will produce an EDID-based ID
   // collision, since their EDIDs do not include viable serial numbers.
   {
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    fake_drm->AddCrtcWithPrimaryAndCursorPlanes();
 
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = fake_drm->AddEncoder();
     encoder.possible_crtcs = 0b10;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = fake_drm->AddConnector();
     connector.connection = true;
     connector.modes = kStandardModes;
     connector.encoders = std::vector<uint32_t>{encoder.id};
@@ -478,12 +477,12 @@ TEST_F(DrmGpuDisplayManagerTest, TestEdidIdConflictResolution) {
   }
 
   {
-    drm_state.AddPlaneOnCrtcAndGetCrtcId();
+    fake_drm->AddCrtcWithPrimaryAndCursorPlanes();
 
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = fake_drm->AddEncoder();
     encoder.possible_crtcs = 0b100;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = fake_drm->AddConnector();
     connector.connection = true;
     connector.modes = kStandardModes;
     connector.encoders = std::vector<uint32_t>{encoder.id};
@@ -492,7 +491,7 @@ TEST_F(DrmGpuDisplayManagerTest, TestEdidIdConflictResolution) {
         kNoSerialNumberDisplay + kNoSerialNumberDisplayLength);
   }
 
-  AddAndInitializeDrmDeviceWithState(drm_state);
+  fake_drm->InitializeState(/* use_atomic */ true);
 
   auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
   ASSERT_EQ(display_snapshots.size(), 3u);
@@ -530,22 +529,23 @@ class DrmGpuDisplayManagerMockedDeviceTest : public DrmGpuDisplayManagerTest {
 
 TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
        ConfigureDisplaysAlternateCrtcFallbackSuccess) {
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm = AddDrmDevice();
+  drm->ResetStateWithAllProperties();
 
   // Create a pool of 3 CRTCs
-  const uint32_t crtc_1 = drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  const uint32_t crtc_3 = drm_state.AddPlaneOnCrtcAndGetCrtcId();
+  const uint32_t crtc_1 = drm->AddCrtcWithPrimaryAndCursorPlanes().id;
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
+  const uint32_t crtc_3 = drm->AddCrtcWithPrimaryAndCursorPlanes().id;
 
   uint32_t primary_connector_id, secondary_connector_id;
 
   // First, add a display with high bandwidth mode.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     // Can use all 3 CRTCs
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{
         ResolutionAndRefreshRate{gfx::Size(7680, 4320), 144u}};
@@ -555,10 +555,10 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
   }
   // Add a normal external display.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = kStandardModes;
     connector.encoders = std::vector<uint32_t>{encoder.id};
@@ -566,8 +566,7 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
     secondary_connector_id = connector.id;
   }
 
-  scoped_refptr<FakeDrmDevice> drm =
-      AddAndInitializeDrmDeviceWithState(drm_state);
+  drm->InitializeState(/* use_atomic */ true);
   MockDrmDevice* mock_drm = static_cast<MockDrmDevice*>(drm.get());
 
   auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
@@ -628,22 +627,23 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
 
 TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
        ConfigureDisplaysFallbackTestSuccessButCommitFailiure) {
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm = AddDrmDevice();
+  drm->ResetStateWithAllProperties();
 
   // Create a pool of 3 CRTCs
-  const uint32_t crtc_1 = drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  const uint32_t crtc_3 = drm_state.AddPlaneOnCrtcAndGetCrtcId();
+  const uint32_t crtc_1 = drm->AddCrtcWithPrimaryAndCursorPlanes().id;
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
+  const uint32_t crtc_3 = drm->AddCrtcWithPrimaryAndCursorPlanes().id;
 
   uint32_t primary_connector_id, secondary_connector_id;
 
   // First, add a display with high bandwidth mode.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     // Can use all 3 CRTCs
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{
         ResolutionAndRefreshRate{gfx::Size(7680, 4320), 144u}};
@@ -653,10 +653,10 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
   }
   // Add a normal external display.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = kStandardModes;
     connector.encoders = std::vector<uint32_t>{encoder.id};
@@ -664,8 +664,7 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
     secondary_connector_id = connector.id;
   }
 
-  scoped_refptr<FakeDrmDevice> drm =
-      AddAndInitializeDrmDeviceWithState(drm_state);
+  drm->InitializeState(/* use_atomic */ true);
   MockDrmDevice* mock_drm = static_cast<MockDrmDevice*>(drm.get());
 
   auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
@@ -721,20 +720,21 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
 
 TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
        ConfigureDisplaysAlternateCrtcFallbackAllFailed) {
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm = AddDrmDevice();
+  drm->ResetStateWithAllProperties();
 
   // Create a pool of 3 CRTCs
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
 
   // First, add a display with high bandwidth mode.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     // Can use all 3 CRTCs
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{
         ResolutionAndRefreshRate{gfx::Size(7680, 4320), 144u}};
@@ -742,17 +742,16 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
   }
   // Add a normal external display.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = kStandardModes;
     connector.encoders = std::vector<uint32_t>{encoder.id};
   }
 
-  scoped_refptr<FakeDrmDevice> drm =
-      AddAndInitializeDrmDeviceWithState(drm_state);
+  drm->InitializeState(/* use_atomic */ true);
   MockDrmDevice* mock_drm = static_cast<MockDrmDevice*>(drm.get());
 
   auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
@@ -786,24 +785,24 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
   drm_gpu_display_manager_ = std::make_unique<DrmGpuDisplayManager>(
       screen_manager_.get(), device_manager_.get());
 
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm = AddDrmDevice();
+  drm->ResetStateWithAllProperties();
 
   // Create a pool of 2 CRTCs
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
 
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     encoder.possible_crtcs = 0b11;
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{
         ResolutionAndRefreshRate{gfx::Size(7680, 4320), 144u}};
     connector.encoders = std::vector<uint32_t>{encoder.id};
   }
 
-  scoped_refptr<FakeDrmDevice> drm =
-      AddAndInitializeDrmDeviceWithState(drm_state);
+  drm->InitializeState(/* use_atomic */ true);
   MockDrmDevice* mock_drm = static_cast<MockDrmDevice*>(drm.get());
 
   auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
@@ -828,22 +827,23 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
 
 TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
        ConfigureDisplaysUseSuccesfulStateForCommit) {
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
+  auto drm = AddDrmDevice();
+  drm->ResetStateWithAllProperties();
 
   // Create a pool of 3 CRTCs
-  const uint32_t crtc_1 = drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  drm_state.AddPlaneOnCrtcAndGetCrtcId();
-  const uint32_t crtc_3 = drm_state.AddPlaneOnCrtcAndGetCrtcId();
+  const uint32_t crtc_1 = drm->AddCrtcWithPrimaryAndCursorPlanes().id;
+  drm->AddCrtcWithPrimaryAndCursorPlanes();
+  const uint32_t crtc_3 = drm->AddCrtcWithPrimaryAndCursorPlanes().id;
 
   uint32_t primary_connector_id, secondary_connector_id;
 
   // First, add a display with high bandwidth mode.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     // Can use all 3 CRTCs
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = std::vector<ResolutionAndRefreshRate>{
         ResolutionAndRefreshRate{gfx::Size(7680, 4320), 144u}};
@@ -853,10 +853,10 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
   }
   // Add a normal external display.
   {
-    auto& encoder = drm_state.AddEncoder();
+    auto& encoder = drm->AddEncoder();
     encoder.possible_crtcs = 0b111;
 
-    auto& connector = drm_state.AddConnector();
+    auto& connector = drm->AddConnector();
     connector.connection = true;
     connector.modes = kStandardModes;
     connector.encoders = std::vector<uint32_t>{encoder.id};
@@ -864,8 +864,7 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
     secondary_connector_id = connector.id;
   }
 
-  scoped_refptr<FakeDrmDevice> drm =
-      AddAndInitializeDrmDeviceWithState(drm_state);
+  drm->InitializeState(/* use_atomic */ true);
   MockDrmDevice* mock_drm = static_cast<MockDrmDevice*>(drm.get());
 
   auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
@@ -949,6 +948,85 @@ TEST_F(DrmGpuDisplayManagerMockedDeviceTest,
       FindDisplayByConnectorId(secondary_connector_id);
   EXPECT_EQ(crtc_3, secondary_display->crtc());
 }
+
+// DrmGpuDisplayManagerGetSeamlessRefreshRateTest is a test fixture for tests
+// related to testing seamless refresh rates.
+class DrmGpuDisplayManagerGetSeamlessRefreshRateTest
+    : public DrmGpuDisplayManagerMockedDeviceTest {
+ protected:
+  void SetUp() override {
+    DrmGpuDisplayManagerMockedDeviceTest::SetUp();
+
+    // Create a FakeDrmDevice with state that represents a display with
+    // one downclock mode, and some other modes with different resolutions
+    // than the first (native) mode.
+    fake_drm_device_ = AddDrmDevice();
+    fake_drm_device_->ResetStateWithAllProperties();
+    fake_drm_device_->AddCrtcWithPrimaryAndCursorPlanes();
+
+    auto& encoder = fake_drm_device_->AddEncoder();
+    encoder.possible_crtcs = 0b1;
+
+    // 120 and 60 are seamless refresh rate candidates; 90 and 40 have different
+    // sizes and thus are not.
+    auto& connector = fake_drm_device_->AddConnector();
+    connector.connection = true;
+    connector.modes = {
+        ResolutionAndRefreshRate{gfx::Size(3840, 2160), 120u},
+        ResolutionAndRefreshRate{gfx::Size(3840, 2160), 60u},
+        ResolutionAndRefreshRate{gfx::Size(1920, 1080), 90u},
+        ResolutionAndRefreshRate{gfx::Size(1920, 1080), 40u},
+    };
+    connector.encoders = std::vector<uint32_t>{encoder.id};
+    connector.edid_blob = std::vector<uint8_t>(
+        kInternalDisplay, kInternalDisplay + kInternalDisplayLength);
+    fake_drm_device_->InitializeState(/* use_atomic */ true);
+    mock_drm_device_ = static_cast<MockDrmDevice*>(fake_drm_device_.get());
+
+    // Do an initial configuration of the display.
+    auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
+    CHECK_EQ(display_snapshots.size(), 1u);
+    CHECK(ConfigureDisplays(display_snapshots,
+                            {display::ModesetFlag::kCommitModeset}));
+  }
+
+  scoped_refptr<FakeDrmDevice> fake_drm_device_;
+  raw_ptr<MockDrmDevice> mock_drm_device_;
+};
+
+TEST_F(DrmGpuDisplayManagerGetSeamlessRefreshRateTest,
+       GetSeamlessRefreshRates) {
+  // Get the display id for the display to probe.
+  auto display_snapshots = drm_gpu_display_manager_->GetDisplays();
+  ASSERT_TRUE(!display_snapshots.empty());
+  int64_t display_id = display_snapshots[0]->display_id();
+
+  // Expect two test commits to correspond to the two modes with
+  // the same visible size as the currently configured mode.
+  const uint32_t seamless_test_flags = DRM_MODE_ATOMIC_TEST_ONLY;
+  EXPECT_CALL(*mock_drm_device_, CommitProperties(_, seamless_test_flags, _, _))
+      .Times(2)
+      .WillRepeatedly(Return(true));
+
+  std::optional<std::vector<float>> refresh_rates =
+      drm_gpu_display_manager_->GetSeamlessRefreshRates(display_id);
+  ASSERT_TRUE(refresh_rates);
+  EXPECT_EQ(refresh_rates->size(), 2u);
+  EXPECT_EQ(std::count(refresh_rates->begin(), refresh_rates->end(), 120u), 1);
+  EXPECT_EQ(std::count(refresh_rates->begin(), refresh_rates->end(), 60u), 1);
+}
+
+TEST_F(DrmGpuDisplayManagerGetSeamlessRefreshRateTest,
+       GetSeamlessRefreshRatesWithInvalidId) {
+  // Return std::nullopt for invalid display id.
+  const int64_t wrong_display_id = 42;
+  EXPECT_CALL(*mock_drm_device_, CommitProperties(_, _, _, _)).Times(0);
+  std::optional<std::vector<float>> refresh_rates =
+      drm_gpu_display_manager_->GetSeamlessRefreshRates(wrong_display_id);
+
+  ASSERT_FALSE(refresh_rates);
+}
+
 }  // namespace ui
 
 #endif  // UI_OZONE_PLATFORM_DRM_GPU_DRM_GPU_DISPLAY_MANAGER_UNITTEST_CC_

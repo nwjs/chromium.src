@@ -1382,7 +1382,7 @@ TEST_F(AuthenticatorImplTest, MakeCredentialPendingRequest) {
                                 callback_receiver.callback());
 
   // Make second request.
-  // TODO(crbug.com/785955): Rework to ensure there are potential race
+  // TODO(crbug.com/41355992): Rework to ensure there are potential race
   // conditions once we have VirtualAuthenticatorEnvironment.
   PublicKeyCredentialCreationOptionsPtr options2 =
       GetTestPublicKeyCredentialCreationOptions();
@@ -1408,7 +1408,7 @@ TEST_F(AuthenticatorImplTest, GetAssertionPendingRequest) {
   authenticator->GetAssertion(std::move(options), callback_receiver.callback());
 
   // Make second request.
-  // TODO(crbug.com/785955): Rework to ensure there are potential race
+  // TODO(crbug.com/41355992): Rework to ensure there are potential race
   // conditions once we have VirtualAuthenticatorEnvironment.
   PublicKeyCredentialRequestOptionsPtr options2 =
       GetTestPublicKeyCredentialRequestOptions();
@@ -1737,9 +1737,10 @@ class TestWebAuthenticationRequestProxy : public WebAuthenticationRequestProxy {
 // WebAuthenticationDelegate embedder interface.
 class TestWebAuthenticationDelegate : public WebAuthenticationDelegate {
  public:
-  std::optional<bool> IsUserVerifyingPlatformAuthenticatorAvailableOverride(
-      RenderFrameHost*) override {
-    return is_uvpaa_override;
+  void IsUserVerifyingPlatformAuthenticatorAvailableOverride(
+      RenderFrameHost*,
+      base::OnceCallback<void(std::optional<bool>)> callback) override {
+    std::move(callback).Run(is_uvpaa_override);
   }
 
   bool OverrideCallerOriginAndRelyingPartyIdValidation(
@@ -4581,7 +4582,7 @@ TEST_F(AuthenticatorImplTest, VirtualAuthenticatorPublicKeyAlgos) {
 }
 
 TEST_F(AuthenticatorImplTest, TestAuthenticationTransport) {
-  // TODO(crbug.com/1249057): handle case where the transport is unknown.
+  // TODO(crbug.com/40197472): handle case where the transport is unknown.
   NavigateAndCommit(GURL(kTestOrigin1));
   // Verify transport used during authentication is correctly being returned
   // to the renderer layer.
@@ -8813,6 +8814,7 @@ class ICloudKeychainAuthenticatorImplTest : public AuthenticatorImplTest {
         device::FidoRequestType request_type,
         std::optional<device::ResidentKeyRequirement> resident_key_requirement,
         device::UserVerificationRequirement user_verification_requirement,
+        std::optional<std::string_view> user_name,
         base::span<const device::CableDiscoveryData> pairings_from_extension,
         bool is_enclave_authenticator_available,
         device::FidoDiscoveryFactory* fido_discovery_factory) override {
@@ -8886,53 +8888,33 @@ class ICloudKeychainAuthenticatorImplTest : public AuthenticatorImplTest {
 
 TEST_F(ICloudKeychainAuthenticatorImplTest, Discovery) {
   if (__builtin_available(macOS 13.5, *)) {
-    for (const bool feature_enabled : {false, true}) {
-      SCOPED_TRACE(feature_enabled);
+    NavigateAndCommit(GURL(kTestOrigin1));
+    device::fido::icloud_keychain::ScopedTestEnvironment test_environment(
+        GetCredentials());
+    bool tai_seen = false;
+    tai_callback_ = base::BindLambdaForTesting(
+        [&tai_seen](
+            const device::FidoRequestHandlerBase::TransportAvailabilityInfo&
+                tai) {
+          tai_seen = true;
+          CHECK_EQ(tai.has_icloud_keychain, true);
+          CHECK_EQ(tai.recognized_credentials.size(), 1u);
+          CHECK_EQ(tai.has_icloud_keychain_credential,
+                   device::FidoRequestHandlerBase::RecognizedCredential::
+                       kHasRecognizedCredential);
 
-      base::test::ScopedFeatureList scoped_feature_list;
-      std::vector<base::test::FeatureRef> empty;
-      std::vector<base::test::FeatureRef> icloud_keychain_feature = {
-          device::kWebAuthnICloudKeychain};
-      if (feature_enabled) {
-        scoped_feature_list.InitWithFeatures(icloud_keychain_feature, empty);
-      } else {
-        scoped_feature_list.InitWithFeatures(empty, icloud_keychain_feature);
-      }
+          CHECK_EQ(tai.recognized_credentials[0].user.name.value(), "name");
+        });
 
-      NavigateAndCommit(GURL(kTestOrigin1));
-      device::fido::icloud_keychain::ScopedTestEnvironment test_environment(
-          GetCredentials());
-      bool tai_seen = false;
-      tai_callback_ = base::BindLambdaForTesting(
-          [&tai_seen, feature_enabled](
-              const device::FidoRequestHandlerBase::TransportAvailabilityInfo&
-                  tai) {
-            tai_seen = true;
-            CHECK_EQ(tai.has_icloud_keychain, feature_enabled);
-            CHECK_EQ(tai.recognized_credentials.size(),
-                     feature_enabled ? 1u : 0u);
-            CHECK_EQ(tai.has_icloud_keychain_credential,
-                     feature_enabled
-                         ? device::FidoRequestHandlerBase::
-                               RecognizedCredential::kHasRecognizedCredential
-                         : device::FidoRequestHandlerBase::
-                               RecognizedCredential::kNoRecognizedCredential);
+    auto options = GetTestPublicKeyCredentialRequestOptions();
+    options->allow_credentials.clear();
+    options->allow_credentials.push_back(device::PublicKeyCredentialDescriptor(
+        device::CredentialType::kPublicKey, {1, 2, 3, 4},
+        {device::FidoTransportProtocol::kInternal}));
+    const auto result = AuthenticatorGetAssertion(std::move(options));
+    EXPECT_EQ(result.status, AuthenticatorStatus::NOT_ALLOWED_ERROR);
+    EXPECT_TRUE(tai_seen);
 
-            if (feature_enabled) {
-              CHECK_EQ(tai.recognized_credentials[0].user.name.value(), "name");
-            }
-          });
-
-      auto options = GetTestPublicKeyCredentialRequestOptions();
-      options->allow_credentials.clear();
-      options->allow_credentials.push_back(
-          device::PublicKeyCredentialDescriptor(
-              device::CredentialType::kPublicKey, {1, 2, 3, 4},
-              {device::FidoTransportProtocol::kInternal}));
-      const auto result = AuthenticatorGetAssertion(std::move(options));
-      EXPECT_EQ(result.status, AuthenticatorStatus::NOT_ALLOWED_ERROR);
-      EXPECT_TRUE(tai_seen);
-    }
   } else {
     GTEST_SKIP() << "Need macOS 13.3 for this test";
   }
@@ -9447,7 +9429,7 @@ struct ServerLinkValues {
 // transaction.
 static ServerLinkValues CreateServerLink() {
   std::vector<uint8_t> seed(device::cablev2::kQRSeedSize);
-  base::RandBytes(seed.data(), seed.size());
+  base::RandBytes(seed);
 
   bssl::UniquePtr<EC_GROUP> p256(
       EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
@@ -9455,7 +9437,7 @@ static ServerLinkValues CreateServerLink() {
       EC_KEY_derive_from_secret(p256.get(), seed.data(), seed.size()));
 
   ServerLinkValues ret;
-  base::RandBytes(ret.secret.data(), ret.secret.size());
+  base::RandBytes(ret.secret);
   CHECK_EQ(ret.peer_identity.size(),
            EC_POINT_point2oct(p256.get(), EC_KEY_get0_public_key(ec_key.get()),
                               POINT_CONVERSION_UNCOMPRESSED,
@@ -9788,7 +9770,7 @@ TEST_F(AuthenticatorImplWithRequestProxyTest, IsConditionalMediationAvailable) {
 }
 
 // Temporary regression test for crbug.com/1489468.
-// TODO(crbug.com/1489482): Remove after passkey metadata syncing is enabled by
+// TODO(crbug.com/40284051): Remove after passkey metadata syncing is enabled by
 // default.
 TEST_F(AuthenticatorImplWithRequestProxyTest,
        IsConditionalMediationAvailable_MetadataSyncing) {

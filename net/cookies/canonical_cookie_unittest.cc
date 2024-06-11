@@ -3191,7 +3191,7 @@ TEST(CanonicalCookieTest, IsCanonical) {
 
   // Separator in domain.
   //
-  // TODO(https://crbug.com/1416013): The character ';' is permitted in the URL
+  // TODO(crbug.com/40256677): The character ';' is permitted in the URL
   // host. That makes IsCanonical() return true here. However, previously,
   // IsCanonical() used to false because ';' was a forbidden character. We need
   // to verify whether this change is acceptable or not.
@@ -3545,52 +3545,44 @@ TEST(CanonicalCookieTest, TestPrefixHistograms) {
   EXPECT_FALSE(CanonicalCookie::CreateForTesting(https_url, "__Host-A=B;",
                                                  creation_time, server_time));
 
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_HOST, 1);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_HOST, 1);
 
   EXPECT_TRUE(CanonicalCookie::CreateForTesting(
       https_url, "__Host-A=B; Path=/; Secure", creation_time, server_time));
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_HOST, 2);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_HOST, 2);
   EXPECT_TRUE(CanonicalCookie::CreateForTesting(
       https_url, "__HostA=B; Path=/; Secure", creation_time, server_time));
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_HOST, 2);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_HOST, 2);
 
   EXPECT_FALSE(CanonicalCookie::CreateForTesting(https_url, "__Secure-A=B;",
                                                  creation_time, server_time));
 
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_SECURE, 1);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_SECURE, 1);
   EXPECT_TRUE(CanonicalCookie::CreateForTesting(
       https_url, "__Secure-A=B; Path=/; Secure", creation_time, server_time));
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_SECURE, 2);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_SECURE, 2);
   EXPECT_TRUE(CanonicalCookie::CreateForTesting(
       https_url, "__SecureA=B; Path=/; Secure", creation_time, server_time));
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_SECURE, 2);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_SECURE, 2);
 
   // Test prefix case variants
-  const int sensitive_value_host = histograms.GetBucketCount(
-      kCookiePrefixHistogram, CanonicalCookie::COOKIE_PREFIX_HOST);
-  const int sensitive_value_secure = histograms.GetBucketCount(
-      kCookiePrefixHistogram, CanonicalCookie::COOKIE_PREFIX_SECURE);
+  const int sensitive_value_host =
+      histograms.GetBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_HOST);
+  const int sensitive_value_secure =
+      histograms.GetBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_SECURE);
 
   EXPECT_TRUE(CanonicalCookie::CreateForTesting(
       https_url, "__SECURE-A=B; Path=/; Secure", creation_time, server_time));
   histograms.ExpectBucketCount(kCookiePrefixVariantHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_SECURE, 1);
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_SECURE,
+                               COOKIE_PREFIX_SECURE, 1);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_SECURE,
                                sensitive_value_secure);
 
   EXPECT_TRUE(CanonicalCookie::CreateForTesting(
       https_url, "__HOST-A=B; Path=/; Secure", creation_time, server_time));
   histograms.ExpectBucketCount(kCookiePrefixVariantHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_HOST, 1);
-  histograms.ExpectBucketCount(kCookiePrefixHistogram,
-                               CanonicalCookie::COOKIE_PREFIX_HOST,
+                               COOKIE_PREFIX_HOST, 1);
+  histograms.ExpectBucketCount(kCookiePrefixHistogram, COOKIE_PREFIX_HOST,
                                sensitive_value_host);
 
   // True indicates a variant

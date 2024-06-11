@@ -52,6 +52,7 @@
 #include "chrome/browser/ui/webui/ash/login/assistant_optin_flow_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/auto_enrollment_check_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/base_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/categories_selection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/choobe_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/consolidated_consent_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/consumer_update_screen_handler.h"
@@ -106,6 +107,7 @@
 #include "chrome/browser/ui/webui/ash/login/packaged_license_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/parental_handoff_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/password_selection_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/personalized_recommend_apps_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/pin_setup_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/quick_start_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/recommend_apps_screen_handler.h"
@@ -604,6 +606,12 @@ void OobeUI::ConfigureOobeDisplay() {
 
   if (features::IsOobeDisplaySizeEnabled()) {
     AddScreenHandler(std::make_unique<DisplaySizeScreenHandler>());
+  }
+
+  if (features::IsOobePersonalizedOnboardingEnabled()) {
+    AddScreenHandler(std::make_unique<CategoriesSelectionScreenHandler>());
+    AddScreenHandler(
+        std::make_unique<PersonalizedRecommendAppsScreenHandler>());
   }
 
   AddScreenHandler(std::make_unique<AddChildScreenHandler>());

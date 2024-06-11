@@ -135,7 +135,10 @@ class MockPermissionService final : public mojom::blink::PermissionService {
       mojom::blink::PermissionDescriptorPtr permission,
       mojom::blink::PermissionStatus last_known_status,
       mojo::PendingRemote<mojom::blink::PermissionObserver>) override;
-
+  void AddPageEmbeddedPermissionObserver(
+      mojom::blink::PermissionDescriptorPtr permission,
+      mojom::blink::PermissionStatus last_known_status,
+      mojo::PendingRemote<mojom::blink::PermissionObserver>) override;
   void NotifyEventListener(mojom::blink::PermissionDescriptorPtr permission,
                            const String& event_type,
                            bool is_added) override;

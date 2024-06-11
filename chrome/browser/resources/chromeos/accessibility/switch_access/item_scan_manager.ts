@@ -52,7 +52,7 @@ export class ItemScanManager extends ItemNavigatorInterface {
 
     this.desktop_ = desktop;
     this.group_ = DesktopNode.build(this.desktop_);
-    // TODO(crbug.com/1106080): It is possible for the firstChild to be a
+    // TODO(crbug.com/40706137): It is possible for the firstChild to be a
     // window which is occluded, for example if Switch Access is turned on
     // when the user has several browser windows opened. We should either
     // dynamically pick this.node_'s initial value based on an occlusion check,
@@ -60,8 +60,6 @@ export class ItemScanManager extends ItemNavigatorInterface {
     // as they are detected using an interval set in DesktopNode.
     this.node_ = this.group_.firstChild;
     this.history_ = new FocusHistory();
-
-    this.init_();
   }
 
   // =============== ItemNavigatorInterface implementation ==============
@@ -360,7 +358,7 @@ export class ItemScanManager extends ItemNavigatorInterface {
     this.restoreFromHistory_();
   }
 
-  private init_(): void {
+  override start(): void {
     chrome.automation.getFocus((focus: AutomationNode) => {
       if (focus && this.history_.buildFromAutomationNode(focus)) {
         this.restoreFromHistory_();

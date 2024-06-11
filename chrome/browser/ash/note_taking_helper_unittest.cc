@@ -391,7 +391,7 @@ class NoteTakingHelperTest : public BrowserWithTestWindowTest {
   // BrowserWithTestWindowTest:
   std::string GetDefaultProfileName() override { return kTestProfileName; }
 
-  // TODO(crbug.com/1494005): merge into BrowserWithTestWindowTest.
+  // TODO(crbug.com/40286020): merge into BrowserWithTestWindowTest.
   void LogIn(const std::string& email) override {
     AccountId account_id = AccountId::FromUserEmail(email);
     user_manager()->AddUser(account_id);
@@ -747,16 +747,16 @@ TEST_F(NoteTakingHelperTest, NoteTakingWebAppsListed) {
   Init(ENABLE_PALETTE);
 
   {
-    auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    app_info->start_url = GURL("http://some1.url");
+    auto app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+        GURL("http://some1.url"));
     app_info->scope = GURL("http://some1.url");
     app_info->title = u"Web App 1";
     web_app::test::InstallWebApp(profile(), std::move(app_info));
   }
   std::string app2_id;
   {
-    auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    app_info->start_url = GURL("http://some2.url");
+    auto app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+        GURL("http://some2.url"));
     app_info->scope = GURL("http://some2.url");
     app_info->title = u"Web App 2";
     // Set a note_taking_new_note_url on one app.
@@ -774,15 +774,15 @@ TEST_F(NoteTakingHelperTest, NoteTakingWebAppsListed) {
 
 // Web apps with a lock_screen_start_url should show as supported on the lock
 // screen only when `kWebLockScreenApi` is enabled.
-// TODO(crbug.com/1332379): Move this to a lock screen apps unittest file.
+// TODO(crbug.com/40227659): Move this to a lock screen apps unittest file.
 TEST_F(NoteTakingHelperTest, LockScreenWebAppsListed) {
   Init(ENABLE_PALETTE);
   DCHECK(!base::FeatureList::IsEnabled(::features::kWebLockScreenApi));
 
   std::string app1_id;
   {
-    auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    app_info->start_url = GURL("http://some1.url");
+    auto app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+        GURL("http://some1.url"));
     app_info->scope = GURL("http://some1.url");
     app_info->title = u"Web App 1";
     // Currently only note-taking apps can be used on the lock screen.
@@ -791,8 +791,8 @@ TEST_F(NoteTakingHelperTest, LockScreenWebAppsListed) {
   }
   std::string app2_id;
   {
-    auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    app_info->start_url = GURL("http://some2.url");
+    auto app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+        GURL("http://some2.url"));
     app_info->scope = GURL("http://some2.url");
     app_info->title = u"Web App 2";
     app_info->note_taking_new_note_url = GURL("http://some2.url/new-note");
@@ -818,15 +818,15 @@ class NoteTakingHelperTest_WebLockScreenApiEnabled
 
 // Web apps with a lock_screen_start_url should show as supported on the lock
 // screen only when `kWebLockScreenApi` is enabled.
-// TODO(crbug.com/1332379): Move this to a lock screen apps unittest file.
+// TODO(crbug.com/40227659): Move this to a lock screen apps unittest file.
 TEST_F(NoteTakingHelperTest_WebLockScreenApiEnabled, LockScreenWebAppsListed) {
   Init(ENABLE_PALETTE);
   DCHECK(base::FeatureList::IsEnabled(::features::kWebLockScreenApi));
 
   std::string app1_id;
   {
-    auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    app_info->start_url = GURL("http://some1.url");
+    auto app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+        GURL("http://some1.url"));
     app_info->scope = GURL("http://some1.url");
     app_info->title = u"Web App 1";
     // Currently only note-taking apps can be used on the lock screen.
@@ -835,8 +835,8 @@ TEST_F(NoteTakingHelperTest_WebLockScreenApiEnabled, LockScreenWebAppsListed) {
   }
   std::string app2_id;
   {
-    auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    app_info->start_url = GURL("http://some2.url");
+    auto app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+        GURL("http://some2.url"));
     app_info->scope = GURL("http://some2.url");
     app_info->title = u"Web App 2";
     app_info->note_taking_new_note_url = GURL("http://some2.url/new-note");
@@ -914,8 +914,8 @@ TEST_F(NoteTakingHelperTest, FallBackIfPreferredAppUnavailable) {
   {
     // Install a default-allowed web app corresponding to ID of
     // |NoteTakingHelper::kNoteTakingWebAppIdTest|.
-    auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
-    app_info->start_url = GURL("https://yielding-large-chef.glitch.me/");
+    auto app_info = web_app::WebAppInstallInfo::CreateWithStartUrlForTesting(
+        GURL("https://yielding-large-chef.glitch.me/"));
     app_info->title = u"Default Allowed Web App";
     std::string app_id =
         web_app::test::InstallWebApp(profile(), std::move(app_info));

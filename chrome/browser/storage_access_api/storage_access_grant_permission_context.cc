@@ -18,6 +18,8 @@
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service.h"
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context.h"
+#include "chrome/browser/webid/federated_identity_auto_reauthn_permission_context_factory.h"
 #include "chrome/browser/webid/federated_identity_permission_context.h"
 #include "chrome/browser/webid/federated_identity_permission_context_factory.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
@@ -33,6 +35,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/runtime_feature_state/runtime_feature_state_document_data.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_features.h"
 #include "net/base/schemeful_site.h"
@@ -43,6 +46,7 @@
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/features_generated.h"
+#include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_read_context.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-shared.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 
@@ -189,6 +193,79 @@ bool ShouldPersistSetting(bool permission_allowed,
   return permission_allowed;
 }
 
+// Returns true if the user/field trials have enabled FedCM/SAA autogrants
+// globally via the flag/Feature, or "locally" via the origin trial.
+//
+// Feature state overrides take precedence over origin trial state.
+bool AreFedCmAutograntsEnabled(content::RenderFrameHost* rfh) {
+  if (std::optional<bool> state = base::FeatureList::GetStateIfOverridden(
+          blink::features::kFedCmWithStorageAccessAPI);
+      state.has_value()) {
+    return state.value();
+  }
+  content::RuntimeFeatureStateDocumentData* document_data =
+      content::RuntimeFeatureStateDocumentData::GetForCurrentDocument(rfh);
+  CHECK(document_data);
+
+  return document_data->runtime_feature_state_read_context()
+      .IsFedCmWithStorageAccessAPIEnabled();
+}
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class AutograntViaFedCmOutcome {
+  kAllowed,
+  kDeniedByPermissionsPolicy,
+  kDeniedByPermission,
+  kDeniedByPreventSilentAccess,
+
+  kMaxValue = kDeniedByPreventSilentAccess,
+};
+
+void RecordAutograntViaFedCmOutcomeSample(AutograntViaFedCmOutcome outcome) {
+  base::UmaHistogramEnumeration("API.StorageAccess.AutograntViaFedCm", outcome);
+}
+
+FederatedIdentityPermissionContext* IsAutograntViaFedCmAllowed(
+    content::BrowserContext* browser_context,
+    content::RenderFrameHost* rfh,
+    const url::Origin& embedding_origin,
+    const net::SchemefulSite& embedding_site,
+    const net::SchemefulSite& requesting_site) {
+  CHECK(browser_context);
+  CHECK(base::FeatureList::IsEnabled(
+      blink::features::kFedCmWithStorageAccessAPI));
+  if (!rfh->IsFeatureEnabled(
+          blink::mojom::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
+    RecordAutograntViaFedCmOutcomeSample(
+        AutograntViaFedCmOutcome::kDeniedByPermissionsPolicy);
+    return nullptr;
+  }
+  FederatedIdentityPermissionContext* fedcm_context =
+      FederatedIdentityPermissionContextFactory::GetForProfile(browser_context);
+  if (!fedcm_context || !fedcm_context->HasSharingPermission(
+                            /*relying_party_embedder=*/embedding_site,
+                            /*identity_provider=*/requesting_site)) {
+    RecordAutograntViaFedCmOutcomeSample(
+        AutograntViaFedCmOutcome::kDeniedByPermission);
+    return nullptr;
+  }
+
+  if (FederatedIdentityAutoReauthnPermissionContext* reauth_context =
+          FederatedIdentityAutoReauthnPermissionContextFactory::GetForProfile(
+              browser_context);
+      !reauth_context ||
+      reauth_context->RequiresUserMediation(embedding_origin)) {
+    RecordAutograntViaFedCmOutcomeSample(
+        AutograntViaFedCmOutcome::kDeniedByPreventSilentAccess);
+    return nullptr;
+  }
+
+  RecordAutograntViaFedCmOutcomeSample(AutograntViaFedCmOutcome::kAllowed);
+  RecordOutcomeSample(RequestOutcome::kAllowedByFedCM);
+  return fedcm_context;
+}
+
 }  // namespace
 
 // static
@@ -273,8 +350,10 @@ void StorageAccessGrantPermissionContext::DecidePermission(
     return;
   }
 
-  net::SchemefulSite requesting_site(request_data.requesting_origin);
-  net::SchemefulSite embedding_site(request_data.embedding_origin);
+  const net::SchemefulSite requesting_site(request_data.requesting_origin);
+  const url::Origin embedding_origin =
+      url::Origin::Create(request_data.embedding_origin);
+  const net::SchemefulSite embedding_site(embedding_origin);
 
   // Return early without prompting users if the requesting frame is same-site
   // with the top-level frame.
@@ -310,16 +389,11 @@ void StorageAccessGrantPermissionContext::DecidePermission(
 
   // FedCM grants (and the appropriate permissions policy) may allow the call to
   // auto-resolve (without granting a new permission).
-  if (base::FeatureList::IsEnabled(features::kFedCmWithStorageAccessAPI) &&
-      rfh->IsFeatureEnabled(
-          blink::mojom::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
-    FederatedIdentityPermissionContext* fedcm_context =
-        FederatedIdentityPermissionContextFactory::GetForProfile(
-            browser_context());
-    if (fedcm_context && fedcm_context->HasSharingPermission(
-                             /*relying_party_embedder=*/embedding_site,
-                             /*identity_provider=*/requesting_site)) {
-      RecordOutcomeSample(RequestOutcome::kAllowedByFedCM);
+  if (AreFedCmAutograntsEnabled(rfh)) {
+    if (FederatedIdentityPermissionContext* fedcm_context =
+            IsAutograntViaFedCmAllowed(browser_context(), rfh, embedding_origin,
+                                       embedding_site, requesting_site);
+        fedcm_context) {
       fedcm_context->MarkStorageAccessEligible(
           /*relying_party_embedder=*/embedding_site,
           /*identity_provider=*/requesting_site,
@@ -566,7 +640,7 @@ void StorageAccessGrantPermissionContext::NotifyPermissionSetInternal(
   ContentSettingsForOneType grants =
       settings_map->GetSettingsForOneType(ContentSettingsType::STORAGE_ACCESS);
 
-  // TODO(https://crbug.com/989663): Ensure that this update of settings doesn't
+  // TODO(crbug.com/40638427): Ensure that this update of settings doesn't
   // cause a double update with
   // ProfileNetworkContextService::OnContentSettingChanged.
 

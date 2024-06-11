@@ -75,13 +75,14 @@ KioskAppDefaultMessage::KioskAppDefaultMessage()
 
 KioskAppDefaultMessage::~KioskAppDefaultMessage() = default;
 
-gfx::Size KioskAppDefaultMessage::CalculatePreferredSize() const {
+gfx::Size KioskAppDefaultMessage::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
   auto* layout_provider = views::LayoutProvider::Get();
 
   // width = left_margin + icon_width + component_distance + title_width +
   // right_margin
   int width =
-      icon_->CalculatePreferredSize().width() +
+      icon_->CalculatePreferredSize({}).width() +
       layout_provider->GetDistanceMetric(
           views::DISTANCE_RELATED_CONTROL_HORIZONTAL) +
       title_->CalculatePreferredSize(views::SizeBounds(title_->width(), {}))

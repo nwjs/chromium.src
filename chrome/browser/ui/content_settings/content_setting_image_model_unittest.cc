@@ -46,6 +46,7 @@
 #include "content/public/test/web_contents_tester.h"
 #include "net/cookies/cookie_options.h"
 #include "services/device/public/cpp/device_features.h"
+#include "services/device/public/cpp/geolocation/buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
@@ -56,10 +57,13 @@
 #include "chrome/browser/web_applications/app_shim_registry_mac.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
+#endif  // BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 #include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
 #include "services/device/public/cpp/geolocation/location_system_permission_status.h"
 #include "services/device/public/cpp/test/fake_geolocation_system_permission_manager.h"
-#endif
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
 using content_settings::PageSpecificContentSettings;
 
@@ -310,7 +314,7 @@ TEST_F(ContentSettingImageModelTest, SensorAccessed) {
       /* explanatory_string_id = */ 0);
 }
 
-#if BUILDFLAG(IS_MAC)
+#if BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 // Test the correct ContentSettingImageModel for various permutations of site
 // and system level Geolocation permissions
 TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsChanged) {
@@ -418,7 +422,9 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessPermissionsUndetermined) {
       content_setting_image_model.get(), /* is_visible = */ true,
       /* tooltip_empty = */ false, IDS_BLOCKED_GEOLOCATION_MESSAGE, 0);
 }
+#endif  // BUILDFLAG(OS_LEVEL_GEOLOCATION_PERMISSION_SUPPORTED)
 
+#if BUILDFLAG(IS_MAC)
 TEST_F(ContentSettingImageModelTest, GeolocationAccessDeniedExperiment) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures({features::kLocationPermissionsExperiment}, {});
@@ -486,7 +492,7 @@ TEST_F(ContentSettingImageModelTest, GeolocationAccessDeniedExperiment) {
         IDS_GEOLOCATION_TURNED_OFF);
   }
 }
-#endif
+#endif  // BUILDFLAG(IS_MAC)
 
 // Regression test for https://crbug.com/955408
 // See also: ContentSettingBubbleModelTest.SensorAccessPermissionsChanged
@@ -771,12 +777,8 @@ TEST_F(ContentSettingImageModelTest, StorageAccess) {
       net::SchemefulSite(GURL("https://example.com")), CONTENT_SETTING_ALLOW);
   content_setting_image_model->Update(web_contents());
   EXPECT_TRUE(content_setting_image_model->is_visible());
-  if (features::IsChromeRefresh2023()) {
-    EXPECT_EQ(content_setting_image_model->icon(),
-              &vector_icons::kStorageAccessIcon);
-  } else {
-    EXPECT_EQ(content_setting_image_model->get_icon_badge(), &gfx::kNoneIcon);
-  }
+  EXPECT_EQ(content_setting_image_model->icon(),
+            &vector_icons::kStorageAccessIcon);
 
   // Add a blocked permission.
   content_settings->OnTwoSitePermissionChanged(
@@ -784,13 +786,8 @@ TEST_F(ContentSettingImageModelTest, StorageAccess) {
       net::SchemefulSite(GURL("https://foo.com")), CONTENT_SETTING_BLOCK);
   content_setting_image_model->Update(web_contents());
   EXPECT_TRUE(content_setting_image_model->is_visible());
-  if (features::IsChromeRefresh2023()) {
-    EXPECT_EQ(content_setting_image_model->icon(),
-              &vector_icons::kStorageAccessOffIcon);
-  } else {
-    EXPECT_EQ(content_setting_image_model->get_icon_badge(),
-              &vector_icons::kBlockedBadgeIcon);
-  }
+  EXPECT_EQ(content_setting_image_model->icon(),
+            &vector_icons::kStorageAccessOffIcon);
 
   // Change permission to be allowed. E.g. through PageInfo.
   auto* map = HostContentSettingsMapFactory::GetForProfile(profile());
@@ -799,12 +796,8 @@ TEST_F(ContentSettingImageModelTest, StorageAccess) {
       ContentSettingsType::STORAGE_ACCESS, CONTENT_SETTING_ALLOW);
   content_setting_image_model->Update(web_contents());
   EXPECT_TRUE(content_setting_image_model->is_visible());
-  if (features::IsChromeRefresh2023()) {
-    EXPECT_EQ(content_setting_image_model->icon(),
-              &vector_icons::kStorageAccessIcon);
-  } else {
-    EXPECT_EQ(content_setting_image_model->get_icon_badge(), &gfx::kNoneIcon);
-  }
+  EXPECT_EQ(content_setting_image_model->icon(),
+            &vector_icons::kStorageAccessIcon);
 
   // Reset permissions.
   map->SetContentSettingDefaultScope(

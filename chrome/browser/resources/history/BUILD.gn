@@ -23,7 +23,7 @@ build_webui("build") {
     "history_item.ts",
     "history_list.ts",
     "history_toolbar.ts",
-    "router.ts",
+    "product_specifications_lists.ts",
     "side_bar.ts",
     "synced_device_card.ts",
     "synced_device_manager.ts",
@@ -36,6 +36,7 @@ build_webui("build") {
     "history.ts",
     "lazy_load.ts",
     "query_manager.ts",
+    "router.ts",
     "searched_label.ts",
   ]
 
@@ -55,6 +56,7 @@ build_webui("build") {
 
   ts_deps = [
     "//third_party/polymer/v3_0:library",
+    "//ui/webui/resources/cr_components/history:build_ts",
     "//ui/webui/resources/cr_components/history_clusters:build_ts",
     "//ui/webui/resources/cr_components/history_embeddings:build_ts",
     "//ui/webui/resources/cr_components/managed_footnote:build_ts",

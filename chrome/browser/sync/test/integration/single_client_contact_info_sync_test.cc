@@ -37,8 +37,8 @@
 namespace {
 
 using autofill::AutofillProfile;
+using contact_info_helper::AddressDataManagerProfileChecker;
 using contact_info_helper::BuildTestAccountProfile;
-using contact_info_helper::PersonalDataManagerProfileChecker;
 using testing::IsEmpty;
 using testing::UnorderedElementsAre;
 
@@ -151,15 +151,16 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest, DownloadInitialData) {
   const AutofillProfile kProfile = BuildTestAccountProfile();
   AddSpecificsToServer(AsContactInfoSpecifics(kProfile), GetFakeServer());
   ASSERT_TRUE(SetupSync());
-  EXPECT_TRUE(PersonalDataManagerProfileChecker(GetPersonalDataManager(),
-                                                UnorderedElementsAre(kProfile))
+  EXPECT_TRUE(AddressDataManagerProfileChecker(
+                  &GetPersonalDataManager()->address_data_manager(),
+                  UnorderedElementsAre(kProfile))
                   .Wait());
 }
 
 IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest, UploadProfile) {
   const AutofillProfile kProfile = BuildTestAccountProfile();
   ASSERT_TRUE(SetupSync());
-  GetPersonalDataManager()->AddProfile(kProfile);
+  GetPersonalDataManager()->address_data_manager().AddProfile(kProfile);
   EXPECT_TRUE(FakeServerSpecificsChecker(
                   UnorderedElementsAre(
                       AsContactInfoSpecifics(kProfile).SerializeAsString()))
@@ -186,17 +187,17 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest, FinalizeAfterImport) {
   ASSERT_TRUE(SetupSync());
   // Expect that the PersonalDataManager receives the `finalized_profile`. The
   // finalization step happen when reading the profile from AutofillTable.
-  EXPECT_TRUE(
-      PersonalDataManagerProfileChecker(GetPersonalDataManager(),
-                                        UnorderedElementsAre(finalized_profile))
-          .Wait());
+  EXPECT_TRUE(AddressDataManagerProfileChecker(
+                  &GetPersonalDataManager()->address_data_manager(),
+                  UnorderedElementsAre(finalized_profile))
+                  .Wait());
 
   // Expect that the finalized profile is not propagated back to the server.
   // Since the PersonalDatamanager is operating on a single thread, this is
   // verified by adding a dummy profile. It will only reach the server after any
   // already pending changes.
   const AutofillProfile kDummyProfile = BuildTestAccountProfile();
-  GetPersonalDataManager()->AddProfile(kDummyProfile);
+  GetPersonalDataManager()->address_data_manager().AddProfile(kDummyProfile);
   EXPECT_TRUE(
       FakeServerSpecificsChecker(
           UnorderedElementsAre(
@@ -211,13 +212,14 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest, ClearOnSignout) {
   const AutofillProfile kProfile = BuildTestAccountProfile();
   AddSpecificsToServer(AsContactInfoSpecifics(kProfile), GetFakeServer());
   ASSERT_TRUE(SetupSync());
-  ASSERT_TRUE(PersonalDataManagerProfileChecker(GetPersonalDataManager(),
-                                                UnorderedElementsAre(kProfile))
+  ASSERT_TRUE(AddressDataManagerProfileChecker(
+                  &GetPersonalDataManager()->address_data_manager(),
+                  UnorderedElementsAre(kProfile))
                   .Wait());
   GetClient(0)->SignOutPrimaryAccount();
-  EXPECT_TRUE(
-      PersonalDataManagerProfileChecker(GetPersonalDataManager(), IsEmpty())
-          .Wait());
+  EXPECT_TRUE(AddressDataManagerProfileChecker(
+                  &GetPersonalDataManager()->address_data_manager(), IsEmpty())
+                  .Wait());
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -243,7 +245,14 @@ INSTANTIATE_TEST_SUITE_P(,
                          SingleClientContactInfoPassphraseSyncTest,
                          testing::Bool());
 
-IN_PROC_BROWSER_TEST_P(SingleClientContactInfoPassphraseSyncTest, Passphrase) {
+// TODO(336993637): Flaky on Android.
+#if BUILDFLAG(IS_ANDROID)
+#define MAYBE_Passphrase DISABLED_Passphrase
+#else
+#define MAYBE_Passphrase Passphrase
+#endif
+IN_PROC_BROWSER_TEST_P(SingleClientContactInfoPassphraseSyncTest,
+                       MAYBE_Passphrase) {
   ASSERT_TRUE(SetupSync());
   ASSERT_TRUE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::CONTACT_INFO));
@@ -285,20 +294,21 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoTransportSyncTest,
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   EXPECT_TRUE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::CONTACT_INFO));
-  EXPECT_TRUE(PersonalDataManagerProfileChecker(GetPersonalDataManager(),
-                                                UnorderedElementsAre(profile))
+  EXPECT_TRUE(AddressDataManagerProfileChecker(
+                  &GetPersonalDataManager()->address_data_manager(),
+                  UnorderedElementsAre(profile))
                   .Wait());
   // ChromeOS doesn't have the concept of sign-out.
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   GetClient(0)->SignOutPrimaryAccount();
-  EXPECT_TRUE(
-      PersonalDataManagerProfileChecker(GetPersonalDataManager(), IsEmpty())
-          .Wait());
+  EXPECT_TRUE(AddressDataManagerProfileChecker(
+                  &GetPersonalDataManager()->address_data_manager(), IsEmpty())
+                  .Wait());
 #endif  // !BUILDFLAG(IS_CHROMEOS_ASH)
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-// Account storage is still enabled when the user is in auth error.
+// Account storage is not enabled when the user is in auth error.
 IN_PROC_BROWSER_TEST_F(SingleClientContactInfoTransportSyncTest,
                        AuthErrorState) {
   // Setup transport mode.
@@ -322,30 +332,75 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoTransportSyncTest,
                                        /*expect_active=*/false)
                   .Wait());
 
-  // Save a profile, it is not uploaded.
+  EXPECT_FALSE(GetPersonalDataManager()
+                   ->address_data_manager()
+                   .IsEligibleForAddressAccountStorage());
+  EXPECT_FALSE(GetPersonalDataManager()
+                   ->address_data_manager()
+                   .IsAutofillSyncToggleAvailable());
+  GetPersonalDataManager()->address_data_manager().AddProfile(kProfile);
+
+  // Fix the authentication error, sync is available again.
+  signin::UpdatePersistentErrorOfRefreshTokenForAccount(
+      identity_manager,
+      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
+      GoogleServiceAuthError::AuthErrorNone());
+  EXPECT_TRUE(ContactInfoActiveChecker(GetSyncService(0),
+                                       /*expect_active=*/true)
+                  .Wait());
   EXPECT_TRUE(GetPersonalDataManager()
                   ->address_data_manager()
                   .IsEligibleForAddressAccountStorage());
   EXPECT_TRUE(GetPersonalDataManager()
                   ->address_data_manager()
                   .IsAutofillSyncToggleAvailable());
-  GetPersonalDataManager()->AddProfile(kProfile);
-  EXPECT_TRUE(PersonalDataManagerProfileChecker(GetPersonalDataManager(),
-                                                UnorderedElementsAre(kProfile))
-                  .Wait());
-  EXPECT_TRUE(GetFakeServer()
-                  ->GetSyncEntitiesByModelType(syncer::CONTACT_INFO)
-                  .empty());
+}
 
-  // Fix the authentication error, data is uploaded.
-  signin::UpdatePersistentErrorOfRefreshTokenForAccount(
-      identity_manager,
-      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin),
-      GoogleServiceAuthError::AuthErrorNone());
-  EXPECT_TRUE(FakeServerSpecificsChecker(
-                  UnorderedElementsAre(
-                      AsContactInfoSpecifics(kProfile).SerializeAsString()))
+// Regression test for https://crbug.com/340194452
+IN_PROC_BROWSER_TEST_F(SingleClientContactInfoTransportSyncTest,
+                       IsAutofillSyncToggleAvailable) {
+  // Setup transport mode.
+  ASSERT_TRUE(SetupClients());
+  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount());
+  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
+  EXPECT_TRUE(
+      GetSyncService(0)->GetActiveDataTypes().Has(syncer::CONTACT_INFO));
+  // The toggle is available.
+  EXPECT_TRUE(GetPersonalDataManager()
+                  ->address_data_manager()
+                  .IsAutofillSyncToggleAvailable());
+
+  // Turn account storage OFF.
+  GetPersonalDataManager()
+      ->address_data_manager()
+      .SetAutofillSelectableTypeEnabled(
+          /*enabled=*/false);
+  EXPECT_TRUE(ContactInfoActiveChecker(GetSyncService(0),
+                                       /*expect_active=*/false)
                   .Wait());
+
+  // The toggle is still available.
+  EXPECT_TRUE(GetPersonalDataManager()
+                  ->address_data_manager()
+                  .IsAutofillSyncToggleAvailable());
+
+  // Turn on Sync.
+  ASSERT_TRUE(GetClient(0)->SignInPrimaryAccount(signin::ConsentLevel::kSync));
+
+  // The toggle is no longer available.
+  EXPECT_FALSE(GetPersonalDataManager()
+                   ->address_data_manager()
+                   .IsAutofillSyncToggleAvailable());
+
+#if !BUILDFLAG(IS_CHROMEOS_ASH)
+  // Sign out.
+  GetClient(0)->SignOutPrimaryAccount();
+
+  // The toggle is not available.
+  EXPECT_FALSE(GetPersonalDataManager()
+                   ->address_data_manager()
+                   .IsAutofillSyncToggleAvailable());
+#endif
 }
 
 IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest,
@@ -384,7 +439,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest,
   // Apply a change to the profile.
   profile.SetRawInfoWithVerificationStatus(
       autofill::NAME_FULL, u"New Name", autofill::VerificationStatus::kParsed);
-  GetPersonalDataManager()->UpdateProfile(profile);
+  GetPersonalDataManager()->address_data_manager().UpdateProfile(profile);
 
   autofill::AutofillProfile profile2(
       autofill::i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -395,7 +450,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientContactInfoSyncTest,
 
   // Add an obsolete profile to make sure that the server has received the
   // update.
-  GetPersonalDataManager()->AddProfile(profile2);
+  GetPersonalDataManager()->address_data_manager().AddProfile(profile2);
 
   ASSERT_TRUE(ServerCountMatchStatusChecker(syncer::CONTACT_INFO, 2).Wait());
   // Verifies that the profile with `profile.guid()` has preserved
@@ -460,7 +515,7 @@ INSTANTIATE_TEST_SUITE_P(,
                          SingleClientContactInfoChildAccountTest,
                          testing::Bool());
 
-// TODO(crbug.com/1435411): Enable this test on Android.
+// TODO(crbug.com/40265115): Enable this test on Android.
 IN_PROC_BROWSER_TEST_P(SingleClientContactInfoChildAccountTest,
                        DisableForChildAccounts) {
   ASSERT_TRUE(SetupClients());

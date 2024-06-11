@@ -5,8 +5,10 @@
 #ifndef CHROME_BROWSER_HISTORY_EMBEDDINGS_HISTORY_EMBEDDINGS_TAB_HELPER_H_
 #define CHROME_BROWSER_HISTORY_EMBEDDINGS_HISTORY_EMBEDDINGS_TAB_HELPER_H_
 
+#include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
+#include "components/history/core/browser/history_types.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "url/gurl.h"
@@ -39,9 +41,26 @@ class HistoryEmbeddingsTabHelper
       base::Time timestamp,
       const GURL& url);
 
+  // content::WebContentsObserver:
+  void DidFinishLoad(content::RenderFrameHost* render_frame_host,
+                     const GURL& validated_url) override;
+
  private:
   explicit HistoryEmbeddingsTabHelper(content::WebContents* web_contents);
   friend class content::WebContentsUserData<HistoryEmbeddingsTabHelper>;
+
+  // This is called some time after `DidFinishLoad` to do passage extraction.
+  // Calls may be canceled by weak pointer invalidation.
+  void ExtractPassages(content::WeakDocumentPtr weak_render_frame_host);
+
+  // Callback for `ExtractPassages()`. It's in a member method to enable
+  // cancellation via `weak_factory_`.
+  void ExtractPassagesWithHistoryData(
+      content::WeakDocumentPtr weak_render_frame_host,
+      history::QueryURLResult result);
+
+  // Invalidates weak pointers and cancels any pending extraction callbacks.
+  void CancelExtraction();
 
   // Helper functions to return the embeddings and history services.
   // `GetHistoryClustersService()` may return nullptr (in tests).
@@ -49,8 +68,18 @@ class HistoryEmbeddingsTabHelper
   // `GetHistoryService()` may return nullptr.
   history::HistoryService* GetHistoryService();
 
+  // Data saved from the `HistoryTabHelper` call to
+  // `OnUpdatedHistoryForNavigation` which happens in `DidFinishNavigation`
+  // and precedes `DidFinishLoad`.
+  std::optional<base::Time> history_visit_time_;
+  std::optional<GURL> history_url_;
+
   // Task tracker for calls for the history service.
   base::CancelableTaskTracker task_tracker_;
+
+  // This factory frequently invalidates existing weak pointers to cancel
+  // delayed passage extraction.
+  base::WeakPtrFactory<HistoryEmbeddingsTabHelper> weak_ptr_factory_{this};
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

@@ -85,7 +85,7 @@ class TouchToFillForPaymentMethodsTest
     ASSERT_EQ(form.fields.size(), fields_have_autofilled_values.size());
     ASSERT_EQ(form.fields.size(), field_types.size());
     for (size_t i = 0; i < fields_have_autofilled_values.size(); i++) {
-      form.fields[i].is_autofilled = fields_have_autofilled_values[i];
+      form.fields[i].set_is_autofilled(fields_have_autofilled_values[i]);
       CreditCard test_card = test::GetCreditCard();
       form.fields[i].set_value(field_types[i] != CREDIT_CARD_VERIFICATION_CODE
                                    ? test_card.GetRawInfo(field_types[i])
@@ -121,13 +121,14 @@ TEST_P(TouchToFillForPaymentMethodsTest,
 
   SeeForm(form);
   autofill_manager().OnAskForValuesToFillTest(
-      form, form.fields[0], {},
+      form, form.fields[0],
       AutofillSuggestionTriggerSource::kFormControlElementClicked);
 
   base::HistogramTester histogram_tester;
   // Simulate user selection in the payments bottom sheet.
-  touch_to_fill_delegate().SuggestionSelected(/*unique_id=*/kTestLocalCardId,
-                                              /*is_virtual=*/false);
+  touch_to_fill_delegate().CreditCardSuggestionSelected(
+      /*unique_id=*/kTestLocalCardId,
+      /*is_virtual=*/false);
   touch_to_fill_delegate().OnDismissed(/*dismissed_by_user=*/false);
   // Simulate that fields were autofilled.
   SetFieldsAutofilledValues(form, test_case.fields_have_autofilled_values,

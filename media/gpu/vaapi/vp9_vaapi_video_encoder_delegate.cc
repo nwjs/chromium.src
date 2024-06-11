@@ -53,8 +53,8 @@ uint8_t QindexToQuantizer(uint8_t q_index) {
   return std::size(kQuantizerToQindex) - 1;
 }
 
-// TODO(crbug.com/752720): remove this in favor of std::gcd if c++17 is enabled
-// to use.
+// TODO(crbug.com/40533712): remove this in favor of std::gcd if c++17 is
+// enabled to use.
 int GCD(int a, int b) {
   return a == 0 ? b : GCD(b % a, a);
 }
@@ -302,7 +302,7 @@ bool VP9VaapiVideoEncoderDelegate::Initialize(
   }
 
   if (config.bitrate.mode() == Bitrate::Mode::kVariable) {
-    DVLOGF(1) << "Invalid configuraiton. VBR is not supported for VP9.";
+    DVLOGF(1) << "Invalid configuration. VBR is not supported for VP9.";
     return false;
   }
 
@@ -769,7 +769,7 @@ bool VP9VaapiVideoEncoderDelegate::SubmitFrameParameters(
   VAEncSequenceParameterBufferVP9 seq_param = {};
 
   const auto& frame_header = pic->frame_hdr;
-  // TODO(crbug.com/811912): Double check whether the
+  // TODO(crbug.com/41370458): Double check whether the
   // max_frame_width or max_frame_height affects any of the memory
   // allocation and tighten these values based on that.
   constexpr gfx::Size kMaxFrameSize(4096, 4096);

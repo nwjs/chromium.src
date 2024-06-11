@@ -136,6 +136,10 @@ extern const char kAppGuidSwitch[];
 // https://bugs.chromium.org/p/crashpad/issues/detail?id=23
 extern const char kNoRateLimitSwitch[];
 
+// Causes crashpad handler to start a second instance, to monitor the first
+// instance for exceptions.
+extern const char kMonitorSelfSwitch[];
+
 // The handle of an event to signal when the initialization of the main process
 // is complete.
 extern const char kInitDoneNotifierSwitch[];
@@ -426,6 +430,9 @@ inline constexpr int kErrorIdle = 45;
 // The call was rejected because the user needs to accept the EULA / Terms of
 // service.
 inline constexpr int kErrorEulaRequired = 46;
+
+// The current operating system is not supported.
+inline constexpr int kErrorUnsupportedOperatingSystem = 47;
 
 inline constexpr int kErrorTagParsing = 50;
 

@@ -7,6 +7,7 @@ package org.chromium.base.test.transit;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayingAtLeast;
 
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.any;
@@ -32,8 +33,8 @@ import java.util.regex.Pattern;
 public class ViewConditions {
     /** Fulfilled when a single matching View exists and is displayed. */
     public static class DisplayedCondition extends ExistsCondition {
-        public DisplayedCondition(Matcher<View> matcher) {
-            super(allOf(matcher, isDisplayed()));
+        public DisplayedCondition(Matcher<View> matcher, ExistsCondition.Options options) {
+            super(allOf(matcher, isDisplayingAtLeast(ViewElement.MIN_DISPLAYED_PERCENT)), options);
         }
     }
 
@@ -46,16 +47,21 @@ public class ViewConditions {
         private final DisplayedCondition mDisplayedCondition;
         private final Condition mGate;
 
-        public GatedDisplayedCondition(Matcher<View> matcher, Condition gate) {
+        public GatedDisplayedCondition(
+                Matcher<View> matcher, Condition gate, ExistsCondition.Options options) {
             super();
-            mDisplayedCondition = new DisplayedCondition(matcher);
+            mDisplayedCondition = new DisplayedCondition(matcher, options);
             mGate = gate;
         }
 
         @Override
-        public ConditionStatus check() throws Exception {
+        protected ConditionStatus checkWithSuppliers() throws Exception {
             ConditionStatus gateStatus = mGate.check();
             String gateMessage = gateStatus.getMessageAsGate();
+            if (gateStatus.isAwaiting()) {
+                return notFulfilled(gateMessage);
+            }
+
             if (!gateStatus.isFulfilled()) {
                 return fulfilled(gateMessage);
             }
@@ -75,11 +81,13 @@ public class ViewConditions {
     /** Fulfilled when a single matching View exists. */
     public static class ExistsCondition extends InstrumentationThreadCondition {
         private final Matcher<View> mMatcher;
+        private final Options mOptions;
         private View mViewMatched;
 
-        public ExistsCondition(Matcher<View> matcher) {
+        public ExistsCondition(Matcher<View> matcher, Options options) {
             super();
-            this.mMatcher = matcher;
+            mMatcher = matcher;
+            mOptions = options;
         }
 
         @Override
@@ -88,7 +96,7 @@ public class ViewConditions {
         }
 
         @Override
-        public ConditionStatus check() {
+        protected ConditionStatus checkWithSuppliers() {
             ViewInteraction viewInteraction = onView(mMatcher);
             String[] message = new String[1];
             try {
@@ -115,6 +123,15 @@ public class ViewConditions {
                                 mViewMatched = view;
                             }
                         });
+                if (mOptions.mExpectEnabled) {
+                    if (!mViewMatched.isEnabled()) {
+                        return notFulfilled("View displayed but disabled");
+                    }
+                } else { // Expected a displayed but disabled View.
+                    if (mViewMatched.isEnabled()) {
+                        return notFulfilled("View displayed but enabled");
+                    }
+                }
                 return fulfilled(message[0]);
             } catch (NoMatchingViewException
                     | NoMatchingRootException
@@ -127,6 +144,32 @@ public class ViewConditions {
                             e);
                 }
                 return notFulfilled(e.getClass().getSimpleName());
+            }
+        }
+
+        /**
+         * @return an Options builder to customize the ViewCondition.
+         */
+        public static Options.Builder newOptions() {
+            return new Options().new Builder();
+        }
+
+        /** Extra options for declaring ExistsCondition. */
+        public static class Options {
+            boolean mExpectEnabled = true;
+
+            private Options() {}
+
+            public class Builder {
+                public Options build() {
+                    return Options.this;
+                }
+
+                /** Whether the view is expected to be enabled or disabled. */
+                public Builder withExpectEnabled(boolean state) {
+                    mExpectEnabled = state;
+                    return this;
+                }
             }
         }
     }
@@ -146,7 +189,7 @@ public class ViewConditions {
         }
 
         @Override
-        public ConditionStatus check() {
+        protected ConditionStatus checkWithSuppliers() {
             try {
                 onView(mMatcher).check(doesNotExist());
                 return fulfilled();

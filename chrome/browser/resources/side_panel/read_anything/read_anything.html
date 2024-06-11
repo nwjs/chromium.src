@@ -1,6 +1,5 @@
 <!doctype html>
-<html dir="$i18n{textdirection}" lang="$i18n{language}"
-    $i18n{chromeRefresh2023Attribute}>
+<html dir="$i18n{textdirection}" lang="$i18n{language}">
 <head>
   <meta charset="utf-8">
   <title>$i18n{readAnythingTabTitle}</title>
@@ -17,15 +16,13 @@
       width: 100%;
     }
     body {
-      overflow: hidden;
-    }
-    html[chrome-refresh-2023] body {
       background: var(--color-side-panel-content-background);
+      overflow: hidden;
     }
   </style>
 </head>
 <body>
   <read-anything-app></read-anything-app>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="read_anything.js"></script>
 </body>
 </html>

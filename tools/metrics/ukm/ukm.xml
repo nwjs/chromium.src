@@ -4592,10 +4592,11 @@ be describing additional metrics about the same event.
   </metric>
   <metric name="Timing.GetUserInfoToButtonMode">
     <summary>
-      Records the time in milliseconds from when the getUserInfo() API is called
-      to the time when the Button Mode API is called. Recorded when the Button
-      mode is invoked and there was a getUserInfo call on this page. Recorded at
-      most once per getUserInfo API call.
+      Records the time in milliseconds from when the accounts are received via
+      the getUserInfo() API to the time when the Button Mode API is called.
+      Recorded when the Button mode is invoked and there was a successful
+      accounts fetch via the getUserInfo API call on this page. Recorded at most
+      once per getUserInfo API call.
     </summary>
   </metric>
   <metric name="Timing.IdTokenResponse">
@@ -4877,7 +4878,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Blink.HTMLParsing">
-  <owner>dom-dev@chromium.org</owner>
+  <owner>dom-dev@google.com</owner>
   <owner>nidhijaju@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -7190,11 +7191,11 @@ be describing additional metrics about the same event.
   <metric name="Duration">
     <summary>
       The milliseconds that the website was accessed in the focused tab and the
-      activated browser window. The accessing time is calculated each five
-      minutes, then the noise is applied, and sum the running time for five
-      minutes with noise to calculate the two hours accessing time. For example
-      the running time in the past 2 hours = time1 * noise1 + time2 * noise2 +
-      time3 * noise3....
+      activated browser window. The accessing time is calculated each two hours,
+      then the noise is applied, and sum the running time for two hours with
+      noise to calculate the two hours accessing time. For example the running
+      time in the past 2 hours = time1 * noise1 + time2 * noise2 + time3 *
+      noise3....
     </summary>
     <aggregation>
       <history>
@@ -7262,13 +7263,13 @@ be describing additional metrics about the same event.
   <owner>nancylingwang@chromium.org</owner>
   <owner>dominickn@chromium.org</owner>
   <summary>
-    Records each five minutes in Chrome OS to log the input events happened on
-    the app window. This is logged only when the user allows app syncing or
-    allows sync of everything, and the user does not set up a sync passphrase.
+    Records each two hours in Chrome OS to log the input events happened on the
+    app window. This is logged only when the user allows app syncing or allows
+    sync of everything, and the user does not set up a sync passphrase.
   </summary>
   <metric name="AppInputEventCount">
     <summary>
-      The number of the input events happened in each five minutes.
+      The number of the input events happened in each two hours.
     </summary>
   </metric>
   <metric name="AppInputEventSource" enum="AppInputEventSource">
@@ -7486,11 +7487,11 @@ be describing additional metrics about the same event.
   <owner>nancylingwang@chromium.org</owner>
   <owner>dominickn@chromium.org</owner>
   <summary>
-    Records the amount of time that the app were used in the last five minutes
-    on Chrome OS, only when the user allows app syncing or allows sync of
+    Records the amount of time that the app was used in the last two hours on
+    Chrome OS, only when the user allows app syncing or allows sync of
     everything, and the user does not set up a sync passphrase. Only ARC apps,
-    Chrome apps and web apps(PWA), system web apps, buildin apps are recorded.
-    This is logged every five minutes.
+    Chrome apps and web apps(PWA), system web apps, builtin apps are recorded.
+    This is logged every two hours and at shutdown.
   </summary>
   <metric name="AppType" enum="AppType">
     <summary>
@@ -7534,8 +7535,8 @@ be describing additional metrics about the same event.
   <owner>nancylingwang@chromium.org</owner>
   <owner>dominickn@chromium.org</owner>
   <summary>
-    Records the amount of time that the app were used in the last five minutes
-    on Chrome OS, only when the user allows app syncing or allows sync of
+    Records the amount of time that the app were used in the last two hours on
+    Chrome OS, only when the user allows app syncing or allows sync of
     everything, and the user does not set up a sync passphrase. Only ARC apps,
     Chrome apps and web apps(PWA), system web apps, buildin apps are recorded.
     This is logged every two hours.
@@ -8093,11 +8094,51 @@ be describing additional metrics about the same event.
       privacy.
     </summary>
   </metric>
+  <metric name="ProactiveNudgeDisabledForSite" enum="Boolean">
+    <summary>
+      True if the proactive nudge was disabled for this site during this page
+      load. Added in M126.
+    </summary>
+  </metric>
+  <metric name="ProactiveNudgeDisabledGlobally" enum="Boolean">
+    <summary>
+      True if the proactive nudge was globally disabled this page load. Added in
+      M126.
+    </summary>
+  </metric>
+  <metric name="ProactiveNudgeOpened">
+    <summary>
+      The number of times the Compose dialog is opened from the proactive nudge
+      during this page load. Recorded everytime the nudge is opened. Added in
+      M126.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
   <metric name="ProactiveNudgeShouldShow">
     <summary>
-      The number of times the Compose proactive nudge should show during This
+      The number of times the Compose proactive nudge should show during this
       page load. Recorded any time Compose is asked to show the proactive nudge
       even if it is eventually not shown. Added in M125.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="ProactiveNudgeShown">
+    <summary>
+      The number of times the Compose proactive nudge is shown during this page
+      load. Recorded everytime a request to show the nudge returns true. Added
+      in M126.
     </summary>
     <aggregation>
       <history>
@@ -8235,6 +8276,19 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
+  <metric name="StartedWithProactiveNudge" enum="Boolean">
+    <summary>
+      True if the session started with the proactive nudge rather than the
+      context menu option. Added in M126.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
   <metric name="UndoCount">
     <summary>
       How many times the user pressed the &quot;undo&quot; button in this
@@ -8270,6 +8324,27 @@ be describing additional metrics about the same event.
         </statistics>
       </history>
     </aggregation>
+  </metric>
+  <metric name="EditingTime">
+    <summary>
+      Number of seconds the user spent editing the field. Includes time between
+      key presses, up to 5 seconds each. Bucketed using
+      GetExponentialBucketMinForUserTiming().
+    </summary>
+  </metric>
+  <metric name="FieldSignature">
+    <summary>
+      The signature of the field. This is the hash identifier used to denote
+      this field. See components/autofill/core/common/signatures_util.cc for
+      more details.
+    </summary>
+  </metric>
+  <metric name="FormSignature">
+    <summary>
+      The signature of the form. This is the hash identifier used to denote this
+      form. See components/autofill/core/common/signatures_util.cc for more
+      details.
+    </summary>
   </metric>
   <metric name="IsAutofillFieldType" enum="Boolean">
     <summary>
@@ -9111,6 +9186,50 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="DIPS.ChainBegin" singular="True">
+  <owner>rtarpine@google.com</owner>
+  <owner>dc-komics@google.com</owner>
+  <summary>
+    Emitted after a redirect chain terminates, but for the page visited before
+    the chain began -- the initial URL.
+  </summary>
+  <metric name="ChainId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with the
+      DIPS.Redirect and DIPS.ChainEnd events emitted for the same redirect
+      chain.
+    </summary>
+  </metric>
+  <metric name="InitialAndFinalSitesSame" enum="BooleanSameSite">
+    <summary>
+      True when the site before the redirect chain is the same as the site at
+      the end of the chain.
+    </summary>
+  </metric>
+</event>
+
+<event name="DIPS.ChainEnd" singular="True">
+  <owner>rtarpine@google.com</owner>
+  <owner>dc-komics@google.com</owner>
+  <summary>
+    Emitted for the page visited at the end of a redirect chain -- the final
+    URL.
+  </summary>
+  <metric name="ChainId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with the
+      DIPS.ChainBegin and DIPS.Redirect events emitted for the same redirect
+      chain.
+    </summary>
+  </metric>
+  <metric name="InitialAndFinalSitesSame" enum="BooleanSameSite">
+    <summary>
+      True when the site before the redirect chain is the same as the site at
+      the end of the chain.
+    </summary>
+  </metric>
+</event>
+
 <event name="DIPS.Deletion" singular="True">
   <owner>rtarpine@google.com</owner>
   <owner>dc-komics@google.com</owner>
@@ -9144,6 +9263,13 @@ be describing additional metrics about the same event.
     bounce is a non-user-initiated navigation starting soon after the previous
     navigation committed.
   </summary>
+  <metric name="ChainId">
+    <summary>
+      A randomly-generated 32-bit id to connect this event with other
+      DIPS.Redirect events and the DIPS.ChainBegin/ChainEnd events emitted for
+      the same redirect chain.
+    </summary>
+  </metric>
   <metric name="ClientBounceDelay">
     <summary>
       Populated for client redirects only. The time in seconds (capped at 10)
@@ -10132,6 +10258,105 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="GameControls.ButtonOptionsMenuFunctionTriggered">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>pjlee@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when Game Controls' options menu button functions are triggered.
+  </summary>
+  <metric name="Function" enum="GameControlsButtonOptionsMenuFunction">
+    <summary>
+      The functions on the button options menu.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameControls.EditDeleteMenuFuctionTriggered">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>pjlee@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when Game Controls edit-delete menu functions are triggered.
+  </summary>
+  <metric name="Function" enum="GameControlsEditDeleteMenuFunction">
+    <summary>
+      The functions on the edit-delete menu.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameControls.EditingListFunctionTriggered">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>pjlee@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when Game Controls editing list functions are triggered.
+  </summary>
+  <metric name="Function" enum="GameControlsEditingListFunction">
+    <summary>
+      The functions on the editing list.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameControls.ToggleWithMappingSource">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>pjlee@google.com</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when Game Controls feature or hint is toggled on or off.
+  </summary>
+  <metric name="Function" enum="GameControlsToggleFunction">
+    <summary>
+      Toggle the feature or mapping hint.
+    </summary>
+  </metric>
+  <metric name="MappingSource" enum="GameControlsMappingSource">
+    <summary>
+      Toggle the feature or mapping hint.
+    </summary>
+  </metric>
+  <metric name="ToggleOn" enum="Boolean">
+    <summary>
+      Whether the function is toggled on or off.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameDashboard.ControlsFeatureToggleState">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when Game Controls feature is toggled on or off.
+  </summary>
+  <metric name="ToggleOn" enum="Boolean">
+    <summary>
+      Game Controls feature is toggled on or off.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameDashboard.ControlsHintToggleSource">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when Game Controls mapping hint is toggled on or off.
+  </summary>
+  <metric name="Source" enum="GameDashboardMenu">
+    <summary>
+      Where the mapping hint is toggled from.
+    </summary>
+  </metric>
+  <metric name="ToggleOn" enum="Boolean">
+    <summary>
+      Game Controls mapping hint is toggled on or off.
+    </summary>
+  </metric>
+</event>
+
 <event name="GameDashboard.EditControlsWithEmptyState">
   <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
@@ -10142,6 +10367,20 @@ be describing additional metrics about the same event.
   <metric name="Empty" enum="Boolean">
     <summary>
       Whether Game Controls is empty.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameDashboard.FunctionTriggered">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when the game dashboard functions are triggered.
+  </summary>
+  <metric name="Function" enum="GameDashboardFunction">
+    <summary>
+      Game dashboard function.
     </summary>
   </metric>
 </event>
@@ -10194,6 +10433,34 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="GameDashboard.ToolbarClickToExpandState">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when the game dashboard toolbar is expanded or collapsed.
+  </summary>
+  <metric name="Expanded" enum="Boolean">
+    <summary>
+      Whether the toolbar is expanded.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameDashboard.ToolbarNewLocation">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when the game dashboard toolbar is snapped to a new location.
+  </summary>
+  <metric name="Location" enum="GameDashboardToolbarSnapLocation">
+    <summary>
+      Toolbar new snap location.
+    </summary>
+  </metric>
+</event>
+
 <event name="GameDashboard.ToolbarToggleState">
   <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
@@ -10204,6 +10471,21 @@ be describing additional metrics about the same event.
   <metric name="ToggleOn" enum="Boolean">
     <summary>
       Whether the toolbar is toggled on or off.
+    </summary>
+  </metric>
+</event>
+
+<event name="GameDashboard.WelcomeDialogNotificationToggleState">
+  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
+  <owner>arc-gaming@google.com</owner>
+  <summary>
+    Logged when the game dashboard welcome dialog notification is toggled on or
+    off.
+  </summary>
+  <metric name="ToggleOn" enum="Boolean">
+    <summary>
+      Welcome dialog notification is toggled on or off.
     </summary>
   </metric>
 </event>
@@ -13473,6 +13755,29 @@ be describing additional metrics about the same event.
     <summary>
       Action taken by the user to interact with this feature.
     </summary>
+  </metric>
+</event>
+
+<event name="InputMethod.Manta.Orca">
+  <owner>curtismcmullan@google.com</owner>
+  <summary>
+    Metrics recording a summary of critical user interactions with the Editor
+    feature. The event is recorded whenever a user triggers a critical event in
+    the Editor funnel (specifically; the UI is shown, a request is triggered, or
+    a user inserts some suggested text).
+  </summary>
+  <metric name="EditorCriticalStates" enum="IMEEditorCriticalStates">
+    <summary>
+      A summary of interactions with the Editor feature for the purpose of
+      identifying common contexts where the feature is used.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -20034,12 +20339,30 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="PartitionedCookiePresent">
+  <obsolete>
+    Deprecated as of 04/2024.
+  </obsolete>
   <owner>selya@chromium.org</owner>
   <owner>selya@google.com</owner>
   <summary>
     Recorded when a page has a partitioned cookie present.
   </summary>
   <metric name="PartitionedCookiePresent" enum="Boolean">
+    <summary>
+      Records '1' if one or more partitioned cookies are present. This metric is
+      only logged for sites that have partitioned cookies.
+    </summary>
+  </metric>
+</event>
+
+<event name="PartitionedCookiePresentV2">
+  <owner>selya@chromium.org</owner>
+  <owner>dylancutler@google.com</owner>
+  <summary>
+    Recorded when a page has a partitioned cookie present and the cookie's name
+    is not receive-cookie-deprecation.
+  </summary>
+  <metric name="PartitionedCookiePresentV2" enum="Boolean">
     <summary>
       Records '1' if one or more partitioned cookies are present. This metric is
       only logged for sites that have partitioned cookies.
@@ -20726,11 +21049,29 @@ be describing additional metrics about the same event.
 
 <event name="PerformanceAPI.LongAnimationFrame">
   <owner>nrosenthal@chromium.org</owner>
+  <owner>zuoaoyuan@chromium.org</owner>
   <summary>
     This event is associated with the LongAnimationFrame Web Platform API. The
     metrics are recorded when a long animation frame is detected and reported to
     the page. For more details see https://crbug.com/1392685.
   </summary>
+  <metric name="Categorized3PScriptLongAnimationFrameCallbackContributors">
+    <summary>
+      A bitfield representation of third party technologies who have contributed
+      at least one event/callback script that blocked the long animation frame
+      for more than 5ms. The bitwise fields are defined by ThirdPartyTechnology
+      enum in third_party/blink_renderer/core/timing/third_party_script_info.h.
+    </summary>
+  </metric>
+  <metric
+      name="Categorized3PScriptLongAnimationFrameScriptExecutionContributors">
+    <summary>
+      A bitfield representation of third party technologies who have contributed
+      at least one script execution block that blocked the long animation frame
+      for more than 5ms. The bitwise fields are defined by ThirdPartyTechnology
+      enum in third_party/blink_renderer/core/timing/third_party_script_info.h.
+    </summary>
+  </metric>
   <metric name="DidPause" enum="Boolean">
     <summary>
       True if there was a pause (sync XHR, dialog) during the long frame.
@@ -21588,6 +21929,51 @@ be describing additional metrics about the same event.
       Time (in milliseconds) taken by the user to make a decision on a
       permission prompt after it was displayed, if at all. Ignoring a prompt
       doesn't count as a decision.
+    </summary>
+  </metric>
+</event>
+
+<event name="Permissions.EmbeddedPromptAction">
+  <owner>hkamila@chromium.org</owner>
+  <owner>andypaicu@chromium.org</owner>
+  <owner>permissions-dev@chromium.org</owner>
+  <summary>
+    Metrics for a user's permission actions for permission prompts triggered by
+    the user clicking on the Embedded Permission Element, logged when a
+    permission prompt is resolved.
+  </summary>
+  <metric name="Action" enum="ElementAnchoredBubbleAction">
+    <summary>
+      An enum of type ElementAnchoredBubbleAction. One of GRANTED, GRANTED_ONCE,
+      OK, DENIED, DISMISSED, DISMISSED_SCRIM, SYSTEM_SETTINGS or IGNORED.
+    </summary>
+  </metric>
+  <metric name="PermissionType" enum="PermissionRequestType">
+    <summary>
+      Represents the permission type that the prompt is for. An enum of type
+      ContentSettingsType.
+    </summary>
+  </metric>
+  <metric name="PreviousScreens">
+    <summary>
+      Represents how many screens have already been shown to the user prior to
+      the current one as part of the permission prompt. Also serves as an order
+      number. Should never be bigger than the number of screen variants. It is
+      recorded as int64_t (upper bound 10).
+    </summary>
+  </metric>
+  <metric name="ScreenPermissionType" enum="PermissionRequestType">
+    <summary>
+      Represents the permission type that current screen is for. This can
+      sometimes differ from PermissionType when the PermissionType is Multiple,
+      as some screens are designed to only be shown for one permission at a
+      time. An enum of type ContentSettingsType.
+    </summary>
+  </metric>
+  <metric name="Variant" enum="ElementAnchoredBubbleVariant">
+    <summary>
+      An enum of type ElementAnchoredBubbleVariant. The screen that the user has
+      currently taken action on.
     </summary>
   </metric>
 </event>
@@ -22733,6 +23119,12 @@ be describing additional metrics about the same event.
       A boolean indicating if any prerender activation page load mainpage
       resource has a 'Cache-control: no-store' response header. Recorded only
       for main frame request.
+    </summary>
+  </metric>
+  <metric name="Navigation.InitiatorLocation">
+    <summary>
+      page_load_metrics::NavigationHandleUserData::InitiatorLocation enum value.
+      This field is used for identifying the types of prerender trigger.
     </summary>
   </metric>
   <metric name="Navigation.PageTransition">
@@ -24432,6 +24824,44 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="ServiceWorker.MainResourceLoadCompleted">
+  <owner>suzukikeita@chromium.org</owner>
+  <owner>chrome-worker@google.com</owner>
+  <summary>
+    Events taken when the main resource is loaded. This only occurs when the
+    static routing API is used.
+  </summary>
+  <metric name="ActualRouterSourceType" enum="ServiceWorkerRouterSourceType">
+    <summary>
+      The actual router source type for Static Routing API. This indicates which
+      source type was actually used to get the resource. This will be recorded
+      only when the router has matched the incoming resource.
+    </summary>
+  </metric>
+  <metric name="MatchedFirstRouterSourceType"
+      enum="ServiceWorkerRouterSourceType">
+    <summary>
+      The result of the router evaluation of the Static Routing API. This
+      indicates which source type is specified to get the resource. This will be
+      recorded only when the router has matched the incoming resource.
+    </summary>
+  </metric>
+  <metric name="RouterRuleCount">
+    <summary>
+      The sum of registered router rules with the Static Routing API in main
+      resource. Recorded per navigation when the service worker, which has
+      associated routing info, is activated. This is rounded down to the nearest
+      exponential bucket (with a bucket ratio on 1.15).
+    </summary>
+  </metric>
+  <metric name="WorkerStatusOnEvaluation" enum="ServiceWorkerStatus">
+    <summary>
+      ServiceWorker running status at the time when router evaluation is
+      conducted.
+    </summary>
+  </metric>
+</event>
+
 <event name="ServiceWorker.OnLoad">
   <owner>yyanagisawa@chromium.org</owner>
   <owner>chrome-worker@google.com</owner>
@@ -25010,7 +25440,7 @@ be describing additional metrics about the same event.
 
 <event name="Site.Install">
   <owner>dibyapal@chromium.org</owner>
-  <owner>desktop-pwas-team@google.com</owner>
+  <owner>pwa-team@google.com</owner>
   <summary>
     Records various metrics about whether a particular site has been installed
     as a PWA or not.
@@ -25048,7 +25478,7 @@ be describing additional metrics about the same event.
 
 <event name="Site.Manifest">
   <owner>dibyapal@chromium.org</owner>
-  <owner>desktop-pwas-team@google.com</owner>
+  <owner>pwa-team@google.com</owner>
   <summary>
     Records various signals regarding the fields present inside a manifest. If
     the DisplayMode is undefined, HasStartUrl is kEmpty, and all the other
@@ -25156,7 +25586,7 @@ be describing additional metrics about the same event.
 
 <event name="Site.Quality">
   <owner>dibyapal@chromium.org</owner>
-  <owner>desktop-pwas-team@google.com</owner>
+  <owner>pwa-team@google.com</owner>
   <summary>
     Records various signals about a site that boost its chances of being
     installed as a web app, like valid fetch handlers (boosting offline
@@ -29809,39 +30239,25 @@ be describing additional metrics about the same event.
     </aggregation>
   </metric>
   <metric name="PreinstalledWindowExperimentHasLaunchedBefore" enum="Boolean">
+    <obsolete>
+      Removed 2024-04.
+    </obsolete>
     <summary>
       Records whether the user has launched this preinstalled app before the
       preinstalled app window vs tab experiment started. Recorded only if the
       user was eligible for the experiment, which is new Chrome OS users.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
   <metric name="PreinstalledWindowExperimentUserGroup"
       enum="WebAppPreinstalledWindowExperimentUserGroup">
+    <obsolete>
+      Removed 2024-04.
+    </obsolete>
     <summary>
       Records the user group that the user is in, for an experiment on opening
       preinstalled apps in windows vs tabs. Recorded only if the user was
       eligible for the experiment, which is new Chrome OS users.
     </summary>
-    <aggregation>
-      <history>
-        <index fields="profile.country"/>
-        <index fields="profile.form_factor"/>
-        <index fields="profile.system_ram"/>
-        <statistics>
-          <enumeration/>
-        </statistics>
-      </history>
-    </aggregation>
   </metric>
   <metric name="Promotable" enum="Boolean">
     <summary>

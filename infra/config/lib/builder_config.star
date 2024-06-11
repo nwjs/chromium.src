@@ -440,6 +440,7 @@ def register_builder_config(
         mirrors,
         settings,
         targets,
+        targets_settings,
         additional_exclusions):
     """Registers the builder config so the properties can be computed.
 
@@ -455,6 +456,8 @@ def register_builder_config(
         settings: The object determining the additional settings applied to
             builder_config.
         targets: The targets to be built/run by the builder.
+        targets_settings: The settings to use when expanding the targets for the
+            builder.
         additional_exclusions: A list of paths that are excluded when analyzing
             the change to determine affected targets. The paths should be
             relative to the per-builder output root dir.
@@ -510,7 +513,10 @@ def register_builder_config(
         register_targets(
             name = "{}/{}".format(bucket, name),
             targets = targets,
+            settings = targets_settings,
             parent_key = builder_config_key,
+            builder_group = builder_group,
+            builder_name = name,
         )
 
     graph.add_edge(builder_config_key, keys.builder(bucket, name))
@@ -814,7 +820,21 @@ def _set_builder_config_property(ctx):
                 "cft",
             ]
             excluded_builders = [
-                # TODO(crbug.com/1484233): Remove the following as trybots are
+                # TODO(crbug.com/343505108): Remove the following libfuzzer
+                # builders as trybots are created for them.
+                "Centipede High End Upload Linux ASan",
+                "Libfuzzer Upload Chrome OS ASan",
+                "Libfuzzer Upload Linux ASan Debug",
+                "Libfuzzer Upload Linux MSan",
+                "Libfuzzer Upload Linux UBSan",
+                "Libfuzzer Upload Linux V8-ARM64 ASan",
+                "Libfuzzer Upload Linux V8-ARM64 ASan Debug",
+                "Libfuzzer Upload Linux32 ASan",
+                "Libfuzzer Upload Linux32 V8-ARM ASan",
+                "Libfuzzer Upload Linux32 V8-ARM ASan Debug",
+                "Libfuzzer Upload Mac ASan",
+                "Libfuzzer Upload iOS Catalyst Debug",
+                # TODO(crbug.com/40282196): Remove the following as trybots are
                 # created for them.
                 "android-arm64-archive-rel",
                 "lacros-arm-archive-rel",
@@ -881,7 +901,7 @@ def _set_builder_config_property(ctx):
             if b.name not in needs_mega_cq_mode:
                 continue
 
-            # TODO(crbug.com/1483511): Uncomment the following when CV actually
+            # TODO(crbug.com/40282038): Uncomment the following when CV actually
             # supports custom run modes.
             #if "CQ_MODE_MEGA_DRY_RUN" not in b.mode_allowlist:
             #    b.mode_allowlist.append("CQ_MODE_MEGA_DRY_RUN")
@@ -889,7 +909,7 @@ def _set_builder_config_property(ctx):
             #    b.mode_allowlist.append("CQ_MODE_MEGA_FULL_RUN")
 
     # Print the mega CQ bots to a txt file for debugging / parsing purposes.
-    # TODO(crbug.com/1483511): Can delete this when CV full supports custom
+    # TODO(crbug.com/40282038): Can delete this when CV full supports custom
     # run modes with all features needed by chrome.
     mega_cq_bots_file = "cq-usage/mega_cq_bots.txt"
     ctx.output[mega_cq_bots_file] = "".join(["{}\n".format(b) for b in sorted(needs_mega_cq_mode)])

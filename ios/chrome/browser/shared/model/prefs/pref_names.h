@@ -67,6 +67,11 @@ inline constexpr char kBrowsingDataMigrationHasBeenPossible[] =
 inline constexpr char kClearBrowsingDataHistoryNoticeShownTimes[] =
     "browser.clear_data.history_notice_shown_times";
 
+// A dictionary mapping content notification enrollment eligibilities. This is
+// stored in BrowserState prefs.
+inline constexpr char kContentNotificationsEnrollmentEligibility[] =
+    "ios.content_notification.enrollment_eligibility";
+
 // String indicating the Contextual Search enabled state.
 // "false" - opt-out (disabled)
 // "" (empty string) - undecided
@@ -199,6 +204,11 @@ inline constexpr char kIosCredentialProviderPromoStopPromo[] =
 inline constexpr char
     kIosCredentialProviderPromoHasRegisteredWithPromoManager[] =
         "ios.credential_provider_promo.has_registered_with_promo_manager";
+
+// The last action that the user took when a Default Browser promo was
+// presented.
+inline constexpr char kIosDefaultBrowserPromoLastAction[] =
+    "ios.default_browser_promo.last_action";
 
 // The time when the DiscoverFeed was last refreshed while the feed was visible
 // to the user.

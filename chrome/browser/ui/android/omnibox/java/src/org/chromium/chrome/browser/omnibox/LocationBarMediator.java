@@ -71,6 +71,8 @@ import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.widget.animation.CancelAwareAnimatorListener;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.omnibox.AutocompleteMatch;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -204,7 +206,6 @@ class LocationBarMediator
             new ObservableSupplierImpl<>();
     private boolean mShouldClearOmniboxOnFocus = true;
     private ObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
-    private boolean mIsSurfacePolishOmniboxColorEnabled;
     private SearchEngineUtils mSearchEngineUtils;
 
     /*package */ LocationBarMediator(
@@ -342,6 +343,11 @@ class LocationBarMediator
         mTemplateUrlServiceSupplier.onAvailable(
                 (templateUrlService) -> {
                     templateUrlService.addObserver(this);
+                    if (OmniboxFeatures.sUseFusedLocationProvider.isEnabled()
+                            && templateUrlService.isDefaultSearchEngineGoogle()) {
+                        GeolocationHeader.primeLocationForGeoHeaderIfEnabled(
+                                mProfileSupplier.get(), mTemplateUrlServiceSupplier.get());
+                    }
                 });
 
         mLocationBarLayout.onFinishNativeInitialization();
@@ -485,13 +491,22 @@ class LocationBarMediator
         updateButtonVisibility();
     }
 
-    /* package */ void onSuggestionsChanged(String autocompleteText, boolean defaultMatchIsSearch) {
+    /* package */ void onSuggestionsChanged(@Nullable AutocompleteMatch defaultMatch) {
         // TODO (https://crbug.com/1152501): Refactor the LBM/LBC relationship such that LBM doesn't
         // need to communicate with other coordinators like this.
-        mStatusCoordinator.onDefaultMatchClassified(defaultMatchIsSearch);
         String userText = mUrlCoordinator.getTextWithoutAutocomplete();
+        mStatusCoordinator.onDefaultMatchClassified(
+                // Zero suggest is always considered Search.
+                TextUtils.isEmpty(userText)
+                        ||
+                        // Otherwise, use the default match type (if possible), or assume Search (if
+                        // not).
+                        (defaultMatch != null ? defaultMatch.isSearchSuggestion() : true));
         if (mUrlCoordinator.shouldAutocomplete()) {
-            mUrlCoordinator.setAutocompleteText(userText, autocompleteText);
+            mUrlCoordinator.setAutocompleteText(
+                    userText,
+                    defaultMatch != null ? defaultMatch.getInlineAutocompletion() : null,
+                    defaultMatch != null ? defaultMatch.getAdditionalText() : null);
         }
 
         // Handle the case where suggestions (in particular zero suggest) are received without the
@@ -662,14 +677,19 @@ class LocationBarMediator
 
         RecordUserAction.record("MobileOmniboxVoiceSearch");
         mVoiceRecognitionHandler.startVoiceRecognition(
-                VoiceRecognitionHandler.VoiceInteractionSource.OMNIBOX);
+                mLocationBarLayout.getVoiceRecogintionSource());
     }
 
     /** package */
     void lensButtonClicked(View view) {
         if (!mNativeInitialized || mLocationBarDataProvider == null) return;
-        LensMetrics.recordClicked(LensEntryPoint.OMNIBOX);
-        startLens(LensEntryPoint.OMNIBOX);
+        int entryPoint = mLocationBarLayout.getLensEntryPoint();
+        // Lens does not track Search Widget metrics.
+        // Enable once LensMetrics#getClickedActionName includes QUICK_ACTION_SEARCH_WIDGET.
+        if (entryPoint != LensEntryPoint.QUICK_ACTION_SEARCH_WIDGET) {
+            LensMetrics.recordClicked(entryPoint);
+        }
+        startLens(entryPoint);
     }
 
     /* package */ void setUrlFocusChangeInProgress(boolean inProgress) {
@@ -1161,7 +1181,6 @@ class LocationBarMediator
         // Never show Lens in the old search widget page context.
         // This widget must guarantee consistent feature set regardless of search engine choice or
         // other aspects that may not be met by Lens.
-        LocationBarDataProvider dataProvider = getLocationBarDataProvider();
         if (!mEmbedderUiOverrides.isLensEntrypointAllowed()) {
             return false;
         }
@@ -1402,9 +1421,7 @@ class LocationBarMediator
     }
 
     @Override
-    public void notifyVoiceRecognitionCanceled() {
-        mLocationBarLayout.notifyVoiceRecognitionCanceled();
-    }
+    public void notifyVoiceRecognitionCanceled() {}
 
     // VoiceRecognitionHandler.Delegate implementation.
 
@@ -1585,25 +1602,9 @@ class LocationBarMediator
                         .build());
     }
 
-    /**
-     * Sets mIsSurfacePolishOmniboxColorEnabled.
-     *
-     * @param isSurfacePolishOmniboxColorEnabled True if the surface polish flag and omnibox color
-     *     variant are are both enabled, thus requiring colorful type for the url bar hint color and
-     *     icons.
-     */
-    public void setIsSurfacePolishOmniboxColorEnabled(boolean isSurfacePolishOmniboxColorEnabled) {
-        mIsSurfacePolishOmniboxColorEnabled = isSurfacePolishOmniboxColorEnabled;
-    }
-
     /** Updates the tints of UI buttons. */
-    public void updateButtonTints() {
-        boolean useColorfulButtonTint = mIsSurfacePolishOmniboxColorEnabled && !isUrlBarFocused();
-        ColorStateList tint =
-                useColorfulButtonTint
-                        ? AppCompatResources.getColorStateList(
-                                mContext, R.color.default_icon_color_on_accent1_container_tint_list)
-                        : ThemeUtils.getThemedToolbarIconTint(mContext, mBrandedColorScheme);
+    private void updateButtonTints() {
+        ColorStateList tint = ThemeUtils.getThemedToolbarIconTint(mContext, mBrandedColorScheme);
         mLocationBarLayout.setMicButtonTint(tint);
         mLocationBarLayout.setLensButtonTint(tint);
     }
@@ -1618,8 +1619,7 @@ class LocationBarMediator
         if (useDefaultUrlBarHintTextColor) {
             mUrlCoordinator.setUrlBarHintTextColorForDefault(mBrandedColorScheme);
         } else {
-            mUrlCoordinator.setUrlBarHintTextColorForSurfacePolish(
-                    mIsSurfacePolishOmniboxColorEnabled);
+            mUrlCoordinator.setUrlBarHintTextColorForSurfacePolish();
         }
     }
 

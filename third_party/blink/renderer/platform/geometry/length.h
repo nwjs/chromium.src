@@ -93,8 +93,11 @@ class CalculationValue;
 class Length;
 
 PLATFORM_EXPORT extern const Length& g_auto_length;
-PLATFORM_EXPORT extern const Length& g_none_length;
-PLATFORM_EXPORT extern const Length& g_fixed_zero_length;
+PLATFORM_EXPORT extern const Length& g_fill_available_length;
+PLATFORM_EXPORT extern const Length& g_fit_content_length;
+PLATFORM_EXPORT extern const Length& g_max_content_length;
+PLATFORM_EXPORT extern const Length& g_min_content_length;
+PLATFORM_EXPORT extern const Length& g_min_intrinsic_length;
 
 class PLATFORM_EXPORT Length {
   DISALLOW_NEW();
@@ -186,23 +189,25 @@ class PLATFORM_EXPORT Length {
   }
   bool operator!=(const Length& o) const { return !(*this == o); }
 
+  static const Length& Auto() { return g_auto_length; }
+  static const Length& FillAvailable() { return g_fill_available_length; }
+  static const Length& FitContent() { return g_fit_content_length; }
+  static const Length& MaxContent() { return g_max_content_length; }
+  static const Length& MinContent() { return g_min_content_length; }
+  static const Length& MinIntrinsic() { return g_min_intrinsic_length; }
+
+  static Length Content() { return Length(kContent); }
+  static Length Fixed() { return Length(kFixed); }
+  static Length None() { return Length(kNone); }
+
+  static Length ExtendToZoom() { return Length(kExtendToZoom); }
+  static Length DeviceWidth() { return Length(kDeviceWidth); }
+  static Length DeviceHeight() { return Length(kDeviceHeight); }
+
   template <typename NUMBER_TYPE>
   static Length Fixed(NUMBER_TYPE number) {
     return Length(number, kFixed);
   }
-  static Length Fixed() { return Length(kFixed); }
-  static const Length& FixedZero() { return g_fixed_zero_length; }
-  static const Length& Auto() { return g_auto_length; }
-  static Length FillAvailable() { return Length(kFillAvailable); }
-  static Length MinContent() { return Length(kMinContent); }
-  static Length MaxContent() { return Length(kMaxContent); }
-  static Length MinIntrinsic() { return Length(kMinIntrinsic); }
-  static Length ExtendToZoom() { return Length(kExtendToZoom); }
-  static Length DeviceWidth() { return Length(kDeviceWidth); }
-  static Length DeviceHeight() { return Length(kDeviceHeight); }
-  static const Length& None() { return g_none_length; }
-  static Length FitContent() { return Length(kFitContent); }
-  static Length Content() { return Length(kContent); }
   template <typename NUMBER_TYPE>
   static Length Percent(NUMBER_TYPE number) {
     return Length(number, kPercent);
@@ -297,15 +302,25 @@ class PLATFORM_EXPORT Length {
   bool IsFillAvailable() const { return GetType() == kFillAvailable; }
   bool IsFitContent() const { return GetType() == kFitContent; }
   bool IsPercent() const { return GetType() == kPercent; }
-  // IsPercentOrCalc should be used for decisions about whether to optimize
+  // MayHavePercentDependence should be used to decide whether to optimize
   // away computing the value on which percentages depend or optimize away
   // recomputation that results from changes to that value.  It is intended to
   // be used *only* in cases where the implementation could be changed to one
   // that returns true only if there are percentage values somewhere in the
   // expression (that is, one that still returns true for calc-size(any, 30%)
   // for which HasPercent() is false, but is false for calc-size(any, 30px)).
-  // TODO(https://crbug.com/313072): Rename this.
-  bool IsPercentOrCalc() const {
+  //
+  // We could (if we want) make this exact and remove "May" from the name.
+  // But this would require looking into the calculation value like HasPercent
+  // does.  However, it needs to be different from HasPercent because of cases
+  // where calc-size() erases percentage-ness from the type, like
+  // calc-size(any, 20%).
+  //
+  // For properties that cannot have calc-size in them, we currently use
+  // HasPercent() rather than MayHavePercentDependence() since it's a
+  // shorter/simpler function name, and the two functions are equivalent in
+  // that case.
+  bool MayHavePercentDependence() const {
     return GetType() == kPercent || GetType() == kCalculated;
   }
   bool IsFlex() const { return GetType() == kFlex; }

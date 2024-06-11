@@ -274,8 +274,8 @@ std::vector<FormIssue> CheckForLabelsWithIncorrectForAttribute(
 
   std::set<std::u16string> elements_whose_name_match_a_label_for_attr;
   for (const FormFieldData& field : fields) {
-    if (field.label_source == FormFieldData::LabelSource::kForName) {
-      elements_whose_name_match_a_label_for_attr.insert(field.name_attribute);
+    if (field.label_source() == FormFieldData::LabelSource::kForName) {
+      elements_whose_name_match_a_label_for_attr.insert(field.name_attribute());
     }
   }
 

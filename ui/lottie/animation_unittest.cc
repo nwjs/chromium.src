@@ -7,6 +7,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/check.h"
 #include "base/memory/raw_ptr.h"
@@ -32,6 +33,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkStream.h"
+#include "ui/gfx/animation/animation.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/lottie/animation_observer.h"
@@ -190,7 +192,7 @@ class TestSkottieFrameDataProvider : public cc::SkottieFrameDataProvider {
   ~TestSkottieFrameDataProvider() override = default;
 
   scoped_refptr<ImageAsset> LoadImageAsset(
-      base::StringPiece resource_id,
+      std::string_view resource_id,
       const base::FilePath& resource_path,
       const std::optional<gfx::Size>& size) override {
     auto new_asset = base::MakeRefCounted<ImageAssetImpl>();
@@ -401,6 +403,34 @@ TEST_F(AnimationTest, PlayLinearAnimation) {
   EXPECT_TRUE(HasAnimationEnded());
   EXPECT_TRUE(observer.animation_cycle_ended());
   IsAllSameColor(SK_ColorBLUE, canvas()->GetBitmap());
+}
+
+TEST_F(AnimationTest, ReducedAnimations) {
+  // This test ensures that reduced animations only affects the rendering of the
+  // animation, and has no side effects on the events or reporting of progress.
+  TestAnimationObserver observer(animation_.get());
+  gfx::Animation::SetPrefersReducedMotionForTesting(true);
+
+  AdvanceClock(base::Milliseconds(300));
+
+  EXPECT_TRUE(IsStopped());
+  animation_->Start(Animation::PlaybackConfig::CreateWithStyle(
+      Animation::Style::kLinear, *animation_));
+  animation_->Paint(canvas(), NowTicks(), animation_->GetOriginalSize());
+  IsAllSameColor(SK_ColorGREEN, canvas()->GetBitmap());
+  constexpr auto kAdvance = base::Milliseconds(50);
+  AdvanceClock(kAdvance);
+
+  animation_->Paint(canvas(), NowTicks(), animation_->GetOriginalSize());
+  IsAllSameColor(SK_ColorGREEN, canvas()->GetBitmap());
+
+  // Advance the clock to the end of the animation.
+  constexpr auto kAdvanceToEnd =
+      kAnimationDuration - kAdvance + base::Milliseconds(1);
+  AdvanceClock(kAdvanceToEnd);
+  animation_->Paint(canvas(), NowTicks(), animation_->GetOriginalSize());
+  // The frame should not change.
+  IsAllSameColor(SK_ColorGREEN, canvas()->GetBitmap());
 }
 
 TEST_F(AnimationTest, StopLinearAnimation) {

@@ -8,8 +8,10 @@
 #include <string>
 #include <vector>
 
+#include "base/format_macros.h"
 #include "base/functional/bind.h"
 #include "base/notreached.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/optional_util.h"
 #include "extensions/browser/api/scripting/scripting_constants.h"
@@ -38,6 +40,35 @@ constexpr char kInvalidSourceError[] =
     "js source.";
 constexpr char kMatchesMissingError[] =
     "User script with ID '*' must specify 'matches'.";
+
+// Returns true if the given `world_id` is valid from the API perspective.
+// If invalid, populates `error_out`.
+bool IsValidWorldId(const std::optional<std::string>& world_id,
+                    std::string* error_out) {
+  if (!world_id) {
+    // Omitting world ID is valid.
+    return true;
+  }
+
+  if (world_id->empty()) {
+    *error_out = "If specified, `worldId` must be non-empty.";
+    return false;
+  }
+
+  if (world_id->at(0) == '_') {
+    *error_out = "World IDs beginning with '_' are reserved.";
+    return false;
+  }
+
+  static constexpr size_t kMaxWorldIdLength = 256;
+  if (world_id->length() > kMaxWorldIdLength) {
+    *error_out = "World IDs must be at most 256 characters.";
+    return false;
+  }
+
+  // Valid world ID!
+  return true;
+}
 
 api::scripts_internal::SerializedUserScript
 ConvertRegisteredUserScriptToSerializedUserScript(
@@ -118,6 +149,12 @@ std::unique_ptr<UserScript> ParseUserScript(
           UserScript::TrimPrefixFromScriptID(user_script.id));
       return nullptr;
     }
+  }
+
+  std::string utf8_error;
+  if (!IsValidWorldId(user_script.world_id, &utf8_error)) {
+    *error = base::UTF8ToUTF16(utf8_error);
+    return nullptr;
   }
 
   // After this, we can just convert to our internal type and rely on our
@@ -558,14 +595,68 @@ ExtensionFunction::ResponseAction UserScriptsConfigureWorldFunction::Run() {
     world_id = std::move(params->properties.world_id);
   }
 
-  // TODO(https://crbug.com/331680187): Disallow world IDs that begin with
-  // underscores here and in the script registration flow.
+  std::string error;
+  if (!IsValidWorldId(world_id, &error)) {
+    return RespondNow(Error(std::move(error)));
+  }
 
-  // TODO(https://crbug.com/331680187): Add some reasonable limit to the number
-  // of worlds an extension may create and configure.
+  UserScriptWorldConfigurationManager* config_manager =
+      UserScriptWorldConfigurationManager::Get(browser_context());
+  static constexpr size_t kMaxNumberOfRegisteredWorlds = 100;
+  if (config_manager->GetAllUserScriptWorlds(extension()->id()).size() >=
+      kMaxNumberOfRegisteredWorlds) {
+    return RespondNow(
+        Error(base::StringPrintf("You may only configure up to %" PRIuS
+                                 " individual user script worlds.",
+                                 kMaxNumberOfRegisteredWorlds)));
+  }
+
+  config_manager->SetUserScriptWorldInfo(*extension(), world_id, csp,
+                                         enable_messaging);
+
+  return RespondNow(NoArguments());
+}
+
+ExtensionFunction::ResponseAction
+UserScriptsGetWorldConfigurationsFunction::Run() {
+  EXTENSION_FUNCTION_VALIDATE(extension());
+
+  std::vector<mojom::UserScriptWorldInfoPtr> world_configurations =
+      UserScriptWorldConfigurationManager::Get(browser_context())
+          ->GetAllUserScriptWorlds(extension()->id());
+
+  std::vector<api::user_scripts::WorldProperties> result;
+  result.reserve(world_configurations.size());
+  for (const auto& world : world_configurations) {
+    api::user_scripts::WorldProperties converted;
+    converted.messaging = world->enable_messaging;
+    converted.csp = world->csp;
+    converted.world_id = world->world_id;
+    result.push_back(std::move(converted));
+  }
+
+  return RespondNow(ArgumentList(
+      api::user_scripts::GetWorldConfigurations::Results::Create(result)));
+}
+
+ExtensionFunction::ResponseAction
+UserScriptsResetWorldConfigurationFunction::Run() {
+  std::optional<api::user_scripts::ResetWorldConfiguration::Params> params(
+      api::user_scripts::ResetWorldConfiguration::Params::Create(args()));
+  EXTENSION_FUNCTION_VALIDATE(params);
+  EXTENSION_FUNCTION_VALIDATE(extension());
+
+  // In theory, it'd be safe to just pass in `world_id` without validating it
+  // because we should never have an invalid world ID in the preferences. But
+  // that's a fragile guarantee and may change if e.g. we start using reserved
+  // world IDs. Validate to be on the safe side.
+  std::string error;
+  if (!IsValidWorldId(params->world_id, &error)) {
+    return RespondNow(Error(std::move(error)));
+  }
 
   UserScriptWorldConfigurationManager::Get(browser_context())
-      ->SetUserScriptWorldInfo(*extension(), world_id, csp, enable_messaging);
+      ->ClearUserScriptWorldInfo(*extension(), params->world_id);
 
   return RespondNow(NoArguments());
 }

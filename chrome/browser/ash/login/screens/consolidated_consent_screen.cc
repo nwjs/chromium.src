@@ -124,6 +124,7 @@ void RecordRecoveryOptinResult(
 }  // namespace
 
 std::string ConsolidatedConsentScreen::GetResultString(Result result) {
+  // LINT.IfChange(UsageMetrics)
   switch (result) {
     case Result::ACCEPTED:
       return "AcceptedRegular";
@@ -134,6 +135,7 @@ std::string ConsolidatedConsentScreen::GetResultString(Result result) {
     case Result::NOT_APPLICABLE:
       return BaseScreen::kNotApplicable;
   }
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/oobe/histograms.xml)
 }
 
 ConsolidatedConsentScreen::ConsolidatedConsentScreen(
@@ -206,6 +208,7 @@ void ConsolidatedConsentScreen::ShowImpl() {
   Profile* profile = ProfileManager::GetActiveUserProfile();
   CHECK(profile);
 
+  // TODO(b/326605902): Evaluate whether ownership status callback is needed.
   DeviceSettingsService::Get()->GetOwnershipStatusAsync(
       base::BindOnce(&ConsolidatedConsentScreen::OnOwnershipStatusCheckDone,
                      weak_factory_.GetWeakPtr()));
@@ -317,6 +320,7 @@ void ConsolidatedConsentScreen::OnOwnershipStatusCheckDone(
   // user to sign in. Therefore, the current user would be the owner if the
   // device is not enterprise managed.
   bool is_managed = ash::InstallAttributes::Get()->IsEnterpriseManaged();
+
   if (status == DeviceSettingsService::OwnershipStatus::kOwnershipNone) {
     is_owner_ = !is_managed;
   } else if (status ==
@@ -328,14 +332,23 @@ void ConsolidatedConsentScreen::OnOwnershipStatusCheckDone(
   // unset.
   context()->is_owner_flow = is_owner_;
 
-  // If the user is not the owner and the owner disabled metrics, the user
-  // is not allowed to update the usage opt-in.
+  const bool is_demo = arc::IsArcDemoModeSetupFlow();
+
+  // TODO(b/325492473): Evaluate logic to remove/simplify SetUsageOptInHidden.
   if (view_) {
-    view_->SetUsageOptinHidden(!is_owner_.value_or(false) &&
-                               !StatsReportingController::Get()->IsEnabled());
+    // All new accounts are shown the default usage opt-in.
+    // Managed devices have their consent set by the device enterprise policy.
+    // Unmanaged devices have UMA opted in by default with the ability to
+    // toggle. view_->SetUsageMode() controls setting the value of the users
+    // consent and controls whether the user is able to toggle the consent.
+    //
+    // If the consent screen is shown during other managed device flows,
+    // the ability of the users to toggle the usage opt-in will be disabled
+    // while still showing the value set by the enterprise.
+    // Unmanaged user flows enable the option for the user to toggle.
+    view_->SetUsageOptinHidden(false);
   }
 
-  const bool is_demo = arc::IsArcDemoModeSetupFlow();
   const bool is_negotiation_needed =
       ash::features::IsCrosPrivacyHubLocationEnabled()
           ? true
@@ -372,6 +385,14 @@ void ConsolidatedConsentScreen::OnOwnershipStatusCheckDone(
     }
 
     UpdateMetricsMode(is_enabled, is_managed);
+  }
+
+  // Demo devices are not enterprise enrolled until after the consolidated
+  // consent screen is shown, even though they're considered managed devices.
+  // If in demo mode enrollment, show the UMA opt in toggle, but disable the
+  // ability to toggle it since it's value is set by the enterprise policy.
+  if (is_demo) {
+    UpdateMetricsMode(/*enabled=*/true, /*managed=*/true);
   }
 }
 

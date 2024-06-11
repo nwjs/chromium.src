@@ -225,7 +225,7 @@ bool CanOpenTaskManager();
 // Opens task manager UI. Note that |browser| can be nullptr as input.
 void OpenTaskManager(Browser* browser);
 void OpenFeedbackDialog(Browser* browser,
-                        FeedbackSource source,
+                        feedback::FeedbackSource source,
                         const std::string& description_template = std::string(),
                         const std::string& category_tag = std::string());
 void ToggleBookmarkBar(Browser* browser);
@@ -233,7 +233,6 @@ void ToggleShowFullURLs(Browser* browser);
 void ShowAppMenu(Browser* browser);
 void ShowAvatarMenu(Browser* browser);
 void OpenUpdateChromeDialog(Browser* browser);
-void ToggleDistilledView(Browser* browser);
 bool CanRequestTabletSite(content::WebContents* current_tab);
 bool IsRequestingTabletSite(Browser* browser);
 void ToggleRequestTabletSite(Browser* browser);
@@ -266,16 +265,12 @@ bool ShouldInterceptChromeURLNavigationInIncognito(Browser* browser,
 void ProcessInterceptedChromeURLNavigationInIncognito(Browser* browser,
                                                       const GURL& url);
 
-// Follows/unfollows a web feed associated with the main frame of specified web
-// contents.
-void FollowSite(content::WebContents* web_contents);
-void UnfollowSite(content::WebContents* web_contents);
-
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 // Triggers the Screen AI layout extraction to be run once on the |browser|.
 void RunScreenAILayoutExtraction(Browser* browser);
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
+void ExecLensOverlay(Browser* browser);
 void ExecLensRegionSearch(Browser* browser);
 
 // Commerce

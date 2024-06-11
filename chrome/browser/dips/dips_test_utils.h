@@ -180,7 +180,9 @@ class FrameCookieAccessObserver : public content::WebContentsObserver {
 
 class RedirectChainObserver : public DIPSService::Observer {
  public:
-  explicit RedirectChainObserver(DIPSService* service, GURL final_url);
+  explicit RedirectChainObserver(DIPSService* service,
+                                 GURL final_url,
+                                 size_t expected_match_count = 1);
   ~RedirectChainObserver() override;
 
   void OnChainHandled(const DIPSRedirectChainInfoPtr& chain) override;
@@ -191,6 +193,8 @@ class RedirectChainObserver : public DIPSService::Observer {
 
  private:
   GURL final_url_;
+  size_t match_count_ = 0;
+  size_t expected_match_count_;
   base::RunLoop run_loop_;
   base::ScopedObservation<DIPSService, Observer> obs_{this};
 };
@@ -293,5 +297,8 @@ class OpenedWindowObserver : public content::WebContentsObserver {
 // Simulate a mouse click and wait for the main frame to receive user
 // activation.
 void SimulateMouseClickAndWait(content::WebContents*);
+
+// Make a UrlAndSourceId with a randomly-generated UKM source id.
+UrlAndSourceId MakeUrlAndId(std::string_view url);
 
 #endif  // CHROME_BROWSER_DIPS_DIPS_TEST_UTILS_H_

@@ -4,8 +4,9 @@
 
 #include "components/sync_preferences/common_syncable_prefs_database.h"
 
+#include <string_view>
+
 #include "base/containers/fixed_flat_map.h"
-#include "base/strings/string_piece.h"
 #include "build/build_config.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
@@ -21,6 +22,7 @@
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+#include "components/saved_tab_groups/pref_names.h"
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/translate/core/browser/translate_pref_names.h"
 #include "components/translate/core/browser/translate_prefs.h"
@@ -37,6 +39,7 @@ namespace syncable_prefs_ids {
 // tools/metrics/histograms/metadata/sync/enums.xml. When removing an unused
 // enumerator, comment it out here, making it clear the value was previously
 // used, and add "(obsolete)" to the corresponding entry in enums.xml.
+// LINT.IfChange(SyncablePref)
 enum {
   kSyncablePrefForTesting = 0,  // For tests.
   kAutofillCreditCardEnabled = 1,
@@ -110,6 +113,8 @@ enum {
   kAutofillPaymentCardBenefits = 69,
   // kCloseTabs = 70, (no longer synced)
   kShowTabGroupsInBookmarkBar = 71,
+  kFacilitatedPaymentsPix = 72,
+  kSyncableTabGroups = 73,
   // See components/sync_preferences/README.md about adding new entries here.
   // vvvvv IMPORTANT! vvvvv
   // Note to the reviewer: IT IS YOUR RESPONSIBILITY to ensure that new syncable
@@ -117,11 +122,12 @@ enum {
   // guidance and escalation path in case anything is unclear.
   // ^^^^^ IMPORTANT! ^^^^^
 };
+// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncablePref)
 }  // namespace syncable_prefs_ids
 
 // List of syncable preferences common across platforms.
 constexpr auto kCommonSyncablePrefsAllowlist =
-    base::MakeFixedFlatMap<base::StringPiece, SyncablePrefMetadata>({
+    base::MakeFixedFlatMap<std::string_view, SyncablePrefMetadata>({
         {autofill::prefs::kAutofillCreditCardEnabled,
          {syncable_prefs_ids::kAutofillCreditCardEnabled, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
@@ -277,9 +283,18 @@ constexpr auto kCommonSyncablePrefsAllowlist =
          {syncable_prefs_ids::kSyncableHistorySensitiveListPrefForTesting,
           syncer::PREFERENCES, PrefSensitivity::kSensitiveRequiresHistory,
           MergeBehavior::kNone}},
+        {tab_groups::prefs::kSyncableTabGroups,
+         {syncable_prefs_ids::kSyncableTabGroups, syncer::PREFERENCES,
+          sync_preferences::PrefSensitivity::kNone,
+          sync_preferences::MergeBehavior::kNone}},
         {autofill::prefs::kAutofillPaymentCardBenefits,
          {syncable_prefs_ids::kAutofillPaymentCardBenefits, syncer::PREFERENCES,
           PrefSensitivity::kNone, MergeBehavior::kNone}},
+#if BUILDFLAG(IS_ANDROID)
+        {autofill::prefs::kFacilitatedPaymentsPix,
+         {syncable_prefs_ids::kFacilitatedPaymentsPix, syncer::PREFERENCES,
+          PrefSensitivity::kNone, MergeBehavior::kNone}},
+#endif  // BUILDFLAG(IS_ANDROID)
     });
 
 }  // namespace
@@ -294,7 +309,7 @@ CommonSyncablePrefsDatabase::GetSyncablePrefMetadata(
   return it->second;
 }
 
-std::map<base::StringPiece, SyncablePrefMetadata>
+std::map<std::string_view, SyncablePrefMetadata>
 CommonSyncablePrefsDatabase::GetAllSyncablePrefsForTest() const {
   return {kCommonSyncablePrefsAllowlist.begin(),
           kCommonSyncablePrefsAllowlist.end()};

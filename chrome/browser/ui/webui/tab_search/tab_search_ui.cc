@@ -17,7 +17,6 @@
 #include "chrome/browser/ui/webui/tab_search/tab_search_prefs.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_sync_handler.h"
 #include "chrome/browser/ui/webui/webui_util.h"
-#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/tab_search_resources.h"
 #include "chrome/grit/tab_search_resources_map.h"
@@ -78,18 +77,10 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"createGroups", IDS_TAB_ORGANIZATION_CREATE_GROUPS},
       {"dismiss", IDS_TAB_ORGANIZATION_DISMISS},
       {"editAriaLabel", IDS_TAB_ORGANIZATION_EDIT_ARIA_LABEL},
-      {"failureBodyGenericPreLink",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GENERIC_PRE_LINK},
-      {"failureBodyGroupingPreLink",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GROUPING_PRE_LINK},
-      {"failureBodyGenericLink",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GENERIC_LINK},
-      {"failureBodyGroupingLink",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GROUPING_LINK},
-      {"failureBodyGenericPostLink",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GENERIC_POST_LINK},
-      {"failureBodyGroupingPostLink",
-       IDS_TAB_ORGANIZATION_FAILURE_BODY_GROUPING_POST_LINK},
+      {"failureBodyGeneric",
+       IDS_TAB_ORGANIZATION_FAILURE_BODY_GENERIC},
+      {"failureBodyGrouping",
+       IDS_TAB_ORGANIZATION_FAILURE_BODY_GROUPING},
       {"failureTitleGeneric", IDS_TAB_ORGANIZATION_FAILURE_TITLE_GENERIC},
       {"failureTitleGrouping", IDS_TAB_ORGANIZATION_FAILURE_TITLE_GROUPING},
       {"inProgressTitle", IDS_TAB_ORGANIZATION_IN_PROGRESS_TITLE},
@@ -145,7 +136,6 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
       {"thumbsDown", IDS_TAB_ORGANIZATION_THUMBS_DOWN},
       {"thumbsUp", IDS_TAB_ORGANIZATION_THUMBS_UP},
   };
-  webui::SetupChromeRefresh2023(source);
   source->AddLocalizedStrings(kStrings);
   source->AddBoolean("useRipples", views::PlatformStyle::kUseRipples);
 
@@ -188,6 +178,9 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
   source->AddBoolean(
       "multiTabOrganizationEnabled",
       base::FeatureList::IsEnabled(features::kMultiTabOrganization));
+  source->AddBoolean(
+      "tabReorganizationDividerEnabled",
+      base::FeatureList::IsEnabled(features::kTabReorganizationDivider));
 
   source->AddInteger("tabIndex", TabIndex());
   source->AddBoolean("showTabOrganizationFRE", ShowTabOrganizationFRE());

@@ -58,12 +58,13 @@ class SubscriptionInterceptingPermissionManager
       content::RenderProcessHost* render_process_host,
       content::RenderFrameHost* render_frame_host,
       const GURL& requesting_origin,
+      bool should_include_device_status,
       base::RepeatingCallback<void(blink::mojom::PermissionStatus)> callback)
       override {
     SubscriptionId result =
         permissions::PermissionManager::SubscribeToPermissionStatusChange(
             permission, render_process_host, render_frame_host,
-            requesting_origin, callback);
+            requesting_origin, should_include_device_status, callback);
     std::move(callback_).Run();
 
     return result;
@@ -122,7 +123,7 @@ IN_PROC_BROWSER_TEST_F(PermissionManagerBrowserTest,
           "/permissions/permissions_service_worker.html")));
   run_loop.Run();
 
-  // TODO(crbug.com/889276) : We are relying here on the test shuts down to
+  // TODO(crbug.com/40092556) : We are relying here on the test shuts down to
   // close the browser. We need to make the test more robust by closing the
   // browser explicitly.
 }

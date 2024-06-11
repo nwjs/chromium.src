@@ -1366,6 +1366,9 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
       if (blocked_reason.blocked_by_enterprise_policy) {
         url += "&ci_blockedByEnterprisePolicy=true";
       }
+      if (blocked_reason.disallow_logging) {
+        url += "&ci_disallowLogging=true";
+      }
       if (blocked_reason.blocked_by_geo) {
         url += "&ci_blockedByGeo=true";
       }
@@ -1395,6 +1398,11 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
     url += "&hasOtherClients=true";
   if (browser_connection)
     url += "&browserConnection=true";
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUnsafelyDisableDevToolsSelfXssWarnings)) {
+    url += "&disableSelfXssWarnings=true";
+  }
 
 #if BUILDFLAG(CHROME_FOR_TESTING)
   url += "&isChromeForTesting=true";
@@ -1713,7 +1721,7 @@ void DevToolsWindow::SetIsDocked(bool dock_requested) {
     // okay to just null the raw pointer here.
     browser_ = nullptr;
 
-    // TODO(crbug.com/1221967): WebContents should be removed with a reason
+    // TODO(crbug.com/40773744): WebContents should be removed with a reason
     // other than kInsertedIntoOtherTabStrip, it's not getting reinserted into
     // another tab strip.
     std::unique_ptr<tabs::TabModel> tab_model =

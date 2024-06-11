@@ -260,8 +260,8 @@
     "META": {"sizes": {"includes": [50]}},
     "includes": [3100],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/commerce/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/commerce/product_specifications/resources.grd": {
+    "META": {"sizes": {"includes": [20]}},
     "includes": [3120],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/compose/resources.grd": {
@@ -400,7 +400,7 @@
     "includes": [3800],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/customize_chrome/resources.grd": {
-    "META": {"sizes": {"includes": [60],}},
+    "META": {"sizes": {"includes": [70],}},
     "includes": [3820],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/history_clusters/resources.grd": {
@@ -408,11 +408,11 @@
     "includes": [3840],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/read_anything/resources.grd": {
-    "META": {"sizes": {"includes": [10],}},
+    "META": {"sizes": {"includes": [15],}},
     "includes": [3860],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/reading_list/resources.grd": {
-    "META": {"sizes": {"includes": [10],}},
+    "META": {"sizes": {"includes": [15],}},
     "includes": [3880],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/shared/resources.grd": {
@@ -705,7 +705,7 @@
     "includes": [5320],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/lens/overlay/resources.grd": {
-    "META": {"sizes": {"includes": [30]}},
+    "META": {"sizes": {"includes": [60]}},
     "includes": [5340],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/lens/overlay/search_bubble/resources.grd": {
@@ -816,6 +816,10 @@
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/files_internals/ash_files_internals_resources.grd": {
     "META": {"sizes": {"includes": [10],}},
     "includes": [5980],
+  },
+  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/focus_mode/resources/resources.grd": {
+    "META": {"sizes": {"includes": [10],}},
+    "includes": [5990],
   },
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/common/resources/resources.grd": {
     "META": {"sizes": {"includes": [1000]}},
@@ -1142,28 +1146,25 @@
     "META": {"sizes": {"includes": [200],}},
     "includes": [7480],
   },
-  "ash/shortcut_viewer/shortcut_viewer_strings.grd": {
-    "messages": [7500],
-  },
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/shimless_rma/resources/resources.grd": {
     "META": {"sizes": {"includes": [100],}},
-    "includes": [7520],
+    "includes": [7500],
   },
   "ash/keyboard/ui/keyboard_resources.grd": {
-    "includes": [7540],
+    "includes": [7520],
   },
   "ash/login/resources/login_resources.grd": {
-    "structures": [7560],
+    "structures": [7540],
   },
   "ash/public/cpp/resources/ash_public_unscaled_resources.grd": {
-    "includes": [7580],
-    "structures": [7600],
+    "includes": [7560],
+    "structures": [7580],
   },
   "ash/system/mahi/resources/mahi_resources.grd": {
-    "structures":[7620],
+    "structures":[7600],
   },
   "ash/system/video_conference/resources/vc_resources.grd": {
-    "structures":[7630],
+    "structures":[7620],
   },
   "base/tracing/protos/resources.grd": {
     "includes": [7640],

@@ -26,7 +26,6 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
-#include "base/types/optional_util.h"
 #include "base/values.h"
 #include "components/attribution_reporting/parsing_utils.h"
 #include "components/attribution_reporting/privacy_math.h"
@@ -155,15 +154,11 @@ class AttributionInteropParser {
     AttributionInteropOutput output;
 
     {
-      std::optional<base::Value> reports = dict.Extract(kReportsKey);
       auto context = PushContext(kReportsKey);
-      ParseListOfDicts(base::OptionalToPtr(reports),
-                       [&](base::Value::Dict report) {
-                         ParseReport(std::move(report), output.reports);
-                       });
+      ParseListOfDicts(dict.Find(kReportsKey), [&](base::Value::Dict report) {
+        ParseReport(std::move(report), output.reports);
+      });
     }
-
-    CheckUnknown(dict);
 
     if (has_error_) {
       return base::unexpected(error_stream_.str());
@@ -172,7 +167,7 @@ class AttributionInteropParser {
   }
 
   base::expected<void, std::string> ParseConfig(
-      const base::Value::Dict& dict,
+      base::Value::Dict& dict,
       AttributionInteropConfig& interop_config,
       bool required) && {
     interop_config.needs_cross_app_web =
@@ -256,7 +251,27 @@ class AttributionInteropParser {
           base::Minutes(aggregatable_report_delay_span);
     }
 
-    // TODO(linnan): Parse null reports rate if it's supported in interop tests.
+    {
+      static constexpr char kAggregationCoordinatorOrigins[] =
+          "aggregation_coordinator_origins";
+      auto context = PushContext(kAggregationCoordinatorOrigins);
+      base::Value* values = dict.Find(kAggregationCoordinatorOrigins);
+      if (values) {
+        // Ensure that the list is replaced, not unioned, when being merged.
+        interop_config.aggregation_coordinator_origins.clear();
+      }
+
+      ParseList(
+          values,
+          [&](base::Value v) {
+            if (std::optional<SuitableOrigin> origin = ParseOrigin(&v)) {
+              interop_config.aggregation_coordinator_origins.emplace_back(
+                  std::move(*origin));
+            }
+          },
+          required,
+          /*allow_empty=*/false);
+    }
 
     if (has_error_) {
       return base::unexpected(error_stream_.str());
@@ -281,9 +296,13 @@ class AttributionInteropParser {
   }
 
   void ParseList(base::Value* values,
-                 base::FunctionRef<void(base::Value)> parse_element) {
+                 base::FunctionRef<void(base::Value)> parse_element,
+                 bool required = true,
+                 bool allow_empty = true) {
     if (!values) {
-      *Error() << "must be present";
+      if (required) {
+        *Error() << "must be present";
+      }
       return;
     }
 
@@ -293,8 +312,11 @@ class AttributionInteropParser {
       return;
     }
 
-    size_t index = 0;
-    for (auto& value : *list) {
+    if (list->empty() && !allow_empty) {
+      *Error() << "must be non-empty";
+    }
+
+    for (size_t index = 0; auto& value : *list) {
       auto index_context = PushContext(index);
       parse_element(std::move(value));
       index++;
@@ -323,10 +345,12 @@ class AttributionInteropParser {
 
     std::optional<SuitableOrigin> context_origin;
     AttributionReportingEligibility eligibility;
+    bool fenced = false;
 
     ParseDict(dict, kRegistrationRequestKey, [&](base::Value::Dict reg_req) {
       context_origin = ParseOrigin(reg_req, "context_origin");
       eligibility = ParseEligibility(reg_req);
+      fenced = ParseBool(reg_req, "fenced").value_or(false);
     });
 
     if (has_error_) {
@@ -335,7 +359,7 @@ class AttributionInteropParser {
 
     events.emplace_back(
         time, AttributionSimulationEvent::StartRequest(
-                  request_id, std::move(*context_origin), eligibility));
+                  request_id, std::move(*context_origin), eligibility, fenced));
 
     std::optional<base::Time> default_response_time = time;
 
@@ -413,11 +437,9 @@ class AttributionInteropParser {
                   /*previous_time=*/reports.empty() ? base::Time::Min()
                                                     : reports.back().time,
                   /*strictly_greater=*/false);
-    dict.Remove(kReportTimeKey);
 
-    if (std::optional<base::Value> url = dict.Extract(kReportUrlKey);
-        const std::string* str = url ? url->GetIfString() : nullptr) {
-      report.url = GURL(*str);
+    if (const std::string* url = dict.FindString(kReportUrlKey)) {
+      report.url = GURL(*url);
     }
     if (!report.url.is_valid()) {
       auto context = PushContext(kReportUrlKey);
@@ -431,27 +453,23 @@ class AttributionInteropParser {
       *Error() << "required";
     }
 
-    CheckUnknown(dict);
-
     if (!has_error_) {
       reports.push_back(std::move(report));
-    }
-  }
-
-  void CheckUnknown(const base::Value::Dict& dict) {
-    for (auto [key, value] : dict) {
-      auto context = PushContext(key);
-      *Error() << "unknown field";
     }
   }
 
   std::optional<SuitableOrigin> ParseOrigin(const base::Value::Dict& dict,
                                             std::string_view key) {
     auto context = PushContext(key);
+    return ParseOrigin(dict.Find(key));
+  }
 
+  std::optional<SuitableOrigin> ParseOrigin(const base::Value* v) {
     std::optional<SuitableOrigin> origin;
-    if (const std::string* s = dict.FindString(key)) {
-      origin = SuitableOrigin::Deserialize(*s);
+    if (v) {
+      if (const std::string* s = v->GetIfString()) {
+        origin = SuitableOrigin::Deserialize(*s);
+      }
     }
 
     if (!origin.has_value()) {
@@ -799,7 +817,7 @@ ParseAttributionInteropInput(base::Value::Dict input) {
 }
 
 base::expected<AttributionInteropConfig, std::string>
-ParseAttributionInteropConfig(const base::Value::Dict& dict) {
+ParseAttributionInteropConfig(base::Value::Dict dict) {
   AttributionInteropConfig config;
   RETURN_IF_ERROR(
       AttributionInteropParser().ParseConfig(dict, config, /*required=*/true));
@@ -807,7 +825,7 @@ ParseAttributionInteropConfig(const base::Value::Dict& dict) {
 }
 
 base::expected<void, std::string> MergeAttributionInteropConfig(
-    const base::Value::Dict& dict,
+    base::Value::Dict dict,
     AttributionInteropConfig& config) {
   return AttributionInteropParser().ParseConfig(dict, config,
                                                 /*required=*/false);
@@ -880,12 +898,13 @@ base::expected<AttributionInteropRun, std::string> AttributionInteropRun::Parse(
   AttributionInteropRun run;
   run.config = default_config;
 
-  if (const base::Value* api_config = dict.Find("api_config")) {
-    const base::Value::Dict* config_dict = api_config->GetIfDict();
+  if (base::Value* api_config = dict.Find("api_config")) {
+    base::Value::Dict* config_dict = api_config->GetIfDict();
     if (!config_dict) {
       return base::unexpected("api_config must be a dict");
     }
-    RETURN_IF_ERROR(MergeAttributionInteropConfig(*config_dict, run.config));
+    RETURN_IF_ERROR(
+        MergeAttributionInteropConfig(std::move(*config_dict), run.config));
   }
 
   std::optional<base::Value> input = dict.Extract("input");
@@ -907,5 +926,21 @@ AttributionInteropRun::AttributionInteropRun(AttributionInteropRun&&) = default;
 
 AttributionInteropRun& AttributionInteropRun::operator=(
     AttributionInteropRun&&) = default;
+
+AttributionInteropConfig::AttributionInteropConfig() = default;
+
+AttributionInteropConfig::~AttributionInteropConfig() = default;
+
+AttributionInteropConfig::AttributionInteropConfig(
+    const AttributionInteropConfig&) = default;
+
+AttributionInteropConfig& AttributionInteropConfig::operator=(
+    const AttributionInteropConfig&) = default;
+
+AttributionInteropConfig::AttributionInteropConfig(AttributionInteropConfig&&) =
+    default;
+
+AttributionInteropConfig& AttributionInteropConfig::operator=(
+    AttributionInteropConfig&&) = default;
 
 }  // namespace content

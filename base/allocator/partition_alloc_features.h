@@ -59,10 +59,10 @@ enum class DanglingPtrType {
 extern const BASE_EXPORT base::FeatureParam<DanglingPtrType>
     kDanglingPtrTypeParam;
 
-#if BUILDFLAG(USE_STARSCAN)
+#if PA_BUILDFLAG(USE_STARSCAN)
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocPCScan);
 #endif
-#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+#if PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocPCScanBrowserOnly);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocPCScanRendererOnly);
 
@@ -72,12 +72,12 @@ BASE_EXPORT int GetPartitionAllocLargeThreadCacheSizeValueForLowRAMAndroid();
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocLargeEmptySlotSpanRing);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocSchedulerLoopQuarantine);
-// Scheduler Loop Quarantine's capacity in bytes.
+// Scheduler Loop Quarantine's per-thread capacity in bytes.
 extern const BASE_EXPORT base::FeatureParam<int>
-    kPartitionAllocSchedulerLoopQuarantineCapacity;
+    kPartitionAllocSchedulerLoopQuarantineBranchCapacity;
 
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocZappingByFreeFlags);
-#endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+#endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
 enum class BackupRefPtrEnabledProcesses {
   // BRP enabled only in the browser process.
@@ -124,7 +124,8 @@ enum class BucketDistributionMode : uint8_t {
 // Parameter for 'kPartitionAllocMakeFreeNoOpOnShutdown' feature which
 // controls when free() becomes a no-op during Shutdown()
 enum class WhenFreeBecomesNoOp {
-  // Allocator is inserted either before, in, or after shutdown threads
+  kBeforePreShutdown,
+  kBeforeHaltingStartupTracingController,
   kBeforeShutDownThreads,
   kInShutDownThreads,
   kAfterShutDownThreads,
@@ -209,7 +210,7 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocDisableBRPInBufferPartition);
 // This feature is additionally gated behind a buildflag because
 // pool offset freelists cannot be represented when PartitionAlloc uses
 // 32-bit pointers.
-#if BUILDFLAG(USE_FREELIST_POOL_OFFSETS)
+#if PA_BUILDFLAG(USE_FREELIST_DISPATCHER)
 BASE_EXPORT BASE_DECLARE_FEATURE(kUsePoolOffsetFreelists);
 #endif
 

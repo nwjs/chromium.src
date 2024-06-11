@@ -343,10 +343,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromAutofillDropdown"));
       break;
-    case AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromNTPContentSuggestions"));
-      break;
     case AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromReSigninInfobar"));
@@ -394,6 +390,7 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_SIGNIN_CHOICE_REMEMBERED:
     case AccessPoint::ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case AccessPoint::ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
       NOTREACHED() << "Access point " << static_cast<int>(access_point)
                    << " is not supposed to log signin user actions.";
       break;
@@ -469,6 +466,14 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromNotificationsOptInScreenContentToggle"));
       break;
+    case AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromNtpIdentityDisc"));
+      break;
+    case AccessPoint::ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+      base::RecordAction(base::UserMetricsAction(
+          "Signin_Signin_FromOidcRedirectionInterception"));
+      break;
     case AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED();
       break;
@@ -534,10 +539,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_AUTOFILL_DROPDOWN:
       base::RecordAction(
           base::UserMetricsAction("Signin_Impression_FromAutofillDropdown"));
-      break;
-    case AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS:
-      base::RecordAction(base::UserMetricsAction(
-          "Signin_Impression_FromNTPContentSuggestions"));
       break;
     case AccessPoint::ACCESS_POINT_RESIGNIN_INFOBAR:
       base::RecordAction(
@@ -633,6 +634,9 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::ACCESS_POINT_TAB_ORGANIZATION:
     case AccessPoint::ACCESS_POINT_PROFILE_MENU_SIGNOUT_CONFIRMATION_PROMPT:
     case AccessPoint::ACCESS_POINT_SETTINGS_SIGNOUT_CONFIRMATION_PROMPT:
+    case AccessPoint::ACCESS_POINT_NTP_IDENTITY_DISC:
+    case AccessPoint::ACCESS_POINT_OIDC_REDIRECTION_INTERCEPTION:
+    case AccessPoint::ACCESS_POINT_WEBAUTHN_MODAL_DIALOG:
     case AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Signin_Impression_From* user actions"
                    << " are not recorded for access point "

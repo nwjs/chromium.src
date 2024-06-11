@@ -112,7 +112,6 @@ import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
-import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.features.start_surface.StartSurface.OnTabSelectingListener;
 import org.chromium.chrome.features.tasks.TasksSurfaceProperties;
 import org.chromium.components.browser_ui.styles.ChromeColors;
@@ -275,7 +274,7 @@ public class StartSurfaceMediatorUnitTest {
         mCardTabSwitcherModuleVisibilityObserverCaptor.getValue().startedHiding();
         mCardTabSwitcherModuleVisibilityObserverCaptor.getValue().finishedHiding();
 
-        // TODO(crbug.com/1020223): Test the other SurfaceMode.NO_START_SURFACE operations.
+        // TODO(crbug.com/40105674): Test the other SurfaceMode.NO_START_SURFACE operations.
     }
 
     @Test
@@ -325,10 +324,10 @@ public class StartSurfaceMediatorUnitTest {
 
         mCardTabSwitcherModuleVisibilityObserverCaptor.getValue().finishedHiding();
 
-        // TODO(crbug.com/1020223): Test the other SurfaceMode.SINGLE_PANE operations.
+        // TODO(crbug.com/40105674): Test the other SurfaceMode.SINGLE_PANE operations.
     }
 
-    // TODO(crbug.com/1020223): Test SurfaceMode.SINGLE_PANE and SurfaceMode.TWO_PANES modes.
+    // TODO(crbug.com/40105674): Test SurfaceMode.SINGLE_PANE and SurfaceMode.TWO_PANES modes.
     @Test
     public void hideTabCardWithNoTabs() {
         doReturn(false).when(mTabModelSelector).isIncognitoSelected();
@@ -357,12 +356,12 @@ public class StartSurfaceMediatorUnitTest {
         assertThat(mPropertyModel.get(IS_SHOWING_OVERVIEW), equalTo(true));
         assertThat(mPropertyModel.get(IS_TAB_CARD_VISIBLE), equalTo(true));
 
-        mTabModelObserverCaptor.getValue().willCloseTab(mock(Tab.class), false, true);
+        mTabModelObserverCaptor.getValue().willCloseTab(mock(Tab.class), true);
         assertThat(mPropertyModel.get(IS_SHOWING_OVERVIEW), equalTo(true));
         assertThat(mPropertyModel.get(IS_TAB_CARD_VISIBLE), equalTo(true));
 
         doReturn(1).when(mNormalTabModel).getCount();
-        mTabModelObserverCaptor.getValue().willCloseTab(mock(Tab.class), false, true);
+        mTabModelObserverCaptor.getValue().willCloseTab(mock(Tab.class), true);
         assertThat(mPropertyModel.get(IS_SHOWING_OVERVIEW), equalTo(true));
         assertThat(mPropertyModel.get(IS_TAB_CARD_VISIBLE), equalTo(false));
     }
@@ -935,11 +934,8 @@ public class StartSurfaceMediatorUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.SURFACE_POLISH)
-    public void testInitializeLogoWhenSurfacePolishedMoveDownLogoEnabled() {
+    public void testInitializeLogoWhenSurfacePolished() {
         when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(true);
-
-        StartSurfaceConfiguration.SURFACE_POLISH_MOVE_DOWN_LOGO.setForTesting(true);
-        Assert.assertTrue(ReturnToChromeUtil.moveDownLogo());
 
         StartSurfaceMediator mediator =
                 createStartSurfaceMediator(/* hadWarmStart= */ false, /* useMagicStack= */ false);
@@ -948,22 +944,6 @@ public class StartSurfaceMediatorUnitTest {
         verify(mLogoContainerView).setVisibility(View.VISIBLE);
         verify(mLogoBridge).getCurrentLogo(anyLong(), any(), any());
         Assert.assertTrue(mediator.isLogoVisible());
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.SURFACE_POLISH)
-    public void testNotInitializeLogoWhenSurfacePolishedMoveDownLogoDisabled() {
-        when(mTemplateUrlService.doesDefaultSearchEngineHaveLogo()).thenReturn(true);
-
-        StartSurfaceConfiguration.SURFACE_POLISH_MOVE_DOWN_LOGO.setForTesting(false);
-        Assert.assertFalse(ReturnToChromeUtil.moveDownLogo());
-
-        StartSurfaceMediator mediator =
-                createStartSurfaceMediator(/* hadWarmStart= */ false, /* useMagicStack= */ false);
-        showHomepageAndVerify(mediator);
-
-        verify(mLogoContainerView, times(0)).setVisibility(View.VISIBLE);
-        Assert.assertFalse(mediator.isLogoVisible());
     }
 
     @Test
@@ -1085,9 +1065,7 @@ public class StartSurfaceMediatorUnitTest {
 
     @Test
     public void testDefaultSearchEngineChanged() {
-        boolean isMoveDownLogoEnabled =
-                ChromeFeatureList.sSurfacePolish.isEnabled()
-                        && StartSurfaceConfiguration.SURFACE_POLISH_MOVE_DOWN_LOGO.getValue();
+        boolean isMoveDownLogoEnabled = ChromeFeatureList.sSurfacePolish.isEnabled();
         mProfileSupplier = new ObservableSupplierImpl<>();
         StartSurfaceMediator mediator =
                 createStartSurfaceMediator(/* hadWarmStart= */ false, /* useMagicStack= */ false);

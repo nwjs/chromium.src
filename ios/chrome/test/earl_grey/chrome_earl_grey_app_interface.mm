@@ -1199,10 +1199,6 @@ base::RepeatingClosure ExpectNCall(uint32_t n, base::RepeatingClosure closure) {
   return IsCustomWebKitLoadedIfRequested();
 }
 
-+ (BOOL)isLoadSimulatedRequestAPIEnabled {
-  return web::features::IsLoadSimulatedRequestAPIEnabled();
-}
-
 + (BOOL)isMobileModeByDefault {
   web::UserAgentType webClientUserAgent =
       web::GetWebClient()->GetDefaultUserAgent(
@@ -1232,8 +1228,8 @@ base::RepeatingClosure ExpectNCall(uint32_t n, base::RepeatingClosure closure) {
   return base::FeatureList::IsEnabled(kEnableWebChannels);
 }
 
-+ (BOOL)isBottomOmniboxSteadyStateEnabled {
-  return IsBottomOmniboxSteadyStateEnabled();
++ (BOOL)isTabGroupSyncEnabled {
+  return IsTabGroupSyncEnabled();
 }
 
 #pragma mark - ContentSettings

@@ -197,8 +197,6 @@ void ScrollbarThemeOverlay::PaintThumb(GraphicsContext& context,
     part = WebThemeEngine::kPartScrollbarVerticalThumb;
 
   blink::WebThemeEngine::ScrollbarThumbExtraParams scrollbar_thumb;
-  scrollbar_thumb.scrollbar_theme = static_cast<WebScrollbarOverlayColorTheme>(
-      scrollbar.GetScrollbarOverlayColorTheme());
   if (scrollbar.ScrollbarThumbColor().has_value()) {
     scrollbar_thumb.thumb_color =
         scrollbar.ScrollbarThumbColor().value().toSkColor4f().toSkColor();
@@ -212,6 +210,7 @@ void ScrollbarThemeOverlay::PaintThumb(GraphicsContext& context,
   }
 
   blink::WebThemeEngine::ExtraParams params(scrollbar_thumb);
+
   mojom::blink::ColorScheme color_scheme = scrollbar.UsedColorScheme();
   const ui::ColorProvider* color_provider =
       scrollbar.GetScrollableArea()->GetColorProvider(color_scheme);

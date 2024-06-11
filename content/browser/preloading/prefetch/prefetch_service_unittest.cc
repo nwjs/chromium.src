@@ -1158,7 +1158,7 @@ TEST_F(PrefetchServiceTest, SuccessCase_Embedder) {
                       {{"X-Testing", "Hello World"}}, kHTMLBody);
 
   // Verify that the prefetch request was successful.
-  // TODO(crbug.com/1448731): Revise current helper functions (ExpectPrefetch*)
+  // TODO(crbug.com/40269462): Revise current helper functions (ExpectPrefetch*)
   // for browser-initiated prefetch.
   histogram_tester.ExpectUniqueSample(
       "PrefetchProxy.Prefetch.ExistingPrefetchWithMatchingURL", false, 1);
@@ -2005,7 +2005,7 @@ TEST_F(PrefetchServiceTest, EligibleSameOriginPrefetchCanHaveExistingCookies) {
   ExpectServingMetricsSuccess(/*required_private_prefetch_proxy=*/false);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_FailedCookiesChangedAfterPrefetchStarted \
   DISABLED_FailedCookiesChangedAfterPrefetchStarted
@@ -2069,7 +2069,7 @@ TEST_F(PrefetchServiceTest, MAYBE_FailedCookiesChangedAfterPrefetchStarted) {
                         .expect_ready_time = true});
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_SameOriginPrefetchIgnoresProxyRequirement \
   DISABLED_SameOriginPrefetchIgnoresProxyRequirement
@@ -2109,7 +2109,7 @@ TEST_F(PrefetchServiceTest, MAYBE_SameOriginPrefetchIgnoresProxyRequirement) {
   ExpectServingMetricsSuccess();
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_NotEligibleSameSiteCrossOriginPrefetchRequiresProxy \
   DISABLED_NotEligibleSameSiteCrossOriginPrefetchRequiresProxy
@@ -2702,7 +2702,7 @@ TEST_F(PrefetchServiceAlwaysMakeDecoyRequestTest,
   ExpectServingMetrics(PrefetchStatus::kPrefetchIneligibleUserHasCookies);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_RedirectDecoyRequest DISABLED_RedirectDecoyRequest
 #else
@@ -2769,6 +2769,8 @@ class PrefetchServiceIncognitoTest : public PrefetchServiceTest {
 };
 
 TEST_F(PrefetchServiceIncognitoTest, OffTheRecordIneligible) {
+  base::test::ScopedFeatureList disable_otr;
+  disable_otr.InitAndDisableFeature(features::kPrefetchOffTheRecord);
   base::HistogramTester histogram_tester;
 
   MakePrefetchService(
@@ -2792,6 +2794,27 @@ TEST_F(PrefetchServiceIncognitoTest, OffTheRecordIneligible) {
       PrefetchStatus::kPrefetchIneligibleBrowserContextOffTheRecord);
 }
 
+TEST_F(PrefetchServiceIncognitoTest, OffTheRecordEligible) {
+  base::test::ScopedFeatureList enable_otr;
+  enable_otr.InitAndEnableFeature(features::kPrefetchOffTheRecord);
+  base::HistogramTester histogram_tester;
+
+  MakePrefetchService(
+      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
+
+  MakePrefetchOnMainFrame(
+      GURL("https://example.com/"),
+      PrefetchType(PreloadingTriggerType::kSpeculationRule,
+                   /*use_prefetch_proxy=*/false,
+                   blink::mojom::SpeculationEagerness::kEager));
+  task_environment()->RunUntilIdle();
+
+  VerifyCommonRequestState(GURL("https://example.com/"));
+  MakeResponseAndWait(net::HTTP_OK, net::OK, kHTMLMimeType,
+                      /*use_prefetch_proxy=*/false, {}, kHTMLBody);
+  ExpectPrefetchSuccess(histogram_tester, std::size(kHTMLBody));
+}
+
 TEST_F(PrefetchServiceTest, NonDefaultStoragePartition) {
   base::HistogramTester histogram_tester;
 
@@ -2802,7 +2825,7 @@ TEST_F(PrefetchServiceTest, NonDefaultStoragePartition) {
   MakePrefetchOnMainFrame(
       GURL("https://example.com"),
       PrefetchType(PreloadingTriggerType::kSpeculationRule,
-                   /*use_prefetch_proxy=*/true,
+                   /*use_prefetch_proxy=*/false,
                    blink::mojom::SpeculationEagerness::kEager));
   task_environment()->RunUntilIdle();
 
@@ -2814,7 +2837,9 @@ TEST_F(PrefetchServiceTest, NonDefaultStoragePartition) {
   NavigateInitiatedByRenderer(GURL("https://example.com"));
   EXPECT_FALSE(GetPrefetchToServe(GURL("https://example.com")));
   ExpectServingMetrics(
-      PrefetchStatus::kPrefetchIneligibleNonDefaultStoragePartition);
+      PrefetchStatus::kPrefetchIneligibleNonDefaultStoragePartition,
+      /*prefetch_header_latency=*/false,
+      /*required_private_prefetch_proxy=*/false);
 }
 
 class PrefetchServiceStreamingURLLoaderTest : public PrefetchServiceTest {
@@ -2829,7 +2854,7 @@ class PrefetchServiceStreamingURLLoaderTest : public PrefetchServiceTest {
   }
 };
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_StreamingURLLoaderSuccessCase \
   DISABLED_StreamingURLLoaderSuccessCase
@@ -2918,7 +2943,7 @@ class PrefetchServiceNoVarySearchTest : public PrefetchServiceTest {
   }
 };
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_NoVarySearchSuccessCase DISABLED_NoVarySearchSuccessCase
 #else
@@ -3021,7 +3046,7 @@ class PrefetchServiceAllowRedirectTest : public PrefetchServiceTest {
   }
 };
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_PrefetchEligibleRedirect DISABLED_PrefetchEligibleRedirect
 #else
@@ -3077,7 +3102,7 @@ TEST_F(PrefetchServiceAllowRedirectTest, MAYBE_PrefetchEligibleRedirect) {
       "PrefetchProxy.AfterClick.RedirectChainSize", 2, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_IneligibleRedirectCookies DISABLED_IneligibleRedirectCookies
 #else
@@ -3136,7 +3161,7 @@ TEST_F(PrefetchServiceAllowRedirectTest, MAYBE_IneligibleRedirectCookies) {
       "PrefetchProxy.AfterClick.RedirectChainSize", 0);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_IneligibleRedirectServiceWorker \
   DISABLED_IneligibleRedirectServiceWorker
@@ -3201,7 +3226,7 @@ TEST_F(PrefetchServiceAllowRedirectTest,
       "PrefetchProxy.AfterClick.RedirectChainSize", 0);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_InvalidRedirect DISABLED_InvalidRedirect
 #else
@@ -3253,7 +3278,7 @@ TEST_F(PrefetchServiceAllowRedirectTest, MAYBE_InvalidRedirect) {
       "PrefetchProxy.AfterClick.RedirectChainSize", 0);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_PrefetchSameOriginEligibleRedirect \
   DISABLED_PrefetchSameOriginEligibleRedirect
@@ -3314,8 +3339,8 @@ TEST_F(PrefetchServiceAllowRedirectTest,
       "PrefetchProxy.AfterClick.RedirectChainSize", 2, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
-// TODO(https://crbug.com/1439986): This test is testing the current
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
+// TODO(crbug.com/40265797): This test is testing the current
 // functionality, and should be removed while fixing this bug.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_IneligibleSameSiteCrossOriginRequiresProxyRedirect \
@@ -3379,7 +3404,7 @@ TEST_F(PrefetchServiceAllowRedirectTest,
       "PrefetchProxy.AfterClick.RedirectChainSize", 0);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_RedirectDefaultToIsolatedNetworkContextTransition \
   DISABLED_RedirectDefaultToIsolatedNetworkContextTransition
@@ -3446,7 +3471,7 @@ TEST_F(PrefetchServiceAllowRedirectTest,
       "PrefetchProxy.AfterClick.RedirectChainSize", 2, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_RedirectDefaultToIsolatedNetworkContextTransitionWithProxy \
   DISABLED_RedirectDefaultToIsolatedNetworkContextTransitionWithProxy
@@ -3516,7 +3541,7 @@ TEST_F(PrefetchServiceAllowRedirectTest,
       "PrefetchProxy.AfterClick.RedirectChainSize", 2, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_RedirectIsolatedToDefaultNetworkContextTransition \
   DISABLED_RedirectIsolatedToDefaultNetworkContextTransition
@@ -3601,7 +3626,7 @@ class PrefetchServiceAllowRedirectsAndAlwaysBlockUntilHeadTest
   }
 };
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_RedirectNetworkContextTransitionBlockUntilHead \
   DISABLED_RedirectNetworkContextTransitionBlockUntilHead
@@ -3678,7 +3703,7 @@ TEST_F(PrefetchServiceAllowRedirectsAndAlwaysBlockUntilHeadTest,
       "PrefetchProxy.AfterClick.RedirectChainSize", 2, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_RedirectInsufficientReferrerPolicy \
   DISABLED_RedirectInsufficientReferrerPolicy
@@ -3754,7 +3779,7 @@ class PrefetchServiceNeverBlockUntilHeadTest : public PrefetchServiceTest {
   }
 };
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_HeadNotReceived DISABLED_HeadNotReceived
 #else
@@ -3830,7 +3855,7 @@ class PrefetchServiceAlwaysBlockUntilHeadTest
   }
 };
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_BlockUntilHeadReceived DISABLED_BlockUntilHeadReceived
 #else
@@ -3896,7 +3921,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest, MAYBE_BlockUntilHeadReceived) {
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_NVSBlockUntilHeadReceived DISABLED_NVSBlockUntilHeadReceived
 #else
@@ -3977,7 +4002,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_NVSBlockUntilHeadReceivedNoMatchNoNVSHeader \
   DISABLED_NVSBlockUntilHeadReceivedNoMatchNoNVSHeader
@@ -4058,7 +4083,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_NVSBlockUntilHeadReceivedNoMatchByNVSHeader \
   DISABLED_NVSBlockUntilHeadReceivedNoMatchByNVSHeader
@@ -4140,7 +4165,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_FailedCookiesChangedWhileBlockUntilHead \
   DISABLED_FailedCookiesChangedWhileBlockUntilHead
@@ -4229,7 +4254,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_FailedTimeoutWhileBlockUntilHead \
   DISABLED_FailedTimeoutWhileBlockUntilHead
@@ -4288,7 +4313,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_FailedTimeoutWhileBlockUntilHeadForOlderNavigation \
   DISABLED_FailedTimeoutWhileBlockUntilHeadForOlderNavigation
@@ -4386,7 +4411,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_FailedNetErrorWhileBlockUntilHead \
   DISABLED_FailedNetErrorWhileBlockUntilHead
@@ -4599,7 +4624,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadWithTimeoutTest,
       true, 1);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_MultipleGetPrefetchToServe DISABLED_MultipleGetPrefetchToServe
 #else
@@ -5088,7 +5113,7 @@ TEST_F(PrefetchServiceNewLimitsTest, PrefetchReset) {
   EXPECT_FALSE(prefetch);
 
   // Try reprefetching |url|.
-  // TODO(crbug.com/1445086): Ideally this prefetch would be requeued
+  // TODO(crbug.com/40064525): Ideally this prefetch would be requeued
   // automatically.
   candidates.clear();
   candidates.push_back(candidate.Clone());
@@ -5469,7 +5494,7 @@ class PrefetchServiceWaitForMultiplePrefetchesBlockedUntilHeadTest
   }
 };
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_CASTOS)
 #define MAYBE_NVSBlockUntilHeadReceivedOneMatchOneTimeout \
   DISABLED_NVSBlockUntilHeadReceivedOneMatchOneTimeout
@@ -5594,7 +5619,7 @@ TEST_P(PrefetchServiceWaitForMultiplePrefetchesBlockedUntilHeadTest,
       true, 2);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_CASTOS)
 #define MAYBE_FailedCookiesChangedAfterPrefetchStartedTimedoutNVSHintPrefetch \
   DISABLED_FailedCookiesChangedAfterPrefetchStartedTimedoutNVSHintPrefetch
@@ -5677,7 +5702,7 @@ TEST_P(PrefetchServiceWaitForMultiplePrefetchesBlockedUntilHeadTest,
                        /*required_private_prefetch_proxy=*/false);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_CASTOS)
 #define MAYBE_FailedCookiesChangedAfterPrefetchStartedNVSHintPrefetch \
   DISABLED_FailedCookiesChangedAfterPrefetchStartedNVSHintPrefetch
@@ -5787,7 +5812,7 @@ TEST_P(PrefetchServiceWaitForMultiplePrefetchesBlockedUntilHeadTest,
                        /*required_private_prefetch_proxy=*/false);
 }
 
-// TODO(crbug.com/1396460): Test flaky on lacros trybots.
+// TODO(crbug.com/40249481): Test flaky on lacros trybots.
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_CASTOS)
 #define MAYBE_NVSBlockUntilHeadReceivedMultipleMatchesByNVSHint \
   DISABLED_NVSBlockUntilHeadReceivedMultipleMatchesByNVSHint
@@ -6126,6 +6151,45 @@ TEST_F(PrefetchServiceClientHintsTest, CrossSiteAll) {
   ASSERT_TRUE(pending);
   EXPECT_TRUE(pending->request.headers.HasHeader("Sec-CH-UA"));
   EXPECT_TRUE(pending->request.headers.HasHeader("Sec-CH-Viewport-Width"));
+}
+
+TEST_F(PrefetchServiceTest, CancelWhileBlockedOnHead) {
+  MakePrefetchService(
+      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>());
+  NavigateAndCommit(GURL("https://example.com/"));
+
+  GURL next_url("https://example.com/two");
+  MakePrefetchOnMainFrame(
+      next_url,
+      PrefetchType(PreloadingTriggerType::kSpeculationRule,
+                   /*use_prefetch_proxy=*/false,
+                   blink::mojom::SpeculationEagerness::kEager),
+      blink::mojom::Referrer(GURL("https://example.com/"),
+                             network::mojom::ReferrerPolicy::kStrictOrigin));
+  task_environment()->RunUntilIdle();
+
+  // Start a navigation to the URL (one must be running for GetPrefetchToServe
+  // to work, at present).
+  NavigateInitiatedByRenderer(next_url);
+
+  // Try to access the outcome of the prefetch, like the serving path does.
+  base::test::TestFuture<PrefetchContainer::Reader> future;
+  GetPrefetchToServe(future, next_url, MainDocumentToken());
+  EXPECT_FALSE(future.IsReady());
+
+  // Cancel the prefetch.
+  auto* prefetch_document_manager =
+      PrefetchDocumentManager::GetOrCreateForCurrentDocument(main_rfh());
+  std::vector<blink::mojom::SpeculationCandidatePtr> candidates;
+  prefetch_document_manager->ProcessCandidates(candidates, nullptr);
+  task_environment()->RunUntilIdle();
+
+  // If all goes well, the service has reported that the prefetch cannot be
+  // served. This could be changed in the future to instead wait for the
+  // prefetch rather than cancelling it, but what's key here is that it doesn't
+  // hang.
+  ASSERT_TRUE(future.IsReady());
+  EXPECT_FALSE(future.Get());
 }
 
 }  // namespace

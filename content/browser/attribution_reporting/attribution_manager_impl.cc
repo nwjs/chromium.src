@@ -133,9 +133,6 @@ const base::TimeDelta kPrivacySandboxAttestationsTimeout = base::Minutes(5);
 // While the class does not make large changes to the underlying database, it
 // is responsible for notifying the `AttributionStorage` when the browser comes
 // back online, which mutates report times for some scheduled reports.
-//
-// TODO(apaseltiner): Consider making this class an observer to allow it to
-// manage when to schedule things.
 class AttributionReportScheduler : public ReportSchedulerTimer::Delegate {
  public:
   AttributionReportScheduler(
@@ -510,7 +507,7 @@ AttributionManagerImpl::AttributionManagerImpl(
     : AttributionManagerImpl(
           storage_partition,
           user_data_directory,
-          // TODO(https://crbug.com/1444525): consider reducing this number when
+          // TODO(crbug.com/40267739): consider reducing this number when
           // os registrations will include multiple items.
           /*max_pending_events=*/1000,
           std::move(special_storage_policy),
@@ -747,7 +744,7 @@ void AttributionManagerImpl::PrepareNextEvent() {
       RenderFrameHost::FromID(pending_events_.front().rfh_id), source_origin,
       destination_origin, &**reporting_origin);
 
-  // TODO(https://crbug.com/1501357): Clean up `can_bypass` after the cookie
+  // TODO(crbug.com/40941634): Clean up `can_bypass` after the cookie
   // deprecation experiment.
   bool can_bypass = false;
   if (registration_allowed && cookie_origin &&
@@ -1581,14 +1578,20 @@ void AttributionManagerImpl::NotifyOsRegistration(
 void AttributionManagerImpl::OnOsRegistration(
     const std::vector<bool>& is_debug_key_allowed,
     const OsRegistration& registration,
-    bool success) {
+    const std::vector<bool>& success) {
+  const size_t num_items = registration.registration_items.size();
+
+  CHECK_EQ(num_items, is_debug_key_allowed.size());
+  CHECK_EQ(num_items, success.size());
+
   MaybeSendVerboseDebugReports(registration);
 
   const base::Time now = base::Time::Now();
-  auto result = success ? OsRegistrationResult::kPassedToOs
-                        : OsRegistrationResult::kRejectedByOs;
 
-  for (size_t i = 0; i < is_debug_key_allowed.size(); ++i) {
+  for (size_t i = 0; i < num_items; ++i) {
+    auto result = success[i] ? OsRegistrationResult::kPassedToOs
+                             : OsRegistrationResult::kRejectedByOs;
+
     NotifyOsRegistration(now, registration.registration_items[i],
                          registration.top_level_origin, is_debug_key_allowed[i],
                          registration.GetType(), result);

@@ -35,7 +35,7 @@
 #include "ash/wm/desks/templates/saved_desk_presenter.h"
 #include "ash/wm/desks/templates/saved_desk_util.h"
 #include "ash/wm/overview/overview_controller.h"
-#include "ash/wm/overview/overview_focus_cycler.h"
+#include "ash/wm/overview/overview_focus_cycler_old.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_metrics.h"
 #include "ash/wm/overview/overview_session.h"
@@ -78,12 +78,12 @@ namespace {
 // Duration of delay when Bento Bar Desk Button is clicked.
 constexpr base::TimeDelta kAnimationDelayDuration = base::Milliseconds(100);
 
-OverviewFocusCycler* GetFocusCycler() {
+OverviewFocusCyclerOld* GetFocusCycler() {
   auto* overview_controller = Shell::Get()->overview_controller();
   if (!overview_controller || !overview_controller->InOverviewSession()) {
     return nullptr;
   }
-  return overview_controller->overview_session()->focus_cycler();
+  return overview_controller->overview_session()->focus_cycler_old();
 }
 
 // Check whether there are any external keyboards.
@@ -126,8 +126,9 @@ void MaybeSetupBackgroundView(DeskBarViewBase* bar_view) {
   auto* layer = view->layer();
   layer->SetFillsBoundsOpaquely(false);
 
-  if (IsForestFeatureEnabled() && !type_is_desk_button) {
-    // Forests feature needs a transparent desks bar background. Still needs the
+  if ((features::IsOakFeatureEnabled() || IsForestFeatureEnabled()) &&
+      !type_is_desk_button) {
+    // Oak feature needs a transparent desks bar background. Still needs the
     // view layer to perform animations.
     return;
   }
@@ -195,7 +196,7 @@ class DeskBarScrollViewLayout : public views::LayoutManager {
     const ShelfAlignment shelf_alignment =
         Shelf::ForWindow(bar_view_->root_)->alignment();
     const gfx::Rect preferred_bounds =
-        gfx::Rect(bar_view_->CalculatePreferredSize());
+        gfx::Rect(bar_view_->CalculatePreferredSize({}));
     const gfx::Rect current_bounds = gfx::Rect(bar_view_->size());
     gfx::Rect new_bounds = preferred_bounds;
     if (shelf_alignment == ShelfAlignment::kBottom) {
@@ -399,6 +400,12 @@ class DeskBarScrollViewLayout : public views::LayoutManager {
 
   // views::LayoutManager:
   gfx::Size GetPreferredSize(const views::View* host) const override {
+    return GetPreferredSize(host, {});
+  }
+
+  gfx::Size GetPreferredSize(
+      const views::View* host,
+      const views::SizeBounds& available_size) const override {
     int width = 0;
     std::vector<views::View*> child_views;
 
@@ -624,8 +631,9 @@ int DeskBarViewBase::GetPreferredBarHeight(aura::Window* root,
         height = kDeskBarZeroStateHeight;
       } else {
         height = DeskPreviewView::GetHeight(root) +
-                 (IsForestFeatureEnabled() ? kExpandedDeskBarHeightWithOak
-                                           : kDeskBarNonPreviewAllocatedHeight);
+                 (features::IsOakFeatureEnabled() || IsForestFeatureEnabled()
+                      ? kExpandedDeskBarHeightWithOak
+                      : kDeskBarNonPreviewAllocatedHeight);
       }
       break;
   }
@@ -1246,9 +1254,8 @@ void DeskBarViewBase::EndDragDesk(DeskMiniView* mini_view, bool end_by_user) {
   Shell::Get()->desks_controller()->UpdateDesksDefaultNames();
   Shell::Get()->cursor_manager()->SetCursor(ui::mojom::CursorType::kPointer);
 
-  // We update combine desks tooltips here to reflect the updated desk default
-  // names.
-  MaybeUpdateCombineDesksTooltips();
+  // The desk action button tooltips may need an update.
+  MaybeUpdateDeskActionButtonTooltips();
 
   // Stop scroll even if the desk is on the scroll arrow buttons.
   left_scroll_button_->OnDeskHoverEnd();
@@ -1280,7 +1287,7 @@ void DeskBarViewBase::OnDeskAdded(const Desk* desk, bool from_undo) {
   const bool is_expanding_bar_view =
       new_desk_button_->state() == DeskIconButton::State::kZero;
   UpdateNewMiniViews(/*initializing_bar_view=*/false, is_expanding_bar_view);
-  MaybeUpdateCombineDesksTooltips();
+  MaybeUpdateDeskActionButtonTooltips();
   if (!DesksController::Get()->CanCreateDesks()) {
     new_desk_button_->SetEnabled(/*enabled=*/false);
   }
@@ -1358,7 +1365,7 @@ void DeskBarViewBase::OnDeskRemoved(const Desk* desk) {
     PerformDeskBarRemoveDeskAnimation(this, old_background_bounds);
   }
   PerformDeskBarChildViewShiftAnimation(this, views_previous_x_map);
-  MaybeUpdateCombineDesksTooltips();
+  MaybeUpdateDeskActionButtonTooltips();
 }
 
 void DeskBarViewBase::OnDeskReordered(int old_index, int new_index) {
@@ -1378,7 +1385,7 @@ void DeskBarViewBase::OnDeskReordered(int old_index, int new_index) {
 
   // Call the animation function after reorder the mini views.
   PerformReorderDeskMiniViewAnimation(old_index, new_index, mini_views_);
-  MaybeUpdateCombineDesksTooltips();
+  MaybeUpdateDeskActionButtonTooltips();
 }
 
 void DeskBarViewBase::OnDeskActivationChanged(const Desk* activated,
@@ -1393,7 +1400,7 @@ void DeskBarViewBase::OnDeskActivationChanged(const Desk* activated,
 
 void DeskBarViewBase::OnDeskNameChanged(const Desk* desk,
                                         const std::u16string& new_name) {
-  MaybeUpdateCombineDesksTooltips();
+  MaybeUpdateDeskActionButtonTooltips();
 }
 
 void DeskBarViewBase::UpdateNewMiniViews(bool initializing_bar_view,
@@ -1692,14 +1699,25 @@ void DeskBarViewBase::OnLibraryButtonPressed() {
                                          root);
 }
 
-void DeskBarViewBase::MaybeUpdateCombineDesksTooltips() {
+void DeskBarViewBase::MaybeUpdateDeskActionButtonTooltips() {
+  auto* desk_controller = DesksController::Get();
   for (ash::DeskMiniView* mini_view : mini_views_) {
-    // If desk is being removed, do not update the tooltip.
-    if (mini_view->desk()->is_desk_being_removed()) {
+    auto* desk = mini_view->desk();
+    if (desk->is_desk_being_removed()) {
       continue;
     }
-    mini_view->desk_action_view()->combine_desks_button()->UpdateTooltip(
-        DesksController::Get()->GetCombineDesksTargetName(mini_view->desk()));
+
+    int desk_index = desk_controller->GetDeskIndex(desk);
+    auto* desk_action_view = mini_view->desk_action_view();
+    const std::u16string combine_desk_tooltip =
+        desk_controller->GetCombineDesksTargetName(desk);
+    const std::u16string close_desk_tooltip =
+        desk->name().empty() && desk_index != -1
+            ? desk_controller->GetDeskDefaultName(desk_index)
+            : desk->name();
+    desk_action_view->combine_desks_button()->UpdateTooltip(
+        combine_desk_tooltip);
+    desk_action_view->close_all_button()->UpdateTooltip(close_desk_tooltip);
   }
 }
 

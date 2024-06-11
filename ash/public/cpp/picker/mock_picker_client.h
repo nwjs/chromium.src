@@ -38,7 +38,11 @@ class ASH_PUBLIC_EXPORT MockPickerClient : public PickerClient {
                CrosSearchResultsCallback callback),
               (override));
   MOCK_METHOD(void, StopCrosQuery, (), (override));
-  MOCK_METHOD(void, ShowEditor, (), (override));
+  MOCK_METHOD(ShowEditorCallback, CacheEditorContext, (), (override));
+  MOCK_METHOD(void,
+              GetSuggestedEditorResults,
+              (SuggestedEditorResultsCallback callback),
+              (override));
   MOCK_METHOD(void,
               GetRecentLocalFileResults,
               (RecentFilesCallback),
@@ -51,6 +55,7 @@ class ASH_PUBLIC_EXPORT MockPickerClient : public PickerClient {
               GetSuggestedLinkResults,
               (SuggestedLinksCallback),
               (override));
+  MOCK_METHOD(bool, IsFeatureAllowedForDogfood, (), (override));
 };
 
 }  // namespace ash

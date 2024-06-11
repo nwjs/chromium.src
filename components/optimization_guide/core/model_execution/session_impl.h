@@ -15,8 +15,10 @@
 #include "base/timer/timer.h"
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
+#include "components/optimization_guide/core/model_execution/safety_config.h"
 #include "components/optimization_guide/core/model_execution/substitution.h"
 #include "components/optimization_guide/core/optimization_guide_model_executor.h"
+#include "components/optimization_guide/proto/model_quality_metadata.pb.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -33,59 +35,6 @@ using ExecuteRemoteFn = base::RepeatingCallback<void(
     const google::protobuf::MessageLite&,
     std::unique_ptr<proto::LogAiDataRequest>,
     OptimizationGuideModelExecutionResultCallback)>;
-
-class SafetyConfig final {
- public:
-  SafetyConfig();
-  explicit SafetyConfig(std::optional<proto::FeatureTextSafetyConfiguration>);
-  SafetyConfig(SafetyConfig&&);
-  SafetyConfig& operator=(SafetyConfig&&);
-  ~SafetyConfig();
-
-  bool IsMissingSafetyInfo(bool has_safety_info) const;
-  std::optional<uint32_t> TokenInterval() const;
-
-  // Whether the text is in a language not supported by the safety classifier,
-  // or the language could not be detected despite the classifier requiring one
-  // or more specific languages.
-  bool IsTextInUnsupportedOrUndeterminedLanguage(
-      const on_device_model::mojom::SafetyInfoPtr& safety_info) const;
-
-  // Whether scores indicate the output text is unsafe.
-  bool IsUnsafeText(
-      const on_device_model::mojom::SafetyInfoPtr& safety_info) const;
-
-  // The number of request safety checks to perform.
-  int NumRequestChecks() const;
-
-  // Constructs input for a request safety check.
-  // check_idx must be < NumRequestChecks().
-  std::optional<SubstitutionResult> GetRequestCheckInput(
-      int check_idx,
-      const google::protobuf::MessageLite& request_metadata) const;
-
-  // Whether this check is only for allowed languages.
-  bool IsRequestCheckLanguageOnly(int check_idx) const;
-
-  // Whether the language result for this check should be ignored.
-  bool ShouldIgnoreLanguageResultForRequestCheck(int check_idx) const;
-
-  // Evaluates scores for a request safety check.
-  // check_idx must be < NumRequestChecks().
-  bool IsRequestUnsafe(
-      int check_idx,
-      const on_device_model::mojom::SafetyInfoPtr& safety_info) const;
-
-  // Whether this config has a special raw output check.
-  bool HasRawOutputCheck() const;
-
-  // Get the input for the raw output check.
-  std::optional<SubstitutionResult> GetRawOutputCheckInput(
-      const std::string&) const;
-
- private:
-  std::optional<proto::FeatureTextSafetyConfiguration> proto_;
-};
 
 // Session implementation that uses either the on device model or the server
 // model.
@@ -249,10 +198,8 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
     proto::OnDeviceModelServiceResponse* MutableLoggedResponse();
 
     // Adds an execution info for the text safety model based on `this`.
-    void AddTextSafetyExecutionLogging(
-        const std::string& text,
-        const on_device_model::mojom::SafetyInfoPtr& safety_info,
-        bool is_unsafe);
+    void AddModelExecutionLog(
+        const proto::InternalOnDeviceModelExecutionInfo& log);
 
     // Resets all state related to a request.
     void ResetRequestState();
@@ -262,7 +209,6 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
     std::unique_ptr<ContextProcessor> context_processor;
     mojo::Receiver<on_device_model::mojom::StreamingResponder> receiver;
     std::string current_response;
-    on_device_model::mojom::SafetyInfoPtr current_safety_info;
     OptimizationGuideModelExecutionResultStreamingCallback callback;
     // If true, the context is added before execution. This is set to true if
     // a disconnect happens.
@@ -276,6 +222,22 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
     std::unique_ptr<ExecuteModelHistogramLogger> histogram_logger;
     // Used to log execution information for the request.
     std::unique_ptr<proto::LogAiDataRequest> log_ai_data_request;
+
+    // How many tokens (response chunks) have been added since the last safety
+    // evaluation was requested.
+    size_t num_unchecked_response_tokens = 0;
+
+    struct SafeRawOutput {
+      SafeRawOutput();
+      ~SafeRawOutput();
+      // How much of 'current_response' was checked.
+      size_t length = 0;
+      // The execution log for the check (if any).
+      std::optional<proto::InternalOnDeviceModelExecutionInfo> log;
+    };
+    // The longest response that has passed the raw output text safety check.
+    SafeRawOutput latest_safe_raw_output;
+
     // Whether the model response is complete.
     bool model_response_complete = false;
 
@@ -303,9 +265,12 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
   // Called when a on-device response was not received within the timeout.
   void OnSessionTimedOut();
 
+  // Calls SendResponse(kComplete) if we've received the full response and have
+  // finished checking raw output safety for it.
+  void MaybeSendCompleteResponse();
+
   // Sends `current_response_` to the client.
-  void SendResponse(ResponseType response_type,
-                    const std::string& safety_check_text);
+  void SendResponse(ResponseType response_type);
 
   void DestroyOnDeviceStateAndFallbackToRemote(ExecuteModelResult result);
 
@@ -336,14 +301,15 @@ class SessionImpl : public OptimizationGuideModelExecutor::Session,
   // Begins request execution (leads to OnResponse/OnComplete).
   void BeginRequestExecution(on_device_model::mojom::InputOptionsPtr options);
 
-  // Called to run the text safety remote fallback. Will invoke completion
-  // callback when done.
+  // Evaluates raw output safety.
+  // Will invoke SendResponse if evaluations are successful.
   void RunRawOutputSafetyCheck();
 
   // Called when output safety check completes.
   void OnRawOutputSafetyResult(
-    std::string safety_check_text,
-    on_device_model::mojom::SafetyInfoPtr safety_info);
+      std::string safety_check_text,
+      size_t raw_output_size,
+      on_device_model::mojom::SafetyInfoPtr safety_info);
 
   // Callback invoked when the text safety remote fallback response comes back.
   // Will invoke the session's completion callback and destroy state.

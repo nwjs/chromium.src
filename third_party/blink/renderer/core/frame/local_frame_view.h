@@ -101,6 +101,7 @@ class LayoutView;
 class LocalFrame;
 class MobileFriendlinessChecker;
 class Page;
+class PaginationState;
 class PaintArtifactCompositor;
 class PaintController;
 class PaintLayer;
@@ -437,6 +438,14 @@ class CORE_EXPORT LocalFrameView final
 
   void ForceLayoutForPagination(float maximum_shrink_factor);
 
+  const PaginationState* GetPaginationState() const {
+    return pagination_state_.Get();
+  }
+  PaginationState* GetPaginationState() { return pagination_state_.Get(); }
+
+  // Clean up after having been paginated.
+  void DestroyPaginationLayout();
+
   // Updates the fragment anchor element based on URL's fragment identifier.
   // Updates corresponding ':target' CSS pseudo class on the anchor element.
   // If |should_scroll| is passed it can be used to prevent scrolling/focusing
@@ -558,6 +567,8 @@ class CORE_EXPORT LocalFrameView final
   gfx::Rect FrameToDocument(const gfx::Rect&) const;
   PhysicalRect FrameToDocument(const PhysicalRect&) const;
 
+  void PrintPage(GraphicsContext&, wtf_size_t page_number, const CullRect&);
+
   // Normally a LocalFrameView synchronously paints during full lifecycle
   // updates, into the local frame root's PaintController. However, in some
   // cases (e.g. when printing) we need to paint the frame view into a
@@ -630,6 +641,8 @@ class CORE_EXPORT LocalFrameView final
                                     bool subtree_throttled,
                                     bool display_locked,
                                     bool recurse = false) override;
+
+  void SetThrottledForViewTransition(bool throttled);
 
   void BeginLifecycleUpdates();
 
@@ -1030,8 +1043,6 @@ class CORE_EXPORT LocalFrameView final
 
   DarkModeFilter& EnsureDarkModeFilter();
 
-  bool HasViewTransitionThrottlingRendering() const;
-
   void UpdateCanCompositeBackgroundAttachmentFixed();
 
   void EnqueueSnapChangingFromImplIfNecessary();
@@ -1081,6 +1092,7 @@ class CORE_EXPORT LocalFrameView final
   BoxModelObjectSet background_attachment_fixed_objects_;
   Member<FrameViewAutoSizeInfo> auto_size_info_;
 
+  Member<PaginationState> pagination_state_;
   gfx::Size layout_size_;
   bool layout_size_fixed_to_frame_size_;
 
@@ -1137,6 +1149,8 @@ class CORE_EXPORT LocalFrameView final
   // We won't defer again for the same document. This is only meaningful for
   // main frames.
   bool have_deferred_main_frame_commits_ = false;
+
+  bool throttled_for_view_transition_ = false;
 
   bool visual_viewport_or_overlay_needs_repaint_ = false;
 

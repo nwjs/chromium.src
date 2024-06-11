@@ -216,6 +216,10 @@ class VIEWS_EXPORT Label : public View,
   bool GetObscured() const;
   void SetObscured(bool obscured);
 
+  // Returns true if some portion of the text is not displayed because of
+  // clipping.
+  bool IsDisplayTextClipped() const;
+
   // Returns true if some portion of the text is not displayed, either because
   // of eliding or clipping.
   bool IsDisplayTextTruncated() const;
@@ -333,9 +337,6 @@ class VIEWS_EXPORT Label : public View,
   void ExecuteCommand(int command_id, int event_flags) override;
 
  protected:
-  // View:
-  gfx::Size CalculatePreferredSize() const final;
-
   // Create a single RenderText instance to actually be painted.
   virtual std::unique_ptr<gfx::RenderText> CreateRenderText() const;
 
@@ -448,7 +449,7 @@ class VIEWS_EXPORT Label : public View,
   bool ShouldShowDefaultTooltip() const;
 
   // Clears |display_text_| and updates |stored_selection_range_|.
-  // TODO(crbug.com/1103804) Most uses of this function are inefficient; either
+  // TODO(crbug.com/40704805) Most uses of this function are inefficient; either
   // replace with setting attributes on both RenderTexts or collapse them to one
   // RenderText.
   void ClearDisplayText();

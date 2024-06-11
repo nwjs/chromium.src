@@ -30,7 +30,6 @@ import org.chromium.chrome.browser.ui.signin.SigninUtils;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerDialogCoordinator;
 import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninCoordinator.Delegate;
-import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninProperties.FrePolicy;
 import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
@@ -93,9 +92,9 @@ public class FullscreenSigninMediator
     private boolean mInitialLoadCompleted;
 
     private AccountPickerDialogCoordinator mDialogCoordinator;
-    // TODO(crbug.com/1462558): Replace with CoreAccountInfo.
+    // TODO(crbug.com/40921927): Replace with CoreAccountInfo.
     private @Nullable String mSelectedAccountEmail;
-    // TODO(crbug.com/1462558): Replace with CoreAccountInfo.
+    // TODO(crbug.com/40921927): Replace with CoreAccountInfo.
     private @Nullable String mDefaultAccountEmail;
     private boolean mAllowMetricsAndCrashUploading;
 
@@ -229,10 +228,9 @@ public class FullscreenSigninMediator
                             + isSigninDisabledByPolicy);
             isMetricsReportingDisabledByPolicy =
                     !mPrivacyPreferencesManager.isUsageAndCrashReportingPermittedByPolicy();
-
-            final FrePolicy frePolicy = new FrePolicy();
-            frePolicy.metricsReportingDisabledByPolicy = isMetricsReportingDisabledByPolicy;
-            mModel.set(FullscreenSigninProperties.FRE_POLICY, frePolicy);
+            mModel.set(
+                    FullscreenSigninProperties.SHOW_ENTERPRISE_MANAGEMENT_NOTICE,
+                    mDelegate.shouldDisplayManagementNoticeOnManagedDevices());
         }
 
         boolean isSigninSupported =
@@ -484,11 +482,13 @@ public class FullscreenSigninMediator
     }
 
     /**
-     * Builds footer string dynamically.
-     * First line has a TOS link. Second line appears only if MetricsReporting is not
-     * disabled by policy.
+     * Builds footer string dynamically. Returns null if no footer text should be displayed. First
+     * line has a TOS link. Second line appears only if MetricsReporting is not disabled by policy.
      */
-    private SpannableString getFooterString(boolean isMetricsReportingDisabled) {
+    private @Nullable SpannableString getFooterString(boolean isMetricsReportingDisabled) {
+        if (!mDelegate.shouldDisplayFooterText()) {
+            return null;
+        }
         String footerString = mContext.getString(R.string.signin_fre_footer_tos);
 
         ArrayList<SpanApplier.SpanInfo> spans = new ArrayList<>();

@@ -36,12 +36,14 @@ constexpr const char kDeclinedSetupUserAction[] = "setup-declined";
 
 // static
 std::string MultiDeviceSetupScreen::GetResultString(Result result) {
+  // LINT.IfChange(UsageMetrics)
   switch (result) {
     case Result::NEXT:
       return "Next";
     case Result::NOT_APPLICABLE:
       return BaseScreen::kNotApplicable;
   }
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/oobe/histograms.xml)
 }
 
 MultiDeviceSetupScreen::MultiDeviceSetupScreen(
@@ -284,7 +286,8 @@ void MultiDeviceSetupScreen::OnGetGroupPrivateKeyStatus(
 void MultiDeviceSetupScreen::MaybeRecordQuickStartScreenClosed() {
   if (quick_start_metrics_ != nullptr) {
     quick_start_metrics_->RecordScreenClosed(
-        quick_start::QuickStartMetrics::ScreenName::kUnifiedSetup);
+        quick_start::QuickStartMetrics::ScreenName::kUnifiedSetup,
+        quick_start::QuickStartMetrics::ScreenClosedReason::kAdvancedInFlow);
   }
 }
 void MultiDeviceSetupScreen::RecordOobeMultideviceScreenSkippedReasonHistogram(

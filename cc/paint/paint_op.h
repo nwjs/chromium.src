@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/containers/span.h"
 #include "base/debug/alias.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
@@ -26,6 +27,7 @@
 #include "cc/paint/node_id.h"
 #include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_export.h"
+#include "cc/paint/paint_filter.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_record.h"
 #include "cc/paint/refcounted_buffer.h"
@@ -106,6 +108,7 @@ enum class PaintOpType : uint8_t {
   kSave,
   kSaveLayer,
   kSaveLayerAlpha,
+  kSaveLayerFilters,
   kScale,
   kSetMatrix,
   kSetNodeId,
@@ -119,7 +122,6 @@ CC_PAINT_EXPORT std::ostream& operator<<(std::ostream&, PaintOpType);
 class CC_PAINT_EXPORT PaintOp {
  public:
   uint8_t type;
-  uint16_t aligned_size;
 
   using SerializeOptions = PaintOpBuffer::SerializeOptions;
   using DeserializeOptions = PaintOpBuffer::DeserializeOptions;
@@ -135,6 +137,7 @@ class CC_PAINT_EXPORT PaintOp {
   void Raster(SkCanvas* canvas, const PlaybackParams& params) const;
   bool IsDrawOp() const { return g_is_draw_op[type]; }
   bool IsPaintOpWithFlags() const { return g_has_paint_flags[type]; }
+  uint16_t AlignedSize() const { return g_type_to_aligned_size[type]; }
 
   bool EqualsForTesting(const PaintOp& other) const;
 
@@ -259,6 +262,7 @@ class CC_PAINT_EXPORT PaintOp {
       static_cast<size_t>(PaintOpType::kLastPaintOpType) + 1;
   static bool g_is_draw_op[kNumOpTypes];
   static bool g_has_paint_flags[kNumOpTypes];
+  static uint16_t g_type_to_aligned_size[kNumOpTypes];
 
   static constexpr bool kIsDrawOp = false;
   static constexpr bool kHasPaintFlags = false;
@@ -488,8 +492,8 @@ class CC_PAINT_EXPORT DrawImageOp final : public PaintOpWithFlags {
                               SkCanvas* canvas,
                               const PlaybackParams& params);
   bool IsValid() const {
-    return flags.IsValid() && SkScalarIsFinite(scale_adjustment.width()) &&
-           SkScalarIsFinite(scale_adjustment.height());
+    return flags.IsValid() && std::isfinite(scale_adjustment.width()) &&
+           std::isfinite(scale_adjustment.height());
   }
   bool EqualsForTesting(const DrawImageOp& other) const;
   bool HasDiscardableImages() const;
@@ -530,8 +534,8 @@ class CC_PAINT_EXPORT DrawImageRectOp final : public PaintOpWithFlags {
                               const PlaybackParams& params);
   bool IsValid() const {
     return flags.IsValid() && src.isFinite() && dst.isFinite() &&
-           SkScalarIsFinite(scale_adjustment.width()) &&
-           SkScalarIsFinite(scale_adjustment.height());
+           std::isfinite(scale_adjustment.width()) &&
+           std::isfinite(scale_adjustment.height());
   }
   bool EqualsForTesting(const DrawImageRectOp& other) const;
   bool HasDiscardableImages() const;
@@ -1057,6 +1061,27 @@ class CC_PAINT_EXPORT SaveLayerAlphaOp final : public PaintOp {
 
  private:
   SaveLayerAlphaOp() : PaintOp(kType) {}
+};
+
+class CC_PAINT_EXPORT SaveLayerFiltersOp final : public PaintOpWithFlags {
+ public:
+  static constexpr PaintOpType kType = PaintOpType::kSaveLayerFilters;
+  explicit SaveLayerFiltersOp(base::span<sk_sp<PaintFilter>> filters,
+                              const PaintFlags& flags);
+  ~SaveLayerFiltersOp();
+  static void RasterWithFlags(const SaveLayerFiltersOp* op,
+                              const PaintFlags* flags,
+                              SkCanvas* canvas,
+                              const PlaybackParams& params);
+  bool IsValid() const { return true; }
+  bool EqualsForTesting(const SaveLayerFiltersOp& other) const;
+  bool HasSaveLayerOps() const { return true; }
+  HAS_SERIALIZATION_FUNCTIONS();
+
+  std::vector<sk_sp<PaintFilter>> filters;
+
+ private:
+  SaveLayerFiltersOp();
 };
 
 class CC_PAINT_EXPORT ScaleOp final : public PaintOp {

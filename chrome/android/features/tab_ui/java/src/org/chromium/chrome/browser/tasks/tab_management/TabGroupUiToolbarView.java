@@ -29,7 +29,6 @@ import androidx.core.widget.ImageViewCompat;
 
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.tab_ui.R;
-import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.widget.ChromeImageView;
@@ -107,7 +106,7 @@ public class TabGroupUiToolbarView extends FrameLayout {
         // This is equal to the animation duration of toolbar menu hiding.
         int showKeyboardDelay = 150;
         if (shouldShow) {
-            // TODO(crbug.com/1116644) Figure out why a call to show keyboard without delay still
+            // TODO(crbug.com/40144823) Figure out why a call to show keyboard without delay still
             // won't work when the window gets focus in onWindowFocusChanged call.
             // Wait until the current window has focus to show the keyboard. This is to deal with
             // the case where the keyboard showing is caused by toolbar menu. In this case, we need
@@ -160,13 +159,6 @@ public class TabGroupUiToolbarView extends FrameLayout {
     }
 
     void setIsIncognito(boolean isIncognito) {
-        @ColorInt
-        int primaryColor =
-                isIncognito
-                        ? getContext().getColor(R.color.dialog_bg_color_dark_baseline)
-                        : SemanticColorUtils.getDialogBgColor(getContext());
-        setPrimaryColor(primaryColor);
-
         @ColorRes
         int tintListRes =
                 isIncognito
@@ -176,7 +168,7 @@ public class TabGroupUiToolbarView extends FrameLayout {
         setTint(tintList);
     }
 
-    void setPrimaryColor(int color) {
+    void setContentBackgroundColor(int color) {
         mMainContent.setBackgroundColor(color);
         if (mFadingEdgeStart == null || mFadingEdgeEnd == null) return;
         mFadingEdgeStart.setColorFilter(color, PorterDuff.Mode.SRC_IN);

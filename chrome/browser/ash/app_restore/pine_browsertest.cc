@@ -9,6 +9,7 @@
 #include "ash/shell.h"
 #include "ash/style/system_dialog_delegate_view.h"
 #include "ash/test/ash_test_util.h"
+#include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_controller.h"
 #include "ash/wm/overview/overview_grid.h"
@@ -398,30 +399,35 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, ClickCancelButton) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
 }
 
-IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_TabInfo) {
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_TabInfoWithinLimit) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
 
   Browser* browser = CreateBrowser(ProfileManager::GetActiveUserProfile());
   EXPECT_EQ(1u, BrowserList::GetInstance()->size());
 
-  // Create two more urls in addition to the default "about:blank" tab.
-  for (const GURL& url :
-       {GURL("https://www.youtube.com/"), GURL("https://www.google.com/")}) {
-    content::TestNavigationObserver navigation_observer(url);
+  // Create four more urls in addition to the default "about:blank" tab. That
+  // tab will be last in the tab strip.
+  const std::vector<GURL> urls{
+      GURL("https://www.youtube.com/"), GURL("https://www.google.com/"),
+      GURL("https://www.waymo.com/"), GURL("https://x.company/")};
+  for (int i = 0; i < static_cast<int>(urls.size()); ++i) {
+    content::TestNavigationObserver navigation_observer(urls[i]);
     navigation_observer.StartWatchingNewWebContents();
-    chrome::AddTabAt(browser, url, /*index=*/-1,
+    chrome::AddTabAt(browser, urls[i], /*index=*/i,
                      /*foreground=*/false);
     navigation_observer.Wait();
   }
+
+  // Activate the third tab (waymo.com) so it becomes the most recent tab.
+  browser->tab_strip_model()->ActivateTabAt(2);
 
   // Immediate save to full restore file to bypass the 2.5 second throttle.
   AppLaunchInfoSaveWaiter::Wait();
 }
 
-// TODO(http://b/329152636): Update or add to this test to check that the
-// windows and tabs are listed with proper activation order.
-// Verify that the tab info that is sent to ash shell is as expected.
-IN_PROC_BROWSER_TEST_F(PineBrowserTest, TabInfo) {
+// Verify that the tab info that is sent to ash shell is as expected, when the
+// most recent active tab is one of the first five tabs.
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, TabInfoWithinLimit) {
   EXPECT_TRUE(BrowserList::GetInstance()->empty());
 
   // The pine dialog is built based on the values in this data structure.
@@ -430,11 +436,123 @@ IN_PROC_BROWSER_TEST_F(PineBrowserTest, TabInfo) {
   ASSERT_TRUE(pine_contents_data);
   const PineContentsData::AppsInfos& apps_infos =
       pine_contents_data->apps_infos;
+
   ASSERT_EQ(1u, apps_infos.size());
-  ASSERT_EQ(3u, apps_infos[0].tab_urls.size());
-  EXPECT_EQ(GURL(url::kAboutBlankURL), apps_infos[0].tab_urls[0]);
+  ASSERT_EQ(5u, apps_infos[0].tab_urls.size());
+
+  // As it was the most recently activated tab, waymo.com should appear first,
+  // with the other four tabs appearing afterwards in order.
+  EXPECT_EQ(GURL("https://www.waymo.com/"), apps_infos[0].tab_urls[0]);
   EXPECT_EQ(GURL("https://www.youtube.com/"), apps_infos[0].tab_urls[1]);
   EXPECT_EQ(GURL("https://www.google.com/"), apps_infos[0].tab_urls[2]);
+  EXPECT_EQ(GURL("https://x.company/"), apps_infos[0].tab_urls[3]);
+  EXPECT_EQ(GURL(url::kAboutBlankURL), apps_infos[0].tab_urls[4]);
+}
+
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_TabInfoOutsideLimit) {
+  EXPECT_TRUE(BrowserList::GetInstance()->empty());
+
+  Browser* browser = CreateBrowser(ProfileManager::GetActiveUserProfile());
+  EXPECT_EQ(1u, BrowserList::GetInstance()->size());
+
+  // Create six more urls in addition to the default "about:blank" tab. That tab
+  // will be last in the tab strip.
+  const std::vector<GURL> urls{
+      GURL("https://www.youtube.com/"), GURL("https://www.google.com/"),
+      GURL("https://www.waymo.com/"),   GURL("https://x.company/"),
+      GURL("https://docs.google.com/"), GURL("https://www.chromium.org/")};
+  for (int i = 0; i < static_cast<int>(urls.size()); ++i) {
+    content::TestNavigationObserver navigation_observer(urls[i]);
+    navigation_observer.StartWatchingNewWebContents();
+    chrome::AddTabAt(browser, urls[i], /*index=*/i,
+                     /*foreground=*/false);
+    navigation_observer.Wait();
+  }
+
+  // Activate the sixth tab (chromium.org) so it becomes the most recent tab.
+  browser->tab_strip_model()->ActivateTabAt(5);
+
+  // Immediate save to full restore file to bypass the 2.5 second throttle.
+  AppLaunchInfoSaveWaiter::Wait();
+}
+
+// Verify that the tab info that is sent to ash shell is as expected, when the
+// most recent active tab is outside of the first five tabs.
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, TabInfoOutsideLimit) {
+  EXPECT_TRUE(BrowserList::GetInstance()->empty());
+
+  // The pine dialog is built based on the values in this data structure.
+  const PineContentsData* pine_contents_data =
+      Shell::Get()->pine_controller()->pine_contents_data();
+  ASSERT_TRUE(pine_contents_data);
+  const PineContentsData::AppsInfos& apps_infos =
+      pine_contents_data->apps_infos;
+
+  // Even though there were seven tabs, we limit the number of tab URLs to five
+  // before `PineContentsData` is created.
+  ASSERT_EQ(1u, apps_infos.size());
+  ASSERT_EQ(5u, apps_infos[0].tab_urls.size());
+
+  // As it was the most recently activated tab, chromium.org should appear
+  // first, with the first four tabs in the tab strip appearing afterwards in
+  // order.
+  EXPECT_EQ(GURL("https://www.chromium.org/"), apps_infos[0].tab_urls[0]);
+  EXPECT_EQ(GURL("https://www.youtube.com/"), apps_infos[0].tab_urls[1]);
+  EXPECT_EQ(GURL("https://www.google.com/"), apps_infos[0].tab_urls[2]);
+  EXPECT_EQ(GURL("https://www.waymo.com/"), apps_infos[0].tab_urls[3]);
+  EXPECT_EQ(GURL("https://x.company/"), apps_infos[0].tab_urls[4]);
+}
+
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_AppInfo) {
+  EXPECT_TRUE(BrowserList::GetInstance()->empty());
+
+  // Create multiple SWAs that will be added to the restore data. Each SWA is
+  // activated when it is created, so the Print Management app should be the
+  // most recently active app, and the Media app should be the least recently
+  // active app.
+  Profile* profile = ProfileManager::GetActiveUserProfile();
+  test::InstallSystemAppsForTesting(profile);
+  test::CreateSystemWebApp(profile, SystemWebAppType::MEDIA);
+  test::CreateSystemWebApp(profile, SystemWebAppType::SETTINGS);
+  test::CreateSystemWebApp(profile, SystemWebAppType::CAMERA);
+  test::CreateSystemWebApp(profile, SystemWebAppType::PRINT_MANAGEMENT);
+  auto* browser_list = BrowserList::GetInstance();
+  ASSERT_EQ(4u, browser_list->size());
+
+  // Activate the Camera app so it appears at the front of the activation list.
+  browser_list->get(2u)->window()->Activate();
+  ASSERT_EQ(browser_list->GetLastActive(), browser_list->get(2u));
+
+  // Immediate save to full restore file to bypass the 2.5 second throttle.
+  AppLaunchInfoSaveWaiter::Wait();
+}
+
+// Verify that the app info that is sent to ash shell is as expected, with the
+// apps appearing in order from most recently used to least recently used.
+IN_PROC_BROWSER_TEST_F(PineBrowserTest, AppInfo) {
+  EXPECT_TRUE(BrowserList::GetInstance()->empty());
+
+  // The pine dialog is built based on the values in this data structure.
+  const PineContentsData* pine_contents_data =
+      Shell::Get()->pine_controller()->pine_contents_data();
+  ASSERT_TRUE(pine_contents_data);
+  const PineContentsData::AppsInfos& apps_infos =
+      pine_contents_data->apps_infos;
+
+  // The Camera app should appear first, and the rest of the apps should appear
+  // in the reverse of the order they were created. We can check each entry
+  // against a known SWA ID to verify. See
+  // `chrome/browser/web_applications/web_app_id_constants.h` for more IDs.
+  ASSERT_EQ(4u, apps_infos.size());
+
+  // Camera
+  EXPECT_EQ("njfbnohfdkmbmnjapinfcopialeghnmh", apps_infos[0].app_id);
+  // Print Management
+  EXPECT_EQ("fglkccnmnaankjodgccmiodmlkpaiodc", apps_infos[1].app_id);
+  // Settings
+  EXPECT_EQ("odknhmnlageboeamepcngndbggdpaobj", apps_infos[2].app_id);
+  // Media
+  EXPECT_EQ("jhdjimmaggjajfjphpljagpgkidjilnj", apps_infos[3].app_id);
 }
 
 IN_PROC_BROWSER_TEST_F(PineBrowserTest, PRE_ReenterOverviewPineSession) {

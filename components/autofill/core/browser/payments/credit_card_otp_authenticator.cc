@@ -43,7 +43,8 @@ void CreditCardOtpAuthenticator::OnUnmaskPromptAccepted(
         ClientBehaviorConstants::kShowingCardArtImageAndCardProductName);
   }
   if (DidDisplayBenefitForCard(*card_, *autofill_client_,
-                               *autofill_client_->GetPersonalDataManager())) {
+                               autofill_client_->GetPersonalDataManager()
+                                   ->payments_data_manager())) {
     unmask_request_->client_behavior_signals.push_back(
         ClientBehaviorConstants::kShowingCardBenefits);
   }
@@ -183,7 +184,8 @@ void CreditCardOtpAuthenticator::OnDidSelectChallengeOption(
   bool server_success = result == AutofillClient::PaymentsRpcResult::kSuccess;
   // Dismiss the pending authentication selection dialog if it is visible so
   // that other dialogs can be shown.
-  autofill_client_->DismissUnmaskAuthenticatorSelectionDialog(server_success);
+  autofill_client_->GetPaymentsAutofillClient()
+      ->DismissUnmaskAuthenticatorSelectionDialog(server_success);
   if (server_success) {
     CHECK(!context_token.empty());
     // Update the |context_token_| with the new one.

@@ -3,9 +3,10 @@
 // found in the LICENSE file.
 
 import type {String16} from '//resources/mojo/mojo/public/mojom/base/string16.mojom-webui.js';
+import type {Uuid} from '//resources/mojo/mojo/public/mojom/base/uuid.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
-import type {BookmarkProductInfo, PriceInsightsInfo, ProductInfo, ProductSpecifications, UrlInfo} from './shopping_service.mojom-webui.js';
+import type {BookmarkProductInfo, PriceInsightsInfo, ProductInfo, ProductSpecifications, ProductSpecificationsSet, UrlInfo} from './shopping_service.mojom-webui.js';
 import {PageCallbackRouter, ShoppingServiceHandlerFactory, ShoppingServiceHandlerRemote} from './shopping_service.mojom-webui.js';
 
 let instance: BrowserProxy|null = null;
@@ -22,6 +23,7 @@ export interface BrowserProxy {
       Promise<{priceInsightsInfo: PriceInsightsInfo}>;
   showInsightsSidePanelUi(): void;
   getUrlInfosForOpenTabs(): Promise<{urlInfos: UrlInfo[]}>;
+  getUrlInfosForRecentlyViewedTabs(): Promise<{urlInfos: UrlInfo[]}>;
   isShoppingListEligible(): Promise<{eligible: boolean}>;
   getShoppingCollectionBookmarkFolderId(): Promise<{collectionId: bigint}>;
   getPriceTrackingStatusForCurrentUrl(): Promise<{tracked: boolean}>;
@@ -34,6 +36,13 @@ export interface BrowserProxy {
   getProductInfoForUrl(url: Url): Promise<{productInfo: ProductInfo}>;
   getProductSpecificationsForUrls(urls: Url[]):
       Promise<{productSpecs: ProductSpecifications}>;
+  getAllProductSpecificationsSets():
+      Promise<{sets: ProductSpecificationsSet[]}>;
+  getProductSpecificationsSetByUuid(uuid: Uuid):
+      Promise<{set: ProductSpecificationsSet | null}>;
+  addProductSpecificationsSet(name: string, urls: Url[]):
+      Promise<{createdSet: ProductSpecificationsSet | null}>;
+  deleteProductSpecificationsSet(uuid: Uuid): void;
 }
 
 export class BrowserProxyImpl implements BrowserProxy {
@@ -87,6 +96,10 @@ export class BrowserProxyImpl implements BrowserProxy {
     return this.handler.getUrlInfosForOpenTabs();
   }
 
+  getUrlInfosForRecentlyViewedTabs() {
+    return this.handler.getUrlInfosForRecentlyViewedTabs();
+  }
+
   showInsightsSidePanelUi() {
     this.handler.showInsightsSidePanelUI();
   }
@@ -121,6 +134,22 @@ export class BrowserProxyImpl implements BrowserProxy {
 
   showFeedback() {
     this.handler.showFeedback();
+  }
+
+  getAllProductSpecificationsSets() {
+    return this.handler.getAllProductSpecificationsSets();
+  }
+
+  getProductSpecificationsSetByUuid(uuid: Uuid) {
+    return this.handler.getProductSpecificationsSetByUuid(uuid);
+  }
+
+  addProductSpecificationsSet(name: string, urls: Url[]) {
+    return this.handler.addProductSpecificationsSet(name, urls);
+  }
+
+  deleteProductSpecificationsSet(uuid: Uuid) {
+    this.handler.deleteProductSpecificationsSet(uuid);
   }
 
   getCallbackRouter() {

@@ -38,7 +38,7 @@ declare_args() {
   ios_enable_shortcuts_widget = true
 
   # Enable iOS Push Notification Service extension.
-  ios_enable_push_notification_service_extension = false
+  ios_enable_push_notification_service_extension = true
 
   # Label of the target providing implementation for AccountVerificationProvider.
   # Overridden when using the Google-internal repository to build Chrome on iOS.
@@ -91,6 +91,9 @@ declare_args() {
 
   # The iOS app bundle id.
   ios_chromium_bundle_id = "$ios_app_bundle_id_prefix.chrome.ios.dev"
+
+  # Path to a PrivacyInfo.xcprivacy file to be included in app extensions.
+  ios_app_extension_privacy_manifest = ""
 }
 
 if (target_environment == "catalyst") {

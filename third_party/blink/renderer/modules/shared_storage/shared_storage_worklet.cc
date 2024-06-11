@@ -196,8 +196,6 @@ void SharedStorageWorklet::AddModuleHelper(ScriptState* script_state,
                   return;
                 }
 
-                LogSharedStorageWorkletError(
-                    SharedStorageWorkletErrorType::kSuccess);
                 base::UmaHistogramMediumTimes(
                     "Storage.SharedStorage.Document.Timing.AddModule",
                     base::TimeTicks::Now() - start_time);
@@ -208,6 +206,9 @@ void SharedStorageWorklet::AddModuleHelper(ScriptState* script_state,
                 } else {
                   resolver->DowncastTo<IDLUndefined>()->Resolve();
                 }
+
+                // `SharedStorageWorkletErrorType::kSuccess` is logged in the
+                // browser process for `addModule()` and `createWorklet()`.
               },
               WrapPersistent(resolver), WrapPersistent(this), start_time,
               resolve_to_worklet));
@@ -440,12 +441,10 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
   bool keep_alive = options->keepAlive();
   keep_alive_after_operation_ = keep_alive;
 
-  WTF::String context_id;
-  scoped_refptr<SecurityOrigin> aggregation_coordinator_origin;
+  mojom::blink::PrivateAggregationConfigPtr private_aggregation_config;
   if (!CheckPrivateAggregationConfig(*options, *script_state, *resolver,
-                                     /*out_context_id=*/context_id,
-                                     /*out_aggregation_coordinator_origin=*/
-                                     aggregation_coordinator_origin)) {
+                                     /*out_private_aggregation_config=*/
+                                     private_aggregation_config)) {
     LogSharedStorageWorkletError(
         SharedStorageWorkletErrorType::kSelectURLWebVisible);
     return promise;
@@ -453,7 +452,7 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
 
   worklet_host_->SelectURL(
       name, std::move(converted_urls), std::move(*serialized_data), keep_alive,
-      std::move(context_id), aggregation_coordinator_origin,
+      std::move(private_aggregation_config),
       WTF::BindOnce(
           [](ScriptPromiseResolver<V8SharedStorageResponse>* resolver,
              SharedStorageWorklet* shared_storage_worklet,
@@ -477,8 +476,6 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
               return;
             }
 
-            LogSharedStorageWorkletError(
-                SharedStorageWorkletErrorType::kSuccess);
             base::UmaHistogramMediumTimes(
                 "Storage.SharedStorage.Document.Timing.SelectURL",
                 base::TimeTicks::Now() - start_time);
@@ -490,6 +487,9 @@ ScriptPromise<V8SharedStorageResponse> SharedStorageWorklet::selectURL(
             } else {
               resolver->Resolve(KURL(result_config->urn_uuid().value()));
             }
+
+            // `SharedStorageWorkletErrorType::kSuccess` is logged in the
+            // browser process for `selectURL()`.
           },
           WrapPersistent(resolver), WrapPersistent(this), start_time,
           resolve_to_config));
@@ -560,19 +560,17 @@ ScriptPromise<IDLAny> SharedStorageWorklet::run(
   bool keep_alive = options->keepAlive();
   keep_alive_after_operation_ = keep_alive;
 
-  WTF::String context_id;
-  scoped_refptr<SecurityOrigin> aggregation_coordinator_origin;
-  if (!CheckPrivateAggregationConfig(*options, *script_state, *resolver,
-                                     /*out_context_id=*/context_id,
-                                     /*out_aggregation_coordinator_origin=*/
-                                     aggregation_coordinator_origin)) {
+  mojom::blink::PrivateAggregationConfigPtr private_aggregation_config;
+  if (!CheckPrivateAggregationConfig(
+          *options, *script_state, *resolver,
+          /*out_private_aggregation_config=*/private_aggregation_config)) {
     LogSharedStorageWorkletError(SharedStorageWorkletErrorType::kRunWebVisible);
     return promise;
   }
 
   worklet_host_->Run(
-      name, std::move(*serialized_data), keep_alive, std::move(context_id),
-      std::move(aggregation_coordinator_origin),
+      name, std::move(*serialized_data), keep_alive,
+      std::move(private_aggregation_config),
       WTF::BindOnce(
           [](ScriptPromiseResolver<IDLAny>* resolver,
              SharedStorageWorklet* shared_storage_worklet,
@@ -595,12 +593,13 @@ ScriptPromise<IDLAny> SharedStorageWorklet::run(
               return;
             }
 
-            LogSharedStorageWorkletError(
-                SharedStorageWorkletErrorType::kSuccess);
             base::UmaHistogramMediumTimes(
                 "Storage.SharedStorage.Document.Timing.Run",
                 base::TimeTicks::Now() - start_time);
             resolver->Resolve();
+
+            // `SharedStorageWorkletErrorType::kSuccess` is logged in the
+            // browser process for `run()`.
           },
           WrapPersistent(resolver), WrapPersistent(this), start_time));
 

@@ -139,6 +139,8 @@ id<GREYMatcher> mostlyNotVisible() {
   // suggestion.
   UIPasteboard* pasteboard = [UIPasteboard generalPasteboard];
   [pasteboard setValue:@"" forPasteboardType:UIPasteboardNameGeneral];
+  // Disable search suggestions so that the omnibox popup does not appear.
+  [ChromeEarlGrey setBoolValue:NO forUserPref:prefs::kSearchSuggestEnabled];
 
   [self closeAllTabs];
 }
@@ -163,7 +165,7 @@ id<GREYMatcher> mostlyNotVisible() {
       std::string("-google-doodle-url=https://www.gstatic.com/chrome/ntp/"
                   "doodle_test/ddljson_android0.json"));
   config.features_disabled.push_back(kEnableFeedAblation);
-  // TODO(crbug.com/1403077): Scrolling issues when promo is enabled.
+  // TODO(crbug.com/40251409): Scrolling issues when promo is enabled.
   config.features_disabled.push_back(kEnableDiscoverFeedTopSyncPromo);
   config.features_disabled.push_back(kSafetyCheckMagicStack);
 
@@ -280,7 +282,7 @@ id<GREYMatcher> mostlyNotVisible() {
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
   // Navigate
-  // TODO(crbug.com/1510484): The FET is not ready upon app launch in the NTP.
+  // TODO(crbug.com/41483080): The FET is not ready upon app launch in the NTP.
   // Consequently, close NTP and reopen the NTP where the FET becomes ready.
   [ChromeEarlGrey closeAllTabs];
   [ChromeEarlGrey openNewTab];
@@ -536,13 +538,6 @@ id<GREYMatcher> mostlyNotVisible() {
 // Tests that the tap gesture recognizer that dismisses the keyboard and
 // defocuses the omnibox works.
 - (void)testDefocusOmniboxTapWorks {
-  // TODO(crbug.com/1394749): Test fails on iPhone devices.
-#if !TARGET_IPHONE_SIMULATOR
-  if (![ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Fails on iPhone device.");
-  }
-#endif
-
   [self focusFakebox];
   // Tap on a space in the collectionView that is not a Feed card.
   [[EarlGrey
@@ -619,8 +614,8 @@ id<GREYMatcher> mostlyNotVisible() {
   if ([ChromeEarlGrey isIPadIdiom]) {
     // Have to scroll up to the top since tapping on reload button does not
     // automatically scroll to the top when feed is off or if feed returns no
-    // contents (e.g. upstream bots). TODO(crbug.com/1406940): Look into why the
-    // Feed only scrolls up when there is content.
+    // contents (e.g. upstream bots). TODO(crbug.com/40252945): Look into why
+    // the Feed only scrolls up when there is content.
     [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
         performAction:grey_scrollToContentEdge(kGREYContentEdgeTop)];
     // Tap on reload button.
@@ -757,7 +752,7 @@ id<GREYMatcher> mostlyNotVisible() {
 
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
       performAction:grey_replaceText(URL)];
-  // TODO(crbug.com/1454516): Use simulatePhysicalKeyboardEvent until
+  // TODO(crbug.com/40916974): Use simulatePhysicalKeyboardEvent until
   // replaceText can properly handle \n.
   [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"\n" flags:0];
 
@@ -798,17 +793,9 @@ id<GREYMatcher> mostlyNotVisible() {
       @"The collection is not scrolled back to its previous position");
 }
 
-#if !TARGET_IPHONE_SIMULATOR
-#define MAYBE_testTapFakeOmniboxAndScrollDefocuses \
-  FLAKY_testTapFakeOmniboxAndScrollDefocuses
-#else
-#define MAYBE_testTapFakeOmniboxAndScrollDefocuses \
-  testTapFakeOmniboxAndScrollDefocuses
-#endif
-// TODO(crbug.com/331647110): Re-enable on device when fixed.
 // Tests that tapping the fake omnibox and then scrolling defocuses the the
 // omnibox.
-- (void)MAYBE_testTapFakeOmniboxAndScrollDefocuses {
+- (void)testTapFakeOmniboxAndScrollDefocuses {
   // Clear pasteboard so that omnibox doesn't cover the NTP on focus.
   [ChromeEarlGrey clearPasteboard];
   // Get the collection and its layout.
@@ -1238,7 +1225,7 @@ id<GREYMatcher> mostlyNotVisible() {
 // Test that signing in and signing out results in the NTP scrolled to the top
 // and not in some unexpected layout state.
 - (void)testSignInSignOutScrolledToTop {
-// TODO(crbug.com/1433014): test failing on ipad device
+// TODO(crbug.com/40903244): test failing on ipad device
 #if !TARGET_IPHONE_SIMULATOR
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_SKIPPED(@"This test doesn't pass on iPad device.");
@@ -1382,7 +1369,7 @@ id<GREYMatcher> mostlyNotVisible() {
 
 // Tests that the scroll position is maintained when switching from the Discover
 // feed to the Following feed without fully scrolling into the feed.
-// TODO(crbug.com/1364725): Re-enable when fixed.
+// TODO(crbug.com/40239216): Re-enable when fixed.
 - (void)DISABLED_testScrollPositionMaintainedWhenSwitchingFeedAboveFeed {
   if (![ChromeEarlGrey isWebChannelsEnabled]) {
     EARL_GREY_TEST_SKIPPED(@"Only applicable with Web Channels enabled.");
@@ -1410,7 +1397,7 @@ id<GREYMatcher> mostlyNotVisible() {
 
 // Tests that the regular feed header is visible when signed out, and is swapped
 // for the Following feed header after signing in.
-// TODO(crbug.com/1364725): Re-enable when fixed.
+// TODO(crbug.com/40239216): Re-enable when fixed.
 - (void)DISABLED_testFollowingFeedHeaderIsVisibleWhenSignedIn {
   if (![ChromeEarlGrey isWebChannelsEnabled]) {
     EARL_GREY_TEST_SKIPPED(@"Only applicable with Web Channels enabled.");
@@ -1439,11 +1426,11 @@ id<GREYMatcher> mostlyNotVisible() {
 
 // Tests that feed ablation successfully hides the feed from the NTP and the
 // toggle from the Chrome settings.
-// TODO(crbug.com/1350826): Test fails on small form factors.
+// TODO(crbug.com/40856730): Test fails on small form factors.
 - (void)DISABLED_testFeedAblationHidesFeed {
   // Relaunch the app with trending queries disabled, to ensure that the
   // discover feed is always present.
-  // TODO(crbug.com/1350826): Trending queries is configured as a
+  // TODO(crbug.com/40856730): Trending queries is configured as a
   // first-run trial, and one of the arms removes the discover
   // feed. Fix these tests to force an appropriate configuration or
   // otherwise support the various possible experiment arms.
@@ -1487,19 +1474,20 @@ id<GREYMatcher> mostlyNotVisible() {
 // Tests that content suggestions are hidden for supervised users on sign-in.
 // When the supervised user signs out the active policy should apply to the NTP.
 - (void)testFeedHiddenForSupervisedUser {
-  // TODO(crbug.com/1438444): Re-enable the test on iPad once the test is fixed.
+  // TODO(crbug.com/40907845): Re-enable the test on iPad once the test is
+  // fixed.
   if ([ChromeEarlGrey isIPadIdiom]) {
     EARL_GREY_TEST_DISABLED(@"Disabled for iPad as the test fails.");
   }
 
   // Disable trending queries experiment to ensure that the Discover feed is
   // visible when first opening the NTP.
-  // TODO(crbug.com/1350826): Adapt the test with launch of trending queries.
+  // TODO(crbug.com/40856730): Adapt the test with launch of trending queries.
   AppLaunchConfiguration config = [self appConfigurationForTestCase];
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
   config.additional_args.push_back(std::string("--") +
                                    switches::kDisableSearchEngineChoiceScreen);
-  // TODO(crbug.com/1403077): Reenable the discover feed sync promo feature
+  // TODO(crbug.com/40251409): Reenable the discover feed sync promo feature
   config.features_disabled.push_back(kEnableDiscoverFeedTopSyncPromo);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 
@@ -1546,7 +1534,7 @@ id<GREYMatcher> mostlyNotVisible() {
 
 // Tests that the feed top sync promo is visible when conditions are met, and
 // that pressing the dismiss button makes it disappear.
-// TODO(crbug.com/1406885): Enable test when feed is supported.
+// TODO(crbug.com/40252918): Enable test when feed is supported.
 - (void)DISABLED_testFeedTopSyncPromoIsVisibleAndDismiss {
   // Scroll into feed to trigger engagement condition.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
@@ -1662,7 +1650,7 @@ id<GREYMatcher> mostlyNotVisible() {
 - (void)checkIfNTPIsScrollable {
   // The custom tab strip on iPad causes an infinite animation that blocks
   // EarlGrey from continuing.
-  // TODO(crbug.com/1358829): Remove iPad condition when scrolling is fixed.
+  // TODO(crbug.com/40237121): Remove iPad condition when scrolling is fixed.
   if ([ChromeEarlGrey isIPadIdiom]) {
     return;
   }

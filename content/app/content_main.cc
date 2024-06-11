@@ -75,7 +75,7 @@
 #endif
 
 #if BUILDFLAG(IS_APPLE)
-#if BUILDFLAG(USE_ALLOCATOR_SHIM)
+#if PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
 #include "base/allocator/partition_allocator/src/partition_alloc/shim/allocator_shim.h"
 #endif
 #endif  // BUILDFLAG(IS_MAC)
@@ -203,7 +203,7 @@ RunContentProcess(ContentMainParams params,
     content_main_runner->ReInitializeParams(std::move(params));
   } else {
     is_initialized = true;
-#if BUILDFLAG(IS_APPLE) && BUILDFLAG(USE_ALLOCATOR_SHIM)
+#if BUILDFLAG(IS_APPLE) && PA_BUILDFLAG(USE_ALLOCATOR_SHIM)
     allocator_shim::InitializeAllocatorShim();
 #endif
     base::EnableTerminationOnOutOfMemory();
@@ -279,7 +279,7 @@ RunContentProcess(ContentMainParams params,
     // We need this pool for all the objects created before we get to the event
     // loop, but we don't want to leave them hanging around until the app quits.
     // Each "main" needs to flush this pool right before it goes into its main
-    // event loop to get rid of the cruft. TODO(https://crbug.com/1424190): This
+    // event loop to get rid of the cruft. TODO(crbug.com/40260311): This
     // is not safe. Each main loop should create and destroy its own pool; it
     // should not be flushing the pool at the base of the autorelease pool
     // stack.
@@ -312,8 +312,11 @@ RunContentProcess(ContentMainParams params,
       // console does not exist we should not create one.
       base::RouteStdioToConsole(/*create_console_if_not_found*/ false);
     } else if (command_line->HasSwitch(switches::kEnableLogging)) {
-      // Route stdio to parent console (if any) or create one.
-      base::RouteStdioToConsole(/*create_console_if_not_found*/ true);
+      // Route stdio to parent console (if any) or create one, do not create a
+      // console in children if handles are being passed.
+      bool create_console = command_line->GetSwitchValueASCII(
+                                switches::kEnableLogging) != "handle";
+      base::RouteStdioToConsole(create_console);
     }
 #endif
 

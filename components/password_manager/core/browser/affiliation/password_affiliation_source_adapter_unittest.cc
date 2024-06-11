@@ -84,8 +84,8 @@ class PasswordAffiliationSourceAdapterTest : public testing::Test {
         std::make_unique<testing::StrictMock<MockAffiliationSourceObserver>>();
     password_store()->Init(/*prefs=*/nullptr,
                            /*affiliated_match_helper=*/nullptr);
-    adapter_ =
-        std::make_unique<PasswordAffiliationSourceAdapter>(password_store());
+    adapter_ = std::make_unique<PasswordAffiliationSourceAdapter>();
+    adapter_->RegisterPasswordStore(password_store());
     RunUntilIdle();
   }
 
@@ -107,7 +107,7 @@ class PasswordAffiliationSourceAdapterTest : public testing::Test {
   }
 
   void RemoveLoginAndWait(const PasswordForm& form) {
-    password_store_->RemoveLogin(form);
+    password_store_->RemoveLogin(FROM_HERE, form);
     RunUntilIdle();
   }
 

@@ -56,6 +56,7 @@ export interface OsAboutPageElement {
   $: {
     buttonContainer: HTMLElement,
     checkForUpdatesButton: CrButtonElement,
+    extendedUpdatesButton: CrButtonElement,
     productLogo: HTMLImageElement,
     regulatoryInfo: HTMLElement,
     relaunchButton: CrButtonElement,
@@ -414,6 +415,8 @@ export class OsAboutPageElement extends OsAboutPageBase {
         'true') {
       this.onCheckUpdatesClick_();
     }
+
+    this.registerExtendedUpdatesObserver_();
   }
 
   override ready(): void {
@@ -450,8 +453,8 @@ export class OsAboutPageElement extends OsAboutPageBase {
         this.onTpmFirmwareUpdateStatusChanged_.bind(this));
     this.aboutBrowserProxy_.refreshTpmFirmwareUpdateStatus();
     this.addWebUiListener(
-        'extended-updates-policy-changed',
-        this.onExtendedUpdatesPolicyChanged_.bind(this));
+        'extended-updates-setting-changed',
+        this.onExtendedUpdatesSettingChanged_.bind(this));
   }
 
   private onUpdateStatusChanged_(event: UpdateStatusChangedEvent): void {
@@ -654,7 +657,7 @@ export class OsAboutPageElement extends OsAboutPageBase {
             'cr:error-outline';
       case UpdateStatus.UPDATED:
       case UpdateStatus.NEARLY_UPDATED:
-        // TODO(crbug.com/986596): Don't use browser icons here. Fork them.
+        // TODO(crbug.com/40637166): Don't use browser icons here. Fork them.
         return this.isRevampWayfindingEnabled_ ?
             'os-settings:about-update-complete' :
             'settings:check-circle';
@@ -879,12 +882,27 @@ export class OsAboutPageElement extends OsAboutPageBase {
         });
   }
 
-  private onExtendedUpdatesPolicyChanged_(): void {
+  private onExtendedUpdatesSettingChanged_(): void {
     this.updateIsExtendedUpdatesOptInEligible_();
   }
 
   private onExtendedUpdatesButtonClick_(): void {
     this.aboutBrowserProxy_.openExtendedUpdatesDialog();
+  }
+
+  private registerExtendedUpdatesObserver_(): void {
+    const extendedUpdatesObserver = new IntersectionObserver(
+        (entries: IntersectionObserverEntry[],
+         observer: IntersectionObserver) => {
+          entries.forEach((entry: IntersectionObserverEntry) => {
+            if (entry.isIntersecting) {
+              this.aboutBrowserProxy_.recordExtendedUpdatesShown();
+              observer.disconnect();
+              return;
+            }
+          });
+        });
+    extendedUpdatesObserver.observe(this.$.extendedUpdatesButton);
   }
 }
 

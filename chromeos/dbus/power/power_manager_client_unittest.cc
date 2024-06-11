@@ -128,8 +128,9 @@ MATCHER_P(IsRequestRestart, method_name, "") {
   return true;
 }
 
-// Matcher that verifies a |SetAmbientLightSensorEnabled| dbus::MethodCall.
-MATCHER_P2(IsSetAmbientLightSensorEnabled, method_name, sensor_enabled, "") {
+// Matcher that verifies a |SetAmbientLightSensorEnabled| and
+// |SetKeyboardAmbientLightSensorEnabled| dbus::MethodCall.
+MATCHER_P2(IsAmbientLightSensorEnabled, method_name, sensor_enabled, "") {
   if (arg->GetMember() != method_name) {
     *result_listener << "has member " << arg->GetMember();
     return false;
@@ -879,18 +880,80 @@ TEST_F(PowerManagerClientTest, BatterySaverModeStateChanged) {
 // name.
 TEST_F(PowerManagerClientTest, SetAmbientLightSensorEnabled) {
   bool expected_sensor_enabled = false;
-  EXPECT_CALL(*proxy_.get(), DoCallMethod(IsSetAmbientLightSensorEnabled(
+  EXPECT_CALL(*proxy_.get(), DoCallMethod(IsAmbientLightSensorEnabled(
                                               "SetAmbientLightSensorEnabled",
                                               expected_sensor_enabled),
                                           _, _));
   client_->SetAmbientLightSensorEnabled(expected_sensor_enabled);
 
   bool expected_sensor_enabled2 = true;
-  EXPECT_CALL(*proxy_.get(), DoCallMethod(IsSetAmbientLightSensorEnabled(
+  EXPECT_CALL(*proxy_.get(), DoCallMethod(IsAmbientLightSensorEnabled(
                                               "SetAmbientLightSensorEnabled",
                                               expected_sensor_enabled2),
                                           _, _));
   client_->SetAmbientLightSensorEnabled(expected_sensor_enabled2);
+}
+
+// Tests that |SetKeyboardAmbientLightSensorEnabled| calls the DBus method with
+// the same name.
+TEST_F(PowerManagerClientTest, SetKeyboardAmbientLightSensorEnabled) {
+  bool expected_sensor_enabled = false;
+  EXPECT_CALL(*proxy_.get(),
+              DoCallMethod(IsAmbientLightSensorEnabled(
+                               "SetKeyboardAmbientLightSensorEnabled",
+                               expected_sensor_enabled),
+                           _, _));
+  client_->SetKeyboardAmbientLightSensorEnabled(expected_sensor_enabled);
+
+  bool expected_sensor_enabled2 = true;
+  EXPECT_CALL(*proxy_.get(),
+              DoCallMethod(IsAmbientLightSensorEnabled(
+                               "SetKeyboardAmbientLightSensorEnabled",
+                               expected_sensor_enabled2),
+                           _, _));
+  client_->SetKeyboardAmbientLightSensorEnabled(expected_sensor_enabled2);
+}
+
+TEST_F(PowerManagerClientTest, GetKeyboardAmbientLightSensorEnabled) {
+  // The dbus method is set up to simulate a response of true from the service.
+  EXPECT_CALL(
+      *proxy_,
+      DoCallMethod(
+          HasMember(power_manager::kGetKeyboardAmbientLightSensorEnabledMethod),
+          _, _))
+      .WillOnce([](dbus::MethodCall* method_call, int timeout_ms,
+                   dbus::ObjectProxy::ResponseCallback* callback) {
+        auto response = ::dbus::Response::CreateEmpty();
+        dbus::MessageWriter(response.get()).AppendBool(true);
+
+        std::move(*callback).Run(response.get());
+      });
+
+  // Verify that the callback receives and processes the true value correctly.
+  client_->GetKeyboardAmbientLightSensorEnabled(
+      base::BindOnce([](std::optional<bool> is_ambient_light_sensor_enabled) {
+        EXPECT_TRUE(is_ambient_light_sensor_enabled.value());
+      }));
+
+  // The dbus method is set up to simulate a response of false from the service.
+  EXPECT_CALL(
+      *proxy_,
+      DoCallMethod(
+          HasMember(power_manager::kGetKeyboardAmbientLightSensorEnabledMethod),
+          _, _))
+      .WillOnce([](dbus::MethodCall* method_call, int timeout_ms,
+                   dbus::ObjectProxy::ResponseCallback* callback) {
+        auto response = ::dbus::Response::CreateEmpty();
+        dbus::MessageWriter(response.get()).AppendBool(false);
+
+        std::move(*callback).Run(response.get());
+      });
+
+  // Verify that the callback receives and processes the false value correctly.
+  client_->GetKeyboardAmbientLightSensorEnabled(
+      base::BindOnce([](std::optional<bool> is_ambient_light_sensor_enabled) {
+        EXPECT_FALSE(is_ambient_light_sensor_enabled.value());
+      }));
 }
 
 // Tests that |HasAmbientLightSensor| calls the DBus method with the same name.
@@ -988,6 +1051,54 @@ TEST_F(PowerManagerClientTest, AmbientLightSensorEnabledChanged) {
     EXPECT_EQ(proto.cause(),
               observer.last_ambient_light_sensor_change().cause());
   }
+}
+
+// Tests that |GetAmbientLightSensorEnabled| calls the DBus method with the
+// same name.
+TEST_F(PowerManagerClientTest, GetAmbientLightSensorEnabled) {
+  // Set up the DBus method kGetAmbientLightSensorEnabledMethod to return that
+  // the ambient light sensor is enabled.
+  EXPECT_CALL(
+      *proxy_,
+      DoCallMethod(
+          HasMember(power_manager::kGetAmbientLightSensorEnabledMethod), _, _))
+      .WillOnce([](dbus::MethodCall* method_call, int timeout_ms,
+                   dbus::ObjectProxy::ResponseCallback* callback) {
+        auto response = ::dbus::Response::CreateEmpty();
+        // Return that the ambient light sensor is enabled.
+        dbus::MessageWriter(response.get()).AppendBool(true);
+
+        std::move(*callback).Run(response.get());
+      });
+
+  // GetAmbientLightSensorEnabled should call its callback indicating that the
+  // ambient light sensor is enabled.
+  client_->GetAmbientLightSensorEnabled(
+      base::BindOnce([](std::optional<bool> is_ambient_light_sensor_enabled) {
+        EXPECT_TRUE(is_ambient_light_sensor_enabled.value());
+      }));
+
+  // Set up the DBus method kGetAmbientLightSensorEnabledMethod to return that
+  // the ambient light sensor is not enabled.
+  EXPECT_CALL(
+      *proxy_,
+      DoCallMethod(
+          HasMember(power_manager::kGetAmbientLightSensorEnabledMethod), _, _))
+      .WillOnce([](dbus::MethodCall* method_call, int timeout_ms,
+                   dbus::ObjectProxy::ResponseCallback* callback) {
+        auto response = ::dbus::Response::CreateEmpty();
+        // Return that the ambient light sensor is not enabled.
+        dbus::MessageWriter(response.get()).AppendBool(false);
+
+        std::move(*callback).Run(response.get());
+      });
+
+  // GetAmbientLightSensorEnabled should call its callback indicating that the
+  // ambient light sensor is not enabled.
+  client_->GetAmbientLightSensorEnabled(
+      base::BindOnce([](std::optional<bool> is_ambient_light_sensor_enabled) {
+        EXPECT_FALSE(is_ambient_light_sensor_enabled.value());
+      }));
 }
 
 }  // namespace chromeos

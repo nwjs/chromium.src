@@ -245,8 +245,7 @@ void HighlightPainter::SelectionPaintState::ComputeSelectionStyle(
     const TextPaintStyle& text_style) {
   selection_style_ =
       HighlightStyleUtils::HighlightPaintingStyle(
-          document, style, node, kPseudoIdSelection, text_style, paint_info)
-          .style;
+          document, style, node, kPseudoIdSelection, text_style, paint_info);
   paint_selected_text_only_ =
       (paint_info.phase == PaintPhase::kSelectionDragImage);
 }
@@ -283,7 +282,7 @@ void HighlightPainter::SelectionPaintState::PaintSelectionBackground(
     const ComputedStyle& style,
     const std::optional<AffineTransform>& rotation) {
   const Color color = HighlightStyleUtils::HighlightBackgroundColor(
-      document, style, node, selection_style_.current_color,
+      document, style, node, selection_style_.style.current_color,
       kPseudoIdSelection);
   HighlightPainter::PaintHighlightBackground(context, style, color,
                                              PhysicalSelectionRect(), rotation);
@@ -298,7 +297,7 @@ void HighlightPainter::SelectionPaintState::PaintSelectedText(
     const AutoDarkMode& auto_dark_mode) {
   text_painter.PaintSelectedText(fragment_paint_info, selection_status_.start,
                                  selection_status_.end, text_style,
-                                 selection_style_, LineRelativeSelectionRect(),
+                                 selection_style_.style, LineRelativeSelectionRect(),
                                  node_id, auto_dark_mode);
 }
 
@@ -857,57 +856,58 @@ void HighlightPainter::PaintHighlightOverlays(
 
   // For each part, paint the text proper over every highlighted range,
   for (auto& part : parts_) {
+    LineRelativeRect part_rect = LineRelativeWorldRect(part.range);
     if (part.type == HighlightLayerType::kSelection) {
-      continue;
+      part_rect.Unite(selection_->LineRelativeSelectionRect());
     }
 
-    LineRelativeRect part_rect = LineRelativeWorldRect(part.range);
     PaintDecorationsExceptLineThrough(part, part_rect);
 
-    {
+    // Only paint text if we have a shape result. See TextPainter::Paint().
+    if (fragment_paint_info_.shape_result) {
+      std::optional<base::AutoReset<bool>> is_painting_selection_reset;
       GraphicsContextStateSaver state_saver(paint_info_.context);
-      LineRelativeRect clip_rect = part_rect;
-      if (part.stroke_width > 0) {
-        clip_rect.Inflate(LayoutUnit::FromFloatCeil(part.stroke_width / 2.0f));
+      // SVG text may have transforms that defeat clipping. The clipping
+      // is only required for ligatures, so we will accept potential
+      // double painting of ligatures for SVG so as to correctly handle
+      // transformed text (include text paths). This might be fixable by
+      // transforming the ink overflow before using it to expamd the clip.
+      TextPainter::SvgTextPaintState* svg_state = text_painter_.GetSvgState();
+      if (UNLIKELY(svg_state) && part.type == HighlightLayerType::kSelection) {
+        // SVG text painting needs to know it is painting selection.
+        is_painting_selection_reset.emplace(&svg_state->is_painting_selection_,
+                                            true);
+      } else {
+        LineRelativeRect clip_rect = part_rect;
+        if (part.stroke_width > 0) {
+          clip_rect.Inflate(
+              LayoutUnit::FromFloatCeil(part.stroke_width / 2.0f));
+        }
+        // If we're at the far left or right end of a fragment, expand the clip
+        // to avoid clipping characters (italics and some antialiasing).
+        if (part.range.from == fragment_paint_info_.from) {
+          clip_rect.AdjustLineStartToInkOverflow(fragment_item_);
+        }
+        if (part.range.to == fragment_paint_info_.to) {
+          clip_rect.AdjustLineEndToInkOverflow(fragment_item_);
+        }
+        ClipToPartRect(clip_rect.EnclosingLineRelativeRect());
       }
-      ClipToPartRect(clip_rect.EnclosingLineRelativeRect());
 
       // Adjust start/end offset when they are in the middle of a ligature.
-      // e.g., when |start_offset| is between a ligature of "fi", it needs to be
-      // adjusted to before "f".
-      unsigned expanded_start = part.range.from;
-      unsigned expanded_end = part.range.to;
+      // e.g., when |start_offset| is between a ligature of "fi", it needs to
+      // be adjusted to before "f".
+      unsigned start = part.range.from;
+      unsigned end = part.range.to;
       fragment_paint_info_.shape_result->ExpandRangeToIncludePartialGlyphs(
-          &expanded_start, &expanded_end);
-      text_painter_.Paint(
-          fragment_paint_info_.Slice(expanded_start, expanded_end), part.style,
-          node_id, foreground_auto_dark_mode_, TextPainter::kTextProperOnly);
+          &start, &end);
+
+      text_painter_.Paint(fragment_paint_info_.Slice(start, end),
+                          part.style, node_id, foreground_auto_dark_mode_,
+                          TextPainter::kTextProperOnly);
     }
 
     PaintDecorationsOnlyLineThrough(part, part_rect);
-  }
-
-  // Paint ::selection foreground, including its shadows.
-  // TODO(crbug.com/1434114) generalise ::selection painting logic to support
-  // all highlights, then merge this branch into the loop above
-  if (UNLIKELY(selection_)) {
-    for (const HighlightPart& part : parts_) {
-      if (part.type == HighlightLayerType::kSelection) {
-        PaintDecorationsExceptLineThrough(part,
-                                          LineRelativeWorldRect(part.range));
-      }
-    }
-
-    selection_->PaintSelectedText(text_painter_, fragment_paint_info_,
-                                  originating_text_style, node_id,
-                                  foreground_auto_dark_mode_);
-
-    for (const HighlightPart& part : parts_) {
-      if (part.type == HighlightLayerType::kSelection) {
-        PaintDecorationsOnlyLineThrough(part,
-                                        LineRelativeWorldRect(part.range));
-      }
-    }
   }
 }
 

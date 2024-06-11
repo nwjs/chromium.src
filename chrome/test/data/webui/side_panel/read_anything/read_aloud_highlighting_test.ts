@@ -1,10 +1,10 @@
 // Copyright 2024 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything_toolbar.js';
+import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import type {ReadAnythingElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/app.js';
-import {NEXT_GRANULARITY_EVENT, PREVIOUS_GRANULARITY_EVENT} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything_toolbar.js';
+import type {ReadAnythingElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {NEXT_GRANULARITY_EVENT, PREVIOUS_GRANULARITY_EVENT} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse} from 'chrome-untrusted://webui-test/chai_assert.js';
 
 import {emitEvent, suppressInnocuousErrors} from './common.js';
@@ -67,6 +67,10 @@ suite('ReadAloudHighlight', () => {
     app = document.createElement('read-anything-app');
     document.body.appendChild(app);
     chrome.readingMode.setContentForTesting(axTree, leafIds);
+
+    // No need to attempt to log a speech session in tests.
+    // @ts-ignore
+    app.logSpeechPlaySession = () => {};
   });
 
   suite('on speak first sentence', () => {
@@ -153,7 +157,7 @@ suite('ReadAloudHighlight', () => {
 
   suite('on finish speaking', () => {
     let currentHighlight: HTMLElement|null;
-    let previousHighlight: NodeListOf<Element>;
+    let previousHighlights: NodeListOf<Element>;
 
     setup(() => {
       app.playSpeech();
@@ -163,20 +167,19 @@ suite('ReadAloudHighlight', () => {
 
       currentHighlight =
           app.$.container.querySelector('.current-read-highlight');
-      previousHighlight =
+      previousHighlights =
           app.$.container.querySelectorAll('.previous-read-highlight');
     });
 
-    test('no current highlight', () => {
+    test('no highlights', () => {
       assertFalse(!!currentHighlight);
+      assertEquals(previousHighlights.length, 0);
     });
 
-    test('all sentences are marked previous', () => {
-      assertEquals(previousHighlight.length, leafIds.length);
-      assertEquals(previousHighlight[0]!.textContent, sentence1);
-      assertEquals(previousHighlight[1]!.textContent, sentence2);
-      assertEquals(previousHighlight[2]!.textContent, sentenceSegment1);
-      assertEquals(previousHighlight[3]!.textContent, sentenceSegment2);
+    test('text content is still there', () => {
+      const expectedText =
+          sentence1 + sentence2 + sentenceSegment1 + sentenceSegment2;
+      assertEquals(app.$.container.textContent, expectedText);
     });
 
     test('playing next granularity does not crash', () => {

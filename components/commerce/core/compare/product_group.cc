@@ -6,13 +6,17 @@
 
 namespace commerce {
 
-ProductGroup::ProductGroup(const std::string& group_id,
-                           const std::string& title)
-    : group_id(group_id), title(title) {
-  creation_time = base::Time::Now();
-  update_time = creation_time;
-}
+ProductGroup::ProductGroup(const base::Uuid& uuid,
+                           const std::vector<GURL>& urls,
+                           base::Time update_time)
+    : uuid(uuid),
+      member_products(std::set<GURL>(urls.begin(), urls.end())),
+      update_time(update_time) {}
 
 ProductGroup::~ProductGroup() = default;
+
+ProductGroup::ProductGroup(const ProductGroup&) = default;
+
+ProductGroup& ProductGroup::operator=(const ProductGroup&) = default;
 
 }  // namespace commerce

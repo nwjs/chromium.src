@@ -210,7 +210,7 @@ void HeadlessProtocolBrowserTest::FinishTest() {
   FinishAsynchronousTest();
 }
 
-// TODO(crbug.com/1086872): The whole test suite is flaky on Mac ASAN.
+// TODO(crbug.com/40694526): The whole test suite is flaky on Mac ASAN.
 #if (BUILDFLAG(IS_MAC) && defined(ADDRESS_SANITIZER))
 #define HEADLESS_PROTOCOL_TEST(TEST_NAME, SCRIPT_NAME)                        \
   IN_PROC_BROWSER_TEST_F(HeadlessProtocolBrowserTest, DISABLED_##TEST_NAME) { \
@@ -232,7 +232,7 @@ HEADLESS_PROTOCOL_TEST(VirtualTimeBasics, "emulation/virtual-time-basics.js")
 HEADLESS_PROTOCOL_TEST(VirtualTimeInterrupt,
                        "emulation/virtual-time-interrupt.js")
 
-// Flaky on Linux, Mac & Win. TODO(crbug.com/930717): Re-enable.
+// Flaky on Linux, Mac & Win. TODO(crbug.com/41440558): Re-enable.
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
     BUILDFLAG(IS_WIN) || BUILDFLAG(IS_FUCHSIA)
 #define MAYBE_VirtualTimeCrossProcessNavigation \
@@ -274,7 +274,7 @@ HEADLESS_PROTOCOL_TEST(VirtualTimeHistoryNavigationSameDoc,
                        "emulation/virtual-time-history-navigation-same-doc.js")
 HEADLESS_PROTOCOL_TEST(VirtualTimeSVG, "emulation/virtual-time-svg.js")
 
-// Flaky on Mac. TODO(crbug.com/1419801): Re-enable.
+// Flaky on Mac. TODO(crbug.com/40895343): Re-enable.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_VirtualTimeWorkerBasic DISABLED_VirtualTimeWorkerBasic
 #else
@@ -285,7 +285,7 @@ HEADLESS_PROTOCOL_TEST(MAYBE_VirtualTimeWorkerBasic,
 HEADLESS_PROTOCOL_TEST(VirtualTimeWorkerLockstep,
                        "emulation/virtual-time-worker-lockstep.js")
 
-// Flaky on Mac. TODO(crbug.com/1419801): Re-enable.
+// Flaky on Mac. TODO(crbug.com/40895343): Re-enable.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_VirtualTimeWorkerFetch DISABLED_VirtualTimeWorkerFetch
 #else
@@ -296,7 +296,7 @@ HEADLESS_PROTOCOL_TEST(MAYBE_VirtualTimeWorkerFetch,
 HEADLESS_PROTOCOL_TEST(VirtualTimeWorkerTerminate,
                        "emulation/virtual-time-worker-terminate.js")
 
-// Flaky on Mac. TODO(crbug.com/1164173): Re-enable.
+// Flaky on Mac. TODO(crbug.com/40740587): Re-enable.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_VirtualTimeFetchKeepalive DISABLED_VirtualTimeFetchKeepalive
 #else
@@ -369,6 +369,14 @@ HEADLESS_PROTOCOL_TEST(LargeBrowserWindowSize,
 
 HEADLESS_PROTOCOL_TEST(ScreencastBasics, "sanity/screencast-basics.js")
 HEADLESS_PROTOCOL_TEST(ScreencastViewport, "sanity/screencast-viewport.js")
+
+// https://crbug.com/339788212
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_RequestFullscreen DISABLED_RequestFullscreen
+#else
+#define MAYBE_RequestFullscreen RequestFullscreen
+#endif
+HEADLESS_PROTOCOL_TEST(MAYBE_RequestFullscreen, "sanity/request-fullscreen.js")
 
 class HeadlessProtocolBrowserTestWithProxy
     : public HeadlessProtocolBrowserTest {
@@ -472,7 +480,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 HEADLESS_DEVTOOLED_TEST_P(HeadlessAllowedVideoCodecsTest);
 
-// TODO(crbug.com/1086872): The whole test suite is flaky on Mac ASAN.
+// TODO(crbug.com/40694526): The whole test suite is flaky on Mac ASAN.
 #if (BUILDFLAG(IS_MAC) && defined(ADDRESS_SANITIZER))
 #define MAYBE_IN_PROC_BROWSER_TEST_F(CLASS, TEST_NAME) \
   IN_PROC_BROWSER_TEST_F(CLASS, DISABLED_##TEST_NAME)
@@ -527,7 +535,7 @@ class HeadlessProtocolBrowserTestWithDataPath
     RunTest();                                                              \
   }
 
-// TODO(crbug.com/1399463)  Re-enable after resolving flaky failures.
+// TODO(crbug.com/40883155)  Re-enable after resolving flaky failures.
 HEADLESS_PROTOCOL_TEST_WITH_DATA_PATH(
     FileInputDirectoryUpload,
     "sanity/file-input-directory-upload.js",

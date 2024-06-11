@@ -9,17 +9,17 @@
 #import "chrome/browser/ui/autofill/popup_controller_common.h"
 #import "chrome/browser/ui/cocoa/touchbar/web_textfield_touch_bar_controller.h"
 #include "components/autofill/core/browser/filling_product.h"
-#include "components/autofill/core/browser/ui/autofill_popup_delegate.h"
-#include "components/autofill/core/browser/ui/popup_item_ids.h"
+#include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
+#include "components/autofill/core/browser/ui/suggestion_type.h"
 
 using base::WeakPtr;
 
 namespace autofill {
 
 // static
-WeakPtr<AutofillPopupController> AutofillPopupController::GetOrCreate(
-    WeakPtr<AutofillPopupController> previous,
-    WeakPtr<AutofillPopupDelegate> delegate,
+WeakPtr<AutofillSuggestionController> AutofillSuggestionController::GetOrCreate(
+    WeakPtr<AutofillSuggestionController> previous,
+    WeakPtr<AutofillSuggestionDelegate> delegate,
     content::WebContents* web_contents,
     PopupControllerCommon controller_common,
     int32_t form_control_ax_id) {
@@ -34,7 +34,7 @@ WeakPtr<AutofillPopupController> AutofillPopupController::GetOrCreate(
   }
 
   if (previous.get())
-    previous->Hide(PopupHidingReason::kViewDestroyed);
+    previous->Hide(SuggestionHidingReason::kViewDestroyed);
 
   auto* controller = new AutofillPopupControllerImplMac(
       delegate, web_contents, std::move(controller_common), form_control_ax_id);
@@ -42,7 +42,7 @@ WeakPtr<AutofillPopupController> AutofillPopupController::GetOrCreate(
 }
 
 AutofillPopupControllerImplMac::AutofillPopupControllerImplMac(
-    base::WeakPtr<AutofillPopupDelegate> delegate,
+    base::WeakPtr<AutofillSuggestionDelegate> delegate,
     content::WebContents* web_contents,
     PopupControllerCommon controller_common,
     int32_t form_control_ax_id)
@@ -50,7 +50,6 @@ AutofillPopupControllerImplMac::AutofillPopupControllerImplMac(
                                   web_contents,
                                   std::move(controller_common),
                                   form_control_ax_id,
-                                  base::DoNothing(),
                                   std::nullopt),
       touch_bar_controller_(nil),
       is_credit_card_popup_(delegate->GetMainFillingProduct() ==

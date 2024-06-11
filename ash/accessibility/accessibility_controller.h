@@ -59,7 +59,6 @@ class DictationBubbleController;
 enum class DictationBubbleHintType;
 enum class DictationBubbleIconType;
 enum class DictationNotificationType;
-class DictationNudgeController;
 class FloatingAccessibilityController;
 class PointScanController;
 class ScopedBacklightsForcedOff;
@@ -498,9 +497,7 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void ToggleDictationFromSource(DictationToggleSource source);
 
   // Enables Dictation if the feature is currently disabled. Toggles (starts or
-  // stops) Dictation if the feature is currently enabled. Note: this behavior
-  // is currently behind a feature flag - if the feature flag is off, then this
-  // method behaves like ToggleDictationFromSource.
+  // stops) Dictation if the feature is currently enabled.
   void EnableOrToggleDictationFromSource(DictationToggleSource source);
 
   // Shows a nudge explaining that a user's dictation language was upgraded to
@@ -517,6 +514,9 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
 
   // Shows or hides the virtual keyboard.
   void SetVirtualKeyboardVisible(bool is_visible);
+
+  // Perform the action assigned to the accessibility key.
+  void PerformAccessibilityAction();
 
   // Performs the given accelerator action.
   void PerformAcceleratorAction(AcceleratorAction accelerator_action);
@@ -619,9 +619,6 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   bool enable_chromevox_volume_slide_gesture() {
     return enable_chromevox_volume_slide_gesture_;
   }
-  DictationNudgeController* GetDictationNudgeControllerForTest() {
-    return dictation_nudge_controller_.get();
-  }
 
   int dictation_soda_download_progress() {
     return dictation_soda_download_progress_;
@@ -670,6 +667,7 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
   void UpdateAutoclickStabilizePositionFromPref();
   void UpdateAutoclickMovementThresholdFromPref();
   void UpdateAutoclickMenuPositionFromPref();
+  void UpdateMouseKeysDisableInTextFieldsFromPref();
   void UpdateMouseKeysAccelerationFromPref();
   void UpdateMouseKeysMaxSpeedFromPref();
   void UpdateMouseKeysDominantHandFromPref();
@@ -759,11 +757,6 @@ class ASH_EXPORT AccessibilityController : public SessionObserver,
 
   // Used to force the backlights off to darken the screen.
   std::unique_ptr<ScopedBacklightsForcedOff> scoped_backlights_forced_off_;
-
-  // Used to show the offline dictation language upgrade nudge. This is created
-  // with ShowDictationLanguageUpgradedNudge() and reset at Shutdown() or when
-  // the Dictation feature is disabled.
-  std::unique_ptr<DictationNudgeController> dictation_nudge_controller_;
 
   // Used to control the Dictation bubble UI.
   std::unique_ptr<DictationBubbleController> dictation_bubble_controller_;

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#import "chrome/browser/app_controller_mac.h"
+
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
@@ -12,6 +14,7 @@
 #include "base/apple/foundation_util.h"
 #include "base/apple/scoped_objc_class_swizzler.h"
 #include "base/command_line.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -26,7 +29,6 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
 #include "chrome/app/chrome_command_ids.h"
-#import "chrome/browser/app_controller_mac.h"
 #include "chrome/browser/apps/platform_apps/app_browsertest_util.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_features.h"
@@ -45,7 +47,7 @@
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/profiles/profile_test_util.h"
-#include "chrome/browser/signin/signin_features.h"
+#include "chrome/browser/shortcuts/chrome_webloc_file.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -62,7 +64,6 @@
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/webui/welcome/helpers.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -76,6 +77,7 @@
 #include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -87,6 +89,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "net/base/apple/url_conversions.h"
+#include "net/base/filename_util.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/blink/public/common/features.h"
@@ -603,9 +606,6 @@ class AppControllerFirstRunBrowserTest : public AppControllerBrowserTest {
     InProcessBrowserTest::SetUpDefaultCommandLine(command_line);
     command_line->RemoveSwitch(switches::kNoFirstRun);
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{kForYouFre};
 };
 
 IN_PROC_BROWSER_TEST_F(AppControllerFirstRunBrowserTest,
@@ -638,21 +638,7 @@ IN_PROC_BROWSER_TEST_F(AppControllerFirstRunBrowserTest,
 
 class AppControllerOpenShortcutBrowserTest : public InProcessBrowserTest {
  protected:
-  AppControllerOpenShortcutBrowserTest()
-      : AppControllerOpenShortcutBrowserTest(/*enable_fre=*/false) {}
-
-  AppControllerOpenShortcutBrowserTest(bool enable_fre) {
-    std::vector<base::test::FeatureRef> enabled_features = {
-        welcome::kForceEnabled};
-    std::vector<base::test::FeatureRef> disabled_features = {};
-    if (enable_fre) {
-      enabled_features.push_back(kForYouFre);
-    } else {
-      disabled_features.push_back(kForYouFre);
-    }
-
-    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
-  }
+  AppControllerOpenShortcutBrowserTest() = default;
 
   void SetUpInProcessBrowserTestFixture() override {
     // In order to mimic opening shortcut during browser startup, we need to
@@ -691,31 +677,10 @@ class AppControllerOpenShortcutBrowserTest : public InProcessBrowserTest {
     // append about:blank as default url.
     command_line->AppendArg(chrome::kChromeUINewTabURL);
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(AppControllerOpenShortcutBrowserTest,
                        OpenShortcutOnStartup) {
-  // The two tabs expected are the Welcome page and the desired URL.
-  EXPECT_EQ(2, browser()->tab_strip_model()->count());
-  EXPECT_EQ(g_open_shortcut_url, browser()
-                                     ->tab_strip_model()
-                                     ->GetActiveWebContents()
-                                     ->GetLastCommittedURL());
-}
-
-class AppControllerOpenShortcutWithFreBrowserTest
-    : public AppControllerOpenShortcutBrowserTest {
- protected:
-  AppControllerOpenShortcutWithFreBrowserTest()
-      : AppControllerOpenShortcutBrowserTest(/*enable_fre=*/true) {}
-};
-
-IN_PROC_BROWSER_TEST_F(AppControllerOpenShortcutWithFreBrowserTest,
-                       OpenShortcutOnStartup) {
-  // The Welcome page is not expected.
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
 
   EXPECT_EQ(g_open_shortcut_url,
@@ -976,6 +941,103 @@ IN_PROC_BROWSER_TEST_F(AppControllerBrowserTest,
   EXPECT_EQ(simple, incognito_browser->tab_strip_model()
                         ->GetActiveWebContents()
                         ->GetLastCommittedURL());
+}
+
+class AppControllerShortcutsNotAppsBrowserTest : public InProcessBrowserTest {
+ protected:
+  AppControllerShortcutsNotAppsBrowserTest() {
+    features_.InitAndEnableFeature(features::kShortcutsNotApps);
+  }
+
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(AppControllerShortcutsNotAppsBrowserTest,
+                       OpenChromeWeblocFile) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  AppController* ac =
+      base::apple::ObjCCastStrict<AppController>([NSApp delegate]);
+  ASSERT_TRUE(ac);
+
+  // Create and open a .crwebloc file
+  GURL simple(embedded_test_server()->GetURL("/simple.html"));
+  base::ScopedTempDir temp_dir;
+  base::FilePath crwebloc_file;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+    crwebloc_file = temp_dir.GetPath().AppendASCII("test shortcut.crwebloc");
+    ASSERT_TRUE(shortcuts::ChromeWeblocFile(
+                    simple, *base::SafeBaseName::Create(
+                                browser()->profile()->GetPath()))
+                    .SaveToFile(crwebloc_file));
+  }
+
+  content::TestNavigationObserver event_navigation_observer(simple);
+  event_navigation_observer.StartWatchingNewWebContents();
+  SendOpenUrlToAppController(net::FilePathToFileURL(crwebloc_file));
+  event_navigation_observer.Wait();
+  // It should be opened in the regular browser.
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  EXPECT_EQ(simple, browser()
+                        ->tab_strip_model()
+                        ->GetActiveWebContents()
+                        ->GetLastCommittedURL());
+
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    EXPECT_TRUE(temp_dir.Delete());
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(AppControllerShortcutsNotAppsBrowserTest,
+                       OpenChromeWeblocFileInSecondProfile) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  AppController* ac =
+      base::apple::ObjCCastStrict<AppController>([NSApp delegate]);
+  ASSERT_TRUE(ac);
+
+  // Create profile 2.
+  Profile* profile2_ptr = nullptr;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    ProfileManager* profile_manager = g_browser_process->profile_manager();
+    profile2_ptr = profile_manager->GetProfile(
+        profile_manager->GenerateNextProfileDirectoryPath());
+  }
+
+  // Create and open a .crwebloc file
+  GURL simple(embedded_test_server()->GetURL("/simple.html"));
+  base::ScopedTempDir temp_dir;
+  base::FilePath crwebloc_file;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+    crwebloc_file = temp_dir.GetPath().AppendASCII("test shortcut.crwebloc");
+    ASSERT_TRUE(
+        shortcuts::ChromeWeblocFile(
+            simple, *base::SafeBaseName::Create(profile2_ptr->GetPath()))
+            .SaveToFile(crwebloc_file));
+  }
+
+  content::TestNavigationObserver event_navigation_observer(simple);
+  event_navigation_observer.StartWatchingNewWebContents();
+  SendOpenUrlToAppController(net::FilePathToFileURL(crwebloc_file));
+  event_navigation_observer.Wait();
+
+  // It should be opened in a new browser in the second profile.
+  EXPECT_EQ(1, browser()->tab_strip_model()->count());
+  Browser* new_browser = chrome::FindLastActive();
+  EXPECT_EQ(profile2_ptr, new_browser->profile());
+  EXPECT_EQ(1, new_browser->tab_strip_model()->count());
+  EXPECT_EQ(simple, new_browser->tab_strip_model()
+                        ->GetActiveWebContents()
+                        ->GetLastCommittedURL());
+
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    EXPECT_TRUE(temp_dir.Delete());
+  }
 }
 
 class AppControllerMainMenuBrowserTest : public InProcessBrowserTest {

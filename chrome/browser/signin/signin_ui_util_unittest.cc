@@ -111,7 +111,7 @@ class MockSigninUiDelegate : public SigninUiDelegate {
               ());
 };
 #elif BUILDFLAG(ENABLE_DICE_SUPPORT)
-// TODO(https://crbug.com/1316608): move out testing of SigninUiDelegateImplDice
+// TODO(crbug.com/40834209): move out testing of SigninUiDelegateImplDice
 // in a separate file.
 class MockSigninUiDelegate : public SigninUiDelegateImplDice {
  public:
@@ -128,7 +128,7 @@ class MockSigninUiDelegate : public SigninUiDelegateImplDice {
 
 }  // namespace
 
-// TODO(https://crbug.com/1316608): merge SigninUiUtilTest with
+// TODO(crbug.com/40834209): merge SigninUiUtilTest with
 // MirrorSigninUiUtilTest.
 #if !BUILDFLAG(IS_CHROMEOS_LACROS)
 class SigninUiUtilTest : public BrowserWithTestWindowTest {
@@ -815,7 +815,8 @@ TEST_F(SigninUiUtilTest, GetSignInTabWithAccessPoint) {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 class SigninUiUtilWithUnoDesktopTest : public SigninUiUtilTest {
  private:
-  base::test::ScopedFeatureList feature_list_{switches::kUnoDesktop};
+  base::test::ScopedFeatureList feature_list_{
+      switches::kExplicitBrowserSigninUIOnDesktop};
 };
 
 TEST_F(SigninUiUtilWithUnoDesktopTest, EnableSyncWithExistingWebOnlyAccount) {

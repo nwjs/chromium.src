@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
@@ -50,6 +51,7 @@
 class BatteryMetrics;
 class ChromeMetricsServicesManagerClient;
 class DevToolsAutoOpener;
+class GlobalFeatures;
 class RemoteDebuggingServer;
 class PrefRegistrySimple;
 class SearchEngineChoiceProfileTagger;
@@ -75,6 +77,7 @@ class GCMDriver;
 }
 
 namespace os_crypt_async {
+class KeyProvider;
 class OSCryptAsync;
 }
 
@@ -115,7 +118,7 @@ class BrowserProcessImpl : public BrowserProcess,
 #if !BUILDFLAG(IS_ANDROID)
   // Sets a closure to be run to break out of a run loop on browser shutdown
   // (when the KeepAlive count reaches zero).
-  // TODO(https://crbug.com/845966): This is also used on macOS for the Cocoa
+  // TODO(crbug.com/41390731): This is also used on macOS for the Cocoa
   // first run dialog so that shutdown can be initiated via a signal while the
   // first run dialog is showing.
   void SetQuitClosure(base::OnceClosure quit_closure);
@@ -124,7 +127,7 @@ class BrowserProcessImpl : public BrowserProcess,
 #if BUILDFLAG(IS_MAC)
   // Clears the quit closure. Shutdown will not be initiated should the
   // KeepAlive count reach zero. This function may be called more than once.
-  // TODO(https://crbug.com/845966): Remove this once the Cocoa first run
+  // TODO(crbug.com/41390731): Remove this once the Cocoa first run
   // dialog no longer needs it.
   void ClearQuitClosure();
 #endif
@@ -205,7 +208,7 @@ class BrowserProcessImpl : public BrowserProcess,
 
   StartupData* startup_data() override;
 
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
   void StartAutoupdateTimer() override;
@@ -229,6 +232,10 @@ class BrowserProcessImpl : public BrowserProcess,
 #endif
 
   os_crypt_async::OSCryptAsync* os_crypt_async() override;
+
+  void set_additional_os_crypt_async_provider_for_test(
+      size_t precedence,
+      std::unique_ptr<os_crypt_async::KeyProvider> provider) override;
 
   BuildState* GetBuildState() override;
 
@@ -395,7 +402,7 @@ class BrowserProcessImpl : public BrowserProcess,
 
   std::unique_ptr<BatteryMetrics> battery_metrics_;
 
-// TODO(crbug.com/1052397): Revisit the macro expression once build flag switch
+// TODO(crbug.com/40118868): Revisit the macro expression once build flag switch
 // of lacros-chrome is complete.
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
   base::RepeatingTimer autoupdate_timer_;
@@ -467,6 +474,8 @@ class BrowserProcessImpl : public BrowserProcess,
   std::unique_ptr<base::android::ApplicationStatusListener> app_state_listener_;
 #endif
 
+  std::unique_ptr<GlobalFeatures> features_;
+
   // Observes application-wide events and logs them to breadcrumbs. Null if
   // breadcrumbs logging is disabled.
   std::unique_ptr<breadcrumbs::ApplicationBreadcrumbsLogger>
@@ -475,6 +484,9 @@ class BrowserProcessImpl : public BrowserProcess,
   std::unique_ptr<os_crypt_async::OSCryptAsync> os_crypt_async_;
   std::optional<base::CallbackListSubscription>
       os_crypt_async_init_subscription_;
+
+  std::optional<std::pair<size_t, std::unique_ptr<os_crypt_async::KeyProvider>>>
+      additional_provider_for_test_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 };

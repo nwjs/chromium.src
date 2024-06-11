@@ -102,50 +102,40 @@ class ScreenManagerTest : public testing::Test {
             {.formats = 1, .offset = 0, .pad = 0, .modifier = modifier});
       }
     }
-
-    auto drm_state =
-        FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
-
-    // Set up the default format property ID for the cursor planes:
-    drm->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-        kInFormatsBlobIdBase, {DRM_FORMAT_XRGB8888}, drm_format_modifiers));
+    drm->ResetStateWithAllProperties();
 
     std::vector<uint32_t> crtc_ids;
-    uint32_t blob_id = kInFormatsBlobIdBase + 1;
     for (const auto& crtc_state : crtc_states) {
-      const auto& crtc = drm_state.AddCrtcAndConnector().first;
-      crtc_ids.push_back(crtc.id);
+      uint32_t crtc_id = drm->AddCrtcAndConnector().first.id;
+      crtc_ids.push_back(crtc_id);
 
       for (size_t i = 0; i < crtc_state.planes.size(); ++i) {
-        uint32_t new_blob_id = blob_id++;
-        drm->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-            new_blob_id, crtc_state.planes[i].formats, drm_format_modifiers));
+        auto in_formats_blob = drm->CreateInFormatsBlob(
+            crtc_state.planes[i].formats, drm_format_modifiers);
 
-        auto& plane = drm_state.AddPlane(
-            crtc.id, i == 0 ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY);
-        plane.SetProp(kInFormatsPropId, new_blob_id);
+        auto& plane = drm->AddPlane(
+            crtc_id, i == 0 ? DRM_PLANE_TYPE_PRIMARY : DRM_PLANE_TYPE_OVERLAY);
+        drm->AddProperty(
+            plane.id, {.id = kInFormatsPropId, .value = in_formats_blob->id()});
       }
     }
     for (const auto& movable_plane : movable_planes) {
-      uint32_t new_blob_id = blob_id++;
-      drm->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-          new_blob_id, movable_plane.formats, drm_format_modifiers));
-      auto& plane = drm_state.AddPlane(crtc_ids, DRM_PLANE_TYPE_OVERLAY);
-      plane.SetProp(kInFormatsPropId, new_blob_id);
+      auto in_formats_blob =
+          drm->CreateInFormatsBlob(movable_plane.formats, drm_format_modifiers);
+      auto& plane = drm->AddPlane(crtc_ids, DRM_PLANE_TYPE_OVERLAY);
+      drm->AddProperty(
+          plane.id, {.id = kInFormatsPropId, .value = in_formats_blob->id()});
     }
 
     drm->SetModifiersOverhead(modifiers_overhead_);
-    drm->InitializeState(drm_state, is_atomic);
+    drm->InitializeState(is_atomic);
   }
 
-  void AddPlaneToCrtc(uint32_t crtc_id,
-                      uint32_t plane_type,
-                      uint32_t blob_id,
-                      FakeDrmDevice::MockDrmState& drm_state) {
-    drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-        blob_id, {DRM_FORMAT_XRGB8888}, {}));
-    auto& plane = drm_state.AddPlane(crtc_id, plane_type);
-    plane.SetProp(kInFormatsPropId, blob_id);
+  void AddPlaneToCrtc(uint32_t crtc_id, uint32_t plane_type) {
+    auto in_formats_blob = drm_->CreateInFormatsBlob({DRM_FORMAT_XRGB8888}, {});
+    auto& plane = drm_->AddPlane(crtc_id, plane_type);
+    drm_->AddProperty(plane.id,
+                      {.id = kInFormatsPropId, .value = in_formats_blob->id()});
   }
 
   void InitializeDrmStateWithDefault(FakeDrmDevice* drm,
@@ -2135,46 +2125,41 @@ TEST_F(ScreenManagerTest, ReplaceDisplayControllersCrtcsComplex) {
   // Original state: {crtc_1 - connector_1}, {crtc_2 - connector_2}
   // After replacement: {crtc_2 - connector_1}, {crtc_3 - connector_2}
 
-  auto drm_state = FakeDrmDevice::MockDrmState::CreateStateWithAllProperties();
-
-  // Set up the default format property ID for the cursor planes:
-  drm_->SetPropertyBlob(FakeDrmDevice::AllocateInFormatsBlob(
-      kInFormatsBlobIdBase, {DRM_FORMAT_XRGB8888}, {}));
-  uint32_t blob_id = kInFormatsBlobIdBase + 1;
+  drm_->ResetStateWithAllProperties();
 
   // Create 3 CRTCs
-  uint32_t crtc_1 = drm_state.AddCrtc().id;
-  AddPlaneToCrtc(crtc_1, DRM_PLANE_TYPE_PRIMARY, blob_id++, drm_state);
-  AddPlaneToCrtc(crtc_1, DRM_PLANE_TYPE_OVERLAY, blob_id++, drm_state);
-  uint32_t crtc_2 = drm_state.AddCrtc().id;
-  AddPlaneToCrtc(crtc_2, DRM_PLANE_TYPE_PRIMARY, blob_id++, drm_state);
-  AddPlaneToCrtc(crtc_2, DRM_PLANE_TYPE_OVERLAY, blob_id++, drm_state);
-  uint32_t crtc_3 = drm_state.AddCrtc().id;
-  AddPlaneToCrtc(crtc_3, DRM_PLANE_TYPE_PRIMARY, blob_id++, drm_state);
-  AddPlaneToCrtc(crtc_3, DRM_PLANE_TYPE_OVERLAY, blob_id++, drm_state);
+  uint32_t crtc_1 = drm_->AddCrtc().id;
+  AddPlaneToCrtc(crtc_1, DRM_PLANE_TYPE_PRIMARY);
+  AddPlaneToCrtc(crtc_1, DRM_PLANE_TYPE_OVERLAY);
+  uint32_t crtc_2 = drm_->AddCrtc().id;
+  AddPlaneToCrtc(crtc_2, DRM_PLANE_TYPE_PRIMARY);
+  AddPlaneToCrtc(crtc_2, DRM_PLANE_TYPE_OVERLAY);
+  uint32_t crtc_3 = drm_->AddCrtc().id;
+  AddPlaneToCrtc(crtc_3, DRM_PLANE_TYPE_PRIMARY);
+  AddPlaneToCrtc(crtc_3, DRM_PLANE_TYPE_OVERLAY);
 
   // Create 2 Connectors that can use all 3 CRTCs.
   uint32_t connector_1, connector_2;
   {
-    FakeDrmDevice::EncoderProperties& encoder = drm_state.AddEncoder();
+    FakeDrmDevice::EncoderProperties& encoder = drm_->AddEncoder();
     encoder.possible_crtcs = 0b111;
     const uint32_t encoder_id = encoder.id;
-    FakeDrmDevice::ConnectorProperties& connector = drm_state.AddConnector();
+    FakeDrmDevice::ConnectorProperties& connector = drm_->AddConnector();
     connector.connection = true;
     connector.encoders = std::vector<uint32_t>{encoder_id};
     connector_1 = connector.id;
   }
   {
-    FakeDrmDevice::EncoderProperties& encoder = drm_state.AddEncoder();
+    FakeDrmDevice::EncoderProperties& encoder = drm_->AddEncoder();
     encoder.possible_crtcs = 0b111;
     const uint32_t encoder_id = encoder.id;
-    FakeDrmDevice::ConnectorProperties& connector = drm_state.AddConnector();
+    FakeDrmDevice::ConnectorProperties& connector = drm_->AddConnector();
     connector.connection = true;
     connector.encoders = std::vector<uint32_t>{encoder_id};
     connector_2 = connector.id;
   }
 
-  drm_->InitializeState(drm_state, /*is_atomic=*/true);
+  drm_->InitializeState(/*is_atomic=*/true);
 
   // Configure to {crtc_1 - connector_1}, {crtc_2 - connector_2}.
   screen_manager_->AddDisplayController(drm_, crtc_1, connector_1);

@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "base/base64.h"
-#include "base/command_line.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -23,7 +22,6 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chrome/test/base/test_launcher_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/certificate_transparency/certificate_transparency_config.pb.h"
 #include "content/public/browser/network_service_util.h"
@@ -59,7 +57,7 @@ int64_t SecondsSinceEpoch(base::Time t) {
 
 namespace component_updater {
 
-// TODO(crbug.com/1286121): add tests for pinning enforcement.
+// TODO(crbug.com/40815428): add tests for pinning enforcement.
 class PKIMetadataComponentUpdaterTest
     : public InProcessBrowserTest,
       public testing::WithParamInterface<CTEnforcement>,
@@ -97,14 +95,13 @@ class PKIMetadataComponentUpdaterTest
     PKIMetadataComponentInstallerService::GetInstance()->RemoveObserver(this);
   }
 
- protected:
-  void SetUpDefaultCommandLine(base::CommandLine* command_line) override {
-    base::CommandLine default_command_line(base::CommandLine::NO_PROGRAM);
-    InProcessBrowserTest::SetUpDefaultCommandLine(&default_command_line);
-    test_launcher_utils::RemoveCommandLineSwitch(
-        default_command_line, switches::kDisableComponentUpdate, command_line);
+  void SetUpOnMainThread() override {
+    InProcessBrowserTest::SetUpOnMainThread();
+    // Wait for configuration set in `SetUpInProcessBrowserTestFixture` to load.
+    WaitForPKIConfiguration(1);
   }
 
+ protected:
   // Waits for the PKI to have been configured at least |expected_times|.
   void WaitForPKIConfiguration(int expected_times) {
     if (GetParam() == CTEnforcement::kDisabledByFeature) {
@@ -181,6 +178,9 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentUpdaterTest,
 
   // Restart the network service.
   SimulateNetworkServiceCrash();
+  // Wait for the restarted network service to load the component update data
+  // that is already on disk.
+  WaitForPKIConfiguration(2);
 
   // Check that the page is still blocked depending on CT enforcement.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
@@ -193,13 +193,7 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentUpdaterTest,
   }
 }
 
-// TODO(crbug.com/331581190): Re-enable this test
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_TestCTUpdate DISABLED_TestCTUpdate
-#else
-#define MAYBE_TestCTUpdate TestCTUpdate
-#endif
-IN_PROC_BROWSER_TEST_P(PKIMetadataComponentUpdaterTest, MAYBE_TestCTUpdate) {
+IN_PROC_BROWSER_TEST_P(PKIMetadataComponentUpdaterTest, TestCTUpdate) {
   const std::string kLog1OperatorName = "log operator 1";
   std::unique_ptr<crypto::ECPrivateKey> log1_private_key =
       crypto::ECPrivateKey::Create();
@@ -235,7 +229,7 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentUpdaterTest, MAYBE_TestCTUpdate) {
   // logs.
   net::EmbeddedTestServer https_server_ok(net::EmbeddedTestServer::TYPE_HTTPS);
   net::EmbeddedTestServer::ServerCertificateConfig server_config;
-  // TODO(https://crbug.com/1211074): Need to use a separate hostname for each
+  // TODO(crbug.com/40767453): Need to use a separate hostname for each
   // request since the current code does not flush verifier caches on CT log
   // updates. When log updates switch to the new path, change the test to use
   // the same hostname for each request to test that caches are cleared as
@@ -316,7 +310,7 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentUpdaterTest, MAYBE_TestCTUpdate) {
   // Should be trusted now.
   PKIMetadataComponentInstallerService::GetInstance()
       ->ReconfigureAfterNetworkRestart();
-  WaitForPKIConfiguration(1);
+  WaitForPKIConfiguration(2);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), https_server_ok.GetURL("b.example.com", "/simple.html")));
   EXPECT_EQ(u"OK", chrome_test_utils::GetActiveWebContents(this)->GetTitle());
@@ -356,7 +350,7 @@ IN_PROC_BROWSER_TEST_P(PKIMetadataComponentUpdaterTest, MAYBE_TestCTUpdate) {
   // other has a timestamp after the log retirement state change timestamp.
   PKIMetadataComponentInstallerService::GetInstance()
       ->ReconfigureAfterNetworkRestart();
-  WaitForPKIConfiguration(2);
+  WaitForPKIConfiguration(3);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), https_server_ok.GetURL("c.example.com", "/simple.html")));
   if (GetParam() == CTEnforcement::kEnabled) {
@@ -428,13 +422,6 @@ class PKIMetadataComponentChromeRootStoreUpdateTest
   }
 
  protected:
-  void SetUpDefaultCommandLine(base::CommandLine* command_line) override {
-    base::CommandLine default_command_line(base::CommandLine::NO_PROGRAM);
-    InProcessBrowserTest::SetUpDefaultCommandLine(&default_command_line);
-    test_launcher_utils::RemoveCommandLineSwitch(
-        default_command_line, switches::kDisableComponentUpdate, command_line);
-  }
-
   base::ScopedTempDir component_dir_;
 
  private:
@@ -618,13 +605,6 @@ class PKIMetadataComponentCtAndCrsUpdaterTest
   }
 
  protected:
-  void SetUpDefaultCommandLine(base::CommandLine* command_line) override {
-    base::CommandLine default_command_line(base::CommandLine::NO_PROGRAM);
-    InProcessBrowserTest::SetUpDefaultCommandLine(&default_command_line);
-    test_launcher_utils::RemoveCommandLineSwitch(
-        default_command_line, switches::kDisableComponentUpdate, command_line);
-  }
-
   // Waits for the CT log lists to have been configured at least
   // |expected_times|.
   void WaitForCtConfiguration(int expected_times) {
@@ -993,7 +973,7 @@ INSTANTIATE_TEST_SUITE_P(PKIMetadataComponentUpdater,
                                          CTEnforcement::kDisabledByProto,
                                          CTEnforcement::kDisabledByFeature));
 
-// TODO(https://crbug.com/1287211) additional Chrome Root Store browser tests to
+// TODO(crbug.com/40816087) additional Chrome Root Store browser tests to
 // add:
 //
 // * Test that AIA fetching still works after updating CRS.

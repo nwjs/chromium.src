@@ -69,8 +69,15 @@ class COMPONENT_EXPORT(DBUS_POWER) FakePowerManagerClient
   double screen_brightness_percent() const {
     return screen_brightness_percent_.value();
   }
+  power_manager::SetBacklightBrightnessRequest_Cause
+  requested_screen_brightness_cause() const {
+    return requested_screen_brightness_cause_;
+  }
   double keyboard_brightness_percent() const {
     return keyboard_brightness_percent_.value();
+  }
+  double keyboard_ambient_light_sensor_enabled() const {
+    return keyboard_ambient_light_sensor_enabled_;
   }
   bool is_ambient_light_sensor_enabled() const {
     return is_ambient_light_sensor_enabled_;
@@ -118,6 +125,7 @@ class COMPONENT_EXPORT(DBUS_POWER) FakePowerManagerClient
       const power_manager::SetBacklightBrightnessRequest& request) override;
   void GetScreenBrightnessPercent(DBusMethodCallback<double> callback) override;
   void SetAmbientLightSensorEnabled(bool enabled) override;
+  void GetAmbientLightSensorEnabled(DBusMethodCallback<bool> callback) override;
   void HasAmbientLightSensor(DBusMethodCallback<bool> callback) override;
   void HasKeyboardBacklight(DBusMethodCallback<bool> callback) override;
   void DecreaseKeyboardBrightness() override;
@@ -127,6 +135,9 @@ class COMPONENT_EXPORT(DBUS_POWER) FakePowerManagerClient
   void SetKeyboardBrightness(
       const power_manager::SetBacklightBrightnessRequest& request) override;
   void ToggleKeyboardBacklight() override;
+  void SetKeyboardAmbientLightSensorEnabled(bool enabled) override;
+  void GetKeyboardAmbientLightSensorEnabled(
+      DBusMethodCallback<bool> callback) override;
   const std::optional<power_manager::PowerSupplyProperties>& GetLastStatus()
       override;
   void RequestStatusUpdate() override;
@@ -304,12 +315,21 @@ class COMPONENT_EXPORT(DBUS_POWER) FakePowerManagerClient
   // Initially set to an arbitrary non-null value.
   double requested_screen_brightness_percent_ = 80;
 
+  // Last screen brightness request cause via SetScreenBrightness().
+  // Initially set to an arbitrary value.
+  power_manager::SetBacklightBrightnessRequest_Cause
+      requested_screen_brightness_cause_ =
+          power_manager::SetBacklightBrightnessRequest_Cause_MODEL;
+
   // Last value set by SetAmbientLightSensorEnabled. Defaults to true to match
   // system behavior.
   bool is_ambient_light_sensor_enabled_ = true;
 
   // True if the device has an ambient light sensor.
   bool has_ambient_light_sensor_ = true;
+
+  // Last value set by SetKeyboardAmbientLightSensorEnabled.
+  bool keyboard_ambient_light_sensor_enabled_ = true;
 
   // Last projecting state set in SetIsProjecting().
   bool is_projecting_ = false;

@@ -1320,9 +1320,9 @@ void TileManager::ScheduleTasks(PrioritizedWorkToSchedule work_to_schedule) {
 
   // The old locked images tasks have to stay around until past the
   // ScheduleTasks call below, so we do a swap instead of a move.
-  // TODO(crbug.com/647402): Have the tile_task_manager keep a ref on the tasks,
-  // since it makes it awkward for the callers to keep refs on tasks that only
-  // exist within the task graph runner.
+  // TODO(crbug.com/40485121): Have the tile_task_manager keep a ref on the
+  // tasks, since it makes it awkward for the callers to keep refs on tasks that
+  // only exist within the task graph runner.
   locked_image_tasks_.swap(new_locked_image_tasks);
 
   // We must reduce the amount of unused resources before calling
@@ -1377,8 +1377,8 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
 
   // When possible, rasterize HDR content into F16.
   //
-  // TODO(crbug.com/1076568): Once we have access to the display's buffer format
-  // via gfx::DisplayColorSpaces, we should also do this for HBD images.
+  // TODO(crbug.com/40128725): Once we have access to the display's buffer
+  // format via gfx::DisplayColorSpaces, we should also do this for HBD images.
   auto format = DetermineFormat(tile);
   if (target_color_params.color_space.IsHDR() &&
       GetContentColorUsageForPrioritizedTile(prioritized_tile) ==
@@ -1893,7 +1893,7 @@ TileManager::ScheduledTasksStateAsValue() const {
 bool TileManager::UsePartialRaster(int msaa_sample_count) const {
   // Partial raster doesn't support MSAA, as the MSAA resolve is unaware of clip
   // rects.
-  // TODO(crbug.com/629683): See if we can work around this limitation.
+  // TODO(crbug.com/40477214): See if we can work around this limitation.
   return tile_manager_settings_.use_partial_raster &&
          raster_buffer_provider_->CanPartialRasterIntoProvidedResource() &&
          msaa_sample_count == 0;

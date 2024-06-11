@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//chrome/common/features.gni")
 import("//crypto/features.gni")
 import("../build_webui_tests.gni")
 import("./searchbox/realbox.gni")
@@ -14,6 +15,7 @@ build_webui_tests("build") {
             "customize_color_scheme_mode_test.ts",
             "customize_themes_test.ts",
             "help_bubble_mixin_test.ts",
+            "help_bubble_mixin_lit_test.ts",
             "help_bubble_test.ts",
             "history_clusters/history_clusters_test.ts",
             "history_clusters/horizontal_carousel_test.ts",
@@ -38,6 +40,10 @@ build_webui_tests("build") {
     }
   }
 
+  if (chrome_root_store_cert_management_ui) {
+    files += [ "certificate_manager_v2_test.ts" ]
+  }
+
   ts_definitions = [
     "//tools/typescript/definitions/chrome_event.d.ts",
     "//tools/typescript/definitions/settings_private.d.ts",
@@ -45,6 +51,7 @@ build_webui_tests("build") {
 
   ts_deps = [
     "//chrome/browser/resources/new_tab_page:build_ts",
+    "//third_party/lit/v3_0:build_ts",
     "//third_party/polymer/v3_0:library",
     "//ui/webui/resources/cr_components/app_management:build_ts",
     "//ui/webui/resources/cr_components/color_change_listener:build_ts",
@@ -70,7 +77,7 @@ build_webui_tests("build") {
         rebase_path("$root_gen_dir/chrome/browser/resources/new_tab_page/tsc/*",
                     target_gen_dir) ]
 
-  if (use_nss_certs) {
+  if (use_nss_certs || chrome_root_store_cert_management_ui) {
     ts_deps +=
         [ "//ui/webui/resources/cr_components/certificate_manager:build_ts" ]
   }

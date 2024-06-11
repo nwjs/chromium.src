@@ -117,6 +117,22 @@ void UnpinnedTabCollection::CloseTab(TabModel* tab_model) {
   impl_->CloseTab(tab_model);
 }
 
+std::optional<size_t>
+UnpinnedTabCollection::GetDirectChildIndexOfCollectionContainingTab(
+    const TabModel* tab_model) const {
+  if (tab_model->GetParentCollection(GetPassKey()) == this) {
+    return GetIndexOfTab(tab_model).value();
+  } else {
+    TabCollection* parent_collection =
+        tab_model->GetParentCollection(GetPassKey());
+    while (parent_collection && !ContainsCollection(parent_collection)) {
+      parent_collection = parent_collection->GetParentCollection();
+    }
+
+    return GetIndexOfCollection(parent_collection);
+  }
+}
+
 bool UnpinnedTabCollection::ContainsTab(TabModel* tab_model) const {
   return impl_->ContainsTab(tab_model);
 }
@@ -131,7 +147,7 @@ bool UnpinnedTabCollection::ContainsCollection(
 }
 
 std::optional<size_t> UnpinnedTabCollection::GetIndexOfTabRecursive(
-    TabModel* tab_model) const {
+    const TabModel* tab_model) const {
   size_t current_index = 0;
 
   // If the child is a `tab_model` check if it is the the desired tab, otherwise
@@ -211,12 +227,13 @@ std::unique_ptr<TabCollection> UnpinnedTabCollection::MaybeRemoveCollection(
   return removed_tab_collection;
 }
 
-void UnpinnedTabCollection::AddTabGroup(
+TabGroupTabCollection* UnpinnedTabCollection::AddTabGroup(
     std::unique_ptr<TabGroupTabCollection> group,
     size_t index) {
   TabCollection* added_collection =
       impl_->AddCollection(std::move(group), index);
   added_collection->OnReparented(this);
+  return static_cast<TabGroupTabCollection*>(added_collection);
 }
 
 void UnpinnedTabCollection::MoveTabGroup(TabGroupTabCollection* group,
@@ -251,6 +268,11 @@ TabGroupTabCollection* UnpinnedTabCollection::GetTabGroupCollection(
   }
 
   return nullptr;
+}
+
+std::optional<size_t> UnpinnedTabCollection::GetIndexOfTab(
+    const TabModel* tab_model) const {
+  return impl_->GetIndexOfTab(tab_model);
 }
 
 }  // namespace tabs
