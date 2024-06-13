@@ -118,12 +118,12 @@ void PrintIfAllowedByPolicy(scoped_refptr<base::RefCountedMemory> print_data,
   std::move(on_verdict).Run(/*allowed=*/true);
 }
 
+#if 0
 void PrintIfAllowedByPolicy(
     scoped_refptr<base::RefCountedMemory> print_data,
     content::WebContents* initiator,
     enterprise_connectors::ContentAnalysisDelegate::Data scanning_data,
     base::OnceCallback<void(bool)> on_verdict) {
-#if 0
   // The preview document bytes are copied so that the content analysis code
   // can arbitrarily use them without having to handle ownership issues with
   // other printing code.
@@ -157,9 +157,9 @@ void PrintIfAllowedByPolicy(
   enterprise_connectors::ContentAnalysisDelegate::CreateForWebContents(
       web_contents, std::move(scanning_data), std::move(on_scan_result),
       safe_browsing::DeepScanAccessPoint::PRINT);
-#endif
   std::move(on_verdict).Run(/*allowed=*/true);
 }
+#endif
 
 std::optional<enterprise_connectors::ContentAnalysisDelegate::Data>
 GetPrintAnalysisData(content::WebContents* web_contents,

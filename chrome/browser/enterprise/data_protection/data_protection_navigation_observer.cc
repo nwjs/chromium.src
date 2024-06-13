@@ -159,7 +159,8 @@ bool IsDesktopDataControlsEnabled() {
 }
 
 bool IsDataProtectionEnabled(Profile* profile) {
-  return IsEnterpriseLookupEnabled(profile) || IsDesktopDataControlsEnabled();
+  return false;
+  //return IsEnterpriseLookupEnabled(profile) || IsDesktopDataControlsEnabled();
 }
 
 std::string GetIdentifier(content::BrowserContext* browser_context) {

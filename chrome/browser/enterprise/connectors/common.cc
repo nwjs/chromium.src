@@ -572,6 +572,8 @@ void ShowDownloadReviewDialog(const std::u16string& filename,
 }
 
 bool IsResumableUpload(const BinaryUploadService::Request& request) {
+  return true;
+#if 0
   // Currently resumable upload doesn't support paste or LBUS. If one day we do,
   // we should update the logic here as well.
   return !safe_browsing::IsConsumerScanRequest(request) &&
@@ -579,6 +581,7 @@ bool IsResumableUpload(const BinaryUploadService::Request& request) {
          request.content_analysis_request().analysis_connector() !=
              enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY &&
          IsResumableUploadEnabled();
+#endif
 }
 
 bool CloudMultipartResultIsFailure(BinaryUploadService::Result result) {

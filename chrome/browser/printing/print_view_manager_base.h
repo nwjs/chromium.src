@@ -230,6 +230,7 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
                                      ScriptedPrintCallback callback);
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if 0
   // Helper method bound to `content_analysis_before_printing_document_` when
   // content analysis should happen right before the document is to be printed.
   // This method is virtual for testing purposes.
@@ -239,6 +240,7 @@ class PrintViewManagerBase : public PrintManager, public PrintJob::Observer {
       const gfx::Size& page_size,
       const gfx::Rect& content_area,
       const gfx::Point& offsets);
+#endif
 
   // Helper method to set `analyzing_content_` in child classes.
   void set_analyzing_content(bool analyzing);
